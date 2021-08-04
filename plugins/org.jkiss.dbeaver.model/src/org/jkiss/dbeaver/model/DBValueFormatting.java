@@ -218,7 +218,7 @@ public final class DBValueFormatting {
         } catch (NumberFormatException e) {
             try {
                 return (Number)formatter.parseValue(text, hintType);
-            } catch (ParseException e1) {
+            } catch (NullPointerException | ParseException e1) {
                 if (validateValue) {
                     throw new DBCException("Can't parse numeric value [" + text + "] using formatter", e);
                 }
