@@ -2185,12 +2185,7 @@ public class SQLEditor extends SQLEditorBase implements
             throw new DBException("No active connection");
         }
         if (!ds.isConnected()) {
-            boolean doConnect = ds.getPreferenceStore().getBoolean(SQLPreferenceConstants.EDITOR_CONNECT_ON_EXECUTE);
-            if (doConnect) {
-                return checkConnected(true, onFinish);
-            } else {
-                throw new DBException("Disconnected from database");
-            }
+        	return checkConnected(true, onFinish);
         }
         DBPDataSource dataSource = ds.getDataSource();
         if (dataSource != null && SQLEditorUtils.isOpenSeparateConnection(ds) && executionContext == null) {
