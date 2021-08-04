@@ -716,8 +716,7 @@ public class SQLEditor extends SQLEditorBase implements
     {
         // Connect to datasource
         final DBPDataSourceContainer dataSourceContainer = getDataSourceContainer();
-        boolean doConnect = dataSourceContainer != null &&
-            (forceConnect || dataSourceContainer.getPreferenceStore().getBoolean(SQLPreferenceConstants.EDITOR_CONNECT_ON_ACTIVATE));
+        boolean doConnect = dataSourceContainer != null && forceConnect;
         if (doConnect) {
             if (!dataSourceContainer.isConnected()) {
                 UIServiceConnections serviceConnections = DBWorkbench.getService(UIServiceConnections.class);
