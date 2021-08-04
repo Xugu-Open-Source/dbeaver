@@ -1577,7 +1577,7 @@ public class SQLEditor extends SQLEditorBase implements
         vars.put(VAR_FILE_EXT,
             file == null ? "" : file.getFullPath().getFileExtension());
         vars.put(VAR_DRIVER_NAME, dataSourceContainer == null ? "?" : dataSourceContainer.getDriver().getFullName());
-        vars.put("valid", dataSourceContainer == null ? "[Ã—]" : dataSourceContainer.isConnected() ? "[âˆš]" : "[Ã—]");
+        vars.put("valid", dataSourceContainer == null ? "[¡Á]" : dataSourceContainer.isConnected() ? "[¡Ì]" : "[¡Á]");
         vars.put("userName", dataSourceContainer == null ? "" : dataSourceContainer.getConnectionConfiguration().getUserName() == null ? "" : " [" + dataSourceContainer.getConnectionConfiguration().getUserName() + "]");
         vars.put("databaseName", dataSourceContainer == null ? "" : dataSourceContainer.getConnectionConfiguration().getDatabaseName() == null ? "" : " [" + dataSourceContainer.getConnectionConfiguration().getDatabaseName() + "]");
         return GeneralUtils.replaceVariables(pattern, new GeneralUtils.MapResolver(vars));
