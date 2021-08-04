@@ -587,18 +587,6 @@ public class SQLEditor extends SQLEditorBase implements
                 String title = "SQLEditor <" + getEditorInput().getName() + ">";
                 monitor.subTask("Open context " + title);
                 DBCExecutionContext newContext = instance.openIsolatedContext(monitor, title, instance.getDefaultContext(monitor, false));
-                // Set context defaults
-                String[] contextDefaultNames = isRestoreActiveSchemaFromScript() ?
-                    EditorUtils.getInputContextDefaults(getEditorInput()) : null;
-                if (contextDefaultNames != null && contextDefaultNames.length > 1 &&
-                    (!CommonUtils.isEmpty(contextDefaultNames[0]) || !CommonUtils.isEmpty(contextDefaultNames[1])))
-                {
-                    try {
-                        DBExecUtils.setExecutionContextDefaults(monitor, newContext.getDataSource(), newContext, contextDefaultNames[0], null, contextDefaultNames[1]);
-                    } catch (DBException e) {
-                        DBWorkbench.getPlatformUI().showError("New connection default", "Error setting default catalog/schema for new connection", e);
-                    }
-                }
                 SQLEditor.this.executionContext = newContext;
                 // Needed to update main toolbar
                 DBUtils.fireObjectSelect(instance, true);
