@@ -55,6 +55,9 @@ public class SQLEditorHandlerExecute extends AbstractHandler
             case SQLEditorCommands.CMD_EXECUTE_SCRIPT_NEW:
                 editor.processSQL(true, true);
                 break;
+            case SQLEditorCommands.CMD_EXECUTE_SCRIPT_EXPORT:
+                editor.processSQL(false, true, true);
+                break;
             case SQLEditorCommands.CMD_EXECUTE_ROW_COUNT:
                 editor.processSQL(false, false, new SQLQueryTransformerCount(), null);
                 break;

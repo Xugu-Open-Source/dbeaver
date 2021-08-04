@@ -23,6 +23,7 @@ import org.apache.poi.xssf.streaming.SXSSFSheet;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.apache.poi.xssf.usermodel.XSSFFont;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBConstants;
@@ -42,8 +43,12 @@ import org.jkiss.dbeaver.ui.controls.resultset.ResultSetPreferences;
 import org.jkiss.dbeaver.utils.ContentUtils;
 import org.jkiss.utils.CommonUtils;
 
+import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Reader;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -96,6 +101,8 @@ public class DataExporterXLSX extends StreamExporterAbstract {
     private boolean exportSql = false;
     private boolean splitSqlText = false;
     private String dateFormat = "";
+    private boolean exportResults = false;
+    private String exportResultsFileName = "";
 
     private int splitByRowCount = EXCEL2007MAXROWS;
     private int splitByCol = 0;
@@ -185,8 +192,29 @@ public class DataExporterXLSX extends StreamExporterAbstract {
         } catch (Exception e) {
             dateFormat = "";
         }
+        
+        try {
+            exportResults = CommonUtils.getBoolean(properties.get("exportResults"), false);
+        } catch (Exception e) {
+        	exportResults = false;
+        }
 
-        wb = new SXSSFWorkbook(ROW_WINDOW);
+        try {
+        	exportResultsFileName = CommonUtils.toString(properties.get("exportResultsFileName"), "");
+        } catch (Exception e) {
+        	exportResultsFileName = "";
+        }
+
+        if (exportResults && !exportResultsFileName.isEmpty() && new File(exportResultsFileName).length() > 0) {
+        	try (InputStream is = Files.newInputStream(Paths.get(exportResultsFileName))) {
+        		wb = new SXSSFWorkbook(new XSSFWorkbook(is));
+        		Files.write(Paths.get(exportResultsFileName), new byte[0]);
+        	} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+        } else {
+        	wb = new SXSSFWorkbook(ROW_WINDOW);
+        }
 
         worksheets = new HashMap<>(1);
 
@@ -433,7 +461,7 @@ public class DataExporterXLSX extends StreamExporterAbstract {
     }
 
     private Worksheet getWsh(DBCResultSet resultSet, Object[] row) throws DBException {
-        Object colValue = ((splitByCol <= 0) || (splitByCol >= columns.length)) ? "" : row[splitByCol];
+    	Object colValue = ((splitByCol <= 0) || (splitByCol >= columns.length)) ? "" : row[splitByCol];
         Worksheet w = worksheets.get(colValue);
         if (w == null) {
             w = createSheet(resultSet, colValue);

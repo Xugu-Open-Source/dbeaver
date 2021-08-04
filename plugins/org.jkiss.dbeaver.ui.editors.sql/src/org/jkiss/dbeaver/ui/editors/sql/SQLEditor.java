@@ -68,6 +68,7 @@ import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.navigator.DBNUtils;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceListener;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
+import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
 import org.jkiss.dbeaver.model.qm.QMUtils;
 import org.jkiss.dbeaver.model.runtime.AbstractJob;
 import org.jkiss.dbeaver.model.runtime.DBRProgressListener;
@@ -84,8 +85,15 @@ import org.jkiss.dbeaver.registry.DataSourceUtils;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.sql.SQLResultsConsumer;
 import org.jkiss.dbeaver.runtime.ui.UIServiceConnections;
+import org.jkiss.dbeaver.tools.transfer.IDataTransferConsumer;
 import org.jkiss.dbeaver.tools.transfer.IDataTransferProducer;
+import org.jkiss.dbeaver.tools.transfer.database.DatabaseProducerSettings;
 import org.jkiss.dbeaver.tools.transfer.database.DatabaseTransferProducer;
+import org.jkiss.dbeaver.tools.transfer.registry.DataTransferProcessorDescriptor;
+import org.jkiss.dbeaver.tools.transfer.registry.DataTransferRegistry;
+import org.jkiss.dbeaver.tools.transfer.stream.IStreamDataExporter;
+import org.jkiss.dbeaver.tools.transfer.stream.StreamConsumerSettings;
+import org.jkiss.dbeaver.tools.transfer.stream.StreamTransferConsumer;
 import org.jkiss.dbeaver.tools.transfer.ui.wizard.DataTransferWizard;
 import org.jkiss.dbeaver.ui.*;
 import org.jkiss.dbeaver.ui.controls.*;
@@ -117,6 +125,7 @@ import org.jkiss.utils.CommonUtils;
 
 import java.io.*;
 import java.net.URI;
+import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -817,6 +826,7 @@ public class SQLEditor extends SQLEditorBase implements
         VerticalButton.create(sideToolBar, SWT.LEFT | SWT.PUSH, getSite(), SQLEditorCommands.CMD_EXECUTE_STATEMENT_NEW, false);
         VerticalButton.create(sideToolBar, SWT.LEFT | SWT.PUSH, getSite(), SQLEditorCommands.CMD_EXECUTE_SCRIPT, false);
         VerticalButton.create(sideToolBar, SWT.LEFT | SWT.PUSH, getSite(), SQLEditorCommands.CMD_EXECUTE_SCRIPT_NEW, false);
+        VerticalButton.create(sideToolBar, SWT.LEFT | SWT.PUSH, getSite(), SQLEditorCommands.CMD_EXECUTE_SCRIPT_EXPORT, false);
         VerticalButton.create(sideToolBar, SWT.LEFT | SWT.PUSH, getSite(), SQLEditorCommands.CMD_EXPLAIN_PLAN, false);
 
         UIUtils.createEmptyLabel(sideToolBar, 1, 1).setLayoutData(new GridData(GridData.FILL_VERTICAL));
@@ -1699,10 +1709,18 @@ public class SQLEditor extends SQLEditorBase implements
     }
 
     public void processSQL(boolean newTab, boolean script) {
-        processSQL(newTab, script, null, null);
+    	processSQL(newTab, script, null, null, false);
     }
 
-    public boolean processSQL(boolean newTab, boolean script, SQLQueryTransformer transformer, @Nullable SQLQueryListener queryListener)
+    public void processSQL(boolean newTab, boolean script, boolean exportXlsx) {
+        processSQL(newTab, script, null, null, exportXlsx);
+    }
+    
+    public boolean processSQL(boolean newTab, boolean script, SQLQueryTransformer transformer, @Nullable SQLQueryListener queryListener) {
+    	return processSQL(newTab, script, transformer, queryListener, false);
+    }
+
+    public boolean processSQL(boolean newTab, boolean script, SQLQueryTransformer transformer, @Nullable SQLQueryListener queryListener, final boolean exportXlsx)
     {
         IDocument document = getDocument();
         if (document == null) {
@@ -1764,7 +1782,7 @@ public class SQLEditor extends SQLEditorBase implements
             return false;
         }
         if (!CommonUtils.isEmpty(elements)) {
-            return processQueries(elements, script, newTab, false, true, queryListener);
+            return processQueries(elements, script, newTab, false, true, queryListener, exportXlsx);
         } else {
             return false;
         }
@@ -1791,6 +1809,11 @@ public class SQLEditor extends SQLEditorBase implements
     }
 
     private boolean processQueries(@NotNull final List<SQLScriptElement> queries, final boolean forceScript, final boolean newTab, final boolean export, final boolean checkSession, @Nullable final SQLQueryListener queryListener)
+    {
+    	return processQueries(queries, forceScript, newTab, export, checkSession, queryListener, false);
+    }
+
+    private boolean processQueries(@NotNull final List<SQLScriptElement> queries, final boolean forceScript, final boolean newTab, final boolean export, final boolean checkSession, @Nullable final SQLQueryListener queryListener, final boolean exportXlsx)
     {
         if (queries.isEmpty()) {
             // Nothing to process
@@ -2099,7 +2122,7 @@ public class SQLEditor extends SQLEditorBase implements
                     actualQueries.add(query);
                 }
             }
-            return curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, false, queryListener);
+            return curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, false, queryListener, exportXlsx);
         }
         return true;
     }
@@ -2704,8 +2727,12 @@ public class SQLEditor extends SQLEditorBase implements
                 }
             }
         }
+        
+        boolean processQueries(SQLScriptContext scriptContext, final List<SQLScriptElement> queries, boolean forceScript, final boolean fetchResults, boolean export, boolean closeTabOnError, SQLQueryListener queryListener) {
+        	return processQueries(scriptContext, queries, forceScript, fetchResults, export, closeTabOnError, queryListener, false);
+        }
 
-        boolean processQueries(SQLScriptContext scriptContext, final List<SQLScriptElement> queries, boolean forceScript, final boolean fetchResults, boolean export, boolean closeTabOnError, SQLQueryListener queryListener)
+        boolean processQueries(SQLScriptContext scriptContext, final List<SQLScriptElement> queries, boolean forceScript, final boolean fetchResults, boolean export, boolean closeTabOnError, SQLQueryListener queryListener, boolean exportXlsx)
         {
             if (queries.isEmpty()) {
                 // Nothing to process
@@ -2730,6 +2757,7 @@ public class SQLEditor extends SQLEditorBase implements
             {
                 showScriptPositionRuler(true);
                 QueryResultsContainer resultsContainer = getFirstResults();
+                resultsContainer.setExportXlsx(exportXlsx);
 
                 SQLEditorQueryListener listener = new SQLEditorQueryListener(this, closeTabOnError);
                 if (queryListener != null) {
@@ -2876,6 +2904,7 @@ public class SQLEditor extends SQLEditorBase implements
         private SQLScriptElement lastGoodQuery = null;
         // Data container and filter are non-null only in case of associations navigation
         private DBSDataContainer dataContainer;
+        private boolean exportXlsx = false;
 
         private QueryResultsContainer(QueryProcessor queryProcessor, int resultSetNumber, boolean makeDefault)
         {
@@ -2939,7 +2968,15 @@ public class SQLEditor extends SQLEditorBase implements
             updateResultsName(getResultsTabName(resultSetNumber, 0, dataContainer.getName()), null);
         }
 
-        private CTabItem getTabItem() {
+        public boolean isExportXlsx() {
+			return exportXlsx;
+		}
+
+		public void setExportXlsx(boolean exportXlsx) {
+			this.exportXlsx = exportXlsx;
+		}
+
+		private CTabItem getTabItem() {
             return getTabItem(this);
         }
 
@@ -3452,22 +3489,81 @@ public class SQLEditor extends SQLEditorBase implements
                     return;
                 }
                 runPostExecuteActions(null);
-                UIUtils.asyncExec(() -> {
-                    if (isDisposed()) {
-                        // Editor closed
-                        return;
-                    }
-                    resultsSash.setMaximizedControl(null);
-                    if (!hasErrors) {
-                        getSelectionProvider().setSelection(originalSelection);
-                    }
-                    QueryResultsContainer results = queryProcessor.getFirstResults();
-                    ResultSetViewer viewer = results.getResultSetController();
-                    if (viewer != null) {
-                        viewer.getModel().setStatistics(statistics);
-                        viewer.updateStatusMessage();
-                    }
-                });
+				UIUtils.asyncExec(() -> {
+					if (isDisposed()) {
+						// Editor closed
+						return;
+					}
+					resultsSash.setMaximizedControl(null);
+					if (!hasErrors) {
+						getSelectionProvider().setSelection(originalSelection);
+					}
+					QueryResultsContainer results = queryProcessor.getFirstResults();
+					ResultSetViewer viewer = results.getResultSetController();
+					if (viewer != null) {
+						viewer.getModel().setStatistics(statistics);
+						viewer.updateStatusMessage();
+					}
+
+					if (results.exportXlsx) {
+						try {
+							LoggingProgressMonitor monitor = new LoggingProgressMonitor();
+							ResultSetDataContainerOptions options = new ResultSetDataContainerOptions();
+							DataTransferProcessorDescriptor processor = DataTransferRegistry.getInstance()
+									.getProcessor("stream_consumer:stream.xlsx");
+							File tempDir = DBWorkbench.getPlatform().getTempFolder(monitor, "data-files");
+							File tempFile = new File(tempDir, new SimpleDateFormat("yyyyMMdd-HHmmss")
+									.format(System.currentTimeMillis()) + "." + processor.getAppFileExtension());
+							queryProcessor.getResultContainers().forEach(container -> {
+								if (container.getQuery().getLength() < 1) {
+									return;
+								}
+								try {
+									tempFile.deleteOnExit();
+									StreamTransferConsumer consumer = new StreamTransferConsumer();
+									StreamConsumerSettings settings = new StreamConsumerSettings();
+									settings.setOutputEncodingBOM(false);
+									settings.setOpenFolderOnFinish(false);
+									settings.setOutputFolder(tempDir.getAbsolutePath());
+									settings.setOutputFilePattern(tempFile.getName());
+									settings.setUseSingleFile(true);
+									IStreamDataExporter exporter = (IStreamDataExporter) processor.getInstance();
+									Map<Object, Object> properties = new HashMap<>();
+									for (DBPPropertyDescriptor prop : processor.getProperties()) {
+										properties.put(prop.getId(), prop.getDefaultValue());
+									}
+									properties.put("exportResults", true);
+									properties.put("exportResultsFileName", tempFile.getCanonicalPath());
+				                    properties.remove(StreamConsumerSettings.PROP_FILE_EXTENSION);
+				                    consumer.initTransfer(container, settings, new IDataTransferConsumer.TransferParameters(
+											processor.isBinaryFormat(), processor.isHTMLFormat()), exporter, properties);
+				                    DBDDataFilter dataFilter = container.getResultSetController().getModel().getDataFilter();
+				                    DatabaseTransferProducer producer = new DatabaseTransferProducer(container, dataFilter);
+				                    DatabaseProducerSettings producerSettings = new DatabaseProducerSettings();
+				                    producerSettings.setExtractType(DatabaseProducerSettings.ExtractType.SINGLE_QUERY);
+				                    producerSettings.setQueryRowCount(false);
+				                    // disable OpenNewconnection by default (#6432)
+				                    producerSettings.setOpenNewConnections(false);
+
+				                    producer.transferData(monitor, consumer, null, producerSettings, null);
+
+				                    consumer.finishTransfer(monitor, false);
+								} catch (Exception e) {
+									DBWorkbench.getPlatformUI().showError("����������XLSX�ļ����ִ���", null, e);
+								}
+							});
+		                    UIUtils.asyncExec(() -> {
+		                        if (!UIUtils.launchProgram(tempFile.getAbsolutePath())) {
+		                            DBWorkbench.getPlatformUI().showError(
+		                                "Open " + processor.getAppName(),
+		                                "Can't open " + processor.getAppFileExtension() + " file '" + tempFile.getAbsolutePath() + "'");
+		                        }
+		                    });
+						} catch (Exception e) {
+							DBWorkbench.getPlatformUI().showError("����������XLSX�ļ����ִ���", null, e);
+						}
+					}
+				});
             } finally {
                 if (extListener != null) extListener.onEndScript(statistics, hasErrors);
             }
