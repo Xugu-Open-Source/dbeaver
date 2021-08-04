@@ -28,6 +28,7 @@ import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.app.DBPProjectListener;
+import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.navigator.*;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.*;
@@ -108,7 +109,51 @@ public class ProjectExplorerView extends NavigatorViewBase implements DBPProject
             }
         });
 
-        columnController.addColumn("DataSource", "Datasource(s) associated with resource", SWT.LEFT, true, false, new ColumnLabelProvider() {
+        columnController.addColumn("Title", "SQL editor title", SWT.LEFT, true, false, new ColumnLabelProvider() {
+            @Override
+            public String getText(Object element) {
+                if (element instanceof DBNResource) {
+                	DBNResource resource = (DBNResource) element;
+                    Collection<DBPDataSourceContainer> containers = resource.getAssociatedDataSources();
+                    if (!CommonUtils.isEmpty(containers)) {
+                        StringBuilder text = new StringBuilder();
+                        for (DBPDataSourceContainer container : containers) {
+                        	DBPConnectionConfiguration config = container.getConnectionConfiguration();
+                            if (text.length() > 0) {
+                                text.append(", ");
+                            }
+                            text.append("<");
+                            text.append(container.getName());
+                            text.append("> ");
+                            String nodeName = resource.getNodeName();
+                            if (nodeName.endsWith(".sql")) {
+                            	text.append(nodeName.substring(0, nodeName.length()-4));
+                            } else {
+                            	text.append(nodeName);
+                            }
+                            text.append(" [");
+                            text.append(config.getDatabaseName());
+                            text.append("] [");
+                            text.append(config.getUserName());
+                            text.append("]");
+                        }
+                        return text.toString();
+                    }
+                }
+                return "";
+            }
+
+            @Override
+            public Image getImage(Object element) {
+                return null;
+            }
+
+            @Override
+            public String getToolTipText(Object element) {
+                return null;
+            }
+        });
+        columnController.addColumn("DataSource", "Datasource(s) associated with resource", SWT.LEFT, false, false, new ColumnLabelProvider() {
             @Override
             public String getText(Object element) {
                 if (element instanceof DBNDatabaseNode) {
