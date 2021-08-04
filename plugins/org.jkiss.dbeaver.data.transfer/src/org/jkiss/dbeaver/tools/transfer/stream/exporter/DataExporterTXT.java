@@ -110,9 +110,6 @@ public class DataExporterTXT extends StreamExporterAbstract {
             DBDAttributeBinding attr = columns[i];
             String attrName = getAttributeName(attr);
             txt.append(attrName);
-            for (int k = colWidths[i] - attrName.length(); k > 0; k--) {
-                txt.append(" ");
-            }
         }
         if (delimTrailing) txt.append("|");
         txt.append("\n");
@@ -123,9 +120,7 @@ public class DataExporterTXT extends StreamExporterAbstract {
             if (delimLeading) txt.append("|");
             for (int i = 0; i < columns.length; i++) {
                 if (i > 0) txt.append("|");
-                for (int k = colWidths[i]; k > 0; k--) {
-                    txt.append("-");
-                }
+                txt.append("-");
             }
             if (delimTrailing) txt.append("|");
             txt.append("\n");
@@ -145,9 +140,6 @@ public class DataExporterTXT extends StreamExporterAbstract {
                 displayString = CommonUtils.truncateString(displayString, colWidths[k]);
             }
             txt.append(displayString);
-            for (int j = colWidths[k] - displayString.length(); j > 0; j--) {
-                txt.append(" ");
-            }
         }
         if (delimTrailing) txt.append("|");
         txt.append("\n");

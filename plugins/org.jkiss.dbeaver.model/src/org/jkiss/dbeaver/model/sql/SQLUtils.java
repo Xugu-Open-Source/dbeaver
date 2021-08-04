@@ -620,6 +620,7 @@ public final class SQLUtils {
 
         switch (attribute.getDataKind()) {
             case BOOLEAN:
+            case DATETIME:
             case NUMERIC:
                 return strValue;
             case CONTENT:

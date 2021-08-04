@@ -177,7 +177,7 @@ public class JDBCDateTimeValueHandler extends DateTimeCustomValueHandler {
                 Format nativeFormat = getNativeValueFormat(column);
                 if (nativeFormat != null) {
                     try {
-                        return nativeFormat.format(value);
+                    	return "TO_DATE("+nativeFormat.format(value)+",'yyyy-MM-dd hh24:mi:ss')";
                     } catch (Exception e) {
                         log.error("Error formatting date", e);
                     }

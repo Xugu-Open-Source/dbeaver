@@ -210,9 +210,6 @@ public class DataExporterSQL extends StreamExporterAbstract {
     public void exportFooter(DBRProgressMonitor monitor) {
         switch (getMultiValueInsertMode()) {
             case GROUP_ROWS:
-                if (rowCount > 0) {
-                    getWriter().write(";");
-                }
                 break;
             case PLAIN:
                 if (rowCount > 0) {
