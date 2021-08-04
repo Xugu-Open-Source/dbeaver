@@ -26,6 +26,7 @@ import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBPErrorAssistant;
+import org.jkiss.dbeaver.model.DBPRefreshableObject;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.data.*;
@@ -642,7 +643,16 @@ public class DBExecUtils {
                             // MySQL returns source table name instead of view name. That's crazy.
                             attrEntity = entity;
                         } else {
-                            attrEntity = DBUtils.getEntityFromMetaData(monitor, session.getExecutionContext(), attrEntityMeta);
+                        	attrEntity = DBUtils.getEntityFromMetaData(monitor, session.getExecutionContext(), attrEntityMeta);
+                        	boolean triedOnce = false;
+                        	if (attrEntity == null && !triedOnce) {
+                                DBSObject selectedObject = DBUtils.getSelectedObject(session.getExecutionContext());
+                                if (selectedObject instanceof DBPRefreshableObject) {
+                                	((DBPRefreshableObject) selectedObject).refreshObject(monitor);
+                            		attrEntity = DBUtils.getEntityFromMetaData(monitor, session.getExecutionContext(), attrEntityMeta);
+                                }
+                            	triedOnce = true;
+                        	}
                         }
                     }
                     if (attrEntity != null) {
