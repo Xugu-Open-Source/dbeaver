@@ -55,6 +55,7 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.app.DBPProject;
+import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.data.DBDDataFilter;
 import org.jkiss.dbeaver.model.data.DBDDataReceiver;
 import org.jkiss.dbeaver.model.exec.*;
@@ -72,11 +73,13 @@ import org.jkiss.dbeaver.model.runtime.AbstractJob;
 import org.jkiss.dbeaver.model.runtime.DBRProgressListener;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableWithProgress;
+import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
 import org.jkiss.dbeaver.model.sql.*;
 import org.jkiss.dbeaver.model.sql.data.SQLQueryDataContainer;
 import org.jkiss.dbeaver.model.struct.DBSDataContainer;
 import org.jkiss.dbeaver.model.struct.DBSInstance;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.registry.DataSourceDescriptor;
 import org.jkiss.dbeaver.registry.DataSourceUtils;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.sql.SQLResultsConsumer;
@@ -1543,10 +1546,12 @@ public class SQLEditor extends SQLEditorBase implements
             }
         }
         return
-            "Script: " + scriptPath +
-                " \nConnection: " + dataSourceContainer.getName() +
-                " \nType: " + (dataSourceContainer.getDriver().getFullName()) +
-                " \nURL: " + dataSourceContainer.getConnectionConfiguration().getUrl();
+                "Script: " + scriptPath +
+                    " \nConnection: " + dataSourceContainer.getName() +
+                    " \nLogged: " + dataSourceContainer.getConnectionConfiguration().getDatabaseName() + " - " + dataSourceContainer.getConnectionConfiguration().getUserName() +
+                    " \nValid: " + dataSourceContainer.isConnected() +
+                    " \nType: " + dataSourceContainer.getDriver().getFullName() +
+                    " \nURL: " + dataSourceContainer.getConnectionConfiguration().getUrl();
     }
 
     private String getEditorName() {
@@ -1949,7 +1954,161 @@ public class SQLEditor extends SQLEditorBase implements
                     }
                 }
             }
-            return curQueryProcessor.processQueries(scriptContext, queries, forceScript, false, export, false, queryListener);
+            List<SQLScriptElement> actualQueries = new ArrayList<>();
+            String driverName = dataSourceContainer.getDriver().getName().toLowerCase();
+            String jdbcUrlTemplate;
+            if ("oracle".equals(driverName)) {
+                jdbcUrlTemplate = "jdbc:%s:thin:@//%s:%d/%s";
+            } else {
+                jdbcUrlTemplate = "jdbc:%s://%s:%d/%s";
+            }
+            for(SQLScriptElement query : queries) {
+                String queryText = query.getText().trim();
+                Pattern connectHeadPattern = Pattern.compile("^(CON|CONNECT)\\s+\\S+$", Pattern.CASE_INSENSITIVE);
+                Pattern useHeadPattern = Pattern.compile("^use\\s+\\S+$", Pattern.CASE_INSENSITIVE);
+                if (connectHeadPattern.matcher(queryText).find()) {
+                    curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, false, queryListener);
+                    actualQueries.clear();
+                    String connectBody;
+                    if (queryText.toUpperCase().startsWith("CONNECT")) {
+                        connectBody = queryText.substring(7).trim();
+                    } else {
+                        connectBody = queryText.substring(3).trim();
+                    }
+                    Pattern connectBodyPattern = Pattern.compile("^\\S+/\\S+@\\S+:\\d+/\\S+$", Pattern.CASE_INSENSITIVE);
+                    if (connectBodyPattern.matcher(connectBody).find()) {
+                        int partIndex = 0;
+                        boolean isQuoted = false;
+                        StringBuilder builder = new StringBuilder();
+                        String username = "";
+                        String password = "";
+                        String hostName = "";
+                        String hostPort = "0";
+                        String catalog = "";
+                        for (int i = 0; i < connectBody.length(); ++i) {
+                            char c = connectBody.charAt(i);
+                            if (c == '"') {
+                                isQuoted = !isQuoted;
+                                continue;
+                            } else if (c == '/' || c== '@' || c == ':') {
+                                if (isQuoted) {
+                                    builder.append(c);
+                                } else {
+                                    switch (partIndex) {
+                                        case 0:
+                                            // USERNAME
+                                            username = builder.toString();
+                                            break;
+                                        case 1:
+                                            // PASSWORD
+                                            password = builder.toString();
+                                            break;
+                                        case 2:
+                                            // HOSTNAME
+                                            hostName = builder.toString();
+                                            break;
+                                        case 3:
+                                            // HOSTORT
+                                            hostPort = builder.toString();
+                                            break;
+                                        default:
+                                            curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, false, queryListener);
+                                            throw new RuntimeException("Parsing connect body failed: part index out of bounds: " + partIndex);
+                                    }
+                                    builder = new StringBuilder();
+                                    ++partIndex;
+                                }
+                            } else {
+                                builder.append(c);
+                            }
+                        }
+                        // CATALOG
+                        if (!connectBody.endsWith("\"") && "tunton".equals(driverName)) {
+                            catalog = builder.toString().toUpperCase();
+                        }
+
+                        DBPConnectionConfiguration config = dataSourceContainer.getConnectionConfiguration();
+                        String originUrl = config.getUrl();
+                        String originHostName = config.getHostName();
+                        String originHostPort = config.getHostPort();
+                        String originDatabaseName = config.getDatabaseName();
+                        String originUsername = config.getUserName();
+                        String originPassword = config.getUserPassword();
+                        config.setUrl(String.format(jdbcUrlTemplate, driverName, hostName, Integer.valueOf(hostPort), catalog));
+                        config.setHostName(hostName);
+                        config.setHostPort(hostPort);
+                        config.setDatabaseName(catalog);
+                        config.setUserName(username);
+                        config.setUserPassword(password);
+                        DBRProgressMonitor monitor = new LoggingProgressMonitor();
+                        try {
+                            dataSourceContainer.reconnect(monitor);
+                            ((DataSourceDescriptor)dataSourceContainer).refreshObject(monitor);
+                            dataSourceContainer.persistConfiguration();
+                        } catch (DBException e) {
+                            config.setUrl(originUrl);
+                            config.setHostName(originHostName);
+                            config.setHostPort(originHostPort);
+                            config.setDatabaseName(originDatabaseName);
+                            config.setUserName(originUsername);
+                            config.setUserPassword(originPassword);
+                            dataSourceContainer.persistConfiguration();
+                            try {
+                                dataSourceContainer.reconnect(monitor);
+                                ((DataSourceDescriptor)dataSourceContainer).refreshObject(monitor);
+                                curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, false, queryListener);
+                            } catch (DBException e1) {
+                                throw new RuntimeException("Fallback to origin datasource failed", e);
+                            }
+                            throw new RuntimeException("Connect failed by command: " + queryText, e);
+                        } finally {
+                            monitor.done();
+                        }
+                        executionContext = null;
+                    } else {
+                        curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, false, queryListener);
+                        throw new IllegalStateException("Connect command format invalid: [REQUIRED]CON[NECT] USERNAME/PASSWORD@HOST:PORT/DATABASE [ACTUAL]" + queryText);
+                    }
+                } else if (useHeadPattern.matcher(queryText).find()) {
+                    String useCatalog = queryText.substring(3).trim();
+                    if (useCatalog.startsWith("\"") && useCatalog.endsWith("\"")) {
+                        useCatalog = useCatalog.substring(1, useCatalog.length()-1);
+                    } else if ("tunton".equals(driverName)) {
+                        useCatalog = useCatalog.toUpperCase();
+                    }
+                    DBPConnectionConfiguration config = dataSourceContainer.getConnectionConfiguration();
+                    String originUrl = config.getUrl();
+                    String originHostName = config.getHostName();
+                    String originHostPort = config.getHostPort();
+                    String originDatabaseName = config.getDatabaseName();
+                    config.setUrl(String.format(jdbcUrlTemplate, driverName, originHostName, Integer.valueOf(originHostPort), useCatalog));
+                    config.setDatabaseName(useCatalog);
+                    DBRProgressMonitor monitor = new LoggingProgressMonitor();
+                    try {
+                        dataSourceContainer.reconnect(monitor);
+                        ((DataSourceDescriptor)dataSourceContainer).refreshObject(monitor);
+                        dataSourceContainer.persistConfiguration();
+                    } catch (DBException e) {
+                        config.setUrl(originUrl);
+                        config.setDatabaseName(originDatabaseName);
+                        dataSourceContainer.persistConfiguration();
+                        try {
+                            dataSourceContainer.reconnect(monitor);
+                            ((DataSourceDescriptor)dataSourceContainer).refreshObject(monitor);
+                            curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, false, queryListener);
+                        } catch (DBException e1) {
+                            throw new RuntimeException("Fallback to origin datasource failed", e);
+                        }
+                        throw new RuntimeException("Use failed by command: " + queryText, e);
+                    } finally {
+                        monitor.done();
+                    }
+                    executionContext = null;
+                } else {
+                    actualQueries.add(query);
+                }
+            }
+            return curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, false, queryListener);
         }
         return true;
     }
