@@ -1570,12 +1570,16 @@ public class SQLEditor extends SQLEditorBase implements
         DBPDataSourceContainer dataSourceContainer = getDataSourceContainer();
         DBPPreferenceStore preferenceStore = getActivePreferenceStore();
         String pattern = preferenceStore.getString(SQLPreferenceConstants.SCRIPT_TITLE_PATTERN);
+        pattern = "${valid}" + pattern.concat("${databaseName}${userName}");
         Map<String, Object> vars = new HashMap<>();
         vars.put(VAR_CONNECTION_NAME, dataSourceContainer == null ? "none" : dataSourceContainer.getName());
         vars.put(VAR_FILE_NAME, scriptName);
         vars.put(VAR_FILE_EXT,
             file == null ? "" : file.getFullPath().getFileExtension());
         vars.put(VAR_DRIVER_NAME, dataSourceContainer == null ? "?" : dataSourceContainer.getDriver().getFullName());
+        vars.put("valid", dataSourceContainer == null ? "[×]" : dataSourceContainer.isConnected() ? "[√]" : "[×]");
+        vars.put("userName", dataSourceContainer == null ? "" : dataSourceContainer.getConnectionConfiguration().getUserName() == null ? "" : " [" + dataSourceContainer.getConnectionConfiguration().getUserName() + "]");
+        vars.put("databaseName", dataSourceContainer == null ? "" : dataSourceContainer.getConnectionConfiguration().getDatabaseName() == null ? "" : " [" + dataSourceContainer.getConnectionConfiguration().getDatabaseName() + "]");
         return GeneralUtils.replaceVariables(pattern, new GeneralUtils.MapResolver(vars));
     }
 
