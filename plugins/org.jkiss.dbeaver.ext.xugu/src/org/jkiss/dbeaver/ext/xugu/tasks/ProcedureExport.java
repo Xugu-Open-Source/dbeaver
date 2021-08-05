@@ -14,9 +14,9 @@ import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource;
+import org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone;
 import org.jkiss.dbeaver.ext.xugu.model.Schema;
 import org.jkiss.dbeaver.ext.xugu.model.Sequence;
-import org.jkiss.dbeaver.ext.xugu.model.Udt;
 import org.jkiss.dbeaver.model.DBPMessageType;
 import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
@@ -26,7 +26,7 @@ import org.jkiss.dbeaver.utils.RuntimeUtils;
 
 import com.xugu.parser.Parsing;
 
-public class XuguToolUdtExport implements IUserInterfaceTool{
+public class ProcedureExport implements IUserInterfaceTool{
 
 	@Override
 	public void execute(IWorkbenchWindow window, IWorkbenchPart activePart, Collection<DBSObject> objects)
@@ -38,10 +38,10 @@ public class XuguToolUdtExport implements IUserInterfaceTool{
 				File outputFolder = null;
 				DatabaseMetaData databaseMetaData;
 				String databaseNameString = null;
-				String udtNameString = null ;
+				String procedureNameString = null ;
 				if(objects.iterator().hasNext()) {
-					Udt  object = (Udt)objects.iterator().next();
-					udtNameString = object.getName();
+					ProcedureStandalone  object = (ProcedureStandalone)objects.iterator().next();
+					procedureNameString = object.getName();
 					Schema schema = (Schema)(object.getParentObject()); 
 					dataSource =  schema.getDataSource();
 					schemaNameString = schema.getName();
@@ -65,9 +65,9 @@ public class XuguToolUdtExport implements IUserInterfaceTool{
 				//获取系统当前时间并将其转换为string类型
 				String fileName=sFormat.format(calendar.getTime());
 				if(schemaNameString!=""&&schemaNameString!=null) {
-					    outputFolder = new File(RuntimeUtils.getUserHomeDir().getAbsolutePath()+"\\"+schemaNameString+"_udt_"+fileName+".sql");
+					    outputFolder = new File(RuntimeUtils.getUserHomeDir().getAbsolutePath()+"\\"+schemaNameString+"_procedure_"+fileName+".sql");
 				}
-				 byte[] b = new Parsing().getDatabaseObjectDDL(currentConnection,databaseNameString,schemaNameString,"udt",udtNameString, Parsing.TableType.ALL).getBytes();
+				 byte[] b = new Parsing().getDatabaseObjectDDL(currentConnection,databaseNameString,schemaNameString,"procedure",procedureNameString, Parsing.TableType.ALL).getBytes();
 				 FileOutputStream fos = null;
 				try {
 					 fos = new FileOutputStream(outputFolder);	
@@ -75,7 +75,7 @@ public class XuguToolUdtExport implements IUserInterfaceTool{
 					    DBeaverNotifications.showNotification(
 			                    DBeaverNotifications.NT_RECONNECT,
 			                    schemaNameString,
-			                     "export  udt  success"+"\r\n"+outputFolder.getAbsolutePath(),
+			                     "export  procedure  success"+"\r\n"+outputFolder.getAbsolutePath(),
 			                    DBPMessageType.INFORMATION,new Runnable() {
 									@Override
 									public void run() {

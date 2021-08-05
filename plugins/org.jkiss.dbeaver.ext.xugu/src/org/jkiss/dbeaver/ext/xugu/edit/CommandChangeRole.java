@@ -34,8 +34,6 @@ import org.jkiss.utils.CommonUtils;
 
 /**
  * 角色属性修改逻辑，根据界面上设置的用户相关属性生成指定数据库操作 action
- * 
- * @author Xugu
  */
 public class CommandChangeRole extends DBECommandComposite<Role, RolePropertyHandler> {
 	protected CommandChangeRole(Role role) {

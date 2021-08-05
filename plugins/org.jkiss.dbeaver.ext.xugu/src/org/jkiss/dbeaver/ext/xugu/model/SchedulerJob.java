@@ -40,8 +40,6 @@ import java.util.Map;
 
 /**
  * 作业信息类，包含作业相关的基本信息，以及作业参数缓存
- * 
- * @author Xugu
  */
 public class SchedulerJob extends BaseSchemaObject implements StatefulObject, DBPScriptObjectExt {
 	private int jobId;

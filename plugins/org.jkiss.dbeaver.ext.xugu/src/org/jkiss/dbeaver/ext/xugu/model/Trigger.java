@@ -36,8 +36,6 @@ import java.util.List;
 
 /**
  * 触发器衍生类，包含触发器具体信息
- * 
- * @author Xugu
  */
 public class Trigger extends BaseTrigger<BaseTable> {
 	private Schema ownerSchema;

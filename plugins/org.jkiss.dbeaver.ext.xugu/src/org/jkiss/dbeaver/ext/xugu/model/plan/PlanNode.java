@@ -33,8 +33,6 @@ import java.util.List;
 
 /**
  * 计划节点
- * 
- * @author Xugu
  */
 public class PlanNode implements DBCPlanNode {
 /**

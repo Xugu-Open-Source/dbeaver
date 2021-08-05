@@ -31,8 +31,6 @@ import java.io.Writer;
 
 /**
  * CLOB Öµ´¦ÀíÆ÷
- * 
- * @author Xugu
  */
 public class ClobValueHandler extends JDBCContentValueHandler {
 	public static final ClobValueHandler INSTANCE = new ClobValueHandler();

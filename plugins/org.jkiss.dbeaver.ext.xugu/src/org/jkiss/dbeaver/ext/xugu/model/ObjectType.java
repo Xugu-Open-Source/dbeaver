@@ -29,8 +29,6 @@ import java.util.Map;
 
 /**
  * 对象类型
- * 
- * @author Xugu
  */
 public enum ObjectType implements DBSObjectType {
 	/**
@@ -144,8 +142,6 @@ public enum ObjectType implements DBSObjectType {
 
 	/**
 	 * 对象查找器
-	 * 
-	 * @author Xugu
 	 */
 	private static interface ObjectFinder {
 		/**

@@ -43,8 +43,6 @@ import java.util.List;
 
 /**
  * 表字段信息类，包含字段相关的基本信息
- * 
- * @author Xugu
  */
 public class TableColumn extends JDBCTableColumn<BaseTable>
 		implements DBSTableColumn, DBSTypedObjectEx, DBPHiddenObject, DBPNamedObject2 {

@@ -27,8 +27,6 @@ import java.sql.ResultSet;
 
 /**
  * 作业参数信息类
- * 
- * @author Xugu
  */
 public class SchedulerJobArgument implements DBSParameter {
 	private final SchedulerJob job;

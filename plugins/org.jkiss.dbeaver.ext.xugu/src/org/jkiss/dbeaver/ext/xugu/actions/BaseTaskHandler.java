@@ -42,8 +42,6 @@ import java.util.List;
 
 /**
  * 基本任务处理器，加载相关日志信息
- * 
- * @author Xugu
  */
 public abstract class BaseTaskHandler extends AbstractHandler implements IElementUpdater {
 	private static final Log LOG = Log.getLog(BaseTaskHandler.class);

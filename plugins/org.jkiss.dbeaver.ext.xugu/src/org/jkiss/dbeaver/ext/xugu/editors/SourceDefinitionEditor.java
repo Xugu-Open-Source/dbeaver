@@ -25,8 +25,6 @@ import org.jkiss.dbeaver.ui.editors.sql.SQLSourceViewer;
 
 /**
  * Ô´¶¨Òå±à¼­Æ÷
- * 
- * @author Xugu
  */
 public class SourceDefinitionEditor extends SQLSourceViewer<SourceObject> {
 	@Override

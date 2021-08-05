@@ -42,8 +42,6 @@ import org.jkiss.dbeaver.ui.editors.DatabaseEditorUtils;
 
 /**
  * ½ÇÉ«±à¼­Æ÷
- * 
- * @author Xugu
  */
 public class RoleEditor extends AbstractDatabaseObjectEditor<Role> {
 

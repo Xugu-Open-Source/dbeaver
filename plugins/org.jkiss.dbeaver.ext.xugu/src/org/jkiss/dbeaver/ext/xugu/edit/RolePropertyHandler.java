@@ -22,8 +22,6 @@ import org.jkiss.dbeaver.model.edit.prop.DBEPropertyReflector;
 
 /**
  * 角色属性处理器，将界面逻辑与处理逻辑进行映射
- * 
- * @author Xugu
  */
 public enum RolePropertyHandler implements DBEPropertyHandler<Role>, DBEPropertyReflector<Role> {
 	/**

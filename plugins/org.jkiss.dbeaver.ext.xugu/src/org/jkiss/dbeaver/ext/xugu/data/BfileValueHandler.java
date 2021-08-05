@@ -27,8 +27,6 @@ import java.sql.SQLException;
 
 /**
  * BFILE Öµ´¦ÀíÆ÷
- * 
- * @author Xugu
  */
 public class BfileValueHandler extends JDBCContentValueHandler {
 	public static final BfileValueHandler INSTANCE = new BfileValueHandler();

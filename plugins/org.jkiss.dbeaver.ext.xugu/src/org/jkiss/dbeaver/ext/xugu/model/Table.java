@@ -32,8 +32,6 @@ import java.util.Map;
 
 /**
  * 表信息衍生类，包含表相关的基本信息
- * 
- * @author Xugu
  */
 public class Table extends BaseTablePhysical implements DBPScriptObject {
 	private static final Log log = Log.getLog(Table.class);

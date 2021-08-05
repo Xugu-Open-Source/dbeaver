@@ -55,8 +55,6 @@ import java.util.Map;
 
 /**
  * 表字段管理器，进行字段的创建，修改和删除（均相当于修改表结构）
- * 
- * @author Xugu
  */
 public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseTable>
 		implements DBEObjectRenamer<TableColumn> {

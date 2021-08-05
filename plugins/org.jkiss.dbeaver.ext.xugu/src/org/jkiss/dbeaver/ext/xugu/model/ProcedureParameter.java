@@ -37,8 +37,6 @@ import java.util.List;
 
 /**
  * 存储过程参数
- * 
- * @author Xugu
  */
 public class ProcedureParameter implements DBSProcedureParameter, DBSTypedObject {
 	private final BaseProcedure procedure;

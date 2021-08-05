@@ -29,8 +29,6 @@ import java.util.Collection;
 
 /**
  * 包含数据库基本信息，其中模式信息由 dataSource 获取
- * 
- * @author Xugu
  */
 public class Database extends BaseGlobalObject {
 	private DataSource dataSource;

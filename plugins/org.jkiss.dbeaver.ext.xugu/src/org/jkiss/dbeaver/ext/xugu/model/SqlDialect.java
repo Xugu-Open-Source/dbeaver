@@ -41,8 +41,6 @@ import java.util.Locale;
 
 /**
  * SQL ·½ÑÔ
- * 
- * @author Xugu
  */
 class SqlDialect extends JDBCSQLDialect {
 	public static final String[] EXEC_KEYWORDS = new String[] { "EXEC" };

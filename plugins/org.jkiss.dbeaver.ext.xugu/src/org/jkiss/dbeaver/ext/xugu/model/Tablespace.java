@@ -38,8 +38,6 @@ import java.util.Collection;
 
 /**
  * 表空间信息类，包含表空间基本信息
- * 
- * @author Xugu
  */
 public class Tablespace extends BaseGlobalObject implements DBPRefreshableObject {
 	private static final Log log = Log.getLog(Tablespace.class);

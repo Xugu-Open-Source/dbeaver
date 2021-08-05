@@ -26,7 +26,7 @@ import org.jkiss.dbeaver.utils.RuntimeUtils;
 
 import com.xugu.parser.Parsing;
 
-public class XuguToolPackageExport implements IUserInterfaceTool{
+public class PackageExport implements IUserInterfaceTool{
 
 	@Override
 	public void execute(IWorkbenchWindow window, IWorkbenchPart activePart, Collection<DBSObject> objects)

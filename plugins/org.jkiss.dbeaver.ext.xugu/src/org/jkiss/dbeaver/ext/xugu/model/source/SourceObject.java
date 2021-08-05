@@ -24,8 +24,6 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 
 /**
  * ‘¥∂‘œÛ
- * 
- * @author Xugu
  */
 public interface SourceObject extends DBPScriptObject, StatefulObject {
 	/**

@@ -71,8 +71,6 @@ import java.util.Map;
 import java.util.Iterator;
 /**
  * 触发器管理器，进行触发器的创建和删除，修改相当于创建并替换，包含一个内部界面类，用于进行属性设定
- * 
- * @author Xugu
  */
 public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 	@Override

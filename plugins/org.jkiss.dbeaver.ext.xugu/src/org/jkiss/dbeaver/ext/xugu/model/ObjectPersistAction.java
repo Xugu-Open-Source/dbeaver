@@ -20,8 +20,6 @@ import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 
 /**
  * 持久化动作
- * 
- * @author Xugu
  */
 public class ObjectPersistAction extends SQLDatabasePersistAction {
 	private final ObjectType objectType;

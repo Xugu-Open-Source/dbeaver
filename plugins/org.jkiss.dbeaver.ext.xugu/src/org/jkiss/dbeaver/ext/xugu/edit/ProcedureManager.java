@@ -44,8 +44,6 @@ import java.util.Map;
 
 /**
  * 存储过程管理器，进行存储过程的创建和删除（修改等同于创建并替换）
- * 
- * @author Xugu
  */
 public class ProcedureManager extends SQLObjectEditor<ProcedureStandalone, Schema> {
 	@Override

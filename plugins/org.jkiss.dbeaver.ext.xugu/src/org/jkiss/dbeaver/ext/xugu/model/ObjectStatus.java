@@ -19,8 +19,6 @@ package org.jkiss.dbeaver.ext.xugu.model;
 
 /**
  * ¶ÔÏó×´Ì¬
- * 
- * @author Xugu
  */
 public enum ObjectStatus {
 	/**

@@ -18,8 +18,6 @@ package org.jkiss.dbeaver.ext.xugu.config;
 
 /**
  * 原始设备制造商配置信息
- * 
- * @author Xugu
  */
 public class OemConfig {
 	public static final String OEM_NAME_ZH = "虚谷";

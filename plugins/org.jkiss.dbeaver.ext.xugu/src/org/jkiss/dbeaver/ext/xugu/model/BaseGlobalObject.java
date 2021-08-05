@@ -24,8 +24,6 @@ import org.jkiss.dbeaver.model.struct.DBSObject;
 
 /**
  * 基本全局对象
- * 
- * @author Xugu
  */
 public abstract class BaseGlobalObject implements DBSObject, DBPSaveableObject {
 	private static final Log log = Log.getLog(BaseGlobalObject.class);

@@ -19,8 +19,6 @@ package org.jkiss.dbeaver.ext.xugu.model;
 
 /**
  * ‘¥¿‡–Õ
- * 
- * @author Xugu
  */
 public enum SourceType {
 	/**

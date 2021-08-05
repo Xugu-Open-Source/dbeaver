@@ -26,8 +26,6 @@ import java.util.Locale;
 import java.util.ResourceBundle;
 /**
  * 插件常量类
- * 
- * @author Xugu
  */
 public class Constants {
 	public static final String CMD_COMPILE = "org.jkiss.dbeaver.ext.xugu.code.compile";
@@ -49,11 +47,7 @@ public class Constants {
 
 	public static final int DEFAULT_PORT = 5138;
 	public static final String DEFAULT_HOST = "localhost";
-
-//	public static final String CMD_COMPILE = "org.jkiss.dbeaver.ext.xugu.code.compile";
-
 	public static final String SCHEMA_SYS = "SYS";
-
 	public static final String VIEW_ALL_SOURCE = "ALL_SOURCE";
 	public static final String VIEW_DBA_SOURCE = "DBA_SOURCE";
 	public static final String VIEW_DBA_TAB_PRIVS = "DBA_TAB_PRIVS";

@@ -60,8 +60,6 @@ import java.util.regex.Pattern;
 
 /**
  * 存储过程衍生类，包括存储过程名、定义、参数等具体信息
- * 
- * @author Xugu
  */
 public class ProcedureStandalone extends BaseProcedure<Schema> implements SourceObject, DBPRefreshableObject {
 	private static final Log log = Log.getLog(ProcedureStandalone.class);
@@ -104,7 +102,7 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 //		System.out.println(sourceDeclaration);
 		CreateProcedureBean createProcedureBean = null;
 		if (JDBCUtils.safeGetString(dbResult, "RET_TYPE") == null) {
-			// 通过xugu-parser解析包解析存储过程参数。
+			// 通过parser解析包解析存储过程参数。
 			List<CreateProcedureBean> procedureBeans = null;
 			try {
 				procedureBeans = XuguParserApi.parseCreateProcedure(sourceDeclaration);
@@ -169,7 +167,7 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 				procParams.add(procedureParameter);
 			}
 		} else {
-			// 通过xugu-parser解析包解析存储过程参数。
+			// 通过parser解析包解析存储过程参数。
 			List<CreateFunctionBean> functionBeans = null;
 			try {
 				functionBeans = XuguParserApi.parseCreateFunction(sourceDeclaration);
@@ -246,7 +244,7 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 		}
 
 //		if(JDBCUtils.safeGetString(dbResult, "RET_TYPE")==null) {
-//			//通过xugu-parser解析包解析存储过程参数。
+//			//通过parser解析包解析存储过程参数。
 //			XuguParserApi xuguParserApi = new XuguParserApi();
 //			CreateProcedureBean createProcedureBean = xuguParserApi.parseCreateProcedure(sourceDeclaration);
 //			for(int i = 0; i<createProcedureBean.getParamSize();i++) {

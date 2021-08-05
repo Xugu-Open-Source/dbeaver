@@ -40,8 +40,6 @@ import java.util.*;
 
 /**
  * ½á¹¹¸¨Öú
- * 
- * @author Xugu
  */
 public class StructureAssistant implements DBSStructureAssistant {
 	static protected final Log log = Log.getLog(StructureAssistant.class);

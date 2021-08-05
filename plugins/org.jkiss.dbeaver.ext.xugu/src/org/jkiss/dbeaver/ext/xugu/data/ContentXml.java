@@ -33,8 +33,6 @@ import java.sql.SQLXML;
 
 /**
  * XML ÄÚÈÝ
- * 
- * @author Xugu
  */
 public class ContentXml extends JDBCContentXML {
 	public ContentXml(DBPDataSource dataSource, SQLXML xml) {

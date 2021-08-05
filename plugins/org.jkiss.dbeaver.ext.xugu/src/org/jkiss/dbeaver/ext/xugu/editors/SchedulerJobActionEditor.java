@@ -24,8 +24,6 @@ import org.jkiss.dbeaver.ui.editors.sql.SQLSourceViewer;
 
 /**
  * 订阅作业行为编辑器
- * 
- * @author Xugu
  */
 public class SchedulerJobActionEditor extends SQLSourceViewer<SchedulerJob> {
 	@Override

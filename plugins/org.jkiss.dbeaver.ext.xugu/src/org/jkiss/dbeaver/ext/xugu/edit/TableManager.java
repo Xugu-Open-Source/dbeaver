@@ -50,8 +50,6 @@ import java.util.Map;
 
 /**
  * 表、视图管理器，进行表、视图的创建，修改和删除
- * 
- * @author Xugu
  */
 public class TableManager extends SQLTableManager<Table, Schema> implements DBEObjectRenamer<Table> {
 	private static final Class<?>[] CHILD_TYPES = { TableColumn.class, TableConstraint.class, TableForeignKey.class,

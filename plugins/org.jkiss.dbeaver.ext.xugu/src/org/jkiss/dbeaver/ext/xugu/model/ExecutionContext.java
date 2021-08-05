@@ -38,8 +38,6 @@ import java.sql.SQLException;
 
 /**
  * 执行上下文
- * 
- * @author Xugu
  */
 public class ExecutionContext extends JDBCExecutionContext implements DBCExecutionContextDefaults<DBSCatalog, Schema> {
 	private static final Log log = Log.getLog(ExecutionContext.class);

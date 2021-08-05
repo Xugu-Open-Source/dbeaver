@@ -28,8 +28,6 @@ import java.time.format.DateTimeFormatter;
 
 /**
  * 时间访问值处理器
- * 
- * @author Xugu
  */
 public class TemporalAccessorValueHandler extends JDBCTemporalAccessorValueHandler {
 	private static final DateTimeFormatter DEFAULT_DATETIME_FORMAT = DateTimeFormatter

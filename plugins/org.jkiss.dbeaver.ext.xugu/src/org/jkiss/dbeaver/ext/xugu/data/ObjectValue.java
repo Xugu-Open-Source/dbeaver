@@ -20,8 +20,6 @@ import org.jkiss.dbeaver.model.data.DBDValue;
 
 /**
  * ∂‘œÛ÷µ
- * 
- * @author Xugu
  */
 public class ObjectValue implements DBDValue {
 	private Object value;

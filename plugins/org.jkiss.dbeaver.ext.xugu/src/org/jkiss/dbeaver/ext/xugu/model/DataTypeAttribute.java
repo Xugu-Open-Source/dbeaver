@@ -30,8 +30,6 @@ import java.sql.Types;
 
 /**
  * 数据类型属性
- * 
- * @author Xugu
  */
 public class DataTypeAttribute extends BaseDataTypeMember implements DBSEntityAttribute, DBSTypedObjectEx {
 

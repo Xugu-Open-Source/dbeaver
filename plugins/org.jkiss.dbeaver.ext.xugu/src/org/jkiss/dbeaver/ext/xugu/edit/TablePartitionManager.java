@@ -57,8 +57,6 @@ import org.jkiss.dbeaver.ui.UIUtils;
 
 /**
  * 表分区管理器，进行表分区的创建和删除，修改仅支持设定是否在线，包含一个内部界面类，用于进行属性设定
- * 
- * @author Xugu
  */
 public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseTablePhysical> {
 	@Override

@@ -40,8 +40,6 @@ import org.jkiss.dbeaver.ui.editors.ControlPropertyCommandListener;
 
 /**
  * 权限编辑器，被用于设置用户或角色的权限界面
- * 
- * @author Xugu
  */
 public class AuthorityEditor {
 	private UserEditorGeneral userEditor;

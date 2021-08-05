@@ -22,8 +22,6 @@ import org.jkiss.dbeaver.model.edit.prop.DBEPropertyReflector;
 
 /**
  * 用户属性处理器，将界面逻辑与处理逻辑进行映射
- * 
- * @author Xugu
  */
 public enum UserPropertyHandler implements DBEPropertyHandler<User>, DBEPropertyReflector<User> {
 	/**

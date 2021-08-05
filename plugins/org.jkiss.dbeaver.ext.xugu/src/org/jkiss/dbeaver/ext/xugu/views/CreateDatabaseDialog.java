@@ -30,8 +30,6 @@ import org.jkiss.dbeaver.ui.dialogs.BaseDialog;
 
 /**
  * 创建数据库对话框
- * 
- * @author Xugu
  */
 public class CreateDatabaseDialog extends BaseDialog {
 	public static final String DEFAULT_CHARSET_NAME = "utf8";

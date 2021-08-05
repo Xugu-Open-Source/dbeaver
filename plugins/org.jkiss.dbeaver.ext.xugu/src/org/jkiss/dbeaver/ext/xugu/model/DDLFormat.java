@@ -23,8 +23,6 @@ import org.jkiss.dbeaver.ext.xugu.Constants;
 
 /**
  * DDL ∏Ò Ω
- * 
- * @author Xugu
  */
 public enum DDLFormat {
 	/**

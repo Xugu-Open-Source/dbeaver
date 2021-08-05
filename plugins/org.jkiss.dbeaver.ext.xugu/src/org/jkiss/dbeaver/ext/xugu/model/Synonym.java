@@ -30,8 +30,6 @@ import java.sql.Timestamp;
 
 /**
  * 同义词信息类，包含同义词相关的基本信息
- * 
- * @author Xugu
  */
 public class Synonym extends BaseSchemaObject implements DBSAlias {
 	private int objectDbId;

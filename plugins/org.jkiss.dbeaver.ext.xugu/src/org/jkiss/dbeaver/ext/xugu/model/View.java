@@ -34,8 +34,6 @@ import java.util.Map;
 
 /**
  * 视图信息类
- * 
- * @author Xugu
  */
 public class View extends BaseTable implements SourceObject {
 	private String viewText;

@@ -56,8 +56,6 @@ import java.util.Map;
 
 /**
  * 数据库管理器，进行数据库的增加和删除，不支持重命名， 包含一个内部界面类，用于进行属性设定
- * 
- * @author Xugu
  */
 public class DatabaseManager extends SQLObjectEditor<Database, DataSource> {
 	Control container;

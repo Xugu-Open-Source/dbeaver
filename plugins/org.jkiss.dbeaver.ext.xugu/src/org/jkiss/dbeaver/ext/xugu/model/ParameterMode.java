@@ -22,8 +22,6 @@ import org.jkiss.utils.CommonUtils;
 
 /**
  * 参数模式
- * 
- * @author Xugu
  */
 public enum ParameterMode {
 	/**

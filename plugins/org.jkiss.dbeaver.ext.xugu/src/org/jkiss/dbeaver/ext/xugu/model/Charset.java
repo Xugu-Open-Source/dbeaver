@@ -31,8 +31,6 @@ import java.util.List;
 
 /**
  * ×Ö·û¼¯£¬±àÂë·½Ê½
- * 
- * @author Xugu
  */
 public class Charset extends BaseInformation {
 	private String name;

@@ -54,8 +54,6 @@ import org.jkiss.dbeaver.ui.UIUtils;
 
 /**
  * 二级分区管理器，进行二级分区的创建和删除，修改仅支持设置是否在线，包含一个内部界面类，用于进行属性设定
- * 
- * @author Xugu
  */
 public class TableSubPartitionManager extends SQLObjectEditor<TableSubPartition, BaseTablePhysical> {
 	@Override

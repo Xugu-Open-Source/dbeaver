@@ -28,8 +28,6 @@ import java.sql.Types;
 
 /**
  * 值处理器提供者
- * 
- * @author Xugu
  */
 public class ValueHandlerProvider implements DBDValueHandlerProvider {
 	@Override

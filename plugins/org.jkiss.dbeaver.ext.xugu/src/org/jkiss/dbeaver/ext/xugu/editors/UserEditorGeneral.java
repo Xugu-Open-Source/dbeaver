@@ -49,8 +49,6 @@ import java.util.List;
 
 /**
  * 用户编辑器衍生类
- * 
- * @author Xugu
  */
 public class UserEditorGeneral extends BaseUserEditor {
 	private PageControl pageControl;

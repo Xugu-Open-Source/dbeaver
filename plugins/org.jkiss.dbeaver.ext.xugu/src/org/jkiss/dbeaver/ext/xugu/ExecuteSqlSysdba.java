@@ -21,8 +21,6 @@ import org.eclipse.osgi.util.NLS;
 
 /**
  * Ö´ÐÐ SYS SQL
- * 
- * @author Xugu
  */
 public class ExecuteSqlSysdba extends NLS {
 	static final String BUNDLE_NAME = "org.jkiss.dbeaver.ext.xugu.ExecuteSQL_Cloud_SYSDBA";

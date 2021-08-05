@@ -24,8 +24,6 @@ import org.jkiss.dbeaver.model.meta.Property;
 
 /**
  * 约束字段信息类，包含约束和字段信息
- * 
- * @author Xugu
  */
 public class TableConstraintColumn extends AbstractTableConstraintColumn {
 	private AbstractTableConstraint<BaseTable> constraint;

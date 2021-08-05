@@ -165,7 +165,7 @@ public class NewTriggerManager  extends SQLObjectEditor<NewTrigger,Schema>{
 //		private Combo triggerTimingCombo;
 //		private Text triggerConditionText;
 //		private Table colListTable;
-//		private Collection<org.jkiss.dbeaver.ext.xugu.model.TableColumn> colList;
+//		private Collection<TableColumn> colList;
 //
 //		public NewTriggerDialog(Shell parentShell , DBRProgressMonitor monitor) {
 //			super(parentShell);
@@ -289,9 +289,9 @@ public class NewTriggerManager  extends SQLObjectEditor<NewTrigger,Schema>{
 //							}
 //							// 重新加载数据
 //							if (colList.size() != 0) {
-//								Iterator<org.jkiss.dbeaver.ext.xugu.model.TableColumn> it = colList.iterator();
+//								Iterator<TableColumn> it = colList.iterator();
 //								while (it.hasNext()) {
-//									org.jkiss.dbeaver.ext.xugu.model.TableColumn col = it.next();
+//									TableColumn col = it.next();
 //									TableItem item = new TableItem(colListTable, SWT.NONE);
 //									item.setText(new String[] { col.getName(),
 //											col.getDataType().toString() == null ? col.getTypeName()

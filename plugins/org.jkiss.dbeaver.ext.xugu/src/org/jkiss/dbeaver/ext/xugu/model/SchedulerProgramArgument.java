@@ -27,8 +27,6 @@ import java.sql.ResultSet;
 
 /**
  * ¶©ÔÄ³ÌÐò²ÎÊý
- * 
- * @author Xugu
  */
 public class SchedulerProgramArgument implements DBSParameter {
 	private final SchedulerProgram program;

@@ -19,8 +19,6 @@ package org.jkiss.dbeaver.ext.xugu.model;
 
 /**
  * 数据类型修饰符
- * 
- * @author Xugu
  */
 public enum DataTypeModifier {
 	/**

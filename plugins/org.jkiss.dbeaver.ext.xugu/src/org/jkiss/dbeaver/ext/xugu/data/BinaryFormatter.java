@@ -21,8 +21,6 @@ import org.jkiss.dbeaver.model.impl.data.formatters.BinaryFormatterHex;
 
 /**
  * 二进制格式化器
- * 
- * @author Xugu
  */
 public class BinaryFormatter extends BinaryFormatterHex {
 	public static final BinaryFormatter INSTANCE = new BinaryFormatter();

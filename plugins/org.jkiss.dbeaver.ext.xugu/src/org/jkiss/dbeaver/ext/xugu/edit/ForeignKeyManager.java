@@ -42,8 +42,6 @@ import org.jkiss.utils.CommonUtils;
 
 /**
  * 外键管理器，进行外键的增加
- * 
- * @author Xugu
  */
 public class ForeignKeyManager extends SQLForeignKeyManager<TableForeignKey, BaseTable> {
 	@Nullable

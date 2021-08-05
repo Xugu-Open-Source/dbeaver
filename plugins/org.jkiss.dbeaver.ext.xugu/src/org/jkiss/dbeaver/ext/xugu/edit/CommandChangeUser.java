@@ -42,8 +42,6 @@ import java.util.Objects;
 
 /**
  * 用户属性修改逻辑，根据界面上设置的用户相关属性生成指定数据库操作 action
- * 
- * @author Xugu
  */
 public class CommandChangeUser extends DBECommandComposite<User, UserPropertyHandler> {
 	protected CommandChangeUser(User user) {

@@ -14,10 +14,9 @@ import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource;
-import org.jkiss.dbeaver.ext.xugu.model.NewTrigger;
 import org.jkiss.dbeaver.ext.xugu.model.Schema;
 import org.jkiss.dbeaver.ext.xugu.model.Sequence;
-import org.jkiss.dbeaver.ext.xugu.model.TriggerTest;
+import org.jkiss.dbeaver.ext.xugu.model.Synonym;
 import org.jkiss.dbeaver.model.DBPMessageType;
 import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
@@ -27,7 +26,7 @@ import org.jkiss.dbeaver.utils.RuntimeUtils;
 
 import com.xugu.parser.Parsing;
 
-public class XuguToolTriggerExport implements IUserInterfaceTool{
+public class SynonymExport implements IUserInterfaceTool{
 
 	@Override
 	public void execute(IWorkbenchWindow window, IWorkbenchPart activePart, Collection<DBSObject> objects)
@@ -39,10 +38,10 @@ public class XuguToolTriggerExport implements IUserInterfaceTool{
 				File outputFolder = null;
 				DatabaseMetaData databaseMetaData;
 				String databaseNameString = null;
-				String triggerNameString = null ;
+				String synonymNameString = null ;
 				if(objects.iterator().hasNext()) {
-					NewTrigger  object = (NewTrigger)objects.iterator().next();
-					triggerNameString = object.getName();
+					Synonym  object = (Synonym)objects.iterator().next();
+					synonymNameString = object.getName();
 					Schema schema = (Schema)(object.getParentObject()); 
 					dataSource =  schema.getDataSource();
 					schemaNameString = schema.getName();
@@ -66,9 +65,9 @@ public class XuguToolTriggerExport implements IUserInterfaceTool{
 				//获取系统当前时间并将其转换为string类型
 				String fileName=sFormat.format(calendar.getTime());
 				if(schemaNameString!=""&&schemaNameString!=null) {
-					    outputFolder = new File(RuntimeUtils.getUserHomeDir().getAbsolutePath()+"\\"+schemaNameString+"_trigger_"+fileName+".sql");
+					    outputFolder = new File(RuntimeUtils.getUserHomeDir().getAbsolutePath()+"\\"+schemaNameString+"_synonym_"+fileName+".sql");
 				}
-				 byte[] b = new Parsing().getDatabaseObjectDDL(currentConnection,databaseNameString,schemaNameString,"trigger",triggerNameString, Parsing.TableType.ALL).getBytes();
+				 byte[] b = new Parsing().getDatabaseObjectDDL(currentConnection,databaseNameString,schemaNameString,"synonym",synonymNameString, Parsing.TableType.ALL).getBytes();
 				 FileOutputStream fos = null;
 				try {
 					 fos = new FileOutputStream(outputFolder);	
@@ -76,7 +75,7 @@ public class XuguToolTriggerExport implements IUserInterfaceTool{
 					    DBeaverNotifications.showNotification(
 			                    DBeaverNotifications.NT_RECONNECT,
 			                    schemaNameString,
-			                     "export  trigger  success"+"\r\n"+outputFolder.getAbsolutePath(),
+			                     "export  synonym  success"+"\r\n"+outputFolder.getAbsolutePath(),
 			                    DBPMessageType.INFORMATION,new Runnable() {
 									@Override
 									public void run() {

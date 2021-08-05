@@ -24,8 +24,6 @@ import java.sql.ResultSet;
 
 /**
  * 表分区的基类，包括分区类型等分区基本信息
- * 
- * @author Xugu
  */
 public abstract class BasePartition<PARENT extends DBSObject> extends BaseObject<PARENT> {
 	public enum PartitionType {

@@ -20,8 +20,6 @@ import org.jkiss.dbeaver.model.struct.DBSObject;
 
 /**
  * 用户权限和角色权限的基类
- * 
- * @author Xugu
  */
 public abstract class BaseAuthority<PARENT extends DBSObject> extends BaseObject<PARENT> {
 	private String parentName;

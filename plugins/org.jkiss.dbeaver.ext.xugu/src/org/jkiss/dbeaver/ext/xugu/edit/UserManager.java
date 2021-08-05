@@ -65,8 +65,6 @@ import java.util.Objects;
 
 /**
  * 用户管理器，进行用户的创建，修改和删除，包含一个内部界面类，用于进行属性设定
- * 
- * @author Xugu
  */
 public class UserManager extends SQLObjectEditor<User, DataSource>
 		implements DBEObjectMaker<User, DataSource>, DBECommandFilter<User> {

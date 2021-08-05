@@ -64,8 +64,6 @@ import java.util.regex.Pattern;
 
 /**
  * 工具类，提供常用方法
- * 
- * @author Xugu
  */
 public class Utils {
 	private static final Log LOG = Log.getLog(Utils.class);

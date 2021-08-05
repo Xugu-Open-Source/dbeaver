@@ -33,8 +33,6 @@ import org.jkiss.dbeaver.ui.editors.sql.SQLSourceViewer;
 
 /**
  * ¶ÔÏó DDL ±à¼­Æ÷
- * 
- * @author Xugu
  */
 public class ObjectDdlEditor extends SQLSourceViewer<Table> {
 

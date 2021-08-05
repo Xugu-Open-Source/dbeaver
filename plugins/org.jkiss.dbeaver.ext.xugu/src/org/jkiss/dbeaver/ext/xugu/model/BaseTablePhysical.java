@@ -46,8 +46,6 @@ import java.util.List;
 
 /**
  * 加载表相关物理信息（分区信息、表空间信息）
- * 
- * @author Xugu
  */
 public abstract class BaseTablePhysical extends BaseTable implements DBSObjectLazy<DataSource>, DBDPseudoAttributeContainer {
 	private static final Log log = Log.getLog(BaseTablePhysical.class);

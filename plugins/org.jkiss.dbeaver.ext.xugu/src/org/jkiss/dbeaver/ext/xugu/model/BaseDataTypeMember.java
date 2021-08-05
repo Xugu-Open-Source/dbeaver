@@ -28,8 +28,6 @@ import java.sql.ResultSet;
 
 /**
  * 基本数据类型成员
- * 
- * @author Xugu
  */
 public abstract class BaseDataTypeMember implements DBSEntityElement {
 	private static final Log log = Log.getLog(BaseDataTypeMember.class);

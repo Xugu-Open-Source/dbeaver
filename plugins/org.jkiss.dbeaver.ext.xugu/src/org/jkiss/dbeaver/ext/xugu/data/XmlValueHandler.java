@@ -31,8 +31,6 @@ import java.sql.SQLXML;
 
 /**
  * XML Öµ´¦ÀíÆ÷
- * 
- * @author Xugu
  */
 public class XmlValueHandler extends ClobValueHandler {
 	public static final XmlValueHandler INSTANCE = new XmlValueHandler();

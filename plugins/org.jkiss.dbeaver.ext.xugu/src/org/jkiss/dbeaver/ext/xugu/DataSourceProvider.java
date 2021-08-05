@@ -19,6 +19,7 @@ package org.jkiss.dbeaver.ext.xugu;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
@@ -30,8 +31,6 @@ import org.jkiss.utils.CommonUtils;
 
 /**
  * 加载数据源信息
- * 
- * @author Xugu
  */
 public class DataSourceProvider extends JDBCDataSourceProvider {
 
@@ -56,7 +55,7 @@ public class DataSourceProvider extends JDBCDataSourceProvider {
 			return connectionInfo.getUrl();
 		}
 		StringBuilder url = new StringBuilder(100);
-		url.append("jdbc:xugu://");
+		url.append(String.format("jdbc:%s://", OemConfig.OEM_NAME_EN_LOWER));
 		if (!CommonUtils.isEmpty(connectionInfo.getHostName())) {
 			url.append(connectionInfo.getHostName());
 		}

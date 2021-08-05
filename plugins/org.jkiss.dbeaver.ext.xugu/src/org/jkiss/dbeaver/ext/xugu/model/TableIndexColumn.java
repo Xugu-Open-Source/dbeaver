@@ -23,8 +23,6 @@ import org.jkiss.dbeaver.model.meta.Property;
 
 /**
  * 索引字段信息类，包含索引和字段信息
- * 
- * @author Xugu
  */
 public class TableIndexColumn extends AbstractTableIndexColumn {
 	private TableIndex index;

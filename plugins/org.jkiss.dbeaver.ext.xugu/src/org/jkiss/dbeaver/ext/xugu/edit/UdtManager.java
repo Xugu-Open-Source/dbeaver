@@ -41,8 +41,6 @@ import org.jkiss.utils.CommonUtils;
 
 /**
  * 自定义类型管理器，进行自定义类型的创建和删除，不支  持修改
- * 
- * @author Xugu
  */
 public class UdtManager extends SQLObjectEditor<Udt, Schema> {
 	@Override

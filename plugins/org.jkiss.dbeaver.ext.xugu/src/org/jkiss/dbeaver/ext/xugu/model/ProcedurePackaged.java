@@ -36,8 +36,6 @@ import java.util.List;
 
 /**
  * 存储过程打包
- * 
- * @author Xugu
  */
 public class ProcedurePackaged extends BaseProcedure<Package> implements DBPUniqueObject {
  
@@ -49,30 +47,14 @@ public class ProcedurePackaged extends BaseProcedure<Package> implements DBPUniq
 	private String sourceDeclaration;
 	private List<ProcedureParameter> procParams;
 	
- 
-	
 	public  ProcedurePackaged(Package ownerPackage,ResultSet dResultSet) {
-		
-		
 		super(ownerPackage, JDBCUtils.safeGetString(dResultSet, "PACK_NAME"), 0L,
 				DBSProcedureType.valueOf(JDBCUtils.safeGetString(dResultSet, "RET_TYPE")==null?DBSProcedureType.PROCEDURE.toString():DBSProcedureType.FUNCTION.toString()));
 
 		String head = JDBCUtils.safeGetString(dResultSet, "SPEC");
 		String  body = JDBCUtils.safeGetString(dResultSet, "BODY");
 		String sql = head+body;
-//		XuguParserApi xuguParserApi = new XuguParserApi();
-//		CreatePackageBean createPackageBean = xuguParserApi.parseCreatePackage(sql);
-//		List<CreateProcedureBean> procedureBeans = createPackageBean.getCreateProcedureBeans();
-//		List<CreateFunctionBean> functionBeans = createPackageBean.getCreateFunctionBeans();
 	}
-	
-	
-	
-	
-//	public ProcedurePackaged(Package ownerPackage, ResultSet dbResult) {
-//		super(ownerPackage, JDBCUtils.safeGetString(dbResult, "PROC_NAME"), 0L,
-//				DBSProcedureType.valueOf(JDBCUtils.safeGetString(dbResult, "RET_TYPE")==null?DBSProcedureType.PROCEDURE.toString():DBSProcedureType.FUNCTION.toString()));
-//	}
 
 	@NotNull
 	@Override

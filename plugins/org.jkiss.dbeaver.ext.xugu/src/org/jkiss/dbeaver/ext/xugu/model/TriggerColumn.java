@@ -29,8 +29,6 @@ import java.sql.ResultSet;
 
 /**
  * 触发器字段信息类，包含触发器和字段信息
- * 
- * @author Xugu
  */
 public class TriggerColumn extends AbstractTriggerColumn {
 	private static final Log log = Log.getLog(TriggerColumn.class);

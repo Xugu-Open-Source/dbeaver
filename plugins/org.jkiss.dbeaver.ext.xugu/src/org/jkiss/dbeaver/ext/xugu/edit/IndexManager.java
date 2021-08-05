@@ -61,8 +61,6 @@ import java.util.Map;
 
 /**
  * 索引管理器， 进行索引的增加和删除
- * 
- * @author Xugu
  */
 public class IndexManager extends SQLIndexManager<TableIndex, BaseTablePhysical> {
 

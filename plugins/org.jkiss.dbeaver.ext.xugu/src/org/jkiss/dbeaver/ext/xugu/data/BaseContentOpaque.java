@@ -37,8 +37,6 @@ import java.sql.SQLException;
 
 /**
  * 基本内容封装
- *
- * @author Xugu
  */
 public abstract class BaseContentOpaque<OPAQUE_TYPE extends Object> extends JDBCContentLOB {
 	protected static final Log LOG = Log.getLog(AbstractObjectManager.class);

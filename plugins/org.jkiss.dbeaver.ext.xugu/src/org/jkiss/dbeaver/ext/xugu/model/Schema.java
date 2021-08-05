@@ -56,8 +56,6 @@ import java.util.*;
 
 /**
  * 模式信息类，包含模式相关的基本信息，以及表级对象缓存（表、视图、约束、外键、索引、序列、包、存储过程、作业、同义词、自定义类型）
- * 
- * @author Xugu
  */
 public class Schema extends BaseGlobalObject
 		implements DBSSchema, DBPRefreshableObject, DBPSystemObject, DBSProcedureContainer ,DBPNamedObject2 {

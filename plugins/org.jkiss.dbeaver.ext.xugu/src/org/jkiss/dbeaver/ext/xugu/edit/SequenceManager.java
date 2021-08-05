@@ -43,8 +43,6 @@ import java.util.Map;
 
 /**
  * 序列管理器，进行序列的创建，修改和删除
- * 
- * @author Xugu
  */
 public class SequenceManager extends SQLObjectEditor<Sequence, Schema> {
 	@Override

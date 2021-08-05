@@ -35,8 +35,6 @@ import java.util.Collection;
 
 /**
  * ¶©ÔÄ³ÌÐò
- * 
- * @author Xugu
  */
 public class SchedulerProgram extends BaseSchemaObject {
 	private static final String CAT_ADVANCED = "Advanced";

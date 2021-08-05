@@ -54,8 +54,6 @@ import java.util.Map;
 
 /**
  * 角色管理器，进行索引的创建和删除，不支持修改，包含一个内部界面类，用于进行属性设定
- * 
- * @author Xugu
  */
 public class RoleManager extends SQLObjectEditor<Role, DataSource> {
 	@Override

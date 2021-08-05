@@ -46,8 +46,6 @@ import java.util.regex.Pattern;
 
 /**
  * 包管理器，进行包的创建和删除（修改等同于创建并替换）
- * 
- * @author Xugu
  */
 public class PackageManager extends SQLObjectEditor<Package, Schema> {
 	private final static Pattern PATTERN_OR = Pattern.compile("(OR)", Pattern.CASE_INSENSITIVE);

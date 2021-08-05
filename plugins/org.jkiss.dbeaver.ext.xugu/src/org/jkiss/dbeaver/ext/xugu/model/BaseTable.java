@@ -54,8 +54,6 @@ import java.util.Map;
 
 /**
  * 表信息基类，包含触发器缓存
- * 
- * @author Xugu
  */
 public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 		implements DBPNamedObject2, DBPRefreshableObject, StatefulObject {

@@ -39,8 +39,6 @@ import java.util.Iterator;
 
 /**
  * 基本存储过程
- * 
- * @author Xugu
  */
 public abstract class BaseProcedure<PARENT extends DBSObjectContainer> extends BaseObject<PARENT>
 		implements DBSProcedure {

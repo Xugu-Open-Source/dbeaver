@@ -22,8 +22,6 @@ import org.jkiss.dbeaver.model.meta.Property;
 
 /**
  * 二级表分区信息类
- * 
- * @author Xugu
  */
 public class TableSubPartition extends BasePartition<BaseTablePhysical> {
 

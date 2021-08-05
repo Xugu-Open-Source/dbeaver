@@ -27,8 +27,6 @@ import org.jkiss.dbeaver.ui.editors.DatabaseEditorUtils;
 
 /**
  * 基本用户编辑器
- * 
- * @author Xugu
  */
 public abstract class BaseUserEditor extends AbstractDatabaseObjectEditor<User> {
 	@Override

@@ -49,8 +49,6 @@ import org.jkiss.dbeaver.DBException;
 
 /**
  * 约束管理器，进行约束的增加删除和修改
- * 
- * @author Xugu
  */
 public class ConstraintManager extends SQLConstraintManager<TableConstraint, BaseTable> {
 	@Nullable

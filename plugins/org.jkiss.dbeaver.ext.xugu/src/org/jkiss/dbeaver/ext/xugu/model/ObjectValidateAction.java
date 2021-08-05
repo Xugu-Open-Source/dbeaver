@@ -27,8 +27,6 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 
 /**
  * 对象验证动作
- * 
- * @author Xugu
  */
 public class ObjectValidateAction extends ObjectPersistAction {
 	private final SourceObject object;

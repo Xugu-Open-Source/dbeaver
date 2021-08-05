@@ -39,8 +39,6 @@ import java.util.Map;
 
 /**
  * ¼Æ»®·ÖÎö
- * 
- * @author Xugu
  */
 public class PlanAnalyser implements DBCPlan {
 	private static final Log log = Log.getLog(PlanAnalyser.class);

@@ -16,7 +16,6 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource;
 import org.jkiss.dbeaver.ext.xugu.model.Schema;
 import org.jkiss.dbeaver.ext.xugu.model.Sequence;
-import org.jkiss.dbeaver.ext.xugu.model.View;
 import org.jkiss.dbeaver.model.DBPMessageType;
 import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
@@ -26,7 +25,7 @@ import org.jkiss.dbeaver.utils.RuntimeUtils;
 
 import com.xugu.parser.Parsing;
 
-public class XuguToolViewExport implements IUserInterfaceTool{
+public class SequenceExport implements IUserInterfaceTool{
 
 	@Override
 	public void execute(IWorkbenchWindow window, IWorkbenchPart activePart, Collection<DBSObject> objects)
@@ -38,10 +37,10 @@ public class XuguToolViewExport implements IUserInterfaceTool{
 				File outputFolder = null;
 				DatabaseMetaData databaseMetaData;
 				String databaseNameString = null;
-				String viewNameString = null ;
+				String sequenceNameString = null ;
 				if(objects.iterator().hasNext()) {
-					View  object = (View)objects.iterator().next();
-					viewNameString = object.getName();
+					Sequence  object = (Sequence)objects.iterator().next();
+					sequenceNameString = object.getName();
 					Schema schema = (Schema)(object.getParentObject()); 
 					dataSource =  schema.getDataSource();
 					schemaNameString = schema.getName();
@@ -65,9 +64,9 @@ public class XuguToolViewExport implements IUserInterfaceTool{
 				//获取系统当前时间并将其转换为string类型
 				String fileName=sFormat.format(calendar.getTime());
 				if(schemaNameString!=""&&schemaNameString!=null) {
-					    outputFolder = new File(RuntimeUtils.getUserHomeDir().getAbsolutePath()+"\\"+schemaNameString+"_view_"+fileName+".sql");
+					    outputFolder = new File(RuntimeUtils.getUserHomeDir().getAbsolutePath()+"\\"+schemaNameString+"_sequence_"+fileName+".sql");
 				}
-				 byte[] b = new Parsing().getDatabaseObjectDDL(currentConnection,databaseNameString,schemaNameString,"view",viewNameString, Parsing.TableType.ALL).getBytes();
+				 byte[] b = new Parsing().getDatabaseObjectDDL(currentConnection,databaseNameString,schemaNameString,"sequence",sequenceNameString, Parsing.TableType.ALL).getBytes();
 				 FileOutputStream fos = null;
 				try {
 					 fos = new FileOutputStream(outputFolder);	
@@ -75,7 +74,7 @@ public class XuguToolViewExport implements IUserInterfaceTool{
 					    DBeaverNotifications.showNotification(
 			                    DBeaverNotifications.NT_RECONNECT,
 			                    schemaNameString,
-			                     "export  view  success"+"\r\n"+outputFolder.getAbsolutePath(),
+			                     "export  function  success"+"\r\n"+outputFolder.getAbsolutePath(),
 			                    DBPMessageType.INFORMATION,new Runnable() {
 									@Override
 									public void run() {

@@ -27,8 +27,6 @@ import java.sql.SQLException;
 
 /**
  * ≈≈–Ú
- * 
- * @author Xugu
  */
 public class Collation extends BaseInformation {
 	private Charset charset;

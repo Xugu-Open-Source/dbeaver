@@ -42,8 +42,6 @@ import java.util.Vector;
 
 /**
  * 用户信息类，包含名称、用户权限等具体信息
- * 
- * @author Xugu
  */
 public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObject, DBPSaveableObject {
 	private static final Log log = Log.getLog(User.class);

@@ -25,8 +25,6 @@ import org.jkiss.utils.CommonUtils;
 
 /**
  * 基本对象类
- * 
- * @author Xugu
  */
 public abstract class BaseObject<PARENT extends DBSObject> implements DBSObject, DBPSaveableObject {
 	protected final PARENT parent;

@@ -22,8 +22,6 @@ import org.jkiss.dbeaver.model.struct.DBSObject;
 
 /**
  * 角色权限信息类
- * 
- * @author Xugu
  */
 public class RoleAuthority extends BaseAuthority {
 	boolean isDatabase;

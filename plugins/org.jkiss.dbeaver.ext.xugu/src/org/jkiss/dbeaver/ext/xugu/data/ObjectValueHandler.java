@@ -30,8 +30,6 @@ import java.sql.SQLException;
 
 /**
  * 对象值处理器
- * 
- * @author Xugu
  */
 public class ObjectValueHandler extends JDBCAbstractValueHandler {
 	public static final ObjectValueHandler INSTANCE = new ObjectValueHandler();

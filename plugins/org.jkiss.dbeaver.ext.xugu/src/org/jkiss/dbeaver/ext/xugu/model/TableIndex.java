@@ -34,8 +34,6 @@ import java.util.List;
 
 /**
  * 索引信息类，包含索引相关的基本信息
- * 
- * @author Xugu
  */
 public class TableIndex extends JDBCTableIndex<Schema, BaseTablePhysical> {
 	private List<TableIndexColumn> columns;

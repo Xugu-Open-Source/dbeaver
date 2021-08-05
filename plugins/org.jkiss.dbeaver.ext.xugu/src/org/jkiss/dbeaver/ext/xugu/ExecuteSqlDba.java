@@ -21,9 +21,6 @@ import org.eclipse.osgi.util.NLS;
 
 /**
  * Ö´ÐÐ DBA SQL
- * 
- * @author Xugu
- *
  */
 public class ExecuteSqlDba extends NLS {
 	static final String BUNDLE_NAME = "org.jkiss.dbeaver.ext.xugu.ExecuteSQL_Cloud_DBA";

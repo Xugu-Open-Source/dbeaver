@@ -29,8 +29,6 @@ import java.sql.ResultSet;
 
 /**
  * 约束信息类，包含约束相关的基本信息
- * 
- * @author Xugu
  */
 public class TableConstraint extends BaseTableConstraint {
 	private static final Log log = Log.getLog(TableConstraint.class);

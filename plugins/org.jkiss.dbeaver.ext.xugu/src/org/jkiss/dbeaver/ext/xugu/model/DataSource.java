@@ -75,8 +75,6 @@ import java.util.regex.Pattern;
 
 /**
  * 数据源类，包含连接信息以及模式级别的对象缓存（模式、角色、用户、表空间、数据类型） 负责创建连接、初始化上下文等
- * 
- * @author Xugu
  */
 public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdaptable {
 	private static final Log log = Log.getLog(DataSource.class);
@@ -680,6 +678,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			return true;
 		}
 
+		@SuppressWarnings("unchecked")
 		@Override
 		public void readServerOutput(@NotNull DBRProgressMonitor monitor, @NotNull DBCExecutionContext context,
 				@Nullable SQLQueryResult queryResult, @Nullable DBCStatement statement, @NotNull PrintWriter output)
@@ -690,14 +689,17 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			            dumpWarnings(output, queryResult.getWarnings());
 			        }
 	            } else {
-	            	Object  originStatement = getOriginalStatement(statement);
-					Class xuguStatement =Class.forName("com.xugu.cloudjdbc.Statement");
-					Method method = xuguStatement.getMethod("getSqlsEffectCountVector");
+	            	Object originStatement = getOriginalStatement(statement);
+					Class<?> oemStatementClass =Class.forName(String.format("com.%s.cloudjdbc.Statement", OemConfig.OEM_NAME_EN_LOWER));
+					Method method = oemStatementClass.getMethod("getSqlsEffectCountVector");
 					Vector<Vector<Object>> messageVector = (Vector<Vector<Object>>) method.invoke(originStatement);
-					messageVector.forEach((messageColumnVector)->{
-						String type = (String) messageColumnVector.get(1);
-						if (M.equalsIgnoreCase(type)) {
-							output.append((String) messageColumnVector.get(0));
+					messageVector.forEach((messageColumnVector) -> {
+						Object object = messageColumnVector.get(1);
+						if (object instanceof String) {
+							String type = (String) object;
+							if (M.equalsIgnoreCase(type)) {
+								output.append((String) messageColumnVector.get(0));
+							}
 						}
 					});
 					
@@ -747,8 +749,6 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 	/**
 	 * 数据库缓存
-	 * 
-	 * @author Xugu
 	 */
 	public static class DatabaseCache extends JDBCStructLookupCache<DataSource, Database, Schema> {
 
@@ -810,8 +810,6 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 	/**
 	 * 模式缓存
-	 * 
-	 * @author Xugu
 	 */
 	public static class SchemaCache extends JDBCStructLookupCache<DataSource, Schema, Schema> {
 		SchemaCache() {
@@ -890,8 +888,6 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 	/**
 	 * 数据类型缓存，不做查询操作，在 initialize 函数中进行初始化
-	 * 
-	 * @author Xugu
 	 */
 	static class DataTypeCache extends JDBCObjectCache<DataSource, DataType> {
 		@Override
@@ -911,8 +907,6 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 	/**
 	 * 表空间缓存
-	 * 
-	 * @author Xugu
 	 */
 	static class TablespaceCache extends JDBCObjectCache<DataSource, Tablespace> {
 		@Override
@@ -931,8 +925,6 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 	/**
 	 * 用户缓存
-	 * 
-	 * @author Xugu
 	 */
 	public static class UserCache extends JDBCStructLookupCache<DataSource, User, User> {
 		public UserCache() {
@@ -983,8 +975,6 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 	/**
 	 * 角色缓存
-	 * 
-	 * @author Xugu
 	 */
 	public class RoleCache extends JDBCObjectCache<DataSource, Role> {
 		@Override

@@ -30,8 +30,6 @@ import java.sql.ResultSet;
 
 /**
  * 数据类型方法参数
- * 
- * @author Xugu
  */
 public class DataTypeMethodParameter implements DBSParameter {
 

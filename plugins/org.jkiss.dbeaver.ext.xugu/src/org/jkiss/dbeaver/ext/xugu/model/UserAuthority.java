@@ -21,8 +21,6 @@ import org.jkiss.dbeaver.model.meta.Property;
 
 /**
  * 用户权限信息类
- * 
- * @author Xugu
  */
 public class UserAuthority extends BaseAuthority {
 	private User parent;

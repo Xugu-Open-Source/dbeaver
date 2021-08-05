@@ -24,8 +24,6 @@ import java.sql.ResultSet;
 
 /**
  * 虚谷表空间文件
- * 
- * @author Xugu
  */
 public class DataFile extends BaseObject<Tablespace> {
 	public enum OnlineStatus {

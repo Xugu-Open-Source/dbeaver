@@ -27,8 +27,6 @@ import org.jkiss.dbeaver.ui.UIUtils;
 
 /**
  * ¾¯¸æ¶Ô»°¿ò
- * 
- * @author Xugu
  */
 public class WarningDialog extends Dialog {
 	private String warningInfo;

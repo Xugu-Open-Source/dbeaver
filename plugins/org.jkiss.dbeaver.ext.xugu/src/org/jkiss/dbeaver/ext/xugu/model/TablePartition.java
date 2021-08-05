@@ -20,8 +20,6 @@ import java.sql.ResultSet;
 
 /**
  * 表分区衍生类
- * 
- * @author Xugu
  */
 public class TablePartition extends BasePartition<BaseTablePhysical> {
 	public TablePartition(BaseTablePhysical table, boolean subpartition, String name) {

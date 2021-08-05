@@ -37,8 +37,6 @@ import java.util.Calendar;
 
 /**
  * 时间戳值处理器
- * 
- * @author Xugu
  */
 public class TimestampValueHandler extends JDBCDateTimeValueHandler {
 	private static final SimpleDateFormat DEFAULT_DATETIME_FORMAT = new ExtendedDateFormat(

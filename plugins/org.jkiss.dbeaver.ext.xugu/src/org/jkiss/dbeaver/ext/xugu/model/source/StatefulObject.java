@@ -25,8 +25,6 @@ import org.jkiss.dbeaver.model.struct.DBSObject;
 
 /**
  * 有状态的对象
- * 
- * @author Xugu
  */
 public interface StatefulObject extends DBSObject, DBPStatefulObject {
 	/**

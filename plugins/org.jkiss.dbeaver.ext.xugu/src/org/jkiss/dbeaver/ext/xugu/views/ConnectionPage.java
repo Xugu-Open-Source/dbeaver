@@ -35,6 +35,7 @@ import org.eclipse.swt.widgets.Text;
 import org.jkiss.dbeaver.ext.xugu.Activator;
 import org.jkiss.dbeaver.ext.xugu.Constants;
 import org.jkiss.dbeaver.ext.xugu.Messages;
+import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
@@ -49,8 +50,6 @@ import java.util.TimeZone;
 
 /**
  * 创建连接页面
- * 
- * @author Xugu
  */
 public class ConnectionPage extends ConnectionPageAbstract implements ICompositeDialogPage {
 	private Text hostText;
@@ -238,7 +237,8 @@ public class ConnectionPage extends ConnectionPageAbstract implements IComposite
 		connectionInfo.setProviderProperty(Constants.PROP_INTERNAL_LOGON,
 				roleCombo.getText().toUpperCase(Locale.ENGLISH));
 		
-		String url = String.format("jdbc:xugu://%s:%s/%s",
+		String url = String.format("jdbc:%s://%s:%s/%s",
+				OemConfig.OEM_NAME_EN_LOWER,
 				hostText.getText().trim(),
 				portText.getText().trim(),
 				dbText.getText().toUpperCase().trim());

@@ -21,8 +21,6 @@ import org.jkiss.dbeaver.model.struct.DBSObject;
 
 /**
  * 基本信息类
- * 
- * @author Xugu
  */
 public abstract class BaseInformation implements DBSObject {
 	private DataSource dataSource;

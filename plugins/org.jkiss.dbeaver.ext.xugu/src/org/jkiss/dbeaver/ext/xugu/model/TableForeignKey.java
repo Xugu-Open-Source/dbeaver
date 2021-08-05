@@ -37,8 +37,6 @@ import java.sql.SQLException;
 
 /**
  * 外键信息类，包含外键相关的基本信息
- * 
- * @author Xugu
  */
 public class TableForeignKey extends BaseTableConstraint implements DBSTableForeignKey {
 	private static final Log log = Log.getLog(TableForeignKey.class);

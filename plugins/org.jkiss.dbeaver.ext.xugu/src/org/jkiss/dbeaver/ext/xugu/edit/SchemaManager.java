@@ -62,8 +62,6 @@ import java.util.Map;
 
 /**
  * 模式管理器，进行模式的创建和删除，修改（重命名或添加注释信息）包含一个内部界面类，用于进行属性设定
- * 
- * @author Xugu
  */
 public class SchemaManager extends SQLObjectEditor<Schema, DataSource> implements DBEObjectRenamer<Schema> {
 	

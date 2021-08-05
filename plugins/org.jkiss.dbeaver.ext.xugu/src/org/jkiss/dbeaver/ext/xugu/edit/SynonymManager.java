@@ -53,8 +53,6 @@ import org.jkiss.utils.CommonUtils;
 
 /**
  * 同义词管理器，进行同义词的创建和删除，不支持修改，包含一个内部界面类，用于进行属性设定
- * 
- * @author Xugu
  */
 public class SynonymManager extends SQLObjectEditor<Synonym, Schema> implements DBEObjectRenamer<Synonym> {
 	@Override

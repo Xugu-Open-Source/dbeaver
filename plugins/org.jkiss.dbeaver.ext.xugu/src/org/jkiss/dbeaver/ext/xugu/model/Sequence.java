@@ -27,8 +27,6 @@ import java.sql.Timestamp;
 
 /**
  * 序列信息类，包含序列相关的基本信息
- * 
- * @author Xugu
  */
 public class Sequence extends BaseSchemaObject implements DBSSequence {
 	private int seqId;

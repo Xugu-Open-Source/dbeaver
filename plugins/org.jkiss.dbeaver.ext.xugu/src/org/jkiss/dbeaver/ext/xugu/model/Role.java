@@ -38,8 +38,6 @@ import java.util.Vector;
 
 /**
  * 角色信息类，包含名称、角色权限等具体信息
- * 
- * @author Xugu
  */
 public class Role extends BaseGlobalObject implements DBARole, DBPRefreshableObject {
 	private String name;

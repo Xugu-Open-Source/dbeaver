@@ -24,8 +24,6 @@ import org.osgi.framework.BundleContext;
 
 /**
  * 此插件激活类，控制插件生命周期
- * 
- * @author Xugu
  */
 public class Activator extends AbstractUIPlugin {
 	/**

@@ -43,8 +43,6 @@ import java.util.Map;
 
 /**
  * 触发器基类，包含触发器基本信息
- * 
- * @author Xugu
  */
 public abstract class BaseTrigger<PARENT extends DBSObject> extends BaseObject<PARENT>
 		implements DBSTrigger, DBPQualifiedObject, SourceObject {

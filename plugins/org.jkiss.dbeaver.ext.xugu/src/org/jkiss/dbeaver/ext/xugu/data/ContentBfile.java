@@ -39,8 +39,6 @@ import java.io.*;
 
 /**
  * BFILE ÄÚÈÝ
- * 
- * @author Xugu
  */
 public class ContentBfile extends JDBCContentLOB {
 	private static final Log LOG = Log.getLog(ContentBfile.class);

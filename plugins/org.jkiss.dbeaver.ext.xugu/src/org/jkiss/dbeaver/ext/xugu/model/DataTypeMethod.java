@@ -40,8 +40,6 @@ import java.util.Collection;
 
 /**
  * 数据类型方法
- * 
- * @author Xugu
  */
 public class DataTypeMethod extends BaseDataTypeMember implements DBSEntityMethod, DBSParametrizedObject {
 	private String methodType;

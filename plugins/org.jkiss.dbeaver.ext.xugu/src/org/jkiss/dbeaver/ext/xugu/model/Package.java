@@ -60,8 +60,6 @@ import java.util.*;
 
 /**
  * 基本模式对象
- * 
- * @author Xugu
  */
 public class Package extends BaseSchemaObject implements SourceObject, DBPScriptObjectExt, DBSObjectContainer,
 		DBSPackage, DBPRefreshableObject, DBSProcedureContainer  {

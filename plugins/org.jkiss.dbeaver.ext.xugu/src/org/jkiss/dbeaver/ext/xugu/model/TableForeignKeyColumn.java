@@ -21,8 +21,6 @@ import org.jkiss.dbeaver.model.struct.rdb.DBSTableForeignKeyColumn;
 
 /**
  * 外键字段信息类，包含外键和字段信息
- * 
- * @author Xugu
  */
 public class TableForeignKeyColumn extends TableConstraintColumn implements DBSTableForeignKeyColumn {
 	private TableColumn referencedColumn;

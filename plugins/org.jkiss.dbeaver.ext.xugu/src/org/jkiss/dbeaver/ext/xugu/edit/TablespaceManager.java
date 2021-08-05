@@ -51,8 +51,6 @@ import org.jkiss.dbeaver.ui.UIUtils;
 
 /**
  * 表空间管理器，进行表空间的创建，修改和删除，包含一个内部界面类，用于进行属性设定
- * 
- * @author Xugu
  */
 public class TablespaceManager extends SQLObjectEditor<Tablespace, DataSource> {
 	@Override

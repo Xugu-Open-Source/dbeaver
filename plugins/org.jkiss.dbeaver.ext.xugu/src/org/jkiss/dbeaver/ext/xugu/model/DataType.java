@@ -50,8 +50,6 @@ import java.util.Map;
 
 /**
  * 虚谷数据类型
- * 
- * @author Xugu
  */
 public class DataType extends BaseObject<DBSObject>
 		implements DBSDataType, DBSEntity, DBPQualifiedObject, SourceObject, DBPScriptObjectExt {

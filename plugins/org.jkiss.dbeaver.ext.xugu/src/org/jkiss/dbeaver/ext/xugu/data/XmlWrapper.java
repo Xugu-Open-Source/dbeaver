@@ -30,8 +30,6 @@ import java.sql.SQLXML;
 
 /**
  * XML °ü×°Æ÷
- * 
- * @author Xugu
  */
 public class XmlWrapper implements SQLXML {
 	private final Object xmlType;

@@ -28,8 +28,6 @@ import java.util.List;
 
 /**
  * 约束信息基类
- * 
- * @author Xugu
  */
 public abstract class BaseTableConstraint extends JDBCTableConstraint<BaseTable> {
 	private ObjectStatus status;

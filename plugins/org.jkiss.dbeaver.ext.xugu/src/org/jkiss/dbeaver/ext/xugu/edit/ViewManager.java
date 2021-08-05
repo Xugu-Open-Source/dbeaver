@@ -63,8 +63,6 @@ import java.util.regex.Pattern;
 
 /**
  * 视图管理器，进行视图的创建和删除，修改相当于创建并替换
- * 
- * @author Xugu
  */
 public class ViewManager extends SQLObjectEditor<View, Schema> implements DBEObjectRenamer<View> {
 	@Override
