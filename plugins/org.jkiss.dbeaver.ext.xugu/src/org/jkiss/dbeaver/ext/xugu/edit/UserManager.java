@@ -349,7 +349,7 @@ public class UserManager extends SQLObjectEditor<User, DataSource>
 				sql.append(user.isLocked() ? " ACCOUNT LOCK" : "");
 				sql.append(user.isExpired() ? " PASSWORD EXPIRED" : "");
 
-				log.debug("[" + OemConfig.COMPANY_NAME + "] Construct create user sql: " + sql.toString());
+				log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create user sql: " + sql.toString());
 				DBEPersistAction action = new SQLDatabasePersistAction("Create User", sql.toString());
 				actions.add(action);
 			}
@@ -362,7 +362,7 @@ public class UserManager extends SQLObjectEditor<User, DataSource>
 			Map<String, Object> options) {
 		String sql = "DROP USER " + command.getObject().getName();
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct drop user sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop user sql: " + sql);
 		DBEPersistAction action = new SQLDatabasePersistAction("Drop User", sql);
 		actions.add(action);
 		String userNameString = command.getObject().getName();
@@ -390,7 +390,7 @@ public class UserManager extends SQLObjectEditor<User, DataSource>
 		}
 		String sql = "ALTER USER " + command.getObject().getName() + " IDENTIFIED BY ";
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct alter user sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct alter user sql: " + sql);
 		DBEPersistAction action = new SQLDatabasePersistAction("Alter User", sql);
 		actionList.add(action);
 	}

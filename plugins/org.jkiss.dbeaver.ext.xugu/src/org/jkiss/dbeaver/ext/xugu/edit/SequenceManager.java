@@ -120,7 +120,7 @@ public class SequenceManager extends SQLObjectEditor<Sequence, Schema> {
 
 		String sql = buildStatement(sq, false);
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct create sequence sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create sequence sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Create Sequence", sql));
 	}
 
@@ -132,7 +132,7 @@ public class SequenceManager extends SQLObjectEditor<Sequence, Schema> {
 		if (command.getProperties().size() > 1 || command.getProperty(commentKey) == null) {
 			String sql = buildStatement(command.getObject(), true);
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct alter sequence sql: " + sql.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct alter sequence sql: " + sql.toString());
 			actionList.add(new SQLDatabasePersistAction("Alter Sequence", sql));
 		}
 	}
@@ -150,7 +150,7 @@ public class SequenceManager extends SQLObjectEditor<Sequence, Schema> {
 			desc.append(" IS ");
 			desc.append(SQLUtils.quoteString(command.getObject(), command.getObject().getComment()));
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct add sequence comment sql: " + desc.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct add sequence comment sql: " + desc.toString());
 			actions.add(new SQLDatabasePersistAction("Comment Sequence", desc.toString()));
 		}
 	}
@@ -161,7 +161,7 @@ public class SequenceManager extends SQLObjectEditor<Sequence, Schema> {
 			Map<String, Object> options) {
 		String sql = "DROP SEQUENCE " + command.getObject().getFullyQualifiedName(DBPEvaluationContext.DDL);
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct drop sequence sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop sequence sql: " + sql);
 		DBEPersistAction action = new SQLDatabasePersistAction("Drop Sequence", sql);
 		actions.add(action);
 	}

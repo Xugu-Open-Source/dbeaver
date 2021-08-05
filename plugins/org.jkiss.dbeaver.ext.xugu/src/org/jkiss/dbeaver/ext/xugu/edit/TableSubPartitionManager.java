@@ -165,7 +165,7 @@ public class TableSubPartitionManager extends SQLObjectEditor<TableSubPartition,
 			sql.append(command.getObject().getName());
 			sql.append((boolean) command.getProperty("online") ? " ONLINE" : " OFFLINE");
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct add subpartition sql: " + sql.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct add subpartition sql: " + sql.toString());
 			actionList.add(new SQLDatabasePersistAction("Alter Partition", sql.toString()));
 		}
 	}

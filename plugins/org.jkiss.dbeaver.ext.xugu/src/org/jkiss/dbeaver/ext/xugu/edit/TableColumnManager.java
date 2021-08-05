@@ -114,7 +114,7 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 			query += " COMMENT '" + command.getObject().getComment(monitor) + "'";
 		}
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct create table column sql: " + query);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create table column sql: " + query);
 		actions.add(new SQLDatabasePersistAction(ModelMessages.model_jdbc_create_new_table_column, query));
 		try {
 			table.getSchema().tableCache.refreshObject(monitor, table.getSchema(), table);
@@ -160,12 +160,12 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 							+ DBUtils.getQuotedIdentifier(column) + " IS '"
 							+ column.getComment(new VoidProgressMonitor()) + "'";
 
-					log.debug("[" + OemConfig.COMPANY_NAME + "] Construct alter column comment sql: " + sql);
+					log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct alter column comment sql: " + sql);
 					actionList.add(new SQLDatabasePersistAction("Comment column", sql));
 				}else if("samplingInterval".equals(key)) {
 					String sql = "call dbms_stat.analyze_table('" + column.getTable().getFullyQualifiedName(DBPEvaluationContext.DDL) + "','"+column.getName() 
 					+"',"+ value +",null)";
-					log.debug("[" + OemConfig.COMPANY_NAME + "] 设置离散采样间隔: " + sql);
+					log.debug("[" + OemConfig.OEM_NAME_EN + "] 设置离散采样间隔: " + sql);
 					actionList.add(new SQLDatabasePersistAction(" comment column", sql));
 				}else if("isIdenBoolean".equals(key)||"stepInteger".equals(key)||"minInteger".equals(key)){
 					if(column.getIsIdenBoolean()){	
@@ -175,7 +175,7 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 									+ " ALTER COLUMN \" "+column.getName() + "\" " + column.getTypeName() + " identity (" 
 									+ (command.getProperty("minInteger")==null?column.getMinInteger().toString():command.getProperty("minInteger"))
 									+"," +(command.getProperty("stepInteger")==null?column.getStepInteger().toString():command.getProperty("stepInteger"))+")";	
-							log.debug("[" + OemConfig.COMPANY_NAME + "] Construct alter column comment sql: " + sql);
+							log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct alter column comment sql: " + sql);
 							actionList.add(new SQLDatabasePersistAction("Comment column", sql));
 						}else {
 							continue;						}
@@ -212,7 +212,7 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 						continue;
 					} else {
 						first = sql;
-						log.debug("[" + OemConfig.COMPANY_NAME + "] Construct alter table column sql: " + sql);
+						log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct alter table column sql: " + sql);
 						actionList.add(new SQLDatabasePersistAction("Modify column", sql));
 					}
 				}
@@ -334,7 +334,7 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 				+ " RENAME COLUMN " + DBUtils.getQuotedIdentifier(column.getDataSource(), command.getOldName()) + " TO "
 				+ DBUtils.getQuotedIdentifier(column.getDataSource(), command.getNewName());
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct rename table column sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct rename table column sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Rename column", sql));
 	}
 }

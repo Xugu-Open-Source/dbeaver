@@ -134,7 +134,7 @@ public class StructureAssistant implements DBSStructureAssistant {
 		decl.append((!hasFk ? " AND CONSTRAINT_TYPE<>'R'" : ""));
 		decl.append((schema != null ? " AND OWNER=?" : ""));
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Constraints Information: " + decl.toString());
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Constraints Information: " + decl.toString());
 		try (JDBCPreparedStatement dbStat = session.prepareStatement(decl.toString())) {
 			dbStat.setString(1, constrNameMask);
 			if (schema != null) {

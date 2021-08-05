@@ -31,12 +31,12 @@ public class BinaryFormatter extends BinaryFormatterHex {
 
 	@Override
 	public String getId() {
-		return OemConfig.COMPANY_NAME.toLowerCase() + "hex";
+		return OemConfig.OEM_NAME_EN.toLowerCase() + "hex";
 	}
 
 	@Override
 	public String getTitle() {
-		return OemConfig.COMPANY_NAME + " Hex";
+		return OemConfig.OEM_NAME_EN + " Hex";
 	}
 
 	@Override

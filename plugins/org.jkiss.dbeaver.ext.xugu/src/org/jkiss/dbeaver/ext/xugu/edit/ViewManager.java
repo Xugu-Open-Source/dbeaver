@@ -139,7 +139,7 @@ public class ViewManager extends SQLObjectEditor<View, Schema> implements DBEObj
 			desc.append(" IS ");
 			desc.append(SQLUtils.quoteString(command.getObject(), command.getObject().getComment()));
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct add view comment sql: " + desc.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct add view comment sql: " + desc.toString());
 			actions.add(new SQLDatabasePersistAction("Comment View", desc.toString()));
 		}
 	}
@@ -150,7 +150,7 @@ public class ViewManager extends SQLObjectEditor<View, Schema> implements DBEObj
 			Map<String, Object> options) {
 		String sql = "DROP VIEW " + command.getObject().getFullyQualifiedName(DBPEvaluationContext.DDL);
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct drop view sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop view sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Drop view", sql));
 	}
 	
@@ -161,7 +161,7 @@ public class ViewManager extends SQLObjectEditor<View, Schema> implements DBEObj
 		// 删除原始视图
 		String dropSql = "DROP VIEW " + DBUtils.getQuotedIdentifier(command.getObject().getSchema()) + "." +
 				DBUtils.getQuotedIdentifier(command.getObject().getDataSource(), command.getOldName());
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct drop view sql: " + dropSql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop view sql: " + dropSql);
 		actions.add(new SQLDatabasePersistAction("Drop view", dropSql));
 
 		// 创建新视图
@@ -178,7 +178,7 @@ public class ViewManager extends SQLObjectEditor<View, Schema> implements DBEObj
 		String newViewName = DBUtils.getQuotedIdentifier(command.getObject().getSchema()) +"." +
 				DBUtils.getQuotedIdentifier(command.getObject().getDataSource(), command.getNewName());
 		String newCreateSql = oldCreateSql.replace(oldViewName, newViewName);
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct create view sql: " + dropSql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create view sql: " + dropSql);
 		actions.add(new SQLDatabasePersistAction("Create view", newCreateSql));
 	}
 
@@ -188,7 +188,7 @@ public class ViewManager extends SQLObjectEditor<View, Schema> implements DBEObj
 
 		view.setViewText(view.getViewText());
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct create view sql: " + view.getViewText());
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create view sql: " + view.getViewText());
 		actions.add(0, new SQLDatabasePersistAction("Create view", view.getViewText()));
 	}
 

@@ -129,7 +129,7 @@ public class DatabaseManager extends SQLObjectEditor<Database, DataSource> {
 			sql += " TIME ZONE '" + database.getTimeZone() + "'";
 		}
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct create database sql: " + sql.toString());
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create database sql: " + sql.toString());
 		actions.add(new SQLDatabasePersistAction("Create database", sql));
 
 		try {

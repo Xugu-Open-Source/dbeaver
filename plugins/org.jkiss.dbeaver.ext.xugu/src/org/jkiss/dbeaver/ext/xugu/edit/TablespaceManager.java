@@ -111,7 +111,7 @@ public class TablespaceManager extends SQLObjectEditor<Tablespace, DataSource> {
 		}
 		sql += " DATAFILE '" + tablespace.getFilePath() + "'";
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct add tablespace sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct add tablespace sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Create Tablespace", sql));
 	}
 
@@ -121,7 +121,7 @@ public class TablespaceManager extends SQLObjectEditor<Tablespace, DataSource> {
 			Map<String, Object> options) {
 		String sql = "DROP TABLESPACE " + DBUtils.getQuotedIdentifier(command.getObject());
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct drop tablespace sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop tablespace sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Drop Tablespace", sql));
 	}
 
@@ -133,7 +133,7 @@ public class TablespaceManager extends SQLObjectEditor<Tablespace, DataSource> {
 		if (command.getProperties().size() > 1 || command.getProperty(commentKey) == null) {
 			StringBuilder query = new StringBuilder("ALTER TABLESPACE ");
 			query.append(command.getObject().getName()).append(" ");
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct alter tablespace sql: " + query.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct alter tablespace sql: " + query.toString());
 			actionList.add(new SQLDatabasePersistAction(query.toString()));
 		}
 	}

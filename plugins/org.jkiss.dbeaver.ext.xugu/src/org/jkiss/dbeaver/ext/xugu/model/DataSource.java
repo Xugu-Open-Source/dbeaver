@@ -181,7 +181,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		}
 
 		// 处理连接保活
-		Path configPath = Paths.get(OemConfig.COMPANY_NAME.toLowerCase() + ".properties");
+		Path configPath = Paths.get(OemConfig.OEM_NAME_EN.toLowerCase() + ".properties");
 		String enableConnectKeepAliveKey = "enable-connect-keep-alive";
 		String enableConnectKeepAliveValue = "true";
 		String connectKeepAliveMillisecondsKey = "connect-keep-alive-milliseconds";
@@ -196,12 +196,12 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 					defaultConfigProperties.setProperty(enableConnectKeepAliveKey, enableConnectKeepAliveValue);
 					defaultConfigProperties.setProperty(connectKeepAliveMillisecondsKey, connectKeepAliveMillisecondsValue);
 					defaultConfigProperties.store(os, null);
-					log.debug(OemConfig.COMPANY_NAME + "配置文件默认配置保存成功：" + configPath.toAbsolutePath());
+					log.debug(OemConfig.OEM_NAME_EN + "配置文件默认配置保存成功：" + configPath.toAbsolutePath());
 				} catch (IOException e) {
-					throw new IllegalStateException(OemConfig.COMPANY_NAME + "配置文件默认配置保存失败：" + configPath.toAbsolutePath(), e);
+					throw new IllegalStateException(OemConfig.OEM_NAME_EN + "配置文件默认配置保存失败：" + configPath.toAbsolutePath(), e);
 				}
 			} catch (IOException e) {
-				throw new IllegalStateException(OemConfig.COMPANY_NAME + "配置文件创建失败：" + configPath.toAbsolutePath(), e);
+				throw new IllegalStateException(OemConfig.OEM_NAME_EN + "配置文件创建失败：" + configPath.toAbsolutePath(), e);
 			}
 		}
 		
@@ -209,9 +209,9 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		Properties configProperties = new Properties();
 		try (InputStream is = Files.newInputStream(configPath)) {
 			configProperties.load(is);
-			log.debug(OemConfig.COMPANY_NAME + "配置文件读取成功：" + configPath.toAbsolutePath());
+			log.debug(OemConfig.OEM_NAME_EN + "配置文件读取成功：" + configPath.toAbsolutePath());
 		} catch (IOException e) {
-			throw new IllegalStateException(OemConfig.COMPANY_NAME + "配置文件读取失败：" + configPath.toAbsolutePath(), e);
+			throw new IllegalStateException(OemConfig.OEM_NAME_EN + "配置文件读取失败：" + configPath.toAbsolutePath(), e);
 		}
 		String enableConnectKeepAlive = configProperties.getProperty(enableConnectKeepAliveKey, enableConnectKeepAliveValue);
 		String connectKeepAliveMilliseconds = configProperties.getProperty(connectKeepAliveMillisecondsKey, connectKeepAliveMillisecondsValue);

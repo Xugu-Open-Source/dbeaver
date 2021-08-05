@@ -258,7 +258,7 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 					tableDef += "\n)";
 				}
 			}
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct create table sql: " + tableDef);
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create table sql: " + tableDef);
 		}
 		actions.add(new SQLDatabasePersistAction("Create table", tableDef));
 		actions.addAll(otherActions);
@@ -274,7 +274,7 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 			query.append(command.getObject().getFullyQualifiedName(DBPEvaluationContext.DDL)).append(" ");
 			appendTableModifiers(monitor, command.getObject(), command, query, true);
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct alter table sql: " + query.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct alter table sql: " + query.toString());
 			actionList.add(new SQLDatabasePersistAction(query.toString()));
 			Schema schema = command.getObject().getSchema();
 			try {
@@ -294,7 +294,7 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 		if (command.getProperty(commentKey) != null) {
 			String sql = "COMMENT ON TABLE " + command.getObject().getFullyQualifiedName(DBPEvaluationContext.DDL)
 					+ " IS " + SQLUtils.quoteString(command.getObject(), command.getObject().getComment());
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct add table comment sql: " + sql);
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct add table comment sql: " + sql);
 			actions.add(new SQLDatabasePersistAction("Comment table", sql));
 		}
 	}
@@ -326,7 +326,7 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 				+ DBUtils.getQuotedIdentifier(command.getObject().getDataSource(), command.getOldName()) + " RENAME TO "
 				+ DBUtils.getQuotedIdentifier(command.getObject().getDataSource(), command.getNewName());
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct rename table sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct rename table sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Rename table", sql));
 	}
 
@@ -342,7 +342,7 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 				+ object.getFullyQualifiedName(DBPEvaluationContext.DDL)
 				+ (!object.isView() && CommonUtils.getOption(options, OPTION_DELETE_CASCADE) ? " CASCADE" : "");
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct drop table sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop table sql: " + sql);
 		actions.add(new SQLDatabasePersistAction(ModelMessages.model_jdbc_drop_table, sql));
 	}
 

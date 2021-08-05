@@ -163,7 +163,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 					command.getNewName().toUpperCase()));
 		}
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct rename schema sql: " + desc.toString());
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct rename schema sql: " + desc.toString());
 		actionList.add(new SQLDatabasePersistAction("rename schema", desc.toString()));
 	}
 
@@ -180,7 +180,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 			desc.append(" IS ");
 			desc.append(SQLUtils.quoteString(command.getObject(), command.getObject().getComment()));
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct add trigger comment sql: " + desc.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct add trigger comment sql: " + desc.toString());
 			actions.add(new SQLDatabasePersistAction("Comment Trigger", desc.toString()));
 		}
 	}
@@ -191,7 +191,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 			Map<String, Object> options) {
 		String sql = "DROP TRIGGER " + command.getObject().getFullyQualifiedName(DBPEvaluationContext.DDL);
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct drop trigger sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop trigger sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Drop trigger", sql));
 	}
 
@@ -233,7 +233,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 					+ ("FOR EACH ROW".equals(trigger.getTriggerType()) ? " WHEN(" + realCondition + ") \n" : " \n")
 					+ source;
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct create trigger sql: " + source);
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create trigger sql: " + source);
 			actions.add(new SQLDatabasePersistAction("Create trigger", source, true));
 			// trigger.setPersisted(true);
 		}

@@ -132,7 +132,7 @@ public class SchemaManager extends SQLObjectEditor<Schema, DataSource> implement
 			}
 		}
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct create schema sql: " + desc.toString());
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create schema sql: " + desc.toString());
 		actions.add(new SQLDatabasePersistAction("create schema", desc.toString()));
 	}
 
@@ -149,7 +149,7 @@ public class SchemaManager extends SQLObjectEditor<Schema, DataSource> implement
 					command.getNewName().toUpperCase()));
 		}
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct rename schema sql: " + desc.toString());
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct rename schema sql: " + desc.toString());
 		actionList.add(new SQLDatabasePersistAction("rename schema", desc.toString()));
 	}
 
@@ -162,13 +162,13 @@ public class SchemaManager extends SQLObjectEditor<Schema, DataSource> implement
 			Map<String, Object> options) throws DBException {
 		String comment = buildComment(command.getObject());
 		if (comment != null) {
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct alter schema comment sql: " + comment);
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct alter schema comment sql: " + comment);
 			actionList.add(new SQLDatabasePersistAction("Comment on Schema", comment));
 		}
 		
 		String owner = buildOwner(command.getObject());
 		if (owner != null) {
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct alter schema owner sql: " + owner);
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct alter schema owner sql: " + owner);
 			actionList.add(new SQLDatabasePersistAction("Owner on Schema", owner));
 		}
 	}
@@ -187,7 +187,7 @@ public class SchemaManager extends SQLObjectEditor<Schema, DataSource> implement
 		String sql = "DROP SCHEMA "
 				+ DBUtils.getQuotedIdentifier(command.getObject().getDataSource(), command.getObject().getName());
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct drop schema sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop schema sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("drop schema", sql));
 	}
 

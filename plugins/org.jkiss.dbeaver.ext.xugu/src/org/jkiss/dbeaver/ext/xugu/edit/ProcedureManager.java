@@ -154,7 +154,7 @@ public class ProcedureManager extends SQLObjectEditor<ProcedureStandalone, Schem
 			desc.append(" IS ");
 			desc.append(SQLUtils.quoteString(command.getObject(), command.getObject().getComment()));
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct add procedure comment sql: " + desc.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct add procedure comment sql: " + desc.toString());
 			actions.add(new SQLDatabasePersistAction("Comment Procedure", desc.toString()));
 		}
 	}
@@ -168,7 +168,7 @@ public class ProcedureManager extends SQLObjectEditor<ProcedureStandalone, Schem
 		String sql = "DROP " + object.getProcedureType().name() + " "
 				+ object.getFullyQualifiedName(DBPEvaluationContext.DDL);
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct drop procedure sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop procedure sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Drop procedure", sql));
 	}
 
@@ -178,7 +178,7 @@ public class ProcedureManager extends SQLObjectEditor<ProcedureStandalone, Schem
 			return;
 		}
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct create procedure sql: " + source);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create procedure sql: " + source);
 		actionList.add(new ObjectValidateAction(procedure, ObjectType.PROCEDURE, "Create procedure", source));
 	}
 

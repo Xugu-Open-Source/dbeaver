@@ -163,7 +163,7 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 				break;
 			}
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct add table partition sql: " + sql.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct add table partition sql: " + sql.toString());
 			actions.add(new SQLDatabasePersistAction("Modify table, Add Partition", sql.toString()));
 		} else {
 			command.getObject().getParentObject().partitionCache.cacheObject(command.getObject());
@@ -182,7 +182,7 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 			sql.append(" DROP PARTITION ");
 			sql.append(command.getObject().getName());
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct drop table partition sql: " + sql.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop table partition sql: " + sql.toString());
 			actions.add(new SQLDatabasePersistAction("Drop Partition", sql.toString()));
 		}
 		// 若是新增表情况时则直接将改对象从缓存中剔除
@@ -205,7 +205,7 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 			sql.append("\"" + command.getObject().getName() + "\"");
 			sql.append((boolean) command.getProperty("online") ? " ONLINE" : " OFFLINE");
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct alter table partition sql: " + sql.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct alter table partition sql: " + sql.toString());
 			actionList.add(new SQLDatabasePersistAction("Alter Partition", sql.toString()));
 		}
 	}

@@ -116,7 +116,7 @@ public class ConstraintManager extends SQLConstraintManager<TableConstraint, Bas
 		decl.append(" CONSTRAINT ");
 		decl.append(constraint.getName());
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct create constraint sql: " + decl.toString());
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create constraint sql: " + decl.toString());
 		actions.add(new SQLDatabasePersistAction(ModelMessages.model_jdbc_create_new_constraint, decl.toString()));
 	}
 
@@ -129,7 +129,7 @@ public class ConstraintManager extends SQLConstraintManager<TableConstraint, Bas
 		String sql = "ALTER TABLE " + table.getFullyQualifiedName(DBPEvaluationContext.DDL)
 				+ (constraint.isEnable() ? " ENABLE" : " DISABLE") + " CONSTRAINT " + constraint.getName();
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct alter constraint sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct alter constraint sql: " + sql);
 		actionList.add(new SQLDatabasePersistAction("Alter constraint", sql));
 	}
 

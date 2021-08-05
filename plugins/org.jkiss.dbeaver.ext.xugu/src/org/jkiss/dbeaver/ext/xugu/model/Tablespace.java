@@ -131,7 +131,7 @@ public class Tablespace extends BaseGlobalObject implements DBPRefreshableObject
 			desc.append("SPACE_ID=");
 			desc.append(owner.getSpaceId());
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct view tablespace sql: " + desc.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct view tablespace sql: " + desc.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(desc.toString());
 
 			return dbStat;

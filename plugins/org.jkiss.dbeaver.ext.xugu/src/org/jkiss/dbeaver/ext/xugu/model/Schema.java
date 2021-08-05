@@ -708,7 +708,7 @@ public class Schema extends BaseGlobalObject
 			sql.append(objectName);
 			sql.append("'");
 		}
-			log.debug("" + OemConfig.COMPANY_NAME + " table metadata: " + sql.toString());
+			log.debug("" + OemConfig.OEM_NAME_EN + " table metadata: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
 			return dbStat;
 		}
@@ -760,7 +760,7 @@ public class Schema extends BaseGlobalObject
 			sql.append(" ) as co left join ");
 			sql.append(roleFlag);
 			sql.append("_sequences c on co.serial_id = c.seq_id ");
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct select table columns sql: " + sql.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct select table columns sql: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
 			return dbStat;
 		}
@@ -811,7 +811,7 @@ public class Schema extends BaseGlobalObject
 			sql.append(owner.getDbId(owner, session));
 			sql.append(" AND CONS_TYPE != 'F'");
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct select constraints sql: " + sql.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct select constraints sql: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
 			return dbStat;
 		}
@@ -928,7 +928,7 @@ public class Schema extends BaseGlobalObject
 			sql.append("WHERE CONS_TYPE='F' AND DB_ID=");
 			sql.append(owner.getDbId(owner, session));
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct select foreign keys sql: " + sql.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct select foreign keys sql: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
 
 			return dbStat;
@@ -1011,7 +1011,7 @@ public class Schema extends BaseGlobalObject
 				sql.append(forTable.getId());
 			}
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct select indexes sql: " + sql.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct select indexes sql: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
 			return dbStat;
 		}
@@ -1109,7 +1109,7 @@ public class Schema extends BaseGlobalObject
 			sql.append(" AND IS_SYS=FALSE");
 			sql.append(" ORDER BY SEQ_NAME");
 
-			log.debug("" + OemConfig.COMPANY_NAME + " sequence metadata: " + sql.toString());
+			log.debug("" + OemConfig.OEM_NAME_EN + " sequence metadata: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
 			return dbStat;
 		}
@@ -1150,7 +1150,7 @@ public class Schema extends BaseGlobalObject
 				}
 			}
 
-			log.debug("" + OemConfig.COMPANY_NAME + " procedure metadata: " + sql.toString());
+			log.debug("" + OemConfig.OEM_NAME_EN + " procedure metadata: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
 			return dbStat;
 		}
@@ -1186,7 +1186,7 @@ public class Schema extends BaseGlobalObject
 				sql.append(object.getObjectId());
 			}
 
-			log.debug("" + OemConfig.COMPANY_NAME + " function metadata: " + sql.toString());
+			log.debug("" + OemConfig.OEM_NAME_EN + " function metadata: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
 			return dbStat;
 		}
@@ -1214,7 +1214,7 @@ public class Schema extends BaseGlobalObject
 			sql.append(owner.getDbId(owner, session));
 			sql.append(" AND SCHEMA_ID=");
 			sql.append(owner.id);
-			log.debug("" + OemConfig.COMPANY_NAME + " package metadata: " + sql.toString());
+			log.debug("" + OemConfig.OEM_NAME_EN + " package metadata: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
 			return dbStat;
 		}
@@ -1279,7 +1279,7 @@ public class Schema extends BaseGlobalObject
 				sql.append(owner.getId());
 				sql.append( " and s1.is_public = false ");
 			}
-			log.debug("" + OemConfig.COMPANY_NAME + " synonyms metadata: " + sql.toString());
+			log.debug("" + OemConfig.OEM_NAME_EN + " synonyms metadata: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
 			return dbStat;
 		}
@@ -1312,7 +1312,7 @@ public class Schema extends BaseGlobalObject
 			sqlBuilder.append(owner.getDbId(owner, session));
 			sqlBuilder.append(" and st.schema_id=");
 			sqlBuilder.append(owner.id);
-			log.debug("" + OemConfig.COMPANY_NAME + " triggers metadata: " + sqlBuilder.toString());
+			log.debug("" + OemConfig.OEM_NAME_EN + " triggers metadata: " + sqlBuilder.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sqlBuilder.toString());
 			return dbStat;
 		}
@@ -1376,7 +1376,7 @@ public class Schema extends BaseGlobalObject
 			sql.append(" AND T.DB_ID=");
 			sql.append(owner.getDbId(owner, session));
 
-			log.debug("" + OemConfig.COMPANY_NAME + " udt metadata: " + sql.toString());
+			log.debug("" + OemConfig.OEM_NAME_EN + " udt metadata: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
 			return dbStat;
 		}
@@ -1414,7 +1414,7 @@ public class Schema extends BaseGlobalObject
 				sql.append(object.getId());
 			}
 
-			log.debug("" + OemConfig.COMPANY_NAME + " view metadata: " + sql.toString());
+			log.debug("" + OemConfig.OEM_NAME_EN + " view metadata: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
 			return dbStat;
 		}
@@ -1445,7 +1445,7 @@ public class Schema extends BaseGlobalObject
 				sql.append(forView.getId());
 			}
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct select view columns sql: " + sql.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct select view columns sql: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
 			return dbStat;
 		}
@@ -1479,7 +1479,7 @@ public class Schema extends BaseGlobalObject
 			sql.append("_JOBS WHERE DB_ID=");
 			sql.append(owner.getDbId(owner, session));
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct select jobs sql: " + sql.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct select jobs sql: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
 			return dbStat;
 		}

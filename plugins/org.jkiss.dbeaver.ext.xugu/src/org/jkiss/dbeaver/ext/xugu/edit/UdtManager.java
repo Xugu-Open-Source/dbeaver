@@ -108,7 +108,7 @@ public class UdtManager extends SQLObjectEditor<Udt, Schema> {
 		if (!(bodyDefine == null || bodyDefine.trim().isEmpty())) {
 			sql += "\n" + bodyDefine;
 		}
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct create UDT sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create UDT sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Create UDT", sql));
 	}
 
@@ -125,7 +125,7 @@ public class UdtManager extends SQLObjectEditor<Udt, Schema> {
 		if (!(bodyDefine == null || bodyDefine.trim().isEmpty())) {
 			sql += "\n" + bodyDefine;
 		}
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct create UDT sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create UDT sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Create UDT", sql));
 	}
 
@@ -142,7 +142,7 @@ public class UdtManager extends SQLObjectEditor<Udt, Schema> {
 			desc.append(" IS ");
 			desc.append(SQLUtils.quoteString(command.getObject(), command.getObject().getComment()));
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct add udt comment sql: " + desc.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct add udt comment sql: " + desc.toString());
 			actions.add(new SQLDatabasePersistAction("Comment udt", desc.toString()));
 		}
 	}
@@ -154,7 +154,7 @@ public class UdtManager extends SQLObjectEditor<Udt, Schema> {
 		String sql = "DROP TYPE " + command.getObject().getParentObject().getName() + "."
 				+ DBUtils.getQuotedIdentifier(command.getObject());
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct drop UDT sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop UDT sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Drop UDT", sql));
 	}
 }

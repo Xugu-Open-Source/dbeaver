@@ -22,5 +22,8 @@ package org.jkiss.dbeaver.ext.xugu.config;
  * @author Xugu
  */
 public class OemConfig {
-	public static final String COMPANY_NAME = "Xugu";
+	public static final String OEM_NAME_ZH = "Ðé¹È";
+	public static final String OEM_NAME_EN = "Xugu";
+	public static final String OEM_NAME_EN_LOWER = OEM_NAME_EN.toLowerCase();
+	public static final String OEM_NAME_EN_UPPER = OEM_NAME_EN.toUpperCase();
 }

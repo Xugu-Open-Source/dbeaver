@@ -104,7 +104,7 @@ public class ForeignKeyManager extends SQLForeignKeyManager<TableForeignKey, Bas
 		decl.append(" CONSTRAINT ");
 		decl.append(foreignKey.getName());
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct create foreign key sql: " + decl.toString());
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create foreign key sql: " + decl.toString());
 		actions.add(new SQLDatabasePersistAction(ModelMessages.model_jdbc_create_new_foreign_key, decl.toString()));
 	}
 
@@ -117,7 +117,7 @@ public class ForeignKeyManager extends SQLForeignKeyManager<TableForeignKey, Bas
 		String sql = "ALTER TABLE " + table.getFullyQualifiedName(DBPEvaluationContext.DDL)
 				+ (fk.isEnable() ? " ENABLE" : " DISABLE") + " CONSTRAINT " + fk.getName();
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct alter foreign key sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct alter foreign key sql: " + sql);
 		actionList.add(new SQLDatabasePersistAction("Alter foreign key", sql));
 	}
 }

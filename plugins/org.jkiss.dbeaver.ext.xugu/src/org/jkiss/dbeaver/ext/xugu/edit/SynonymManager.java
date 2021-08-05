@@ -118,7 +118,7 @@ public class SynonymManager extends SQLObjectEditor<Synonym, Schema> implements 
 		sql += "SYNONYM " + synonym.getParentObject().getName() + "." + synonym.getName() + " FOR "
 				+ synonym.getParentObject().getName() + "." + synonym.getTargetName();
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct create synonym sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create synonym sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Create synonym", sql));
 	}
 
@@ -133,13 +133,13 @@ public class SynonymManager extends SQLObjectEditor<Synonym, Schema> implements 
 		}
 		sql += "SYNONYM " + synonym.getParentObject().getName() + "." + DBUtils.getQuotedIdentifier(synonym);
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct drop synonym sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop synonym sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Drop synonym", sql));
 	}
 
 	@Override
 	public void renameObject(DBECommandContext commandContext, Synonym object, String newName) throws DBException {
-		throw new DBException("Direct synonym rename is not yet implemented in " + OemConfig.COMPANY_NAME
+		throw new DBException("Direct synonym rename is not yet implemented in " + OemConfig.OEM_NAME_EN
 				+ " Database. You should use export/import functions for that.");
 	}
 

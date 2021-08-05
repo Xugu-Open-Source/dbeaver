@@ -371,7 +371,7 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 				builder.append("\n ORDER BY TRIG_NAME");
 			}
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct select triggers sql: " + builder.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct select triggers sql: " + builder.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(builder.toString());
 			return dbStat;
 		}
@@ -420,7 +420,7 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 				sql.append(")");
 			}
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct select trigger columns sql: " + sql.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct select trigger columns sql: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
 			return dbStat;
 		}

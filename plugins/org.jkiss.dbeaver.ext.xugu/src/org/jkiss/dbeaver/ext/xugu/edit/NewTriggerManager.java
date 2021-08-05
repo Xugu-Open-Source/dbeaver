@@ -108,7 +108,7 @@ public class NewTriggerManager  extends SQLObjectEditor<NewTrigger,Schema>{
 		if (!(bodyDefine == null || bodyDefine.trim().isEmpty())) {
 			sql += "\n" + bodyDefine;
 		}
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct create trigger sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create trigger sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Create trigger", sql));
 	}
 	
@@ -135,7 +135,7 @@ public class NewTriggerManager  extends SQLObjectEditor<NewTrigger,Schema>{
 			desc.append(" IS ");
 			desc.append(SQLUtils.quoteString(command.getObject(), command.getObject().getCommentSting()));
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct add trigger comment sql: " + desc.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct add trigger comment sql: " + desc.toString());
 			actions.add(new SQLDatabasePersistAction("Comment Trigger", desc.toString()));
 		}
 		
@@ -147,7 +147,7 @@ public class NewTriggerManager  extends SQLObjectEditor<NewTrigger,Schema>{
 			Map<String, Object> options) {
 		
 		String sql = "DROP TRIGGER " + command.getObject().getFullyQualifiedName(DBPEvaluationContext.DDL);
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct drop trigger sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop trigger sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Drop trigger", sql));
 		
 	}

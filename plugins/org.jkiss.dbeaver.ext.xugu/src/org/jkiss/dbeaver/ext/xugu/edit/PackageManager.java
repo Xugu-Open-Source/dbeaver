@@ -124,7 +124,7 @@ public class PackageManager extends SQLObjectEditor<Package, Schema> {
 			desc.append(" IS ");
 			desc.append(SQLUtils.quoteString(command.getObject(), command.getObject().getComment()));
 
-			log.debug("[" + OemConfig.COMPANY_NAME + "] Construct add package comment sql: " + desc.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct add package comment sql: " + desc.toString());
 			actions.add(new SQLDatabasePersistAction("Comment Package", desc.toString()));
 		}
 	}
@@ -135,7 +135,7 @@ public class PackageManager extends SQLObjectEditor<Package, Schema> {
 		final Package object = objectDeleteCommand.getObject();
 		String sql = "DROP PACKAGE " + object.getFullyQualifiedName(DBPEvaluationContext.DDL);
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct drop package sql: " + sql.toString());
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop package sql: " + sql.toString());
 		actions.add(new SQLDatabasePersistAction("Drop package", sql));
 	}
 
@@ -158,7 +158,7 @@ public class PackageManager extends SQLObjectEditor<Package, Schema> {
 				header = "CREATE OR REPLACE PACKAGE " + header.substring(header.indexOf(keyWord2) + 8);
 			}
 			if (!CommonUtils.isEmpty(header)) {
-				log.debug("[" + OemConfig.COMPANY_NAME + "] Construct create package header sql: " + header);
+				log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create package header sql: " + header);
 				actionList.add(new ObjectValidateAction(pack, ObjectType.PACKAGE, "Create package header", header));
 			}
 			String body = pack.getExtendedDefinitionText(new VoidProgressMonitor());
@@ -175,12 +175,12 @@ public class PackageManager extends SQLObjectEditor<Package, Schema> {
 				body = "CREATE OR REPLACE PACKAGE " + body.substring(body.indexOf(keyWord2) + 8);
 			}
 			if (!CommonUtils.isEmpty(body)) {
-				log.debug("[" + OemConfig.COMPANY_NAME + "] Construct create package body sql: " + body);
+				log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create package body sql: " + body);
 				actionList.add(new ObjectValidateAction(pack, ObjectType.PACKAGE_BODY, "Create package body", body));
 			} else {
 				String sql = "DROP PACKAGE BODY " + pack.getFullyQualifiedName(DBPEvaluationContext.DDL);
 
-				log.debug("[" + OemConfig.COMPANY_NAME + "] Construct drop package body sql: " + sql);
+				log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop package body sql: " + sql);
 				actionList.add(
 						new SQLDatabasePersistAction("Drop package body", sql, DBEPersistAction.ActionType.OPTIONAL));
 			}

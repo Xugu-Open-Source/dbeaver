@@ -113,7 +113,7 @@ public class RoleManager extends SQLObjectEditor<Role, DataSource> {
 			sql += " INIT USER " + user;
 		}
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct create role sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create role sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Create role", sql));
 		//新增角色向全部角色列表中添加
 		User.getRoleNameList().add(role.getName());
@@ -125,7 +125,7 @@ public class RoleManager extends SQLObjectEditor<Role, DataSource> {
 			Map<String, Object> options) {
 		String sql = "DROP ROLE " + DBUtils.getQuotedIdentifier(command.getObject());
 
-		log.debug("[" + OemConfig.COMPANY_NAME + "] Construct drop role sql: " + sql);
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop role sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Drop role", sql));
 		//删除角色时，从全部角色列表删除
 		List<String> roleString = User.roleNames; 

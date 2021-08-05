@@ -65,7 +65,7 @@ class SqlDialect extends JDBCSQLDialect {
 	private DBPPreferenceStore preferenceStore;
 
 	public SqlDialect() {
-		super(OemConfig.COMPANY_NAME);
+		super(OemConfig.OEM_NAME_EN);
 	}
 
 	@Override

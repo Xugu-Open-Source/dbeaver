@@ -76,7 +76,7 @@ public class TableForeignKey extends BaseTableConstraint implements DBSTableFore
 
 		this.enable = JDBCUtils.safeGetBoolean(dbResult, "ENABLE");
 
-		log.debug(OemConfig.COMPANY_NAME + " can get alias filed? " + refTableName + " " + refName);
+		log.debug(OemConfig.OEM_NAME_EN + " can get alias filed? " + refTableName + " " + refName);
 		BaseTable refTable = BaseTable.findTable(monitor, table.getDataSource(), refOwnerName, refTableName);
 		if (refTable == null) {
 			log.warn("Referenced table '" + DBUtils.getSimpleQualifiedName(refOwnerName, refTableName) + "' not found");
