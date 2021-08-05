@@ -972,11 +972,20 @@ public class DriverDescriptor extends AbstractDescriptor implements DBPDriver {
             }
             libraryURLs.add(url);
         }
+
+        ClassLoader loader = getDataSourceProvider().getClass().getClassLoader();
+        if (libraryURLs.isEmpty()) {
+            URL url = loader.getResource("/lib/default-driver.jar");
+            if (url != null) {
+            	libraryURLs.add(url);
+            }
+        }
+
         // Make class loader
         this.classLoader = new DriverClassLoader(
                 this,
                 libraryURLs.toArray(new URL[0]),
-                getDataSourceProvider().getClass().getClassLoader());
+                loader);
     }
 
     public void updateFiles() {
