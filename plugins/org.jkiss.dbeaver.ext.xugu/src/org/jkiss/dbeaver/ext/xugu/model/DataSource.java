@@ -283,10 +283,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 	@Override
 	protected String getConnectionUserName(@NotNull DBPConnectionConfiguration connectionInfo)  {
-		final String role = connectionInfo.getProviderProperty(Constants.PROP_INTERNAL_LOGON);
-		roleString = role;
-		userString = connectionInfo.getUserName(); 
-		return role == null ? connectionInfo.getUserName() : connectionInfo.getUserName() + " AS " + role;
+		return connectionInfo.getUserName();
 	}
 
 	@Override
