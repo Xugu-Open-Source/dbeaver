@@ -16,6 +16,7 @@
  */
 package org.jkiss.dbeaver.ext.xugu;
 
+import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.data.DBDPseudoAttribute;
 import org.jkiss.dbeaver.model.data.DBDPseudoAttributeType;
@@ -103,23 +104,23 @@ public class Constants {
 	public static final String PROP_OBJECT_DEFINITION = "objectDefinitionText";
 	public static final String PROP_OBJECT_BODY_DEFINITION = "extendedDefinitionText";
 
-	public static final String PREF_EXPLAIN_TABLE_NAME = "xugu.explain.table";
-	public static final String PREF_SUPPORT_ROWID = "xugu.support.rowid";
-	public static final String PREF_DBMS_OUTPUT = "xugu.dbms.output";
-	public static final String PREF_DBMS_READ_ALL_SYNONYMS = "xugu.read.all.synonyms";
-	public static final String PREF_DISABLE_SCRIPT_ESCAPE_PROCESSING = "xugu.disable.script.escape";
-	public static final String PREF_KEY_DDL_FORMAT = "xugu.ddl.format";
+	public static final String PREF_EXPLAIN_TABLE_NAME = OemConfig.OEM_NAME_EN_LOWER + ".explain.table";
+	public static final String PREF_SUPPORT_ROWID = OemConfig.OEM_NAME_EN_LOWER + ".support.rowid";
+	public static final String PREF_DBMS_OUTPUT = OemConfig.OEM_NAME_EN_LOWER + ".dbms.output";
+	public static final String PREF_DBMS_READ_ALL_SYNONYMS = OemConfig.OEM_NAME_EN_LOWER + ".read.all.synonyms";
+	public static final String PREF_DISABLE_SCRIPT_ESCAPE_PROCESSING = OemConfig.OEM_NAME_EN_LOWER + ".disable.script.escape";
+	public static final String PREF_KEY_DDL_FORMAT = OemConfig.OEM_NAME_EN_LOWER + ".ddl.format";
 
 	/**
 	 * 默认值约束
 	 */
-	public static final DBSEntityConstraintType CONSTRAINT_DEFAULT = new DBSEntityConstraintType("xugu.default",
+	public static final DBSEntityConstraintType CONSTRAINT_DEFAULT = new DBSEntityConstraintType(OemConfig.OEM_NAME_EN_LOWER + ".default",
 			"DEFAULT", Messages.model_struct_default, false, false, false, false);
 
 	/**
 	 * 引用外键约束
 	 */
-	public static final DBSEntityConstraintType CONSTRAINT_REF_COLUMN = new DBSEntityConstraintType("xugu.ref.column",
+	public static final DBSEntityConstraintType CONSTRAINT_REF_COLUMN = new DBSEntityConstraintType(OemConfig.OEM_NAME_EN_LOWER + ".ref.column",
 			"Referential integrity", Messages.model_struct_ref_column, false, false, false, false);
 
 	public static final int DATA_TYPE_TIMESTAMP_WITH_TIMEZONE = 101;

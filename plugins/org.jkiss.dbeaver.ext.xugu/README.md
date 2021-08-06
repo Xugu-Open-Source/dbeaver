@@ -87,7 +87,7 @@ views|额外的页面类目录（自主实现）
 1. 菜单栏 -> 运行 -> 运行配置
 2. 选择 DBeaver.product 项
 3. 选择 Plug-ins 选项卡
-4. 搜索“xugu”，勾选 org.jkiss.dbeaver.ext.xugu 插件
+4. 勾选 org.jkiss.dbeaver.ext.xugu 插件
 5. 点击”添加需要的插件（Add Required Plug-ins）”按钮
 6. 应用更改
 7. 点击运行/调试
@@ -105,8 +105,6 @@ views|额外的页面类目录（自主实现）
 6. 使用 Eclipse 点击 OEM 目录，按下快捷键 Ctrl+H 打开文件搜索，开启大小写敏感（Case sensitive），选择搜索范围为 Selected resource in 'Project Explorer'，搜索所有 Xugu，排除以下目录，然后替换所有为对应 OEM 名称
     - src/org/jkiss/dbeaver/ext/{OEM}/model 目录
 7. 使用 Eclipse 点击 OEM 目录，按下快捷键 Ctrl+H 打开文件搜索，开启大小写敏感（Case sensitive），选择搜索范围为 Selected resource in 'Project Explorer'，搜索所有 xugu，仅替换以下目录文件内容为对应 OEM 名称
-    - src/org/jkiss/dbeaver/ext/{OEM}/Constants.java 文件
     - plugin.xml 文件
-    - README.md 文件
 8. 使用 Eclipse 点击 OEM 目录，右键-Import as Project 导入 OEM 项目
 9. 替换完成，可在启动配置中添加 OEM 插件进行 debug 以及导出 OEM 插件包
