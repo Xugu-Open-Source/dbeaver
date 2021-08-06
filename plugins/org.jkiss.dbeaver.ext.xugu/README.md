@@ -108,3 +108,15 @@ views|额外的页面类目录（自主实现）
     - plugin.xml 文件
 8. 使用 Eclipse 点击 OEM 目录，右键-Import as Project 导入 OEM 项目
 9. 替换完成，可在启动配置中添加 OEM 插件进行 debug 以及导出 OEM 插件包
+
+## 打包需要导出的插件
+
+- org.jkiss.dbeaver.data.office
+- org.jkiss.dbeaver.data.transfer
+- org.jkiss.dbeaver.ext.oracle
+- org.jkiss.dbeaver.ext.{OEM}
+- org.jkiss.dbeaver.model
+- org.jkiss.dbeaver.registry
+- org.jkiss.dbeaver.ui.editors.sql
+- org.jkiss.dbeaver.ui.navigator
+- org.jkiss.dbeaver.ui
