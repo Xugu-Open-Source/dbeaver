@@ -91,3 +91,22 @@ views|额外的页面类目录（自主实现）
 5. 点击”添加需要的插件（Add Required Plug-ins）”按钮
 6. 应用更改
 7. 点击运行/调试
+
+## OEM 替换指导
+
+1. 使用 Eclipse 正确打开整个项目与虚谷插件项目
+2. 在资源管理器中，复制虚谷插件项目目录到同层并修改目录名为 OEM 目录名
+3. 使用 Eclipse 刷新目录树
+4. 复制 icons 目录下对应 OEM 目录下所有文件到 icons 目录替换相关图片
+4. 复制 lib 目录下对应 OEM 目录下所有文件到 lib 目录替换默认驱动
+4. 在 OEM 目录的 src 目录右键-properties，填写编码为 GB18030，应用并关闭
+5. 修改 src/org/jkiss/dbeaver/ext/xugu 目录名称为对应的 OEM 名称
+5. 使用 Eclipse 点击 OEM 目录，按下快捷键 Ctrl+H 打开文件搜索，开启大小写敏感（Case sensitive），选择搜索范围为 Selected resource in 'Project Explorer'，替换所有 ext.xugu 为对应 OEM 名称
+6. 使用 Eclipse 点击 OEM 目录，按下快捷键 Ctrl+H 打开文件搜索，开启大小写敏感（Case sensitive），选择搜索范围为 Selected resource in 'Project Explorer'，搜索所有 Xugu，排除以下目录，然后替换所有为对应 OEM 名称
+    - src/org/jkiss/dbeaver/ext/{OEM}/model 目录
+7. 使用 Eclipse 点击 OEM 目录，按下快捷键 Ctrl+H 打开文件搜索，开启大小写敏感（Case sensitive），选择搜索范围为 Selected resource in 'Project Explorer'，搜索所有 xugu，仅替换以下目录文件内容为对应 OEM 名称
+    - src/org/jkiss/dbeaver/ext/{OEM}/Constants.java 文件
+    - plugin.xml 文件
+    - README.md 文件
+8. 使用 Eclipse 点击 OEM 目录，右键-Import as Project 导入 OEM 项目
+9. 替换完成，可在启动配置中添加 OEM 插件进行 debug 以及导出 OEM 插件包
