@@ -650,64 +650,31 @@ public class SpreadsheetPresentation extends AbstractPresentation implements IRe
         final char columnDelimiter = '\t';
         final char rowDelimiter = '\n';
         final char trashDelimiter = '\r';
-        final char quote = '"';
 
         final List<String[]> lines = new ArrayList<>();
 
         final StringBuilder cellValue = new StringBuilder();
         final List<String> curLine = new ArrayList<>();
-        boolean inQuote = false;
         int length = strValue.length();
         for (int i = 0; i < length; i++) {
             char c = strValue.charAt(i);
-            if (inQuote && c != quote) {
+            switch (c) {
+            case columnDelimiter:
+                curLine.add(cellValue.toString());
+                cellValue.setLength(0);
+                break;
+            case rowDelimiter:
+                curLine.add(cellValue.toString());
+                lines.add(curLine.toArray(new String[0]));
+                curLine.clear();
+                cellValue.setLength(0);
+                break;
+            case trashDelimiter:
+                // Ignore
+                continue;
+            default:
                 cellValue.append(c);
-            } else {
-                switch (c) {
-                    case columnDelimiter:
-                        curLine.add(cellValue.toString());
-                        cellValue.setLength(0);
-                        break;
-                    case rowDelimiter:
-                        curLine.add(cellValue.toString());
-                        lines.add(curLine.toArray(new String[0]));
-                        curLine.clear();
-                        cellValue.setLength(0);
-                        break;
-                    case trashDelimiter:
-                        // Ignore
-                        continue;
-                    case quote:
-                        if (inQuote) {
-                            if (i == length - 1 ||
-                                strValue.charAt(i + 1) == columnDelimiter ||
-                                strValue.charAt(i + 1) == trashDelimiter ||
-                                strValue.charAt(i + 1) == rowDelimiter)
-                            {
-                                inQuote = false;
-                                continue;
-                            }
-                        } else if (cellValue.length() == 0) {
-                            // Search for end quote
-                            for (int k = i + 1; k < length; k++) {
-                                if (strValue.charAt(k) == quote &&
-                                    (k == length - 1 ||
-                                    strValue.charAt(k + 1) == columnDelimiter ||
-                                    strValue.charAt(k + 1) == trashDelimiter ||
-                                    strValue.charAt(k + 1) == rowDelimiter))
-                                {
-                                    inQuote = true;
-                                    break;
-                                }
-                            }
-                            if (inQuote) {
-                                continue;
-                            }
-                        }
-                    default:
-                        cellValue.append(c);
-                        break;
-                }
+                break;
             }
         }
         if (cellValue.length() > 0) {
