@@ -101,13 +101,8 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 			defaults = getNestedDeclaration(monitor, table, command, options).toString().split(" DEFAULT ");
 		}
 		DBPDataKind dataKind = command.getObject().getDataKind();
-		if (dataKind == DBPDataKind.STRING && defaults.length > 1) {
-			query = "ALTER TABLE " + table.getFullyQualifiedName(DBPEvaluationContext.DDL) + " ADD " + defaults[0]
-					+ " DEFAULT " + "'" + defaults[1] + "'";
-		} else {
-			query = "ALTER TABLE " + table.getFullyQualifiedName(DBPEvaluationContext.DDL) + " ADD "
-					+ getNestedDeclaration(monitor, table, command, options);
-		}
+		query = "ALTER TABLE " + table.getFullyQualifiedName(DBPEvaluationContext.DDL) + " ADD "
+				+ getNestedDeclaration(monitor, table, command, options);
 		if (command.getProperty(commentKey) != null && !"".equals(command.getProperty(commentKey))) {
 			query += " COMMENT '" + command.getObject().getComment(monitor) + "'";
 		}
@@ -190,8 +185,8 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 						if (command.getProperty("defaultValue").equals("")) {
 							sql += "\"" + column.getName() + "\"" + " DROP DEFAULT";
 						} else {
-							sql += "\"" + column.getName() + "\"" + " SET DEFAULT '"
-									+ command.getProperty("defaultValue") + "'";
+							sql += "\"" + column.getName() + "\"" + " SET DEFAULT "
+									+ command.getProperty("defaultValue");
 						}
 						break;
 					case "required":
