@@ -169,7 +169,7 @@ public class TableColumn extends JDBCTableColumn<BaseTable>
 					this.typeName = "CHAR";
 				}
 			}
-			this.type = new DataType(this, this.typeName, true);
+			this.type = (DataType) table.getDataSource().getLocalDataType(this.typeName);
 
 			if (this.type != null) {
 				this.typeName = type.getFullyQualifiedName(DBPEvaluationContext.DDL);
