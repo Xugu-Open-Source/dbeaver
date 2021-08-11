@@ -82,13 +82,6 @@
                                 <!--列-->
                                 <items label="%tree.columns.node.name" itemLabel="%tree.column.node.name" path="column" property="attributes" icon="#column">
                                 </items>
-                                <!--触发器                            
-                                	<folder type="org.jkiss.dbeaver.ext.xugu.model.Trigger" label="%tree.triggers.node.name" icon="#triggers" description="Triggers">
-                                    	<items label="%tree.trigger.node.name" path="trigger" property="triggers" icon="#trigger">
-                                        	<items label="%tree.columns.node.name" itemLabel="%tree.column.node.name" path="column" property="columns" navigable="false" inline="false">
-                                        	</items>
-                                    	</items>
-                                	</folder> -->
                             </items>
                         </folder>
                         <!--序列-->
@@ -102,22 +95,13 @@
                                 <!--存储过程-->
                                 <folder type="org.jkiss.dbeaver.ext.xugu.model.NewProcedurePackaged" label="%tree.procedures.node.name" icon="#procedures" description="Procedures">
                                     <items label="%tree.procedures.node.name" itemLabel="%tree.procedure.node.name" path="procedure" property="NewProcedures" icon="#procedure" id="Procedure">
-                           				
-                           				<folder type="org.jkiss.dbeaver.ext.xugu.model.NewProcedureParameter" label="%tree.scheduler.job.parameters.node.name" icon="#procedures" description="parameters">
-                                       			 <items label="%tree.scheduler.job.parameters.node.name" itemLabel="%tree.scheduler.job.parameter.node.name" path="argument" property="parameters" icon="#procedure"/>
-                              		 	</folder>
-                              		 	
+                                        <items label="%tree.scheduler.job.parameters.node.name" itemLabel="%tree.scheduler.job.parameter.node.name" path="argument" property="parameters" icon="#procedure"/>
                               	 	</items>
                                 </folder>
                                 <!--存储函数-->
                                 <folder type="org.jkiss.dbeaver.ext.xugu.model.NewProcedurePackaged" label="%tree.functions.node.name" icon="#functions" description="Functions">
                                     <items label="%tree.functions.node.name" itemLabel="%tree.function.node.name" path="function" property="NewFunctions" icon="#function" id="Functions">                
-                                  	
-                                  	    
-                                  		 <folder type="org.jkiss.dbeaver.ext.xugu.model.NewProcedureParameter" label="%tree.scheduler.job.parameters.node.name" icon="#procedures" description="parameters">
-                                       			 <items label="%tree.scheduler.job.parameters.node.name" itemLabel="%tree.scheduler.job.parameter.node.name" path="argument" property="parameters" icon="#procedure"/>
-                              		 	 </folder>
-                              		
+                                  	    <items label="%tree.scheduler.job.parameters.node.name" itemLabel="%tree.scheduler.job.parameter.node.name" path="argument" property="parameters" icon="#procedure"/>
                               	 	</items>
                                 </folder>
                             </items>
