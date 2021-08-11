@@ -706,6 +706,8 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	                    dumpWarnings(output, Arrays.asList(statementWarnings));
 	                }
 	            }
+			} catch(ClassNotFoundException ignore) {
+				// 忽略驱动未注入期间调用此方式产生的类未找到异常
 			} catch (Exception e) {
 				throw new DBCException("获取原始Statement失败", e);
 			}
