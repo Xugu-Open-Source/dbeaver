@@ -93,8 +93,8 @@ public class DataType extends BaseObject<DBSObject>
 		PREDEFINED_TYPES.put("VARCHAR2", new TypeDesc(DBPDataKind.STRING, Types.VARCHAR, 0, 0, 0, 0));
 		PREDEFINED_TYPES.put("GUID", new TypeDesc(DBPDataKind.ROWID, Types.ROWID, 0, 0, 0, 0));
 		PREDEFINED_TYPES.put("BOOLEAN", new TypeDesc(DBPDataKind.BOOLEAN, Types.BOOLEAN, 0, 0, 0, 0));
-		PREDEFINED_TYPES.put("BINARY", new TypeDesc(DBPDataKind.OBJECT, Types.JAVA_OBJECT, 0, 0, 0, 0));
-		PREDEFINED_TYPES.put("BLOB", new TypeDesc(DBPDataKind.BINARY, Types.BLOB, 0, 0, 0, 0));
+		PREDEFINED_TYPES.put("BINARY", new TypeDesc(DBPDataKind.BINARY, Types.VARBINARY, 0, 0, 0, 0));
+		PREDEFINED_TYPES.put("BLOB", new TypeDesc(DBPDataKind.CONTENT, Types.BLOB, 0, 0, 0, 0));
 		PREDEFINED_TYPES.put("CLOB", new TypeDesc(DBPDataKind.CONTENT, Types.CLOB, 0, 0, 0, 0));
 		PREDEFINED_TYPES.put("DATE", new TypeDesc(DBPDataKind.DATETIME, Types.DATE, 0, 0, 0, 0));
 		PREDEFINED_TYPES.put("TIME", new TypeDesc(DBPDataKind.DATETIME, Types.TIME, 3, 0, 0, 0));
