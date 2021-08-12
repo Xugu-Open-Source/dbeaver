@@ -1408,8 +1408,9 @@ public class Schema extends BaseGlobalObject
 			sql.append(" AND SCHEMA_ID=");
 			sql.append(owner.getId());
 			if (object != null) {
-				sql.append(" AND VIEW_ID=");
-				sql.append(object.getId());
+				sql.append(" AND VIEW_NAME='");
+				sql.append(object.getName());
+				sql.append("'");
 			}
 
 			log.debug("" + OemConfig.OEM_NAME_EN + " view metadata: " + sql.toString());

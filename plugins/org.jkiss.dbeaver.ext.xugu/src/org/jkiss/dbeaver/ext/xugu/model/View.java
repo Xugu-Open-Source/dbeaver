@@ -27,6 +27,7 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.ext.xugu.Utils;
 import java.sql.ResultSet;
 import java.util.Collection;
@@ -83,6 +84,11 @@ public class View extends BaseTable implements SourceObject {
 	@Override
 	protected String getTableTypeName() {
 		return ObjectType.VIEW.getTypeName();
+	}
+
+	@Override
+	public DBSObject refreshObject(DBRProgressMonitor monitor) throws DBException {
+		return getContainer().viewCache.refreshObject(monitor, getContainer(), this);
 	}
 
 	@Override
