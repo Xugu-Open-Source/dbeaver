@@ -87,20 +87,19 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 		return roleNames;
 	}
 	
-	public User(DataSource dataSource,String userName) {
-		super(dataSource, true);
+	public User(DataSource dataSource, String userName, boolean persisted) {
+		super(dataSource, persisted);
 		this.userName = userName;
 	}
 	
-	
-	public User(DataSource dataSource,DBRProgressMonitor moniter) {
-		super(dataSource, true);
+	public User(DataSource dataSource,DBRProgressMonitor moniter, boolean persisted) {
+		super(dataSource, persisted);
 		this.monitor = monitor;
 	}
 	
 	
-	public User(DataSource dataSource, ResultSet resultSet, DBRProgressMonitor monitor) {
-		super(dataSource, true);
+	public User(DataSource dataSource, ResultSet resultSet, DBRProgressMonitor monitor, boolean persisted) {
+		super(dataSource, persisted);
 		this.monitor = monitor;
 		if (resultSet != null) {
 			try {

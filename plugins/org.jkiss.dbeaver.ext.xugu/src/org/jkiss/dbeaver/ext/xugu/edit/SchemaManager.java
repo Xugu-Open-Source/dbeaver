@@ -117,7 +117,7 @@ public class SchemaManager extends SQLObjectEditor<Schema, DataSource> implement
 		// 修改了创建模式的sql语句，暂时不支持设置数据库
 //		User user = command.getObject().getUser();
 		userName =  NewUserDialog.userNameString;
-		User user = new User((DataSource)currentContainer, userName);
+		User user = new User((DataSource)currentContainer, userName, false);
 		Schema schema = command.getObject();
 		StringBuilder desc = new StringBuilder();
 

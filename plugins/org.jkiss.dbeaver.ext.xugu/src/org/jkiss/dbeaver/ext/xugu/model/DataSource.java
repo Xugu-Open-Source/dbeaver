@@ -934,7 +934,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		@Override
 		protected User fetchObject(@NotNull JDBCSession session, @NotNull DataSource owner,
 				@NotNull JDBCResultSet resultSet) throws SQLException, DBException {
-			return new User(owner, resultSet, session.getProgressMonitor());
+			return new User(owner, resultSet, session.getProgressMonitor(), true);
 		}
 
 		@Override

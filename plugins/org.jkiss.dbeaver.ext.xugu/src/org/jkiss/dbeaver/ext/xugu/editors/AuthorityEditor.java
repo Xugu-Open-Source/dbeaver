@@ -111,16 +111,16 @@ public class AuthorityEditor {
 		// 加载组件
 		//库级权限下拉框
 		databaseAuthorityCombo = UIUtils.createLabelCombo(parent1, Messages.editors_authority_editor_db_combo, 0);
-		databaseAuthorityCombo.setLayoutData(new GridData(400, 20));
+		databaseAuthorityCombo.setLayoutData(new GridData(375, 28));
 		//授予按钮
 		addDatabaseAuthority = UIUtils.createPushButton(parent1, Messages.editors_authority_editor_grant, null);
-		addDatabaseAuthority.setLayoutData(new GridData(420, 30));
+		addDatabaseAuthority.setLayoutData(new GridData(400, 28));
 		//回收按钮
 		removeDatabaseAuthority = UIUtils.createPushButton(parent1, Messages.editors_authority_editor_revoke, null);
-		removeDatabaseAuthority.setLayoutData(new GridData(420, 30));
+		removeDatabaseAuthority.setLayoutData(new GridData(400, 28));
 		//授予库级权限列表
 		databaseAuthorityList = new org.eclipse.swt.widgets.List(parent1, SWT.V_SCROLL | SWT.MULTI);
-		databaseAuthorityList.setLayoutData(new GridData(400, 180));
+		databaseAuthorityList.setLayoutData(new GridData(379, 200));
 		databaseAuthorityList.setEnabled(false);
 		if (editorType == 1) {
 			ControlPropertyCommandListener.create(userEditor, databaseAuthorityList,
