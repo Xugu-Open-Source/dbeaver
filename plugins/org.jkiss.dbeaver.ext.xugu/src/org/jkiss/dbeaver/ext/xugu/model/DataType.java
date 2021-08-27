@@ -81,6 +81,7 @@ public class DataType extends BaseObject<DBSObject>
 	static final Map<Integer, TypeDesc> PREDEFINED_TYPE_IDS = new HashMap<>();
 	// 修改了数据类型定义
 	static {
+		PREDEFINED_TYPES.put("BOOLEAN", new TypeDesc(DBPDataKind.BOOLEAN, Types.BOOLEAN, 0, 0, 0, 0));
 		PREDEFINED_TYPES.put("TINYINT", new TypeDesc(DBPDataKind.NUMERIC, Types.TINYINT, 3, 0, 0, 0));
 		PREDEFINED_TYPES.put("SMALLINT", new TypeDesc(DBPDataKind.NUMERIC, Types.SMALLINT, 5, 0, 0, 0));
 		PREDEFINED_TYPES.put("INTEGER", new TypeDesc(DBPDataKind.NUMERIC, Types.INTEGER, 10, 0, 0, 0));
@@ -88,36 +89,33 @@ public class DataType extends BaseObject<DBSObject>
 		PREDEFINED_TYPES.put("NUMERIC", new TypeDesc(DBPDataKind.NUMERIC, Types.NUMERIC, 0, 0, 0, 0));
 		PREDEFINED_TYPES.put("FLOAT", new TypeDesc(DBPDataKind.NUMERIC, Types.FLOAT, 38, 0, 6, 0));
 		PREDEFINED_TYPES.put("DOUBLE", new TypeDesc(DBPDataKind.NUMERIC, Types.DOUBLE, 38, 0, 6, 0));
-		PREDEFINED_TYPES.put("CHAR", new TypeDesc(DBPDataKind.STRING, Types.CHAR, 0, 0, 0, 0));
-		PREDEFINED_TYPES.put("VARCHAR", new TypeDesc(DBPDataKind.STRING, Types.VARCHAR, 0, 0, 0, 0));
-		PREDEFINED_TYPES.put("VARCHAR2", new TypeDesc(DBPDataKind.STRING, Types.VARCHAR, 0, 0, 0, 0));
-		PREDEFINED_TYPES.put("GUID", new TypeDesc(DBPDataKind.ROWID, Types.ROWID, 0, 0, 0, 0));
-		PREDEFINED_TYPES.put("BOOLEAN", new TypeDesc(DBPDataKind.BOOLEAN, Types.BOOLEAN, 0, 0, 0, 0));
-		PREDEFINED_TYPES.put("BINARY", new TypeDesc(DBPDataKind.BINARY, Types.VARBINARY, 0, 0, 0, 0));
-		PREDEFINED_TYPES.put("BLOB", new TypeDesc(DBPDataKind.CONTENT, Types.BLOB, 0, 0, 0, 0));
-		PREDEFINED_TYPES.put("CLOB", new TypeDesc(DBPDataKind.CONTENT, Types.CLOB, 0, 0, 0, 0));
 		PREDEFINED_TYPES.put("DATE", new TypeDesc(DBPDataKind.DATETIME, Types.DATE, 0, 0, 0, 0));
 		PREDEFINED_TYPES.put("TIME", new TypeDesc(DBPDataKind.DATETIME, Types.TIME, 3, 0, 0, 0));
 		PREDEFINED_TYPES.put("TIME WITH TIME ZONE", new TypeDesc(DBPDataKind.DATETIME, Types.TIME_WITH_TIMEZONE, 3, 0, 0, 0));
 		PREDEFINED_TYPES.put("DATETIME", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 6, 0, 0, 0));
 		PREDEFINED_TYPES.put("DATETIME WITH TIME ZONE", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP_WITH_TIMEZONE, 6, 0, 0, 0));
-		PREDEFINED_TYPES.put("TIMESTAMP", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 6, 6, 0, 0));
-		PREDEFINED_TYPES.put("TIMESTAMP AUTO UPDATE", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 6, 6, 0, 0));
 		PREDEFINED_TYPES.put("INTERVAL YEAR", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 0, 9, 0, 0));
+		PREDEFINED_TYPES.put("INTERVAL YEAR TO MONTH", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 0, 8, 0, 0));
 		PREDEFINED_TYPES.put("INTERVAL MONTH", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 0, 9, 0, 0));
 		PREDEFINED_TYPES.put("INTERVAL DAY", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 0, 9, 0, 0));
-		PREDEFINED_TYPES.put("INTERVAL HOUR", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 0, 9, 0, 0));
-		PREDEFINED_TYPES.put("INTERVAL MINUTE", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 0, 9, 0, 0));
-		PREDEFINED_TYPES.put("INTERVAL SECOND", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 0, 9, 0, 6));
-		PREDEFINED_TYPES.put("INTERVAL YEAR TO MONTH", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 0, 8, 0, 0));
 		PREDEFINED_TYPES.put("INTERVAL DAY TO HOUR", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 0, 7, 0, 0));
+		PREDEFINED_TYPES.put("INTERVAL HOUR", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 0, 9, 0, 0));
 		PREDEFINED_TYPES.put("INTERVAL DAY TO MINUTE", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 0, 6, 0, 0));
-		PREDEFINED_TYPES.put("INTERVAL DAY TO SECOND", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 0, 6, 0, 6));
 		PREDEFINED_TYPES.put("INTERVAL HOUR TO MINUTE", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 0, 7, 0, 0));
+		PREDEFINED_TYPES.put("INTERVAL MINUTE", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 0, 9, 0, 0));
+		PREDEFINED_TYPES.put("INTERVAL DAY TO SECOND", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 0, 6, 0, 6));
 		PREDEFINED_TYPES.put("INTERVAL HOUR TO SECOND", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 0, 7, 0, 6));
 		PREDEFINED_TYPES.put("INTERVAL MINUTE TO SECOND", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 0, 7, 0, 6));
+		PREDEFINED_TYPES.put("INTERVAL SECOND", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 0, 9, 0, 6));
+		PREDEFINED_TYPES.put("ROWVERSION", new TypeDesc(DBPDataKind.STRING, Types.VARCHAR, 0, 0, 0, 0));
+		PREDEFINED_TYPES.put("GUID", new TypeDesc(DBPDataKind.STRING, Types.CHAR, 0, 0, 0, 0));
+		PREDEFINED_TYPES.put("CHAR", new TypeDesc(DBPDataKind.STRING, Types.CHAR, 0, 0, 0, 0));
+		PREDEFINED_TYPES.put("CLOB", new TypeDesc(DBPDataKind.CONTENT, Types.CLOB, 0, 0, 0, 0));
+		PREDEFINED_TYPES.put("BINARY", new TypeDesc(DBPDataKind.BINARY, Types.VARBINARY, 0, 0, 0, 0));
+		PREDEFINED_TYPES.put("BLOB", new TypeDesc(DBPDataKind.CONTENT, Types.BLOB, 0, 0, 0, 0));
 		PREDEFINED_TYPES.put("ROWID", new TypeDesc(DBPDataKind.ROWID, Types.ROWID, 0, 0, 0, 0));
-		
+		PREDEFINED_TYPES.put("VARCHAR", new TypeDesc(DBPDataKind.STRING, Types.VARCHAR, 0, 0, 0, 0));
+
 		for (TypeDesc type : PREDEFINED_TYPES.values()) {
 			PREDEFINED_TYPE_IDS.put(type.valueType, type);
 		}
