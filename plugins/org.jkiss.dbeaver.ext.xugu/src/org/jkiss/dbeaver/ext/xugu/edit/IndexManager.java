@@ -82,7 +82,7 @@ public class IndexManager extends SQLIndexManager<TableIndex, BaseTablePhysical>
 				List<DBSIndexType> indexTypes = new ArrayList<>();
 				indexTypes.add(Constants.INDEX_TYPE_BTREE);
 //				indexTypes.add(Constants.INDEX_TYPE_FULL_TEXT);
-				indexTypes.add(Constants.INDEX_TYPE_BITMAP);
+//				indexTypes.add(Constants.INDEX_TYPE_BITMAP);
 				EditIndexPage editPage = new EditIndexPage(Messages.edit_index_manager_dialog_title, index, indexTypes);
 				if (!editPage.edit()) {
 					return null;
