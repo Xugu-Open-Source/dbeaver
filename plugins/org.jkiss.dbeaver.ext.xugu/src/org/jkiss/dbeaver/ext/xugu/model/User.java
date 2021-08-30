@@ -185,24 +185,7 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 			e.printStackTrace();
 		}
 		if (resultSet != null) {
-			// 加载权限
-			Vector<Object> authorities = new LoadPermission().loadPermission(conn, this.userName, 0);
-			userAuthorities = new ArrayList<>();
-			Iterator<Object> it = authorities.iterator();
-			while (it.hasNext()) {
-				String temp = it.next().toString();
-				// 对象级权限
-				if (temp.indexOf("\"") != -1) {
-					String targetName = temp.substring(temp.indexOf("\""));
-					UserAuthority one = new UserAuthority(this, temp, targetName, false, expired);
-					userAuthorities.add(one);
-				}
-				// 库级权限
-				else {
-					UserAuthority one = new UserAuthority(this, temp, null, true, expired);
-					userAuthorities.add(one);
-				}
-			}
+			reloadAuthrities();
 		}
 		//不存在则加入
 		if(users.size()==0) {
@@ -216,6 +199,27 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 			}
 			if(!isHaveBoolean) {
 				users.add(this);
+			}
+		}
+	}
+
+	public void reloadAuthrities() {
+		// 加载权限
+		Vector<Object> authorities = new LoadPermission().loadPermission(conn, this.userName, 0);
+		userAuthorities = new ArrayList<>();
+		Iterator<Object> it = authorities.iterator();
+		while (it.hasNext()) {
+			String temp = it.next().toString();
+			// 对象级权限
+			if (temp.indexOf("\"") != -1) {
+				String targetName = temp.substring(temp.indexOf("\""));
+				UserAuthority one = new UserAuthority(this, temp, targetName, false, expired);
+				userAuthorities.add(one);
+			}
+			// 库级权限
+			else {
+				UserAuthority one = new UserAuthority(this, temp, null, true, expired);
+				userAuthorities.add(one);
 			}
 		}
 	}
@@ -371,7 +375,9 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 
 	@Override
 	public DBSObject refreshObject(DBRProgressMonitor monitor) throws DBException {
-		return this.getDataSource().userCache.refreshObject(monitor, this.getDataSource(), this);
+		User user = this.getDataSource().userCache.refreshObject(monitor, this.getDataSource(), this);
+		user.reloadAuthrities();
+		return user;
 	}
 
 	public Collection<UserAuthority> getUserAuthorities() {
