@@ -20,6 +20,9 @@ package org.jkiss.dbeaver.ext.xugu.editors;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.CTabItem;
+import org.eclipse.swt.events.MouseAdapter;
+import org.eclipse.swt.events.MouseEvent;
+import org.eclipse.swt.events.MouseListener;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.layout.GridData;
@@ -103,8 +106,18 @@ public class UserEditorGeneral extends BaseUserEditor {
 			ControlPropertyCommandListener.create(this, expireCheck, UserPropertyHandler.EXPIRED);
 			timeText = UIUtils.createLabelText(userAttributeGroupLeft, Messages.editors_user_editor_general_label_valid_until, untilTime);
 			ControlPropertyCommandListener.create(this, timeText, UserPropertyHandler.UNTIL_TIME);
-			// 暂时禁止修改用户锁定及口令失效 无论是否新建用户(check类型数据无法被PropertyHandler识别)
-			lockCheck.setEnabled(false);
+			lockCheck.addMouseListener(new MouseAdapter() {
+				@Override
+				public void mouseUp(MouseEvent e) {
+					lockCheck.notifyListeners(SWT.Modify, null);
+				}
+			});
+			expireCheck.addMouseListener(new MouseAdapter() {
+				@Override
+				public void mouseUp(MouseEvent e) {
+					expireCheck.notifyListeners(SWT.Modify, null);
+				}
+			});
 			expireCheck.setEnabled(false);
 		} else {
 			pageControl = new PageControl(parent);
@@ -126,8 +139,18 @@ public class UserEditorGeneral extends BaseUserEditor {
 			ControlPropertyCommandListener.create(this, expireCheck, UserPropertyHandler.EXPIRED);
 			timeText = UIUtils.createLabelText(userAttributeGroupLeft, Messages.editors_user_editor_general_label_valid_until, untilTime);
 			ControlPropertyCommandListener.create(this, timeText, UserPropertyHandler.UNTIL_TIME);
-			// 暂时禁止修改用户锁定及口令失效 无论是否新建用户(check类型数据无法被PropertyHandler识别)
-			lockCheck.setEnabled(false);
+			lockCheck.addMouseListener(new MouseAdapter() {
+				@Override
+				public void mouseUp(MouseEvent e) {
+					lockCheck.notifyListeners(SWT.Modify, null);
+				}
+			});
+			expireCheck.addMouseListener(new MouseAdapter() {
+				@Override
+				public void mouseUp(MouseEvent e) {
+					expireCheck.notifyListeners(SWT.Modify, null);
+				}
+			});
 			expireCheck.setEnabled(false);
 			
 			Composite userAttributeGroupRight = UIUtils.createControlGroup(userAttibuteContainer,
