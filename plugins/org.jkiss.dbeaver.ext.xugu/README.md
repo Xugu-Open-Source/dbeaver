@@ -111,6 +111,7 @@ views|额外的页面类目录（自主实现）
 
 ## 打包需要导出的插件
 
+- org.jkiss.bundle.apache.poi_4.1.1（直接复制此目录到打包后的 DBeaver 的插件目录）
 - org.jkiss.dbeaver.data.office
 - org.jkiss.dbeaver.data.transfer
 - org.jkiss.dbeaver.ext.oracle
