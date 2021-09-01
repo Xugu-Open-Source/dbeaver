@@ -117,6 +117,7 @@ views|额外的页面类目录（自主实现）
 - org.jkiss.dbeaver.ext.{OEM}
 - org.jkiss.dbeaver.model
 - org.jkiss.dbeaver.registry
+- org.jkiss.dbeaver.ui.editors.data
 - org.jkiss.dbeaver.ui.editors.sql
 - org.jkiss.dbeaver.ui.navigator
 - org.jkiss.dbeaver.ui
