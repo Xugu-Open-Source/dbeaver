@@ -725,29 +725,54 @@ class ResultSetPersister {
                     }
                     monitor.worked(1);
                 }
-                for (DataStatementInfo statement : ResultSetPersister.this.insertStatements) {
-                    if (monitor.isCanceled()) break;
-                    try {
-                        DBSDataManipulator dataContainer = getDataManipulator(statement.entity);
-                        try (DBSDataManipulator.ExecuteBatch batch = dataContainer.insertData(
-                            session,
-                            DBDAttributeValue.getAttributes(statement.keyAttributes),
-                            statement.needKeys() ? new KeyDataReceiver(statement) : null,
-                            new ExecutionSource(dataContainer))) {
-                            batch.add(DBDAttributeValue.getValues(statement.keyAttributes));
-                            if (generateScript) {
-                                batch.generatePersistActions(session, script, options);
-                            } else {
-                                insertStats.accumulate(batch.execute(session));
-                            }
-                        }
-                        processStatementChanges(statement);
-                    } catch (DBException e) {
-                        processStatementError(statement, session);
-                        return e;
-                    }
-                    monitor.worked(1);
-                }
+				if (generateScript) {
+					for (DataStatementInfo statement : ResultSetPersister.this.insertStatements) {
+						if (monitor.isCanceled())
+							break;
+						try {
+							DBSDataManipulator dataContainer = getDataManipulator(statement.entity);
+							try (DBSDataManipulator.ExecuteBatch batch = dataContainer.insertData(session,
+									DBDAttributeValue.getAttributes(statement.keyAttributes),
+									statement.needKeys() ? new KeyDataReceiver(statement) : null,
+									new ExecutionSource(dataContainer))) {
+								batch.add(DBDAttributeValue.getValues(statement.keyAttributes));
+								batch.generatePersistActions(session, script, options);
+							}
+							processStatementChanges(statement);
+						} catch (DBException e) {
+							processStatementError(statement, session);
+							return e;
+						}
+						monitor.worked(1);
+					}
+				} else {
+					DBSDataManipulator.ExecuteBatch batch = null;
+					int insertStatementSize = ResultSetPersister.this.insertStatements.size();
+					for (int i = 0; i < insertStatementSize; ++i) {
+						if (monitor.isCanceled())
+							break;
+						DataStatementInfo statement = ResultSetPersister.this.insertStatements.get(i);
+						try {
+							if (i == 0) {
+								DBSDataManipulator dataContainer = getDataManipulator(statement.entity);
+								batch = dataContainer.insertData(session,
+										DBDAttributeValue.getAttributes(statement.keyAttributes),
+										statement.needKeys() ? new KeyDataReceiver(statement) : null,
+										new ExecutionSource(dataContainer));
+							}
+							batch.add(DBDAttributeValue.getValues(statement.keyAttributes));
+							if (i == insertStatementSize - 1 || (i + 1) % 1000 == 0) {
+								insertStats.accumulate(batch.execute(session));
+							}
+							processStatementChanges(statement);
+						} catch (DBException e) {
+							processStatementError(statement, session);
+							return e;
+						}
+						monitor.worked(1);
+					}
+				}
+
                 for (DataStatementInfo statement : ResultSetPersister.this.updateStatements) {
                     if (monitor.isCanceled()) break;
                     try {
