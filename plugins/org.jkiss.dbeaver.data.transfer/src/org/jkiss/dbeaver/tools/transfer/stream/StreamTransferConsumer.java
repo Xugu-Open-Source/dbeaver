@@ -16,6 +16,9 @@
  */
 package org.jkiss.dbeaver.tools.transfer.stream;
 
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
+import org.eclipse.jface.dialogs.ErrorDialog;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
@@ -43,6 +46,8 @@ import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.serialize.DBPObjectSerializer;
 import org.jkiss.dbeaver.tools.transfer.DTUtils;
 import org.jkiss.dbeaver.tools.transfer.IDataTransferConsumer;
+import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.ui.dialogs.EditTextDialog;
 import org.jkiss.dbeaver.utils.ContentUtils;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
@@ -100,6 +105,7 @@ public class StreamTransferConsumer implements IDataTransferConsumer<StreamConsu
     private StringWriter outputBuffer;
     private boolean initialized = false;
     private TransferParameters parameters;
+    private String fileName = null;
 
     public StreamTransferConsumer() {
     }
@@ -427,9 +433,9 @@ public class StreamTransferConsumer implements IDataTransferConsumer<StreamConsu
 
     public String getOutputFileName() {
         Object extension = processorProperties == null ? null : processorProperties.get(StreamConsumerSettings.PROP_FILE_EXTENSION);
-        String fileName = translatePattern(
-            settings.getOutputFilePattern(),
-            null).trim();
+        if (fileName == null) {
+        	fileName = translatePattern(settings.getOutputFilePattern(), null).trim();
+        }
         // Can't rememeber why did we need this. It breaks file names in case of multiple tables export (#6911)
 //        if (parameters.orderNumber > 0 && !settings.isUseSingleFile()) {
 //            fileName += "_" + String.valueOf(parameters.orderNumber + 1);
@@ -528,22 +534,48 @@ public class StreamTransferConsumer implements IDataTransferConsumer<StreamConsu
     }
 
     private static String stripObjectName(String name) {
-        StringBuilder result = new StringBuilder();
-        boolean lastUnd = false;
-        for (int i = 0; i < name.length(); i++) {
-            char c = name.charAt(i);
-            if (Character.isLetterOrDigit(c)) {
-                result.append(c);
-                lastUnd = false;
-            } else if (!lastUnd) {
-                result.append('_');
-                lastUnd = true;
-            }
-            if (result.length() >= 64) {
-                break;
-            }
-        }
-        return result.toString();
+    	String[] unsupportedChars = new String[]{"\\", "/", ":", "*", "?", "\"", "<", ">", "|"};
+		boolean isNameValid = true;
+    	for (String c : unsupportedChars) {
+			if (name.contains(c)) {
+				String error = "File name cheack failed";
+				String reason = "File name contains invalid characters \n\\/:*?\"<>|";
+				IStatus status = new Status(IStatus.ERROR, "org.jkiss.dbeaver.data.transfer", reason);
+				new ErrorDialog(UIUtils.getActiveWorkbenchShell(),
+						"Unsupported object name",
+						error, status, IStatus.ERROR).open();
+	    		isNameValid = false;
+				break;
+			}
+		}
+    	if (isNameValid) {
+    		return name;
+    	} else {
+        	String result = null;
+    		while (result == null) {
+        		String tempName = EditTextDialog.editText(UIUtils.getActiveWorkbenchShell(), "Input file name", name);
+        		if (tempName == null) {
+        			tempName = name;
+        		}
+        		boolean isTempNameValid = true;
+        		for (String c : unsupportedChars) {
+        			if (tempName.contains(c)) {
+        				String error = "File name cheack failed";
+        				String reason = "File name contains invalid characters \n\\/:*?\"<>|";
+        				IStatus status = new Status(IStatus.ERROR, "org.jkiss.dbeaver.data.transfer", reason);
+        				new ErrorDialog(UIUtils.getActiveWorkbenchShell(),
+        						"Unsupported object name",
+        						error, status, IStatus.ERROR).open();
+        	    		isTempNameValid = false;
+        				break;
+        			}
+        		}
+        		if (isTempNameValid) {
+            		result = tempName;
+        		}
+        	}
+            return result;
+    	}
     }
 
     @Override
