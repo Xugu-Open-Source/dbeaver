@@ -2037,8 +2037,10 @@ public class SQLEditor extends SQLEditorBase implements
                             }
                         }
                         // CATALOG
-                        if (!connectBody.endsWith("\"") && "tunton".equals(driverName)) {
-                            catalog = builder.toString().toUpperCase();
+                        if (connectBody.endsWith("\"")) {
+                            catalog = builder.toString();
+                        } else {
+                        	catalog = builder.toString().toUpperCase();
                         }
 
                         DBPConnectionConfiguration config = dataSourceContainer.getConnectionConfiguration();
