@@ -51,6 +51,7 @@ import cn.hutool.core.util.EscapeUtil;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlan;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlanStyle;
 import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlanner;
+import org.jkiss.dbeaver.ext.xugu.model.DataSource.SchedulerJobCache;
 import org.jkiss.dbeaver.ext.xugu.model.plan.PlanAnalyser;
 import org.jkiss.dbeaver.ext.xugu.Utils;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
@@ -107,6 +108,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	final public SchemaCache schemaCache = new SchemaCache();
 	final public DatabaseCache databaseCache = new DatabaseCache();
 	final DataTypeCache dataTypeCache = new DataTypeCache();
+	final public SchedulerJobCache schedulerJobCache = new SchedulerJobCache();
 
 	private final TablespaceCache tablespaceCache = new TablespaceCache();
 	final public UserCache userCache = new UserCache();
@@ -406,6 +408,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		if (UserRoleFlag.SYS.name().equals(this.roleFlag)) {
 			this.roleCache.clearCache();
 		}
+		this.schedulerJobCache.clearCache();
 
 		this.initialize(monitor);
 		return this;
@@ -1003,6 +1006,50 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			}
 		}
 	}
+	
+	/**
+	 * 作业缓存
+	 */
+	public static class SchedulerJobCache extends JDBCStructLookupCache<DataSource, SchedulerJob, SchedulerJob> {
+		public SchedulerJobCache() {
+			super("SCHEDULER_JOB_NAME");
+			setListOrderComparator(DBUtils.<SchedulerJob>nameComparator());
+		}
+
+		@Override
+		public JDBCStatement prepareLookupStatement(JDBCSession session, DataSource owner, SchedulerJob object,
+				String objectName) throws SQLException {
+			// xfc 修改了获取所有job信息的sql语句
+			String roleFlag = owner.getRoleFlag();
+			StringBuilder sql = new StringBuilder();
+			sql.append("SELECT * FROM ");
+			sql.append(roleFlag);
+			sql.append("_JOBS WHERE DB_ID=");
+			sql.append(owner.databaseCache.getCachedObject(session.getCatalog()).getId());
+
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct select jobs sql: " + sql.toString());
+			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
+			return dbStat;
+		}
+
+		@Override
+		protected SchedulerJob fetchObject(@NotNull JDBCSession session, @NotNull DataSource owner,
+				@NotNull JDBCResultSet dbResult) throws SQLException, DBException {
+			return new SchedulerJob(session.getProgressMonitor(), (DataSource)session.getDataSource().getDataSource(), dbResult);
+		}
+
+		@Override
+		protected JDBCStatement prepareChildrenStatement(JDBCSession session, DataSource owner, SchedulerJob forObject)
+				throws SQLException {
+			return null;
+		}
+
+		@Override
+		protected SchedulerJob fetchChild(JDBCSession session, DataSource owner, SchedulerJob parent,
+				JDBCResultSet dbResult) throws SQLException, DBException {
+			return null;
+		}
+	}
 
 	public Collection<Charset> getCharsets() {
 		return charsets;
@@ -1023,5 +1070,18 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 	public String getActiveSchemaName() {
 		return activeSchemaName;
+	}
+
+	/**
+	 * 从作业缓存中获取全部的作业信息
+	 * 
+	 * @param monitor 监控
+	 * @return list 作业列表
+	 * @throws DBException 数据库异常
+	 */
+	@Association
+	public Collection<SchedulerJob> getSchedulerJobs(DBRProgressMonitor monitor) throws DBException {
+		Collection<SchedulerJob> list = schedulerJobCache.getAllObjects(monitor, this);
+		return list;
 	}
 }

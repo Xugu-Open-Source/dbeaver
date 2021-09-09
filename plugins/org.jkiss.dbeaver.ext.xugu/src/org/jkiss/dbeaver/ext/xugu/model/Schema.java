@@ -72,7 +72,6 @@ public class Schema extends BaseGlobalObject
 	final public UdtCache udtCache = new UdtCache();
 	final public ProceduresCache proceduresCache = new ProceduresCache();
 	final public FunctionsCache functionsCache = new FunctionsCache();
-	final public SchedulerJobCache schedulerJobCache = new SchedulerJobCache();
 	final public TriggerCache triggerCache = new TriggerCache();
  	final public ProcedurePackagedCache procedurePackagedCache = new ProcedurePackagedCache();
  	
@@ -465,19 +464,6 @@ public class Schema extends BaseGlobalObject
 		return udt;
 	}
 
-	/**
-	 * 从作业缓存中获取全部的作业信息
-	 * 
-	 * @param monitor 监控
-	 * @return list 作业列表
-	 * @throws DBException 数据库异常
-	 */
-	@Association
-	public Collection<SchedulerJob> getSchedulerJobs(DBRProgressMonitor monitor) throws DBException {
-		Collection<SchedulerJob> list = schedulerJobCache.getAllObjects(monitor, this);
-		return list;
-	}
-
 	public User getSchemaUser(DBRProgressMonitor monitor) throws DBException {
 		return getDataSource().getUser(monitor, name);
 	}
@@ -492,7 +478,6 @@ public class Schema extends BaseGlobalObject
 		children.addAll(synonymCache.getAllObjects(monitor, this));
 		children.addAll(triggerCache.getAllObjects(monitor, this));
 		children.addAll(udtCache.getAllObjects(monitor, this));
-		children.addAll(schedulerJobCache.getAllObjects(monitor, this));
 		return children;
 	}
 
@@ -554,8 +539,6 @@ public class Schema extends BaseGlobalObject
 			synonymCache.getAllObjects(monitor, this);
 			monitor.subTask("Cache triggers");
 			triggerCache.getAllObjects(monitor, this);
-			monitor.subTask("Cache job");
-			schedulerJobCache.getAllObjects(monitor, this);
 		}
 	}
 
@@ -573,7 +556,6 @@ public class Schema extends BaseGlobalObject
 		synonymCache.clearCache();
 		triggerCache.clearCache();
 		udtCache.clearCache();
-		schedulerJobCache.clearCache();
 		return this.getDataSource().schemaCache.refreshObject(monitor, this.getDataSource(), this);
 	}
 
@@ -1462,33 +1444,4 @@ public class Schema extends BaseGlobalObject
 			super.cacheChildren(parent, tableColumns);
 		}
 	}
-
-	/**
-	 * 作业缓存
-	 */
-	static class SchedulerJobCache extends JDBCObjectCache<Schema, SchedulerJob> {
-		@Override
-		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull Schema owner)
-				throws SQLException {
-			// xfc 修改了获取所有job信息的sql语句
-			String roleFlag = owner.getRoleFlag();
-			StringBuilder sql = new StringBuilder();
-			sql.append("SELECT * FROM ");
-			sql.append(roleFlag);
-			sql.append("_JOBS WHERE DB_ID=");
-			sql.append(owner.getDbId(owner, session));
-
-			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct select jobs sql: " + sql.toString());
-			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
-			return dbStat;
-		}
-
-		@Override
-		protected SchedulerJob fetchObject(@NotNull JDBCSession session, @NotNull Schema owner,
-				@NotNull JDBCResultSet dbResult) throws SQLException, DBException {
-			return new SchedulerJob(session.getProgressMonitor(), session, owner, dbResult);
-		}
-	}
-	
-
 }

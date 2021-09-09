@@ -145,12 +145,12 @@
                                 </folder>
                             </items>
                         </folder>
-                        <!--作业-->
-                        <!--  <folder type="org.jkiss.dbeaver.ext.xugu.model.SchedulerJob" label="%tree.scheduler.jobs.node.name" icon="#scheduler_job_folder" description="Scheduler jobs">
-                                <items label="%tree.scheduler.job.node.name" path="schedulerJob" property="schedulerJobs" icon="icons/scheduled_job.png">
-                                    <items label="%tree.scheduler.job.parameters.node.name" itemLabel="%tree.scheduler.job.parameter.node.name" path="argument" property="parameters" icon="#argument"/>
-                                </items>
-	                        </folder>-->
+                    </items>
+                </folder>
+                <!--作业-->
+                <folder type="org.jkiss.dbeaver.ext.xugu.model.SchedulerJob" label="%tree.scheduler.jobs.node.name" icon="#scheduler_job_folder" description="Scheduler jobs">
+                    <items label="%tree.scheduler.job.node.name" path="schedulerJob" property="schedulerJobs" icon="icons/scheduled_job.png">
+                        <items label="%tree.scheduler.job.arguments.node.name" itemLabel="%tree.scheduler.job.argument.node.name" path="argument" property="arguments" icon="#argument"/>
                     </items>
                 </folder>
                 <!--存储管理-->
@@ -236,6 +236,7 @@
         <!--<manager class="org.jkiss.dbeaver.ext.xugu.edit.TriggerManager" objectType="org.jkiss.dbeaver.ext.xugu.model.NewTrigger"/>-->
         <manager class="org.jkiss.dbeaver.ext.xugu.edit.SequenceManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Sequence"/>
       <!--  <manager class="org.jkiss.dbeaver.ext.xugu.edit.SynonymManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Synonym"/> -->
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.SchedulerJobManager" objectType="org.jkiss.dbeaver.ext.xugu.model.SchedulerJob"/>
         <manager class="org.jkiss.dbeaver.ext.xugu.edit.TablespaceManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Tablespace"/>
         <manager class="org.jkiss.dbeaver.ext.xugu.edit.RoleManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Role"/>
         <manager class="org.jkiss.dbeaver.ext.xugu.edit.UdtManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Udt"/>
