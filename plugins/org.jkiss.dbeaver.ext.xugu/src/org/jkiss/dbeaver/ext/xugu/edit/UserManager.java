@@ -364,13 +364,6 @@ public class UserManager extends SQLObjectEditor<User, DataSource>
 		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop user sql: " + sql);
 		DBEPersistAction action = new SQLDatabasePersistAction("Drop User", sql);
 		actions.add(action);
-		String userNameString = command.getObject().getName();
-		//删除用户后从用户集合中移除该用户。
-		List<User> users = User.users;
-		for (int i = 0; i < users.size(); i++) {
-			if(users.get(i).getName().equals(userNameString));
-			User.users.remove(i);
-		}
 	}
 
 	@Override

@@ -226,20 +226,9 @@ public class UserEditorGeneral extends BaseUserEditor {
 					// TODO 小部件默认已选择事件
 				}
 			});
-			List<User> userList = User.users;
 			// 加载用户当前的角色信息
-			if (userList.size() > 0) {
-				String userNameString = getDatabaseObject().getName();
-				for (int i = 0; i < userList.size(); i++) {
-					if (userList.get(i).getName().equals(userNameString)) {
-						String[] roleStrings = userList.get(i).getRoleList().split(",");
-						for (String string : roleStrings) {
-							if (string != "") {
-								roleList.add(string);
-							}
-						}
-					}
-				}
+			for (String role : getDatabaseObject().getRoleList().split(",")) {
+				roleList.add(role);
 			}
 			// 加载全部角色信息
 			if (User.roleNames.size() > 0) {

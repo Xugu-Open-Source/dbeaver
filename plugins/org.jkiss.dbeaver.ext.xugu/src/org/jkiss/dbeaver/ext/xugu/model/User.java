@@ -75,13 +75,7 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 	private String roleList;
 	private Collection<UserAuthority> userAuthorities;
 	private String schemaList;
-	public static List<User> users = new ArrayList<User>() ;
 	public static List<String> roleNames = new ArrayList<String>();
-	
-	
-	public static List<User> getUserList(){
-		return users;
-	}
 	
 	public static List<String> getRoleNameList(){
 		return roleNames;
@@ -186,20 +180,6 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 		}
 		if (resultSet != null) {
 			reloadAuthrities();
-		}
-		//不存在则加入
-		if(users.size()==0) {
-			users.add(this);
-		}else {
-			Boolean isHaveBoolean = false;
-			for (int i =0 ;i<users.size();i++) {
-				if(this.getName().equals(users.get(i).getName())) {
-					isHaveBoolean = true;
-				}
-			}
-			if(!isHaveBoolean) {
-				users.add(this);
-			}
 		}
 	}
 
