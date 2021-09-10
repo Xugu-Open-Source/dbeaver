@@ -978,10 +978,25 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	/**
 	 * ½ÇÉ«»º´æ
 	 */
-	public class RoleCache extends JDBCObjectCache<DataSource, Role> {
+	public class RoleCache extends JDBCStructLookupCache<DataSource, Role, Role> {
+		public RoleCache() {
+			super("ROLE_NAME");
+			setListOrderComparator(DBUtils.<Role>nameComparator());
+		}
+
 		@Override
-		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull DataSource owner)
-				throws SQLException {
+		protected Role fetchObject(@NotNull JDBCSession session, @NotNull DataSource owner,
+				@NotNull JDBCResultSet resultSet) throws SQLException, DBException {
+			if (resultSet != null) {
+				return new Role(owner, session.getProgressMonitor(), resultSet);
+			} else {
+				return null;
+			}
+		}
+
+		@Override
+		public JDBCStatement prepareLookupStatement(JDBCSession session, DataSource owner, Role object,
+				String objectName) throws SQLException {
 			StringBuilder sql = new StringBuilder();
 			String dbName = session.getCatalog();
 			try {
@@ -993,17 +1008,23 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			} catch (DBException e) {
 				throw new SQLException("Error in DataSource.RoleCache.prepareObjectsStatement()", e);
 			}
+			if (object != null) {
+				sql.append(" AND USER_ID =");
+				sql.append(object.getId());
+			}
 			return session.prepareStatement(sql.toString());
 		}
 
 		@Override
-		protected Role fetchObject(@NotNull JDBCSession session, @NotNull DataSource owner,
-				@NotNull JDBCResultSet resultSet) throws SQLException, DBException {
-			if (resultSet != null) {
-				return new Role(owner, session.getProgressMonitor(), resultSet);
-			} else {
-				return null;
-			}
+		protected JDBCStatement prepareChildrenStatement(JDBCSession session, DataSource owner, Role forObject)
+				throws SQLException {
+			return null;
+		}
+
+		@Override
+		protected Role fetchChild(JDBCSession session, DataSource owner, Role parent, JDBCResultSet dbResult)
+				throws SQLException, DBException {
+			return null;
 		}
 	}
 	
