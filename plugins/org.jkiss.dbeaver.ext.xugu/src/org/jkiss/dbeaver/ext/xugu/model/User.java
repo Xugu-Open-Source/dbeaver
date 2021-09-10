@@ -25,6 +25,7 @@ import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 
 import java.sql.Statement;
@@ -71,7 +72,6 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 	private int ioQuota;
 	private Timestamp createTime;
 	private Timestamp lastModiTime;
-	private Connection conn;
 	private String roleList;
 	private Collection<UserAuthority> userAuthorities;
 	private String schemaList;
@@ -96,11 +96,6 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 		super(dataSource, persisted);
 		this.monitor = monitor;
 		if (resultSet != null) {
-			try {
-				conn = resultSet.getStatement().getConnection();
-			} catch (SQLException e) {
-				e.printStackTrace();
-			}
 			this.dbId = JDBCUtils.safeGetInt(resultSet, "DB_ID");
 			this.userId = JDBCUtils.safeGetInt(resultSet, "USER_ID");
 			this.userName = JDBCUtils.safeGetString(resultSet, "USER_NAME");
@@ -185,6 +180,12 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 
 	public void reloadAuthrities() {
 		// 加载权限
+		Connection conn;
+		try {
+			conn = this.getDataSource().getDefaultInstance().getDefaultContext(true).getConnection(new LoggingProgressMonitor());
+		} catch (SQLException e) {
+			throw new RuntimeException("获取用户权限查询连接失败", e);
+		}
 		Vector<Object> authorities = new LoadPermission().loadPermission(conn, this.userName, 0);
 		userAuthorities = new ArrayList<>();
 		Iterator<Object> it = authorities.iterator();
