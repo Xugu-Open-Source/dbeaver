@@ -394,39 +394,48 @@ public class StreamProducerSettings implements IDataTransferSettings {
                     // Map source columns
                     if (columnInfos != null) {
                         List<StreamProducerSettings.AttributeMapping> attributeMappings = entityMapping.getAttributeMappings();
-                        for (StreamDataImporterColumnInfo columnInfo : columnInfos) {
-                            boolean mappingFound = false;
-                            if (columnInfo.getColumnName() != null) {
-                                for (StreamProducerSettings.AttributeMapping attr : attributeMappings) {
-                                    if (CommonUtils.equalObjects(attr.getSourceAttributeName(), columnInfo.getColumnName())) {
-                                        if (attr.getMappingType() == StreamProducerSettings.AttributeMapping.MappingType.NONE || attr.getSourceAttributeIndex() < 0) {
-                                            // Set source name only if it wasn't set
-                                            attr.setSourceAttributeName(columnInfo.getColumnName());
-                                            attr.setSourceAttributeIndex(columnInfo.getColumnIndex());
-                                            if (attr.getMappingType() == StreamProducerSettings.AttributeMapping.MappingType.NONE) {
-                                                attr.setMappingType(StreamProducerSettings.AttributeMapping.MappingType.IMPORT);
+                    	if ("sql".equalsIgnoreCase((String) processorProperties.get("extension"))) {
+                    		for (int i=0; i<attributeMappings.size(); ++i) {
+                    			StreamProducerSettings.AttributeMapping attr = attributeMappings.get(i);
+                    			attr.setSourceAttributeIndex(i);
+                    			attr.setSourceAttributeName("COLUMN_" + i);
+                    			attr.setMappingType(StreamProducerSettings.AttributeMapping.MappingType.IMPORT);
+                    		}
+                    	} else {
+                    		for (StreamDataImporterColumnInfo columnInfo : columnInfos) {
+                                boolean mappingFound = false;
+                                if (columnInfo.getColumnName() != null) {
+                                    for (StreamProducerSettings.AttributeMapping attr : attributeMappings) {
+                                        if (CommonUtils.equalObjects(attr.getSourceAttributeName(), columnInfo.getColumnName())) {
+                                            if (attr.getMappingType() == StreamProducerSettings.AttributeMapping.MappingType.NONE || attr.getSourceAttributeIndex() < 0) {
+                                                // Set source name only if it wasn't set
+                                                attr.setSourceAttributeName(columnInfo.getColumnName());
+                                                attr.setSourceAttributeIndex(columnInfo.getColumnIndex());
+                                                if (attr.getMappingType() == StreamProducerSettings.AttributeMapping.MappingType.NONE) {
+                                                    attr.setMappingType(StreamProducerSettings.AttributeMapping.MappingType.IMPORT);
+                                                }
+                                                attr.setSourceColumn(columnInfo);
                                             }
+                                            mappingFound = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (!mappingFound) {
+                                    if (columnInfo.getColumnIndex() >= 0 && columnInfo.getColumnIndex() < attributeMappings.size()) {
+                                        StreamProducerSettings.AttributeMapping attr = attributeMappings.get(columnInfo.getColumnIndex());
+                                        if (attr.getMappingType() == StreamProducerSettings.AttributeMapping.MappingType.NONE) {
+                                            if (!CommonUtils.isEmpty(columnInfo.getColumnName())) {
+                                                attr.setSourceAttributeName(columnInfo.getColumnName());
+                                            }
+                                            attr.setSourceAttributeIndex(columnInfo.getColumnIndex());
+                                            attr.setMappingType(StreamProducerSettings.AttributeMapping.MappingType.IMPORT);
                                             attr.setSourceColumn(columnInfo);
                                         }
-                                        mappingFound = true;
-                                        break;
                                     }
                                 }
                             }
-                            if (!mappingFound) {
-                                if (columnInfo.getColumnIndex() >= 0 && columnInfo.getColumnIndex() < attributeMappings.size()) {
-                                    StreamProducerSettings.AttributeMapping attr = attributeMappings.get(columnInfo.getColumnIndex());
-                                    if (attr.getMappingType() == StreamProducerSettings.AttributeMapping.MappingType.NONE) {
-                                        if (!CommonUtils.isEmpty(columnInfo.getColumnName())) {
-                                            attr.setSourceAttributeName(columnInfo.getColumnName());
-                                        }
-                                        attr.setSourceAttributeIndex(columnInfo.getColumnIndex());
-                                        attr.setMappingType(StreamProducerSettings.AttributeMapping.MappingType.IMPORT);
-                                        attr.setSourceColumn(columnInfo);
-                                    }
-                                }
-                            }
-                        }
+                    	}
                     }
                 }
             }

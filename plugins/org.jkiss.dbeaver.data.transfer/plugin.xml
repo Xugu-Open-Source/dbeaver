@@ -51,6 +51,18 @@
                     <property id="timestampFormat" label="%dataTransfer.producer.stream.processor.csv.property.timestampFormat.name" type="string" description="%dataTransfer.producer.stream.processor.csv.property.timestampFormat.description" defaultValue="yyyy-MM-dd[ HH:mm:ss[.SSS]]" required="false"/>
                 </propertyGroup>
             </processor>
+
+            <processor
+                id="stream.sql"
+                class="org.jkiss.dbeaver.tools.transfer.stream.importer.DataImporterSQL"
+                description="%dataTransfer.producer.stream.processor.sql.description"
+                icon="platform:/plugin/org.jkiss.dbeaver.ui/icons/misc/csv.png"
+                label="%dataTransfer.producer.stream.processor.sql.name">
+                <propertyGroup label="%dataTransfer.producer.stream.processor.sql.propertyGroup.general.label">
+                    <property id="encoding" label="%dataTransfer.producer.stream.processor.sql.property.encoding.label" defaultValue="utf-8"/>
+                    <property id="extension" label="%dataTransfer.producer.stream.processor.sql.property.extension.label" defaultValue="sql"/>
+                </propertyGroup>
+            </processor>
         </node>
 
         <node type="consumer"
