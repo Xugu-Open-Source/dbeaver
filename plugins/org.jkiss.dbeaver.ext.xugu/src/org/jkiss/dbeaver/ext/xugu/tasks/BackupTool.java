@@ -289,7 +289,7 @@ public class BackupTool implements IUserInterfaceTool {
 						break;
 					case DATABASE:
 						try {
-							executor.forDatabase(object.getDatabaseName(), object.getFileName());
+							executor.forCatalog(object.getDatabaseName(), object.getFileName());
 						} catch (Exception ex) {
 							exceptions.put(object, ex);
 						}
