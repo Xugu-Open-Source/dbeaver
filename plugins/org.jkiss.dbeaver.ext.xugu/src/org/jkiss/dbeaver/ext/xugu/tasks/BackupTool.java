@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CCombo;
 import org.eclipse.swt.custom.TableEditor;
@@ -75,7 +76,7 @@ public class BackupTool implements IUserInterfaceTool {
 						String.format("获取库（%s）模式（%s）的表列表失败", schema.getParent().getName(), schema.getName()), e);
 			}
 		}).collect(Collectors.toSet());
-		Collection<SelectedObject> selectedObjects = new HashSet<>();
+		Collection<SelectedObject> selectedObjects = new ArrayList<>();
 		Shell selectShell = new Shell(window.getShell());
 		selectShell.setText("数据库备份工具");
 		selectShell.setLayout(new GridLayout());
@@ -314,13 +315,9 @@ public class BackupTool implements IUserInterfaceTool {
 					}
 				}
 				if (exceptions.isEmpty()) {
-					MessageBox messageBox = new MessageBox(comfirmShell, SWT.ICON_INFORMATION);
-					messageBox.setText("备份异常");
-					messageBox.setMessage("所有已选择对象备份完成");
-					messageBox.open();
+					MessageDialog.openInformation(comfirmShell, "备份成功", "执行数据库对象备份完成！");
 					comfirmShell.dispose();
 				} else {
-					MessageBox messageBox = new MessageBox(comfirmShell, SWT.ICON_ERROR);
 					StringBuilder builder = new StringBuilder();
 					exceptions.forEach((key, value) -> {
 						builder.append("[");
@@ -336,8 +333,7 @@ public class BackupTool implements IUserInterfaceTool {
 						}
 						builder.append("\n\n");
 					});
-					messageBox.setMessage("下列对象备份失败：\n" + builder);
-					messageBox.open();
+					MessageDialog.openError(comfirmShell, "备份失败", "下列对象备份失败：\n" + builder);
 				}
 			}));
 			comfirmShell.pack();
