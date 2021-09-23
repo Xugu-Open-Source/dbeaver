@@ -101,28 +101,6 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * 通过结果集构造一个新的模式对象，同时指定其所属数据库
-	 * 
-	 * @param dataSource 数据源
-	 * @param parent     所属数据库
-	 * @param dbResult   查询结果集
-	 */
-	public Schema(@NotNull DataSource dataSource, Database parent, ResultSet dbResult) {
-		super(dataSource, true);
-		this.id = JDBCUtils.safeGetLong(dbResult, "SCHEMA_ID");
-		this.name = JDBCUtils.safeGetString(dbResult, "SCHEMA_NAME");
-		this.owner = JDBCUtils.safeGetString(dbResult, "USER_NAME");
-		this.comment = JDBCUtils.safeGetString(dbResult, "COMMENT");
-		this.dataSource= dataSource;
-		this.roleFlag = dataSource.getRoleFlag();
-		this.parent = parent;
-		if (CommonUtils.isEmpty(this.name)) {
-			log.warn("Empty schema name fetched");
-			this.name = "? " + super.hashCode();
-		}
-	}
-
-	/**
 	 * 通过结果集构造一个新的模式对象
 	 * 
 	 * @param dataSource 数据源
@@ -136,6 +114,7 @@ public class Schema extends BaseGlobalObject
 		this.comment = JDBCUtils.safeGetString(dbResult, "COMMENTS");
 		this.roleFlag = dataSource.getRoleFlag();
 		this.dataSource= dataSource;
+		this.parent = dataSource.getDatabase();
 		if (CommonUtils.isEmpty(this.name)) {
 			log.warn("Empty schema name fetched");
 			this.name = "? " + super.hashCode();
@@ -184,15 +163,7 @@ public class Schema extends BaseGlobalObject
 	}
 
 	public int getDbId(Schema schema, JDBCSession session) {
-		try {
-			String dbName = schema.getName();
-			int dbId = schema.getDataSource().databaseCache
-					.getObject(session.getProgressMonitor(), schema.getDataSource(), dbName).getId();
-			return dbId;
-		} catch (DBException e) {
-			e.printStackTrace();
-			return -1;
-		}
+		return parent.getId();
 	}
 
 	public Database getParent() {
@@ -556,7 +527,7 @@ public class Schema extends BaseGlobalObject
 		synonymCache.clearCache();
 		triggerCache.clearCache();
 		udtCache.clearCache();
-		return this.getDataSource().schemaCache.refreshObject(monitor, this.getDataSource(), this);
+		return this.getDataSource().schemaCache.refreshObject(monitor, this.getDataSource().getDatabase(), this);
 	}
 
 	@Override

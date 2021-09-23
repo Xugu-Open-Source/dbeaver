@@ -26,7 +26,8 @@ Bundle-ClassPath: .,
  lib/xugu-metadata-1.1.0.jar,
  lib/xugu-permission-1.1.0.jar,
  lib/xugu-parser-1.1.0.jar,
- lib/hutool-all-5.4.1.jar
+ lib/hutool-all-5.4.1.jar,
+ lib/xugu-backup-1.0.0-a1-SNAPSHOT.jar
 Import-Package: org.jkiss.dbeaver.tasks.nativetool,
  org.jkiss.dbeaver.tasks.ui.nativetool,
  org.jkiss.dbeaver.ui.tools

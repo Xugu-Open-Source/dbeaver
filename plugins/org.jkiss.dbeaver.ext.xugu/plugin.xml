@@ -369,6 +369,24 @@
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.Udt"/>
             </tool>
+            <tool
+                class="org.jkiss.dbeaver.ext.xugu.tasks.BackupTool"	
+                description="Backup Tool"
+                id="org.jkiss.dbeaver.ext.xugu.tasks.BackupTool"
+                label="数据库对象备份"
+                icon="#export"
+                singleton="true">
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
+            </tool>
+            <tool
+                class="org.jkiss.dbeaver.ext.xugu.tasks.RestoreTool"	
+                description="Restore Tool"
+                id="org.jkiss.dbeaver.ext.xugu.tasks.RestoreTool"
+                label="数据库对象恢复"
+                icon="#import"
+                singleton="true">
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
+            </tool>
         </tools>
      </extension>
     

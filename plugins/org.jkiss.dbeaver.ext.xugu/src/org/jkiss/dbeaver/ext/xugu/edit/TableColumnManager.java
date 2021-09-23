@@ -215,7 +215,7 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 		try {
 			BaseTable table = column.getTable();
 			Schema schema = table.getSchema();
-			table.getDataSource().schemaCache.refreshObject(monitor, schema.getDataSource(), schema);
+			table.getDataSource().schemaCache.refreshObject(monitor, schema.getParent(), schema);
 		} catch (DBException e) {
 			log.error(e);
 		}

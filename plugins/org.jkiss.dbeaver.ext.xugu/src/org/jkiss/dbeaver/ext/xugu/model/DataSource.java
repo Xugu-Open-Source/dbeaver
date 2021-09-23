@@ -35,6 +35,7 @@ import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCStructLookupCache;
 import org.jkiss.dbeaver.model.impl.jdbc.exec.JDBCStatementImpl;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLConstants;
 import org.jkiss.dbeaver.model.sql.SQLQueryResult;
 import org.jkiss.dbeaver.model.sql.SQLState;
@@ -71,13 +72,14 @@ import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * 数据源类，包含连接信息以及模式级别的对象缓存（模式、角色、用户、表空间、数据类型） 负责创建连接、初始化上下文等
  */
-public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdaptable {
+public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdaptable, javax.sql.DataSource {
 	private static final Log log = Log.getLog(DataSource.class);
 	
 	
@@ -122,6 +124,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	private boolean isAdmin;
 	private boolean isAdminVisible;
 	private boolean useRuleHint;
+	private Database database;
 	/**
 	 * userRole 角色属性，用于在查询时设置表名的前缀
 	 */
@@ -134,9 +137,26 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	
 	private String  roleString;
 	private String 	userString;
+	private Driver driver;
 	
 	public DataSource(DBRProgressMonitor monitor, DBPDataSourceContainer container) throws DBException {
 		super(monitor, container, new SqlDialect());
+		DBPConnectionConfiguration config = container.getConnectionConfiguration();
+		try {
+			driver = (Driver) container.getDriver().getDriverInstance(monitor);
+		} catch (DBException e) {
+			throw new DBException("注册驱动失败", e);
+		}
+		// xfc 从连接信息中获取 userRole
+		this.userRole = config.getProviderProperty(Constants.PROP_INTERNAL_LOGON);
+		if (UserLoginRole.SYSDBA.name().equals(this.userRole)) {
+			this.roleFlag = UserRoleFlag.SYS.name();
+		} else if (UserLoginRole.DBA.name().equals(this.userRole)) {
+			this.roleFlag = UserRoleFlag.DBA.name();
+		} else {
+			this.roleFlag = UserRoleFlag.ALL.name();
+		}
+		this.database = this.databaseCache.getObject(monitor, this, config.getDatabaseName());
 		this.outputReader = new OutputReader();
 	}
 	
@@ -148,6 +168,14 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		default:
 			return super.getDataSourceFeature(featureId);
 		}
+	}
+
+	public Database getDatabase() {
+		return database;
+	}
+
+	public void setDatabase(Database database) {
+		this.database = database;
 	}
 
 	/**
@@ -325,15 +353,12 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 	@Association
 	public Collection<Schema> getSchemas(DBRProgressMonitor monitor) throws DBException {
-		return schemaCache.getAllObjects(monitor, this);
+		return schemaCache.getAllObjects(monitor, this.database);
 	}
 
 	@Association
 	public Schema getSchema(DBRProgressMonitor monitor, String name) throws DBException {
-		if (publicSchema != null && publicSchema.getName().equals(name)) {
-			return publicSchema;
-		}
-		return schemaCache.getObject(monitor, this, name);
+		return schemaCache.getObject(monitor, this.database, name);
 	}
 
 	@Association
@@ -370,17 +395,6 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		if (useRuleHintProp != null) {
 			useRuleHint = CommonUtils.getBoolean(useRuleHintProp, false);
 		}
-
-		// xfc 从连接信息中获取 userRole
-		this.userRole = connectionInfo.getProviderProperty(Constants.PROP_INTERNAL_LOGON);
-		if (UserLoginRole.SYSDBA.name().equals(this.userRole)) {
-			this.roleFlag = UserRoleFlag.SYS.name();
-		} else if (UserLoginRole.DBA.name().equals(this.userRole)) {
-			this.roleFlag = UserRoleFlag.DBA.name();
-		} else {
-			this.roleFlag = UserRoleFlag.ALL.name();
-		}
-		this.publicSchema = new Schema(this, 1, Constants.USER_PUBLIC);
 		{
 			JDBCSession session = DBUtils.openMetaSession(monitor, this, "Check meta connection");
 			this.metaSession = session;
@@ -764,9 +778,19 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		@Override
 		public JDBCStatement prepareLookupStatement(JDBCSession session, DataSource owner, Database object,
 				String objectName) throws SQLException {
-			String sql = "SELECT * FROM " + owner.roleFlag + "_DATABASES" + " WHERE DB_NAME='"
-					+ session.getCatalog() + "'";
-			return session.prepareStatement(sql);
+			StringBuilder builder = new StringBuilder("SELECT * FROM ");
+			builder.append(owner.roleFlag);
+			builder.append("_DATABASES");
+			if (object != null) {
+				builder.append(" WHERE DB_NAME='");
+				builder.append(object.getName());
+				builder.append("'");
+			} else if (objectName != null) {
+				builder.append(" WHERE DB_NAME='");
+				builder.append(objectName);
+				builder.append("'");
+			}
+			return session.prepareStatement(builder.toString());
 		}
 
 		@Override
@@ -775,82 +799,51 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			return new Database(owner, resultSet);
 		}
 
-		/**
-		 * 缓存模式信息以作为库信息的成员
-		 */
 		@Override
-		protected JDBCStatement prepareChildrenStatement(JDBCSession session, DataSource owner, Database forDatabase)
+		protected JDBCStatement prepareChildrenStatement(JDBCSession session, DataSource owner, Database forObject)
 				throws SQLException {
-			// xfc 修改了获取列信息的sql
-			StringBuilder sql = new StringBuilder(500);
-
-			sql.append("SELECT S.SCHEMA_ID,S.SCHEMA_NAME,U.USER_NAME,S.COMMENTS FROM ");
-			sql.append(owner.roleFlag);
-			sql.append("_SCHEMAS S");
-			sql.append(",");
-			sql.append(owner.roleFlag);
-			sql.append("_USERS S");
-			sql.append(" WHERE S.USER_ID=U.USER_ID ");
-			if (forDatabase != null) {
-				sql.append("AND S.DB_ID=");
-				sql.append(forDatabase.getId());
-				sql.append(" AND U.DB_ID=");
-				sql.append(forDatabase.getId());
-			}
-			sql.append(" ORDER BY S.SCHEMA_ID ASC");
-
-			JDBCStatement dbStat = session.prepareStatement(sql.toString());
-			return dbStat;
+			return null;
 		}
 
 		@Override
-		protected Schema fetchChild(JDBCSession session, DataSource owner, Database db, JDBCResultSet dbResult)
+		protected Schema fetchChild(JDBCSession session, DataSource owner, Database parent, JDBCResultSet dbResult)
 				throws SQLException, DBException {
-			return new Schema(owner, db, dbResult);
+			return null;
 		}
 	}
 
 	/**
 	 * 模式缓存
 	 */
-	public static class SchemaCache extends JDBCStructLookupCache<DataSource, Schema, Schema> {
+	public static class SchemaCache extends JDBCStructLookupCache<Database, Schema, Schema> {
 		SchemaCache() {
 			super("SCHEMA_NAME");
 			setListOrderComparator(DBUtils.<Schema>nameComparator());
 		}
 
 		@Override
-		public JDBCStatement prepareLookupStatement(@NotNull JDBCSession session, @NotNull DataSource owner,
+		public JDBCStatement prepareLookupStatement(@NotNull JDBCSession session, @NotNull Database owner,
 				Schema schema, String name) throws SQLException {
 			StringBuilder schemasQuery = new StringBuilder();
 			String dbName = session.getCatalog();
 			// 根据owner的用户角色选取不同的语句来查询schema
-			schemasQuery.append("SELECT S.SCHEMA_ID,S.SCHEMA_NAME,U.USER_NAME,S.COMMENTS FROM ");
-			try {
-				schemasQuery.append("ALL");
-				schemasQuery.append("_SCHEMAS S");
-				schemasQuery.append(",");
-				schemasQuery.append("ALL");
-				schemasQuery.append("_USERS U");
-				schemasQuery.append(" WHERE S.USER_ID=U.USER_ID AND S.DB_ID=");
-				schemasQuery.append(owner.databaseCache.getObject(session.getProgressMonitor(), owner, dbName).getId());
-				if (schema != null) {
-					schemasQuery.append(" AND S.SCHEMA_NAME =");
-					schemasQuery.append(SQLUtils.quoteString(schema, schema.getName()));
-				} else if (name != null) {
-					schemasQuery.append(" AND S.SCHEMA_NAME =");
-					schemasQuery.append(SQLUtils.quoteString(owner, name));
-				}
-				schemasQuery.append(" ORDER BY S.SCHEMA_ID ASC");
-				log.debug("schema message ：" + schemasQuery.toString());
-			} catch (DBException e) {
-				if(e.getErrorCode()==19096) {
-					throw new SQLException("[E18012] Not enough permissions");
-				}else {
-					throw new SQLException("Get database object error: ", e);
-				}
-				
-			} 
+			schemasQuery.append("SELECT S.DB_ID,S.SCHEMA_ID,S.SCHEMA_NAME,U.USER_NAME,S.COMMENTS FROM ");
+			schemasQuery.append("ALL");
+			schemasQuery.append("_SCHEMAS S");
+			schemasQuery.append(",");
+			schemasQuery.append("ALL");
+			schemasQuery.append("_USERS U");
+			schemasQuery.append(" WHERE S.USER_ID=U.USER_ID AND S.DB_ID=");
+			schemasQuery.append(owner.getId());
+			if (schema != null) {
+				schemasQuery.append(" AND S.SCHEMA_NAME =");
+				schemasQuery.append(SQLUtils.quoteString(schema, schema.getName()));
+			} else if (name != null) {
+				schemasQuery.append(" AND S.SCHEMA_NAME =");
+				schemasQuery.append(SQLUtils.quoteString(owner, name));
+			}
+			schemasQuery.append(" ORDER BY S.SCHEMA_ID ASC");
+			log.debug("schema message ：" + schemasQuery.toString()); 
 
 			JDBCPreparedStatement dbStat = session.prepareStatement(schemasQuery.toString());
 
@@ -858,30 +851,20 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		}
 
 		@Override
-		protected Schema fetchObject(@NotNull JDBCSession session, @NotNull DataSource owner,
+		protected Schema fetchObject(@NotNull JDBCSession session, @NotNull Database owner,
 				@NotNull JDBCResultSet resultSet) throws SQLException, DBException {
-			return new Schema(owner, resultSet);
+			return new Schema(owner.getDataSource(), resultSet);
 		}
 
 		@Override
-		protected void invalidateObjects(DBRProgressMonitor monitor, DataSource owner, Iterator<Schema> objectIter) {
-			setListOrderComparator(DBUtils.<Schema>nameComparator());
-			// 添加预定义类型
-			if (!CommonUtils.isEmpty(owner.getActiveSchemaName())
-					&& getCachedObject(owner.getActiveSchemaName()) == null) {
-				cacheObject(new Schema(owner, 100, owner.getActiveSchemaName()));
-			}
-		}
-
-		@Override
-		protected JDBCStatement prepareChildrenStatement(JDBCSession session, DataSource owner, Schema forObject)
+		protected JDBCStatement prepareChildrenStatement(JDBCSession session, Database owner, Schema forObject)
 				throws SQLException {
 			// TODO 准备模式缓存子对象声明
 			return null;
 		}
 
 		@Override
-		protected Schema fetchChild(JDBCSession session, DataSource owner, Schema parent, JDBCResultSet dbResult)
+		protected Schema fetchChild(JDBCSession session, Database owner, Schema parent, JDBCResultSet dbResult)
 				throws SQLException, DBException {
 			// TODO 获取模式缓存子对象
 			return null;
@@ -1104,5 +1087,60 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	public Collection<SchedulerJob> getSchedulerJobs(DBRProgressMonitor monitor) throws DBException {
 		Collection<SchedulerJob> list = schedulerJobCache.getAllObjects(monitor, this);
 		return list;
+	}
+
+	@Override
+	public Logger getParentLogger() throws SQLFeatureNotSupportedException {
+		throw new UnsupportedOperationException("数据源暂未支持此方法");
+	}
+
+	@Override
+	public <T> T unwrap(Class<T> iface) throws SQLException {
+		throw new UnsupportedOperationException("数据源暂未支持此方法");
+	}
+
+	@Override
+	public boolean isWrapperFor(Class<?> iface) throws SQLException {
+		throw new UnsupportedOperationException("数据源暂未支持此方法");
+	}
+
+	@Override
+	public Connection getConnection() throws SQLException {
+		DBPConnectionConfiguration config = this.getContainer().getConnectionConfiguration();
+		String url = config.getUrl();
+		Properties prop = new Properties();
+		prop.put("user", config.getUserName());
+		prop.put("password", config.getUserPassword());
+		return driver.connect(url, prop);
+	}
+
+	@Override
+	public Connection getConnection(String username, String password) throws SQLException {
+		DBPConnectionConfiguration config = this.getContainer().getConnectionConfiguration();
+		String url = config.getUrl();
+		Properties prop = new Properties();
+		prop.put("user", username);
+		prop.put("password", password);
+		return driver.connect(url, prop);
+	}
+
+	@Override
+	public PrintWriter getLogWriter() throws SQLException {
+		throw new UnsupportedOperationException("数据源暂未支持此方法");
+	}
+
+	@Override
+	public void setLogWriter(PrintWriter out) throws SQLException {
+		throw new UnsupportedOperationException("数据源暂未支持此方法");
+	}
+
+	@Override
+	public void setLoginTimeout(int seconds) throws SQLException {
+		throw new UnsupportedOperationException("数据源暂未支持此方法");
+	}
+
+	@Override
+	public int getLoginTimeout() throws SQLException {
+		throw new UnsupportedOperationException("数据源暂未支持此方法");
 	}
 }
