@@ -176,7 +176,7 @@
                     <folder type="org.jkiss.dbeaver.ext.xugu.model.DataType" label="%tree.types.node.name" icon="#data_types" description="Types">
                         <items label="%tree.data_type.node.name" path="type" property="localDataTypes" icon="#data_type"/>
                     </folder>
-                    <folder type="org.jkiss.dbeaver.ext.xugu.model.Synonym" label="%tree.synonyms.node.name" icon="#synonyms" description="Public synonyms">
+                    <folder type="org.jkiss.dbeaver.ext.xugu.model.PublicSynonym" label="%tree.synonyms.node.name" icon="#synonyms" description="Public synonyms">
                         <items label="%tree.synonym.node.name" path="synonym" property="publicSynonyms" icon="#synonym"/>
                     </folder>
                 </folder>

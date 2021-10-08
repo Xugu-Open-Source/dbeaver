@@ -53,6 +53,7 @@ import org.jkiss.dbeaver.model.exec.plan.DBCPlan;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlanStyle;
 import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlanner;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource.SchedulerJobCache;
+import org.jkiss.dbeaver.ext.xugu.model.Schema.SynonymCache;
 import org.jkiss.dbeaver.ext.xugu.model.plan.PlanAnalyser;
 import org.jkiss.dbeaver.ext.xugu.Utils;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
@@ -111,6 +112,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	final public DatabaseCache databaseCache = new DatabaseCache();
 	final DataTypeCache dataTypeCache = new DataTypeCache();
 	final public SchedulerJobCache schedulerJobCache = new SchedulerJobCache();
+	final public SynonymCache synonymCache = new SynonymCache();
 
 	private final TablespaceCache tablespaceCache = new TablespaceCache();
 	final public UserCache userCache = new UserCache();
@@ -383,8 +385,8 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	}
 
 	@Association
-	public Collection<Synonym> getPublicSynonyms(DBRProgressMonitor monitor) throws DBException {
-		return publicSchema.getSynonyms(monitor);
+	public Collection<PublicSynonym> getPublicSynonyms(DBRProgressMonitor monitor) throws DBException {
+		return synonymCache.getAllObjects(monitor, this);
 	}
 
 	@Override
@@ -423,6 +425,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			this.roleCache.clearCache();
 		}
 		this.schedulerJobCache.clearCache();
+		this.synonymCache.clearCache();
 
 		this.initialize(monitor);
 		return this;
@@ -1055,6 +1058,50 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		}
 	}
 
+	/**
+	 * 全局同义词缓存
+	 */
+	static class SynonymCache extends JDBCStructLookupCache<DataSource, PublicSynonym, PublicSynonym> {
+		public SynonymCache() {
+			super("SYNO_NAME");
+			setListOrderComparator(DBUtils.<PublicSynonym>nameComparator());
+		}
+
+		@Override
+		public JDBCStatement prepareLookupStatement(@NotNull JDBCSession session, @NotNull DataSource owner, PublicSynonym object, String objectName)
+				throws SQLException {
+			String roleFlag = owner.getRoleFlag();
+			StringBuilder sql = new StringBuilder();
+			sql.append("select s3.schema_name TARG_SC, s1.*  from ");
+			sql.append(roleFlag);
+			sql.append("_synonyms s1 left join ");
+			sql.append(roleFlag);
+			sql.append("_schemas s3  ON s3.schema_id=s1.targ_sche_id AND s3.db_id=current_db_id  ");
+			sql.append( " where s1.is_public = true ");
+			log.debug("" + OemConfig.OEM_NAME_EN + " public synonyms metadata: " + sql.toString());
+			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
+			return dbStat;
+		}
+
+		@Override
+		protected PublicSynonym fetchObject(@NotNull JDBCSession session, @NotNull DataSource owner,
+				@NotNull JDBCResultSet resultSet) throws SQLException, DBException {
+			return new PublicSynonym(owner, resultSet);
+		}
+
+		@Override
+		protected JDBCStatement prepareChildrenStatement(JDBCSession session, DataSource owner, PublicSynonym forObject)
+				throws SQLException {
+			return null;
+		}
+
+		@Override
+		protected PublicSynonym fetchChild(JDBCSession session, DataSource owner, PublicSynonym parent,
+				JDBCResultSet dbResult) throws SQLException, DBException {
+			return null;
+		}
+	}
+
 	public Collection<Charset> getCharsets() {
 		return charsets;
 	}
@@ -1086,6 +1133,19 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	@Association
 	public Collection<SchedulerJob> getSchedulerJobs(DBRProgressMonitor monitor) throws DBException {
 		Collection<SchedulerJob> list = schedulerJobCache.getAllObjects(monitor, this);
+		return list;
+	}
+
+	/**
+	 * 从同义词缓存中获取全部的同义词信息
+	 * 
+	 * @param monitor 监控
+	 * @return list 同义词列表
+	 * @throws DBException 数据库异常
+	 */
+	@Association
+	public Collection<PublicSynonym> getSynonyms(DBRProgressMonitor monitor) throws DBException {
+		Collection<PublicSynonym> list = synonymCache.getAllObjects(monitor, this);
 		return list;
 	}
 
