@@ -1029,10 +1029,15 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			// xfc 修改了获取所有job信息的sql语句
 			String roleFlag = owner.getRoleFlag();
 			StringBuilder sql = new StringBuilder();
+			String dbName = session.getCatalog();
 			sql.append("SELECT * FROM ");
 			sql.append(roleFlag);
 			sql.append("_JOBS WHERE DB_ID=");
-			sql.append(owner.databaseCache.getCachedObject(session.getCatalog()).getId());
+			try {
+				sql.append(owner.databaseCache.getObject(session.getProgressMonitor(), owner, objectName).getId());
+			} catch (DBException e) {
+				throw new SQLException("Error in DataSource.SchedulerJobCache.prepareObjectsStatement()", e);
+			}
 
 			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct select jobs sql: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
