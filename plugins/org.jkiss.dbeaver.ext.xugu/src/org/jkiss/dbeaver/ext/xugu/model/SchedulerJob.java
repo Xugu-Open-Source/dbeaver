@@ -18,12 +18,16 @@ package org.jkiss.dbeaver.ext.xugu.model;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.ext.xugu.Utils;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource.SchedulerJobCache;
+import org.jkiss.dbeaver.ext.xugu.model.DataSource.UserRoleFlag;
 import org.jkiss.dbeaver.ext.xugu.model.source.StatefulObject;
 import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPNamedObject;
 import org.jkiss.dbeaver.model.DBPRefreshableObject;
+import org.jkiss.dbeaver.model.DBPScriptObject;
 import org.jkiss.dbeaver.model.DBPScriptObjectExt;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.exec.DBCExecutionPurpose;
@@ -39,6 +43,11 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectState;
 
+import com.xugu.parser.DatabaseParsing;
+import com.xugu.parser.Parsing;
+import com.xugu.parser.Parsing.TableType;
+
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -51,7 +60,7 @@ import java.util.Map;
 /**
  * 作业信息类，包含作业相关的基本信息，以及作业参数缓存
  */
-public class SchedulerJob extends BaseGlobalObject implements StatefulObject, DBPScriptObjectExt, DBPNamedObject, DBPRefreshableObject {
+public class SchedulerJob extends BaseGlobalObject implements DBPScriptObject, DBPNamedObject, DBPRefreshableObject {
 	private static final String DATE_FORMAT_PATTERN = "yyyy-MM-dd HH:mm:ss";
 	private static final ThreadLocal<SimpleDateFormat> DATE_FORMATTER = ThreadLocal.withInitial(() -> new SimpleDateFormat(DATE_FORMAT_PATTERN));
 
@@ -368,7 +377,7 @@ public class SchedulerJob extends BaseGlobalObject implements StatefulObject, DB
 		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull SchedulerJob job)
 				throws SQLException {
 			JDBCPreparedStatement dbStat = session.prepareStatement("SELECT JOB_PARAM_NUM, JOB_ACTION FROM "
-					+ job.getSchema().getRoleFlag() + "_JOBS " + "WHERE JOB_ID=? ");
+					+ job.getDataSource().getRoleFlag() + "_JOBS " + "WHERE JOB_ID=? ");
 			dbStat.setString(1, job.getJobId() + "");
 			return dbStat;
 		}
@@ -382,81 +391,32 @@ public class SchedulerJob extends BaseGlobalObject implements StatefulObject, DB
 	}
 
 	@Override
-	public void refreshObjectState(DBRProgressMonitor monitor) {
-		if (monitor != null) {
-			monitor.beginTask("Load action for '" + this.getName() + "'...", 1);
-			try (final JDBCSession session = DBUtils.openMetaSession(monitor, this,
-					"Load action for " + ObjectType.JOB + " '" + this.getName() + "'")) {
-				String role = ((DataSource)this.getDataSource()).getRoleFlag();
-				try (JDBCPreparedStatement dbStat = session.prepareStatement("SELECT STATE FROM "
-						+ role + "_JOBS " + "WHERE DB_ID=? AND JOB_NAME=? ")) {
-					dbStat.setString(1, getDbId() + "");
-					dbStat.setString(2, getName());
-					dbStat.setFetchSize(DBConstants.METADATA_FETCH_SIZE);
-					try (JDBCResultSet dbResult = dbStat.executeQuery()) {
-						StringBuilder jobState = null;
-						int lineCount = 0;
-						while (dbResult.next()) {
-							if (monitor.isCanceled()) {
-								break;
-							}
-							final String line = dbResult.getString(1);
-							if (jobState == null) {
-								jobState = new StringBuilder(15);
-							}
-							jobState.append(line);
-							lineCount++;
-							monitor.subTask("Line " + lineCount);
-						}
-						if (jobState != null) {
-							state = jobState.toString();
-						}
-					}
-				}
-			} catch (SQLException e) {
-				monitor.subTask("Error refreshing job state " + e.getMessage());
-			} finally {
-				monitor.done();
-			}
-		}
-	}
-
-	@Override
 	public String getObjectDefinitionText(DBRProgressMonitor monitor, Map<String, Object> options) throws DBException {
-		return "ACTION STRING";
-	}
+		String objectFullName = DBUtils.getObjectFullName(this, DBPEvaluationContext.DDL);
+		monitor.beginTask("Load sources for schduler job '" + objectFullName + "'...", 1);
+		try (Connection conn = DBUtils.openUtilSession(monitor, this, "Get " + this.name + "DDL")) {
+			String roleFlag = getDataSource().getRoleFlag();
+			TableType tableType;
 
-	@Override
-	public String getExtendedDefinitionText(DBRProgressMonitor monitor) throws DBException {
-		// TODO 获取拓展定义文本，生成包含实体任务定义的 DDL，而不仅仅是动作块
-		return null;
-	}
-
-	@Override
-	public DBSObjectState getObjectState() {
-		DBSObjectState objectState = null;
-		try {
-			final String stateIdle = "IDLE";
-			if (stateIdle.equals(state)) {
-				objectState = DBSObjectState.ACTIVE;
+			if (UserRoleFlag.SYS.name().equalsIgnoreCase(roleFlag)) {
+				tableType = TableType.SYS;
+			} else if (UserRoleFlag.DBA.name().equalsIgnoreCase(roleFlag)) {
+				tableType = TableType.DBA;
 			} else {
-				objectState = DBSObjectState.NORMAL;
+				tableType = TableType.ALL;
 			}
-		} catch (IllegalArgumentException e) {
-			objectState = DBSObjectState.UNKNOWN;
+
+			DatabaseParsing databaseParsing =new DatabaseParsing();
+			return databaseParsing.loadJobDdl(conn, getDataSource().getDatabase().getId(), getName(), tableType);
+		} catch (SQLException e) {
+			throw new DBException("Close connection of DDL failed", e);
 		}
-		return objectState;
 	}
 
 	@Override
     @Property(viewable = true, editable = true, updatable = true, order = 1)
 	public String getName() {
 		return name;
-	}
-
-	@Override
-	public Schema getSchema() {
-		return null;
 	}
 
 	@Override

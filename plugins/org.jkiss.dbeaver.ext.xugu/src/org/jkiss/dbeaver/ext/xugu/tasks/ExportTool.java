@@ -54,6 +54,7 @@ import org.jkiss.dbeaver.registry.DataSourceDescriptor;
 import org.jkiss.dbeaver.ui.tools.IUserInterfaceTool;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
 
+import com.xugu.parser.DatabaseParsing;
 import com.xugu.parser.Parsing;
 import com.xugu.parser.Parsing.TableType;
 
@@ -381,8 +382,8 @@ public class ExportTool implements IUserInterfaceTool {
 							break;
 						case JOB:
 							SchedulerJob job = (SchedulerJob) object.getObject();
-							ddl = parsing.loadJobDDL(connection,
-									job.getSchema().getName(),
+							ddl = new DatabaseParsing().loadJobDdl(connection,
+									job.getParent().getId(),
 									job.getName(),
 									tableType);
 							break;
