@@ -77,6 +77,7 @@ public class SchedulerJob extends BaseGlobalObject implements StatefulObject, DB
 	private boolean runOnceNow = false;
 	private String comments;
 	private Collection<ProcedureParameter> procParams;
+	private Database parent;
 
 	private final ArgumentsCache argumentsCache = new ArgumentsCache();
 
@@ -90,10 +91,12 @@ public class SchedulerJob extends BaseGlobalObject implements StatefulObject, DB
 	public SchedulerJob(DataSource datasource, String name, boolean persisted) {
 		super(datasource, persisted);
 		this.name = name;
+		this.parent = datasource.getDatabase();
 	}
 
 	protected SchedulerJob(DBRProgressMonitor monitor, DataSource datasource, ResultSet dbResult) {
 		super(datasource, true);
+		this.parent = datasource.getDatabase();
 
 		jobId = JDBCUtils.safeGetInt(dbResult, "JOB_ID");
 		dbId = JDBCUtils.safeGetInt(dbResult, "DB_ID");
@@ -461,5 +464,9 @@ public class SchedulerJob extends BaseGlobalObject implements StatefulObject, DB
 		SchedulerJobCache cache = getDataSource().schedulerJobCache;
 		cache.clearCache();
 		return cache.refreshObject(monitor, getDataSource(), this);
+	}
+	
+	public Database getParent() {
+		return parent;
 	}
 }

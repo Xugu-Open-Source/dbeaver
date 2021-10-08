@@ -75,6 +75,7 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 	private String roleList;
 	private Collection<UserAuthority> userAuthorities;
 	private String schemaList;
+	private Database parent;
 	public static List<String> roleNames = new ArrayList<String>();
 	
 	public static List<String> getRoleNameList(){
@@ -84,17 +85,20 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 	public User(DataSource dataSource, String userName, boolean persisted) {
 		super(dataSource, persisted);
 		this.userName = userName;
+		this.parent = dataSource.getDatabase();
 	}
 	
 	public User(DataSource dataSource,DBRProgressMonitor moniter, boolean persisted) {
 		super(dataSource, persisted);
 		this.monitor = monitor;
+		this.parent = dataSource.getDatabase();
 	}
 	
 	
 	public User(DataSource dataSource, ResultSet resultSet, DBRProgressMonitor monitor, boolean persisted) {
 		super(dataSource, persisted);
 		this.monitor = monitor;
+		this.parent = dataSource.getDatabase();
 		if (resultSet != null) {
 			this.dbId = JDBCUtils.safeGetInt(resultSet, "DB_ID");
 			this.userId = JDBCUtils.safeGetInt(resultSet, "USER_ID");
@@ -352,6 +356,10 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 
 	public UserAuthority getAuthority() {
 		return authority;
+	}
+
+	public Database getParent() {
+		return parent;
 	}
 
 	@Override

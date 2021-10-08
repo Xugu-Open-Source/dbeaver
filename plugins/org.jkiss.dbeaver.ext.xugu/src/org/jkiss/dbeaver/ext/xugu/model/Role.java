@@ -47,6 +47,7 @@ public class Role extends BaseGlobalObject implements DBARole, DBPRefreshableObj
 	private Collection<RoleAuthority> roleAuthorities;
 	private String userDesc;
 	private Connection conn;
+	private Database parent;
 	DBRProgressMonitor monitor;
 
 	public Role(DataSource dataSource, DBRProgressMonitor monitor, ResultSet resultSet) {
@@ -81,6 +82,7 @@ public class Role extends BaseGlobalObject implements DBARole, DBPRefreshableObj
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
+		this.parent = dataSource.getDatabase();
 	}
 
 	@NotNull
@@ -197,5 +199,9 @@ public class Role extends BaseGlobalObject implements DBARole, DBPRefreshableObj
 			}
 		}
 		return res;
+	}
+
+	public Database getParent() {
+		return parent;
 	}
 }
