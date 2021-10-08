@@ -23,8 +23,8 @@ Bundle-RequiredExecutionEnvironment: JavaSE-1.8
 Bundle-Vendor: %Bundle-Vendor
 Bundle-ClassPath: .,
  lib/out-jar-1.0.jar,
- lib/xugu-metadata-1.1.0.jar,
- lib/xugu-permission-1.1.0.jar,
+ lib/xugu-metadata-1.2.0.jar,
+ lib/xugu-permission-1.2.0.jar,
  lib/xugu-parser-1.1.0.jar,
  lib/hutool-all-5.4.1.jar,
  lib/xugu-backup-1.0.0-a2-SNAPSHOT.jar

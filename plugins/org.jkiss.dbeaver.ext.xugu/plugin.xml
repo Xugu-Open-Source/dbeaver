@@ -281,99 +281,29 @@
                 label="Table Maintenance"
                 icon="#tools"/>
             <tool
-                class="org.jkiss.dbeaver.ext.xugu.tasks.TableExport"	
-                description="Export Tables"
-                id="org.jkiss.dbeaver.ext.xugu.tasks.TableExport"
-                label="Dump Tables"
+                class="org.jkiss.dbeaver.ext.xugu.tasks.ExportTool"	
+                description="Export Object DDL"
+                id="org.jkiss.dbeaver.ext.xugu.tasks.ExportTool"
+                label="导出对象定义"
                 icon="#export"
                 singleton="false">
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
-            </tool>
-            <tool
-                class="org.jkiss.dbeaver.ext.xugu.tasks.ViewExport"	
-                description="Export Views"
-                id="org.jkiss.dbeaver.ext.xugu.tasks.ViewExport"
-                label="Dump Views"
-                icon="#export"
-                singleton="false">
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Role"/>
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.User"/>
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.View"/>
-            </tool>
-            <tool
-                class="org.jkiss.dbeaver.ext.xugu.tasks.SequenceExport"	
-                description="Export Sequences"
-                id="org.jkiss.dbeaver.ext.xugu.tasks.SequenceExport"
-                label="Dump Sequences"
-                icon="#export"
-                singleton="false">
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.Sequence"/>
-            </tool>
-            <tool
-                class="org.jkiss.dbeaver.ext.xugu.tasks.PackageExport"	
-                description="Export packages"
-                id="org.jkiss.dbeaver.ext.xugu.tasks.PackageExport"
-                label="Dump Packages"
-                icon="#export"
-                singleton="false">
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.Package"/>
-            </tool>
-            <tool
-                class="org.jkiss.dbeaver.ext.xugu.tasks.ProcedureExport"	
-                description="Export Procedures"
-                id="org.jkiss.dbeaver.ext.xugu.tasks.ProcedureExport"
-                label="Dump Procedures"
-                icon="#export"
-                singleton="false">
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone"/>
-            </tool>
-            <tool
-                class="org.jkiss.dbeaver.ext.xugu.tasks.FunctionExport"	
-                description="Export Procedures"
-                id="org.jkiss.dbeaver.ext.xugu.tasks.FunctionExport"
-                label="Dump Functions"
-                icon="#export"
-                singleton="false">
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone"/>
-            </tool>
-            <tool
-                class="org.jkiss.dbeaver.ext.xugu.tasks.TriggerExport"	
-                description="Export Triggers"
-                id="org.jkiss.dbeaver.ext.xugu.tasks.TriggerExport"
-                label="Dump Triggers"
-                icon="#export"
-                singleton="false">
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.NewTrigger"/>
-            </tool>
-            <tool
-                class="org.jkiss.dbeaver.ext.xugu.tasks.SynonymExport"	
-                description="Export Synonyms"
-                id="org.jkiss.dbeaver.ext.xugu.tasks.SynonymExport"
-                label="Dump Synonyms"
-                icon="#export"
-                singleton="false">
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.Synonym"/>
-            </tool>
-            <tool
-                class="org.jkiss.dbeaver.ext.xugu.tasks.UdtExport"	
-                description="Export Udts"
-                id="org.jkiss.dbeaver.ext.xugu.tasks.UdtExport"
-                label="Dump Udts"
-                icon="#export"
-                singleton="false">
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.Udt"/>
             </tool>
             <tool
                 class="org.jkiss.dbeaver.ext.xugu.tasks.BackupTool"	
                 description="Backup Tool"
                 id="org.jkiss.dbeaver.ext.xugu.tasks.BackupTool"
-                label="数据库对象备份"
+                label="备份数据库对象"
                 icon="#export"
                 singleton="true">
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
@@ -382,7 +312,7 @@
                 class="org.jkiss.dbeaver.ext.xugu.tasks.RestoreTool"	
                 description="Restore Tool"
                 id="org.jkiss.dbeaver.ext.xugu.tasks.RestoreTool"
-                label="数据库对象恢复"
+                label="恢复数据库对象"
                 icon="#import"
                 singleton="true">
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
