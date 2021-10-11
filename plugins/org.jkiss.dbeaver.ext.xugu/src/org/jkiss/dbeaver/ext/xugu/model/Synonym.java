@@ -18,6 +18,10 @@ package org.jkiss.dbeaver.ext.xugu.model;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.ext.xugu.model.DataSource.UserRoleFlag;
+import org.jkiss.dbeaver.model.DBPEvaluationContext;
+import org.jkiss.dbeaver.model.DBPScriptObject;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
@@ -25,13 +29,20 @@ import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSAlias;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+
+import com.xugu.parser.Parsing;
+import com.xugu.parser.Parsing.TableType;
+
+import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.Map;
 
 /**
  * 同义词信息类，包含同义词相关的基本信息
  */
-public class Synonym extends BaseSchemaObject implements DBSAlias {
+public class Synonym extends BaseSchemaObject implements DBSAlias, DBPScriptObject {
 	private int objectDbId;
 	private int objectSchemaId;
 	private String objectSchemaName;
@@ -183,5 +194,29 @@ public class Synonym extends BaseSchemaObject implements DBSAlias {
 
 	public Object getObject(DBRProgressMonitor monitor) throws DBException {
 		return ObjectType.resolveObject(monitor, getDataSource(), null, "SYNONYM", objectSchemaName, objectName);
+	}
+
+
+	@Override
+	public String getObjectDefinitionText(DBRProgressMonitor monitor, Map<String, Object> options) throws DBException {
+		String objectFullName = DBUtils.getObjectFullName(this, DBPEvaluationContext.DDL);
+		monitor.beginTask("Load sources for public synonym '" + objectFullName + "'...", 1);
+		try (Connection conn = DBUtils.openUtilSession(monitor, this, "Get " + this.name + "DDL")) {
+			String roleFlag = getDataSource().getRoleFlag();
+			TableType tableType;
+
+			if (UserRoleFlag.SYS.name().equalsIgnoreCase(roleFlag)) {
+				tableType = TableType.SYS;
+			} else if (UserRoleFlag.DBA.name().equalsIgnoreCase(roleFlag)) {
+				tableType = TableType.DBA;
+			} else {
+				tableType = TableType.ALL;
+			}
+
+			Parsing parsing = new Parsing();
+			return parsing.loadSynonymDDL(conn, this.objectSchemaName, getName(), tableType);
+		} catch (SQLException e) {
+			throw new DBException("Close connection of DDL failed", e);
+		}
 	}
 }

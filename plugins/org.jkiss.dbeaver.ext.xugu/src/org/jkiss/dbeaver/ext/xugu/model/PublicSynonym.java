@@ -1,18 +1,23 @@
 package org.jkiss.dbeaver.ext.xugu.model;
 
  
+import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Collection;
 import java.util.Map;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.ext.xugu.model.DataSource.UserRoleFlag;
 import org.jkiss.dbeaver.ext.xugu.model.source.SourceObject;
 import org.jkiss.dbeaver.model.DBPDataKind;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPQualifiedObject;
+import org.jkiss.dbeaver.model.DBPScriptObject;
 import org.jkiss.dbeaver.model.DBPScriptObjectExt;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCLogicalOperator;
@@ -31,12 +36,16 @@ import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectState;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 
+import com.xugu.parser.DatabaseParsing;
+import com.xugu.parser.Parsing;
+import com.xugu.parser.Parsing.TableType;
+
 /**
  * 
  * @author zkun
  *
  */
-public class PublicSynonym  extends BaseObject<DBSObject> implements DBSEntity, DBPQualifiedObject, SourceObject, DBPScriptObjectExt{
+public class PublicSynonym  extends BaseObject<DBSObject> implements DBSEntity, DBPQualifiedObject, DBPScriptObject{
 	private int objectDbId;
 	private int objectSchemaId;
 	private String objectSchemaName;
@@ -182,57 +191,25 @@ public class PublicSynonym  extends BaseObject<DBSObject> implements DBSEntity, 
 
 	@Override
 	public String getObjectDefinitionText(DBRProgressMonitor monitor, Map<String, Object> options) throws DBException {
-		// TODO Auto-generated method stub
-		return null;
-	}
+		String objectFullName = DBUtils.getObjectFullName(this, DBPEvaluationContext.DDL);
+		monitor.beginTask("Load sources for public synonym '" + objectFullName + "'...", 1);
+		try (Connection conn = DBUtils.openUtilSession(monitor, this, "Get " + this.name + "DDL")) {
+			String roleFlag = getDataSource().getRoleFlag();
+			TableType tableType;
 
+			if (UserRoleFlag.SYS.name().equalsIgnoreCase(roleFlag)) {
+				tableType = TableType.SYS;
+			} else if (UserRoleFlag.DBA.name().equalsIgnoreCase(roleFlag)) {
+				tableType = TableType.DBA;
+			} else {
+				tableType = TableType.ALL;
+			}
 
-	@Override
-	public Schema getSchema() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-
-	@Override
-	public DBSObjectState getObjectState() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-
-	@Override
-	public void refreshObjectState(DBRProgressMonitor monitor) throws DBCException {
-		// TODO Auto-generated method stub
-		
-	}
-
-
-	@Override
-	public String getExtendedDefinitionText(DBRProgressMonitor monitor) throws DBException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-
-	@Override
-	public void setObjectDefinitionText(String source) {
-		// TODO Auto-generated method stub
-		
-	}
-
-
-	@Override
-	public SourceType getSourceType() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-
-	@Override
-	public DBEPersistAction[] getCompileActions(DBRProgressMonitor monitor) {
-		// TODO Auto-generated method stub
-		return null;
+			Parsing parsing = new Parsing();
+			return parsing.getObjectDDL(conn, "0", getName(), "SEQUENCE", tableType);
+		} catch (SQLException e) {
+			throw new DBException("Close connection of DDL failed", e);
+		}
 	}
 
 
