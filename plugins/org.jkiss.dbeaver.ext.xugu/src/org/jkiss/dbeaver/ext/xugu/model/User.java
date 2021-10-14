@@ -17,9 +17,13 @@
 package org.jkiss.dbeaver.ext.xugu.model;
 
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.ext.xugu.model.DataSource.UserRoleFlag;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPRefreshableObject;
 import org.jkiss.dbeaver.model.DBPSaveableObject;
+import org.jkiss.dbeaver.model.DBPScriptObject;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.access.DBAUser;
 import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
@@ -29,6 +33,10 @@ import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 
 import java.sql.Statement;
+
+import com.xugu.parser.DatabaseParsing;
+import com.xugu.parser.Parsing;
+import com.xugu.parser.Parsing.TableType;
 import com.xugu.permission.LoadPermission;
 
 import java.sql.Connection;
@@ -39,12 +47,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Vector;
 
 /**
  * 用户信息类，包含名称、用户权限等具体信息
  */
-public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObject, DBPSaveableObject {
+public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObject, DBPSaveableObject, DBPScriptObject {
 	private static final Log log = Log.getLog(User.class);
 
 	private Vector<String> authorityKey;
@@ -548,5 +557,28 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 			e.printStackTrace();
 		}
 		return "";
+	}
+
+	@Override
+	public String getObjectDefinitionText(DBRProgressMonitor monitor, Map<String, Object> options) throws DBException {
+		String objectFullName = DBUtils.getObjectFullName(this, DBPEvaluationContext.DDL);
+		monitor.beginTask("Load sources for user '" + objectFullName + "'...", 1);
+		try (Connection conn = DBUtils.openUtilSession(monitor, this, "Get " + this.userName + "DDL")) {
+			String roleFlag = getDataSource().getRoleFlag();
+			TableType tableType;
+
+			if (UserRoleFlag.SYS.name().equalsIgnoreCase(roleFlag)) {
+				tableType = TableType.SYS;
+			} else if (UserRoleFlag.DBA.name().equalsIgnoreCase(roleFlag)) {
+				tableType = TableType.DBA;
+			} else {
+				tableType = TableType.ALL;
+			}
+
+			Parsing parsing = new Parsing();
+			return parsing.loadTheUserDDL(conn, getDataSource().getDatabase().getName(), getName(), tableType);
+		} catch (SQLException e) {
+			throw new DBException("Close connection of DDL failed", e);
+		}
 	}
 }

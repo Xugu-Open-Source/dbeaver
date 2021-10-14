@@ -19,7 +19,10 @@ package org.jkiss.dbeaver.ext.xugu.model;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPRefreshableObject;
+import org.jkiss.dbeaver.model.DBPScriptObject;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.access.DBARole;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
@@ -27,6 +30,11 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.ext.xugu.Utils;
+import org.jkiss.dbeaver.ext.xugu.model.DataSource.UserRoleFlag;
+
+import com.xugu.parser.DatabaseParsing;
+import com.xugu.parser.Parsing;
+import com.xugu.parser.Parsing.TableType;
 import com.xugu.permission.LoadPermission;
 
 import java.sql.Connection;
@@ -35,12 +43,13 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Vector;
 
 /**
  * 角色信息类，包含名称、角色权限等具体信息
  */
-public class Role extends BaseGlobalObject implements DBARole, DBPRefreshableObject {
+public class Role extends BaseGlobalObject implements DBARole, DBPRefreshableObject, DBPScriptObject {
 	private String name;
 	private int id;
 	private String authentication;
@@ -203,5 +212,17 @@ public class Role extends BaseGlobalObject implements DBARole, DBPRefreshableObj
 
 	public Database getParent() {
 		return parent;
+	}
+
+	@Override
+	public String getObjectDefinitionText(DBRProgressMonitor monitor, Map<String, Object> options) throws DBException {
+		String objectFullName = DBUtils.getObjectFullName(this, DBPEvaluationContext.DDL);
+		monitor.beginTask("Load sources for role '" + objectFullName + "'...", 1);
+		try (Connection conn = DBUtils.openUtilSession(monitor, this, "Get " + this.name + "DDL")) {
+			Parsing parsing = new Parsing();
+			return parsing.loadTheRoleDDL(conn, getName());
+		} catch (SQLException e) {
+			throw new DBException("Close connection of DDL failed", e);
+		}
 	}
 }
