@@ -304,7 +304,6 @@
                 description="Backup Tool"
                 id="org.jkiss.dbeaver.ext.xugu.tasks.BackupTool"
                 label="备份数据库对象"
-                icon="#export"
                 singleton="true">
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
             </tool>
@@ -313,7 +312,14 @@
                 description="Restore Tool"
                 id="org.jkiss.dbeaver.ext.xugu.tasks.RestoreTool"
                 label="恢复数据库对象"
-                icon="#import"
+                singleton="true">
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
+            </tool>
+            <tool
+                class="org.jkiss.dbeaver.ext.xugu.tasks.TransactionKiller"	
+                description="Transaction Killer"
+                id="org.jkiss.dbeaver.ext.xugu.tasks.TransactionKiller"
+                label="查杀数据库事务"
                 singleton="true">
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
             </tool>
