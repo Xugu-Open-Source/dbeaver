@@ -9,7 +9,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -48,6 +50,7 @@ import org.jkiss.dbeaver.ext.xugu.model.Package;
 import org.jkiss.dbeaver.ext.xugu.model.Udt;
 import org.jkiss.dbeaver.ext.xugu.model.User;
 import org.jkiss.dbeaver.ext.xugu.model.View;
+import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureType;
 import org.jkiss.dbeaver.registry.DataSourceDescriptor;
@@ -348,14 +351,60 @@ public class ExportTool implements IUserInterfaceTool {
 						String ddl;
 						switch (object.getType()) {
 						case DATABASE:
-							ddl = parsing.loadDataBaseDDL(connection,
-									object.getObject().getName(),
-									tableType);
+							StringBuilder builder = new StringBuilder();
+							builder.append(parsing.loadTheDatabaseDDL(connection, object.getObject().getName(), tableType));
+							Database database = (Database) object.getObject();
+							database.getSchemas(new LoggingProgressMonitor()).forEach(schema -> {
+								builder.append(parsing.loadTheSchemaDDL(connection, schema.getName(), tableType));
+
+								try (Statement statement = connection.createStatement()) {
+									String sql =String.format("SELECT JOB_NAME FROM %s_JOBS WHERE DB_ID=%d",
+											tableType, database.getId(), schema.getId());
+									ResultSet resultSet = statement.executeQuery(sql);
+									while (resultSet.next()) {
+										builder.append(new DatabaseParsing().loadJobDdl(connection,
+												(int) schema.getId(),
+												resultSet.getString(1),
+												tableType));
+									}
+								} catch (SQLException e) {
+									throw new IllegalStateException(e);
+								}
+								
+								try (Statement statement = connection.createStatement()) {
+									String sql =String.format("SELECT USER_NAME FROM %s_USERS WHERE DB_ID=%d AND IS_ROLE=TRUE",
+											tableType, database.getId(), schema.getId());
+									ResultSet resultSet = statement.executeQuery(sql);
+									while (resultSet.next()) {
+										builder.append(parsing.loadTheRoleDDL(connection, resultSet.getString(1)));
+									}
+								} catch (SQLException e) {
+									throw new IllegalStateException(e);
+								}
+								
+								try (Statement statement = connection.createStatement()) {
+									String sql =String.format("SELECT USER_NAME FROM %s_USERS WHERE DB_ID=%d AND IS_ROLE=FALSE",
+											tableType, database.getId(), schema.getId());
+									ResultSet resultSet = statement.executeQuery(sql);
+									while (resultSet.next()) {
+										builder.append(parsing.loadTheUserDDL(connection,
+												resultSet.getString(1),
+												"CHANGE_PASSWORD",
+												tableType));
+									}
+								} catch (SQLException e) {
+									throw new IllegalStateException(e);
+								}
+								
+								builder.append(parsing.getSchemaDDL(connection, schema.getName(), tableType));
+							});
+							ddl = builder.toString();
 							break;
 						case SCHEMA:
-							ddl = parsing.loadSchemaDDL(connection,
-									object.getObject().getName(),
-									tableType);
+							builder = new StringBuilder();
+							builder.append(parsing.loadTheSchemaDDL(connection, object.getObject().getName(), tableType));
+							builder.append(parsing.getSchemaDDL(connection, object.getObject().getName(), tableType));
+							ddl = builder.toString();
 							break;
 						case ROLE:
 							switch (tableType) {
