@@ -206,6 +206,10 @@ public class TransactionKiller implements IUserInterfaceTool {
 				button.setText("强制停止");
 				button.pack();
 				button.addSelectionListener(widgetSelectedAdapter(e -> {
+					if (!"SYSTEM".equalsIgnoreCase(dataSource.getDatabase().getName()) || !"SYSDBA".equalsIgnoreCase(dataSource.getRoleFlag())) {
+						MessageDialog.openWarning(killShell, "警告", "事务查杀功能属于高风险操作，仅允许 SYSTEM 库下 SYSDBA 用户使用");
+						return;
+					}
 					if (MessageDialog.openConfirm(killShell, "确认事务强制停止", String.format(
 							 "此操作可能造成事务正在处理的数据丢失，请谨慎考虑！\n您确认要强制停止节点（%s）事务（%s）吗？",
 							 nodeIdText.getText(), tranIdText.getText()))) {
