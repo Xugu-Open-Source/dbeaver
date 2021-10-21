@@ -444,7 +444,7 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 			Collection<Sequence> seqList = null;
 			Collection<Package> pacList = null;
 			Collection<ProcedureStandalone> procList = null;
-			Collection<NewTrigger> triList = null;
+			Collection<Trigger> triList = null;
 			List<TableColumn> colList = null;
 			switch (type) {
 			case "TABLE":
@@ -532,7 +532,7 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 			}
 			if (triList != null && triList.size() > 0) {
 				String res = "";
-				Iterator<NewTrigger> it = triList.iterator();
+				Iterator<Trigger> it = triList.iterator();
 				while (it.hasNext()) {
 					res += it.next().getName() + ",";
 					;

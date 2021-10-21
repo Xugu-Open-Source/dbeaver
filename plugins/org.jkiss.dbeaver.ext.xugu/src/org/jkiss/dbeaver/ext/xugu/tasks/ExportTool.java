@@ -37,7 +37,7 @@ import org.eclipse.ui.IWorkbenchWindow;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource;
 import org.jkiss.dbeaver.ext.xugu.model.Database;
-import org.jkiss.dbeaver.ext.xugu.model.NewTrigger;
+import org.jkiss.dbeaver.ext.xugu.model.Trigger;
 import org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone;
 import org.jkiss.dbeaver.ext.xugu.model.Role;
 import org.jkiss.dbeaver.ext.xugu.model.SchedulerJob;
@@ -282,9 +282,9 @@ public class ExportTool implements IUserInterfaceTool {
 					default:
 						throw new IllegalStateException("未知存储类型：" + type);
 				}
-			} else if (object instanceof NewTrigger) {
-				NewTrigger trigger = (NewTrigger) object;
-				ExportObject<NewTrigger> expObj = new ExportObject<>(ExportObject.Type.TRIGGER, trigger);
+			} else if (object instanceof Trigger) {
+				Trigger trigger = (Trigger) object;
+				ExportObject<Trigger> expObj = new ExportObject<>(ExportObject.Type.TRIGGER, trigger);
 				expObjs.add(expObj);
 				String objectName = String.format("<%s>%s.%s",
 						trigger.getSchema().getParent().getName(),
@@ -527,11 +527,14 @@ public class ExportTool implements IUserInterfaceTool {
 						builder.append("\n\n");
 					});
 					MessageDialog.openError(fileSaveShell, "导出失败", "下列对象导出失败：\n" + builder);
+					return;
 				}
 			} catch (SQLException ex) {
 				MessageDialog.openError(fileSaveShell, "导出失败", "连接获取失败：" + ex.getLocalizedMessage());
+				return;
 			} catch (Exception ex) {
 				MessageDialog.openError(fileSaveShell, "导出失败", "导出时出现异常：" + ex.getLocalizedMessage());
+				return;
 			}
 		}));
 

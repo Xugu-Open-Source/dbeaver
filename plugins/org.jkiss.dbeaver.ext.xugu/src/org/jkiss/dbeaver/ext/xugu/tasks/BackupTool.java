@@ -334,6 +334,7 @@ public class BackupTool implements IUserInterfaceTool {
 						builder.append("\n\n");
 					});
 					MessageDialog.openError(comfirmShell, "备份失败", "下列对象备份失败：\n" + builder);
+					return;
 				}
 			}));
 			comfirmShell.pack();

@@ -37,6 +37,7 @@ import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCStructLookupCache;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSDataType;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSEntityConstraintType;
@@ -363,8 +364,8 @@ public class Schema extends BaseGlobalObject
 	 * 从缓存触发器中获取全部触发器信息
 	 */
 	@Association
-	public Collection<NewTrigger> getTriggers(DBRProgressMonitor monitor) throws DBException {
-		Collection<NewTrigger> list = triggerCache.getAllObjects(monitor, this);
+	public Collection<Trigger> getTriggers(DBRProgressMonitor monitor) throws DBException {
+		Collection<Trigger> list = triggerCache.getAllObjects(monitor, this);
 		return list;
 	}
 	
@@ -400,8 +401,8 @@ public class Schema extends BaseGlobalObject
 	 * @return synonym 触发器对象
 	 * @throws DBException 数据库异常
 	 */
-	public NewTrigger getTrigger(DBRProgressMonitor monitor, String name) throws DBException {
-		NewTrigger trigger = triggerCache.getObject(monitor, this, name, NewTrigger.class);
+	public Trigger getTrigger(DBRProgressMonitor monitor, String name) throws DBException {
+		Trigger trigger = triggerCache.getObject(monitor, this, name, Trigger.class);
 		return trigger;
 	}
 //	public TriggerTest getTrigger(DBRProgressMonitor monitor, String name) throws DBException {
@@ -463,7 +464,7 @@ public class Schema extends BaseGlobalObject
 			return synonym;
 		}
 		
-		NewTrigger trigger = triggerCache.getObject(monitor, this, childName);
+		Trigger trigger = triggerCache.getObject(monitor, this, childName);
 		if (trigger != null) {
 			return trigger;
 		}
@@ -1247,7 +1248,7 @@ public class Schema extends BaseGlobalObject
 	 * @author zkun
 	 *
 	 */
-	 static class TriggerCache extends JDBCObjectCache<Schema,NewTrigger>{
+	 static class TriggerCache extends JDBCObjectCache<Schema,Trigger>{
 
 		@Override
 		protected JDBCStatement prepareObjectsStatement(JDBCSession session, Schema owner)
@@ -1269,43 +1270,16 @@ public class Schema extends BaseGlobalObject
 		}
 
 		@Override
-		protected NewTrigger fetchObject(JDBCSession session, Schema owner, JDBCResultSet resultSet)
+		protected Trigger fetchObject(JDBCSession session, Schema owner, JDBCResultSet resultSet)
 				throws SQLException, DBException {
-			return new NewTrigger(session.getProgressMonitor(), session, owner, resultSet);
+			String objName = JDBCUtils.safeGetString(resultSet, "OBJ_NAME");
+			BaseTable baseTable = owner.getTable(new LoggingProgressMonitor(), objName);
+			if (baseTable == null) {
+				baseTable = owner.getView(new LoggingProgressMonitor(), objName);
+			}
+			return new Trigger(baseTable, resultSet);
 		}
 	}
-	 
-//	 static class TriggerCache extends JDBCObjectCache<Schema,TriggerTest>{
-//
-//		@Override
-//		protected JDBCStatement prepareObjectsStatement(JDBCSession session, Schema owner)
-//				throws SQLException {
-//			String orleFlag = owner.getRoleFlag();
-//			StringBuilder sqlBuilder = new StringBuilder();
-//			sqlBuilder.append("select st.db_id,st.schema_id,st.user_id, st.trig_name, st.trig_event,st.trig_type,st.trig_cond,st.Language,st.define,st.enable,st.valid,so.obj_name,so.obj_type from ");
-//			sqlBuilder.append(orleFlag);
-//			sqlBuilder.append("_triggers st join ");
-//			sqlBuilder.append(orleFlag);
-//			sqlBuilder.append("_objects so");
-//			sqlBuilder.append(" on st.obj_id = so.obj_id and st.db_id = so.db_id where st.db_id= ");
-//			sqlBuilder.append(owner.getDbId(owner, session));
-//			sqlBuilder.append(" and st.schema_id=");
-//			sqlBuilder.append(owner.id);
-//			log.debug("" + OemConfig.COMPANY_NAME + " triggers metadata: " + sqlBuilder.toString());
-//			JDBCPreparedStatement dbStat = session.prepareStatement(sqlBuilder.toString());
-//			return dbStat;
-//		}
-//
-//		@Override
-//		protected TriggerTest fetchObject(JDBCSession session, Schema owner, JDBCResultSet resultSet)
-//				throws SQLException, DBException {
-//			return new TriggerTest(session.getProgressMonitor(), session, owner, resultSet);
-//		}
-//		
-//	}
-	
-	
-	
 
 	/**
 	 * 用户自定义数据类型缓存

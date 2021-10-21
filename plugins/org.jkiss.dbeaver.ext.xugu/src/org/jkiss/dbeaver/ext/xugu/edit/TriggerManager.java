@@ -19,8 +19,10 @@ package org.jkiss.dbeaver.ext.xugu.edit;
 
 import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.jface.dialogs.IDialogConstants;
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CLabel;
+import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.graphics.Point;
@@ -29,6 +31,8 @@ import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
@@ -39,6 +43,7 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.Messages;
 import org.jkiss.dbeaver.ext.xugu.model.ObjectType;
 import org.jkiss.dbeaver.ext.xugu.model.ObjectValidateAction;
+import org.jkiss.dbeaver.ext.xugu.model.Schema;
 import org.jkiss.dbeaver.ext.xugu.model.BaseTable;
 import org.jkiss.dbeaver.ext.xugu.model.Trigger;
 import org.jkiss.dbeaver.ext.xugu.model.TriggerTest;
@@ -93,7 +98,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 	@Override
 	protected Trigger createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context,
 			final Object container, Object from, Map<String, Object> options) {
-		BaseTable parent = (BaseTable) container;
+		Schema parent = (Schema) container;
 		if (parent.isPersisted()) {
 			return new UITask<Trigger>() {
 				@Override
@@ -240,10 +245,10 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 	static class TriggerDialog extends Dialog {
 		private DBRProgressMonitor monitor;
 		private Trigger trigger;
-		private BaseTable table;
+		private Schema schema;
 		private Text nameText;
-		private Text parentTypeText;
-		private Text parentNameText;
+		private Combo objectTypeCombo;
+		private Combo objectNameCombo;
 		private Combo triggerTypeCombo;
 		private Button triggerEventInsert;
 		private Button triggerEventUpdate;
@@ -253,10 +258,10 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 		private Table colListTable;
 		private Collection<org.jkiss.dbeaver.ext.xugu.model.TableColumn> colList;
 
-		public  TriggerDialog(Shell parentShell, BaseTable table, DBRProgressMonitor monitor) {
+		public  TriggerDialog(Shell parentShell, Schema schema, DBRProgressMonitor monitor) {
 			super(parentShell);
 			this.monitor = monitor;
-			this.table = table;
+			this.schema = schema;
 			colList = new ArrayList<>();
 		}
 
@@ -276,6 +281,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 
 		@Override
 		protected Control createDialogArea(Composite parent) {
+			String[] tableHeader = { "列名", "数据类型", "精度", "标度", "默认值" };
 			getShell().setText(Messages.dialog_trigger_create_title);
 
 			Control container = super.createDialogArea(parent);
@@ -286,15 +292,55 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 			nameText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 			nameText.setEditable(true);
 
-			parentTypeText = UIUtils.createLabelText(composite, Messages.dialog_trigger_parent_type, null);
-			parentTypeText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-			parentTypeText.setText((table instanceof View) ? ObjectType.VIEW.name() : ObjectType.TABLE.name());
-			parentTypeText.setEditable(false);
+			objectTypeCombo = UIUtils.createLabelCombo(composite, Messages.dialog_trigger_parent_type, 0);
+			objectTypeCombo.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+			objectTypeCombo.add("表");
+			objectTypeCombo.add("视图");
+			objectTypeCombo.select(0);
+			objectTypeCombo.addSelectionListener(new SelectionAdapter() {
+				@Override
+				public void widgetSelected(SelectionEvent e) {
+					try {
+						switch (objectTypeCombo.getSelectionIndex()) {
+						case 0:
+							objectNameCombo.removeAll();
+							schema.getTables(monitor).forEach(table -> objectNameCombo.add(table.getName()));
+							objectNameCombo.select(0);
+							break;
+						case 1:
+							objectNameCombo.removeAll();
+							schema.getViews(monitor).forEach(view -> objectNameCombo.add(view.getName()));
+							objectNameCombo.select(0);
+							break;
+						}
+					} catch (DBException ex) {
+						MessageDialog.openError(getShell(), "获取对象名称失败", ex.getLocalizedMessage());
+						ex.printStackTrace();
+					}
 
-			parentNameText = UIUtils.createLabelText(composite, Messages.dialog_trigger_parent_name, null);
-			parentNameText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-			parentNameText.setText(table.getFullyQualifiedName(DBPEvaluationContext.DDL));
-			parentNameText.setEditable(false);
+					if (triggerEventUpdate.getSelection()) {
+						updateColumnTable(parent, tableHeader);
+					}
+				}
+			});
+
+			objectNameCombo = UIUtils.createLabelCombo(composite, Messages.dialog_trigger_parent_name, 0);
+			objectNameCombo.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+			try {
+				schema.getTables(monitor).forEach(table -> objectNameCombo.add(table.getName()));
+			} catch (DBException ex) {
+				MessageDialog.openError(parent.getShell(), "获取对象名称失败", ex.getLocalizedMessage());
+				ex.printStackTrace();
+			}
+			objectNameCombo.select(0);
+			objectNameCombo.addSelectionListener(new SelectionAdapter() {
+				@Override
+				public void widgetSelected(SelectionEvent e) {
+					if (triggerEventUpdate.getSelection()) {
+						updateColumnTable(parent, tableHeader);
+					}
+				}
+			});
 
 			Composite eventBox = UIUtils.createPlaceholder(composite, 4, 1);
 			eventBox.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
@@ -311,7 +357,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 			triggerTypeCombo.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 			triggerTypeCombo.add(Messages.dialog_trigger_type_row);
 			triggerTypeCombo.add(Messages.dialog_trigger_type_statement);
-			triggerTypeCombo.addSelectionListener(new SelectionListener() {
+			triggerTypeCombo.addSelectionListener(new SelectionAdapter() {
 				@Override
 				public void widgetSelected(SelectionEvent e) {
 					if (triggerTypeCombo.getSelectionIndex() == 0) {
@@ -323,10 +369,6 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 						triggerConditionText.setEditable(false);
 					}
 				}
-
-				@Override
-				public void widgetDefaultSelected(SelectionEvent e) {
-				}
 			});
 
 			triggerTimingCombo = UIUtils.createLabelCombo(composite, Messages.dialog_trigger_timing, 0);
@@ -335,7 +377,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 			triggerTimingCombo.add("AFTER");
 			triggerTimingCombo.add("INSTEAD OF");
 			// 当创建视图触发器时，不展示timing界面
-			if (ObjectType.VIEW.equals(table.getType())) {
+			if ("视图".equals(objectTypeCombo.getText())) {
 				triggerTimingCombo.setText("INSTEAD OF");
 				triggerTimingCombo.setEnabled(false);
 			}
@@ -348,9 +390,6 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 			colListTable.setLayoutData(new GridData(GridData.FILL_BOTH));
 			colListTable.setHeaderVisible(true);
 			colListTable.setLinesVisible(true);
-			colListTable.setHeaderVisible(true);
-			colListTable.setLinesVisible(true);
-			String[] tableHeader = { "Column Name", "Data Type", "Precision", "Scale", "Default Value" };
 			for (int i = 0; i < tableHeader.length; i++) {
 				TableColumn tableColumn = new TableColumn(colListTable, SWT.NONE);
 				tableColumn.setText(tableHeader[i]);
@@ -358,51 +397,60 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 				tableColumn.setMoveable(true);
 			}
 			// 动态加载所有列信息
-			triggerEventUpdate.addSelectionListener(new SelectionListener() {
+			triggerEventUpdate.addSelectionListener(new SelectionAdapter() {
 				@Override
 				public void widgetSelected(SelectionEvent e) {
-					String objType = parentTypeText.getText();
-					String objName = parentNameText.getText();
-					if (!triggerEventUpdate.getSelection()) {
-						// 清空列信息
-						colListTable.removeAll();
+					if (triggerEventUpdate.getSelection()) {
+						updateColumnTable(parent, tableHeader);
 					} else {
-						if (objType != null && !"".equals(objType) && objName != null && !"".equals(objName)) {
-							try {
-								colList = table.getAttributes(monitor);
-							} catch (DBException e1) {
-								e1.printStackTrace();
-							}
-							// 重新加载数据
-							if (colList.size() != 0) {
-								Iterator<org.jkiss.dbeaver.ext.xugu.model.TableColumn> it = colList.iterator();
-								while (it.hasNext()) {
-									org.jkiss.dbeaver.ext.xugu.model.TableColumn col = it.next();
-									TableItem item = new TableItem(colListTable, SWT.NONE);
-									item.setText(new String[] { col.getName(),
-											col.getDataType().toString() == null ? col.getTypeName()
-													: col.getDataType().toString(),
-											col.getPrecision() == null ? "" : String.valueOf(col.getPrecision()),
-											col.getScale() == null ? "" : String.valueOf(col.getScale()),
-											col.getDefaultValue() });
-								}
-							}
-							// 调整表格大小
-							for (int i = 0; i < tableHeader.length; i++) {
-								colListTable.getColumn(i).pack();
-							}
-						}
+						colListTable.removeAll();
 					}
-				}
-
-				@Override
-				public void widgetDefaultSelected(SelectionEvent e) {
-					// TODO 小部件默认已选择事件
 				}
 			});
 			UIUtils.createInfoLabel(composite, Messages.dialog_trigger_label, GridData.FILL_HORIZONTAL, 2);
-
 			return parent;
+		}
+		
+		private void updateColumnTable(Composite parent, String[] tableHeader) {
+			String objName = objectNameCombo.getText();
+
+			switch (objectTypeCombo.getSelectionIndex()) {
+			case 0:
+				try {
+					colList = schema.getTable(monitor, objName).getAttributes(monitor);
+				} catch (DBException ex) {
+					MessageDialog.openError(parent.getShell(), "获取表对象失败", ex.getLocalizedMessage());
+					ex.printStackTrace();
+				}
+				break;
+			case 1:
+				try {
+					colList = schema.getView(monitor, objName).getAttributes(monitor);
+				} catch (DBException ex) {
+					MessageDialog.openError(parent.getShell(), "获取视图对象失败", ex.getLocalizedMessage());
+					ex.printStackTrace();
+					return;
+				}
+				break;
+			}
+
+			// 重新加载数据
+			colListTable.removeAll();
+			if (colList.size() != 0) {
+				Iterator<org.jkiss.dbeaver.ext.xugu.model.TableColumn> it = colList.iterator();
+				while (it.hasNext()) {
+					org.jkiss.dbeaver.ext.xugu.model.TableColumn col = it.next();
+					TableItem item = new TableItem(colListTable, SWT.NONE);
+					item.setText(new String[] { col.getName(),
+							col.getDataType() == null ? col.getTypeName() : col.getDataType().toString(),
+							col.getPrecision() == null ? "" : String.valueOf(col.getPrecision()),
+							col.getScale() == null ? "" : String.valueOf(col.getScale()), col.getDefaultValue() });
+				}
+			}
+			// 调整表格大小
+			for (int i = 0; i < tableHeader.length; i++) {
+				colListTable.getColumn(i).pack();
+			}
 		}
 
 		@Override
@@ -440,13 +488,28 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 			}
 			String source = "\nBEGIN\n\nEND";
 			// 设置父对象信息
-			this.trigger = new Trigger(table, "");
+			
+			try {
+				switch (objectTypeCombo.getSelectionIndex()) {
+				case 0:
+					this.trigger = new Trigger(schema.getTable(monitor, objectNameCombo.getText()), "");
+					break;
+				case 1:
+					this.trigger = new Trigger(schema.getView(monitor, objectNameCombo.getText()), "");
+					break;
+				}
+			} catch (DBException ex) {
+				MessageDialog.openError(this.getShell(), "获取对象名称失败", ex.getLocalizedMessage());
+				ex.printStackTrace();
+			}
+			
 			trigger.setName(DBObjectNameCaseTransformer.transformObjectName(trigger, nameText.getText()));
-			trigger.setObjectType(parentTypeText.getText());
 			// 当创建视图触发器时，timing自动设为instead of
-			if (ObjectType.VIEW.equals(table.getType())) {
+			if ("视图".equals(objectTypeCombo.getText())) {
+				trigger.setObjectType("VIEW");
 				trigger.setTriggerTime(2);
 			} else {
+				trigger.setObjectType("TABLE");
 				trigger.setTriggerTime(triggerTimingCombo.getText());
 			}
 
