@@ -83,6 +83,7 @@ import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.registry.DataSourceDescriptor;
 import org.jkiss.dbeaver.registry.DataSourceUtils;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.dbeaver.runtime.DBeaverNotifications;
 import org.jkiss.dbeaver.runtime.sql.SQLResultsConsumer;
 import org.jkiss.dbeaver.runtime.ui.UIServiceConnections;
 import org.jkiss.dbeaver.tools.transfer.IDataTransferConsumer;
@@ -2061,6 +2062,15 @@ public class SQLEditor extends SQLEditorBase implements
                             dataSourceContainer.reconnect(monitor);
                             ((DataSourceDescriptor)dataSourceContainer).refreshObject(monitor);
                             dataSourceContainer.persistConfiguration();
+							DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "登录成功",
+									String.format("登录成功，当前连接信息：\n主机：%s:%s\n库名：%s\n用户名：%s", hostName, hostPort, catalog, username),
+									DBPMessageType.INFORMATION, () -> {
+										try {
+											Thread.sleep(10000);
+										} catch (InterruptedException e) {
+											e.printStackTrace();
+										}
+									});
                         } catch (DBException e) {
                             config.setUrl(originUrl);
                             config.setHostName(originHostName);
@@ -2073,6 +2083,15 @@ public class SQLEditor extends SQLEditorBase implements
                                 dataSourceContainer.reconnect(monitor);
                                 ((DataSourceDescriptor)dataSourceContainer).refreshObject(monitor);
                                 curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, false, queryListener);
+    							DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "登录失败",
+    									"登录失败，已为您恢复到原连接",
+    									DBPMessageType.ERROR, () -> {
+    										try {
+    											Thread.sleep(10000);
+    										} catch (InterruptedException ex) {
+    											ex.printStackTrace();
+    										}
+    									});
                             } catch (DBException e1) {
                                 throw new RuntimeException("Fallback to origin datasource failed", e);
                             }
@@ -2104,6 +2123,15 @@ public class SQLEditor extends SQLEditorBase implements
                         dataSourceContainer.reconnect(monitor);
                         ((DataSourceDescriptor)dataSourceContainer).refreshObject(monitor);
                         dataSourceContainer.persistConfiguration();
+						DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "登录成功",
+								String.format("登录成功，当前连接信息：\n主机：%s:%s\n库名：%s\n用户名：%s", originHostName, originHostPort, useCatalog, config.getUserName()),
+								DBPMessageType.INFORMATION, () -> {
+									try {
+										Thread.sleep(10000);
+									} catch (InterruptedException e) {
+										e.printStackTrace();
+									}
+								});
                     } catch (DBException e) {
                         config.setUrl(originUrl);
                         config.setDatabaseName(originDatabaseName);
@@ -2112,6 +2140,15 @@ public class SQLEditor extends SQLEditorBase implements
                             dataSourceContainer.reconnect(monitor);
                             ((DataSourceDescriptor)dataSourceContainer).refreshObject(monitor);
                             curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, false, queryListener);
+							DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "登录失败",
+									"登录失败，已为您恢复到原连接",
+									DBPMessageType.ERROR, () -> {
+										try {
+											Thread.sleep(10000);
+										} catch (InterruptedException ex) {
+											ex.printStackTrace();
+										}
+									});
                         } catch (DBException e1) {
                             throw new RuntimeException("Fallback to origin datasource failed", e);
                         }
