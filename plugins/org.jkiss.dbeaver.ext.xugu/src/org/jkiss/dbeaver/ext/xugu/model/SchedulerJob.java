@@ -156,8 +156,8 @@ public class SchedulerJob extends BaseGlobalObject implements DBPScriptObject, D
 					schemaName = userName;
 				}
 				procedureName = builder.toString();
-				Schema schema = ds.schemaCache.getCachedObject(schemaName);
-				if (schema.proceduresCache.getCachedObject(procedureName) == null) {
+				Schema schema = ds.schemaCache.getObject(monitor, ds.getDatabase(), schemaName);
+				if (schema.proceduresCache.getObject(monitor, schema, procedureName) == null) {
 					try {
 						StringBuilder sql = new StringBuilder();
 						sql.append("SELECT * FROM ");
@@ -192,7 +192,7 @@ public class SchedulerJob extends BaseGlobalObject implements DBPScriptObject, D
 					}
 				} else {
 					if (this.paramNum != 0) {
-						this.procParams = schema.proceduresCache.getCachedObject(procedureName).getParameters(monitor);
+						this.procParams = schema.proceduresCache.getObject(monitor, schema, procedureName).getParameters(monitor);
 					}
 				}
 			} catch (DBException e) {
