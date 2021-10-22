@@ -2059,8 +2059,9 @@ public class SQLEditor extends SQLEditorBase implements
                         config.setUserPassword(password);
                         DBRProgressMonitor monitor = new LoggingProgressMonitor();
                         try {
+                        	dataSourceContainer.disconnect(monitor);
                             dataSourceContainer.reconnect(monitor);
-                            ((DataSourceDescriptor)dataSourceContainer).refreshObject(monitor);
+                            curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, false, queryListener);
                             dataSourceContainer.persistConfiguration();
 							DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "登录成功",
 									String.format("登录成功，当前连接信息：\n主机：%s:%s\n库名：%s\n用户名：%s", hostName, hostPort, catalog, username),
@@ -2080,11 +2081,11 @@ public class SQLEditor extends SQLEditorBase implements
                             config.setUserPassword(originPassword);
                             dataSourceContainer.persistConfiguration();
                             try {
+                            	dataSourceContainer.disconnect(monitor);
                                 dataSourceContainer.reconnect(monitor);
-                                ((DataSourceDescriptor)dataSourceContainer).refreshObject(monitor);
                                 curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, false, queryListener);
     							DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "登录失败",
-    									"登录失败，已为您恢复到原连接",
+    									String.format("登录失败，已为您恢复到原连接：\n主机：%s:%s\n库名：%s\n用户名：%s", originHostName, originHostPort, originDatabaseName, originUsername),
     									DBPMessageType.ERROR, () -> {
     										try {
     											Thread.sleep(10000);
@@ -2099,7 +2100,17 @@ public class SQLEditor extends SQLEditorBase implements
                         } finally {
                             monitor.done();
                         }
-                        executionContext = null;
+                        try {
+                            ((DataSourceDescriptor)dataSourceContainer).refreshObject(monitor);
+                        } catch (DBException e1) {
+                        	try {
+    							dataSourceContainer.disconnect(monitor);
+    						} catch (DBException e) {
+    	                        throw new RuntimeException("Disconnect data source failed", e1);
+    						}
+                            throw new RuntimeException("Fallback to origin datasource failed", e1);
+                        }
+                        executionContext = DBUtils.getDefaultContext(getDataSource(), false);
                     } else {
                         curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, false, queryListener);
                         throw new IllegalStateException("Connect command format invalid: [REQUIRED]CON[NECT] USERNAME/PASSWORD@HOST:PORT/DATABASE [ACTUAL]" + queryText);
@@ -2120,9 +2131,10 @@ public class SQLEditor extends SQLEditorBase implements
                     config.setDatabaseName(useCatalog);
                     DBRProgressMonitor monitor = new LoggingProgressMonitor();
                     try {
+                    	dataSourceContainer.disconnect(monitor);
                         dataSourceContainer.reconnect(monitor);
-                        ((DataSourceDescriptor)dataSourceContainer).refreshObject(monitor);
                         dataSourceContainer.persistConfiguration();
+                        curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, false, queryListener);
 						DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "登录成功",
 								String.format("登录成功，当前连接信息：\n主机：%s:%s\n库名：%s\n用户名：%s", originHostName, originHostPort, useCatalog, config.getUserName()),
 								DBPMessageType.INFORMATION, () -> {
@@ -2137,11 +2149,11 @@ public class SQLEditor extends SQLEditorBase implements
                         config.setDatabaseName(originDatabaseName);
                         dataSourceContainer.persistConfiguration();
                         try {
+                        	dataSourceContainer.disconnect(monitor);
                             dataSourceContainer.reconnect(monitor);
-                            ((DataSourceDescriptor)dataSourceContainer).refreshObject(monitor);
                             curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, false, queryListener);
 							DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "登录失败",
-									"登录失败，已为您恢复到原连接",
+									String.format("登录失败，已为您恢复到原连接：\n主机：%s:%s\n库名：%s\n用户名：%s", originHostName, originHostPort, originDatabaseName, config.getUserName()),
 									DBPMessageType.ERROR, () -> {
 										try {
 											Thread.sleep(10000);
@@ -2156,7 +2168,17 @@ public class SQLEditor extends SQLEditorBase implements
                     } finally {
                         monitor.done();
                     }
-                    executionContext = null;
+                    try {
+                        ((DataSourceDescriptor)dataSourceContainer).refreshObject(monitor);
+                    } catch (DBException e1) {
+                    	try {
+							dataSourceContainer.disconnect(monitor);
+						} catch (DBException e) {
+	                        throw new RuntimeException("Disconnect data source failed", e1);
+						}
+                        throw new RuntimeException("Fallback to origin datasource failed", e1);
+                    }
+                    executionContext = DBUtils.getDefaultContext(getDataSource(), false);
                 } else {
                     actualQueries.add(query);
                 }
