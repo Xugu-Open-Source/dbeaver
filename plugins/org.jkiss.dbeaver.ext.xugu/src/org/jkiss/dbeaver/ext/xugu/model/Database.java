@@ -50,8 +50,8 @@ public class Database extends BaseGlobalObject {
 		if (dbResult != null) {
 			this.id = JDBCUtils.safeGetInt(dbResult, "DB_ID");
 			this.name = JDBCUtils.safeGetString(dbResult, "DB_NAME");
-			this.charset = JDBCUtils.safeGetString(dbResult, "CHAR_SET");
-			this.timeZone = JDBCUtils.safeGetString(dbResult, "TIME_ZONE");
+			this.charset = JDBCUtils.safeGetString(dbResult, "DB_CHARSET");
+			this.timeZone = JDBCUtils.safeGetString(dbResult, "DB_TIMEZ");
 			persisted = true;
 		} else {
 			persisted = false;

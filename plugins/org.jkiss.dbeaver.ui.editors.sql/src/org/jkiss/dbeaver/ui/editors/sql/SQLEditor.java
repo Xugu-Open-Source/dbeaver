@@ -63,6 +63,7 @@ import org.jkiss.dbeaver.model.exec.plan.DBCPlan;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlanStyle;
 import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlanner;
 import org.jkiss.dbeaver.model.impl.DefaultServerOutputReader;
+import org.jkiss.dbeaver.model.impl.jdbc.JDBCRemoteInstance;
 import org.jkiss.dbeaver.model.impl.sql.SQLQueryTransformerCount;
 import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.navigator.DBNUtils;
@@ -2028,7 +2029,7 @@ public class SQLEditor extends SQLEditorBase implements
                                             break;
                                         default:
                                             curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, false, queryListener);
-                                            throw new RuntimeException("Parsing connect body failed: part index out of bounds: " + partIndex);
+                                            throw new RuntimeException("解析连接命令失败，数据段索引越界：" + partIndex);
                                     }
                                     builder = new StringBuilder();
                                     ++partIndex;
@@ -2094,9 +2095,9 @@ public class SQLEditor extends SQLEditorBase implements
     										}
     									});
                             } catch (DBException e1) {
-                                throw new RuntimeException("Fallback to origin datasource failed", e);
+                                throw new RuntimeException("回退到原数据源失败", e);
                             }
-                            throw new RuntimeException("Connect failed by command: " + queryText, e);
+                            throw new RuntimeException("连接失败：" + e.getCause().getLocalizedMessage(), e);
                         } finally {
                             monitor.done();
                         }
@@ -2106,11 +2107,11 @@ public class SQLEditor extends SQLEditorBase implements
                         	try {
     							dataSourceContainer.disconnect(monitor);
     						} catch (DBException e) {
-    	                        throw new RuntimeException("Disconnect data source failed", e1);
+    	                        throw new RuntimeException("断开数据源失败", e1);
     						}
-                            throw new RuntimeException("Fallback to origin datasource failed", e1);
+                            throw new RuntimeException("回退到原数据源失败", e1);
                         }
-                        executionContext = DBUtils.getDefaultContext(getDataSource(), false);
+                        initSeparateConnection(dataSourceContainer.getDataSource(), null);
                     } else {
                         curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, false, queryListener);
                         throw new IllegalStateException("Connect command format invalid: [REQUIRED]CON[NECT] USERNAME/PASSWORD@HOST:PORT/DATABASE [ACTUAL]" + queryText);
@@ -2162,9 +2163,9 @@ public class SQLEditor extends SQLEditorBase implements
 										}
 									});
                         } catch (DBException e1) {
-                            throw new RuntimeException("Fallback to origin datasource failed", e);
+                            throw new RuntimeException("回退到原数据源失败", e);
                         }
-                        throw new RuntimeException("Use failed by command: " + queryText, e);
+                        throw new RuntimeException("连接失败：" + e.getCause().getLocalizedMessage(), e);
                     } finally {
                         monitor.done();
                     }
@@ -2174,11 +2175,11 @@ public class SQLEditor extends SQLEditorBase implements
                     	try {
 							dataSourceContainer.disconnect(monitor);
 						} catch (DBException e) {
-	                        throw new RuntimeException("Disconnect data source failed", e1);
+	                        throw new RuntimeException("断开数据源失败", e1);
 						}
-                        throw new RuntimeException("Fallback to origin datasource failed", e1);
+                        throw new RuntimeException("回退到原数据源失败", e1);
                     }
-                    executionContext = DBUtils.getDefaultContext(getDataSource(), false);
+                    initSeparateConnection(dataSourceContainer.getDataSource(), null);
                 } else {
                     actualQueries.add(query);
                 }

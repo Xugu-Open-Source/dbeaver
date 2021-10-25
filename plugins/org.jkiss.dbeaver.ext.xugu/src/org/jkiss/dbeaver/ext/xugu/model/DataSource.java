@@ -158,7 +158,6 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		} else {
 			this.roleFlag = UserRoleFlag.ALL.name();
 		}
-		this.database = this.databaseCache.getObject(monitor, this, config.getDatabaseName());
 		this.outputReader = new OutputReader();
 	}
 	
@@ -173,6 +172,14 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	}
 
 	public Database getDatabase() {
+		if (database == null) {
+			try {
+				DBPConnectionConfiguration config = this.getContainer().getConnectionConfiguration();
+				this.database = this.databaseCache.getObject(new LoggingProgressMonitor(), this, config.getDatabaseName());
+			} catch (DBException e) {
+				throw new RuntimeException(e);
+			}
+		}
 		return database;
 	}
 
@@ -355,12 +362,12 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 	@Association
 	public Collection<Schema> getSchemas(DBRProgressMonitor monitor) throws DBException {
-		return schemaCache.getAllObjects(monitor, this.database);
+		return schemaCache.getAllObjects(monitor, this.getDatabase());
 	}
 
 	@Association
 	public Schema getSchema(DBRProgressMonitor monitor, String name) throws DBException {
-		return schemaCache.getObject(monitor, this.database, name);
+		return schemaCache.getObject(monitor, this.getDatabase(), name);
 	}
 
 	@Association
@@ -548,7 +555,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	@NotNull
 	@Override
 	public DataSource getDataSource() {
-		return this;
+		return (DataSource) this.getContainer().getDataSource();
 	}
 
 	@NotNull
@@ -781,19 +788,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		@Override
 		public JDBCStatement prepareLookupStatement(JDBCSession session, DataSource owner, Database object,
 				String objectName) throws SQLException {
-			StringBuilder builder = new StringBuilder("SELECT * FROM ");
-			builder.append(owner.roleFlag);
-			builder.append("_DATABASES");
-			if (object != null) {
-				builder.append(" WHERE DB_NAME='");
-				builder.append(object.getName());
-				builder.append("'");
-			} else if (objectName != null) {
-				builder.append(" WHERE DB_NAME='");
-				builder.append(objectName);
-				builder.append("'");
-			}
-			return session.prepareStatement(builder.toString());
+			return session.prepareStatement("SHOW DB_INFO");
 		}
 
 		@Override
