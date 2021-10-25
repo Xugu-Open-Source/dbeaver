@@ -788,7 +788,9 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		@Override
 		public JDBCStatement prepareLookupStatement(JDBCSession session, DataSource owner, Database object,
 				String objectName) throws SQLException {
-			return session.prepareStatement("SHOW DB_INFO");
+			JDBCStatement statement = session.createStatement();
+			statement.setQueryString("SHOW DB_INFO");
+			return statement;
 		}
 
 		@Override
