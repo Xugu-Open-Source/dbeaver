@@ -89,7 +89,7 @@ public class DataImporterSQL extends StreamImporterAbstract {
         	originSqls = fileString.split(";");
         	List<String> resultSqls = new ArrayList<>();
             for (String sql : originSqls) {
-                String tempSql = sql.strip();
+                String tempSql = sql.trim();
                 if (tempSql.length() == 0) {
                 	continue;
                 } else {

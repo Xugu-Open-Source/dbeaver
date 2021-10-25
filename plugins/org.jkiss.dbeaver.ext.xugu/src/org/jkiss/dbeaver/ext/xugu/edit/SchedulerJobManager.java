@@ -139,21 +139,38 @@ public class SchedulerJobManager extends SQLObjectEditor<SchedulerJob, Schema> i
 		builder.append(",'").append(jobAction).append("'");
 		//可选参数
 		builder.append(",").append(Optional.ofNullable(job.getParamNum()).orElse(0));
-		Optional.ofNullable(job.getBeginTime()).ifPresentOrElse(
-				value -> builder.append(",'").append(value).append("'"),
-				() -> builder.append(",null"));
-		Optional.ofNullable(job.getRepetInterval()).ifPresentOrElse(
-				value -> builder.append(",'").append(value).append("'"),
-				() -> builder.append(",null"));
-		Optional.ofNullable(job.getEndTime()).ifPresentOrElse(
-				value -> builder.append(",'").append(value).append("'"),
-				() -> builder.append(",null"));
+		String beginTime = job.getBeginTime();
+		if (beginTime == null) {
+			builder.append(",null");
+		} else {
+			builder.append(",'").append(beginTime).append("'");
+		}
+		
+		String repetInterval = job.getRepetInterval();
+		if (repetInterval == null) {
+			builder.append(",null");
+		} else {
+			builder.append(",'").append(repetInterval).append("'");
+		}
+
+		String endTime = job.getEndTime();
+		if (endTime == null) {
+			builder.append(",null");
+		} else {
+			builder.append(",'").append(endTime).append("'");
+		}
+
 		builder.append(",'default_class'");
 		builder.append(",").append(job.isEnable());
 		builder.append(",").append(job.isAutoDrop());
-		Optional.ofNullable(job.getComments()).ifPresentOrElse(
-				value -> builder.append(",'").append(value).append("')"),
-				() -> builder.append(",null)"));
+		
+		String comments = job.getComments();
+		if (comments == null) {
+			builder.append(",null)");
+		} else {
+			builder.append(",'").append(comments).append("')");
+		}
+
 		String sql = builder.toString();
 		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create scheduler job sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Create scheduler job", sql));
