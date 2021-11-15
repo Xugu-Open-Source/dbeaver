@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,28 +27,35 @@ import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.LazyProperty;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.meta.PropertyGroup;
+import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.utils.ByteNumberFormat;
 import org.jkiss.utils.CommonUtils;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * OracleTable
  */
-public class OracleTable extends OracleTablePhysical implements DBPScriptObject, DBDPseudoAttributeContainer, DBPImageProvider
-{
+public class OracleTable extends OracleTablePhysical implements DBPScriptObject, DBDPseudoAttributeContainer,
+        DBPObjectStatistics, DBPImageProvider, DBPReferentialIntegrityController {
     private static final Log log = Log.getLog(OracleTable.class);
+
+    private static final CharSequence TABLE_NAME_PLACEHOLDER = "%table_name%";
+    private static final CharSequence FOREIGN_KEY_NAME_PLACEHOLDER = "%foreign_key_name%";
+    private static final String DISABLE_REFERENTIAL_INTEGRITY_STATEMENT = "ALTER TABLE " + TABLE_NAME_PLACEHOLDER + " MODIFY CONSTRAINT "
+        + FOREIGN_KEY_NAME_PLACEHOLDER + " DISABLE";
+    private static final String ENABLE_REFERENTIAL_INTEGRITY_STATEMENT = "ALTER TABLE " + TABLE_NAME_PLACEHOLDER + " MODIFY CONSTRAINT "
+        + FOREIGN_KEY_NAME_PLACEHOLDER + " ENABLE";
 
     private OracleDataType tableType;
     private String iotType;
@@ -56,6 +63,7 @@ public class OracleTable extends OracleTablePhysical implements DBPScriptObject,
     private boolean temporary;
     private boolean secondary;
     private boolean nested;
+    private transient volatile Long tableSize;
 
     public class AdditionalInfo extends TableAdditionalInfo {
         private int pctFree;
@@ -79,41 +87,41 @@ public class OracleTable extends OracleTablePhysical implements DBPScriptObject,
         private int avgSpaceFreelistBlocks;
         private int numFreelistBlocks;
 
-        @Property(category = CAT_STATISTICS, order = 31)
+        @Property(category = DBConstants.CAT_STATISTICS, order = 31)
         public int getPctFree() { return pctFree; }
-        @Property(category = CAT_STATISTICS, order = 32)
+        @Property(category = DBConstants.CAT_STATISTICS, order = 32)
         public int getPctUsed() { return pctUsed; }
-        @Property(category = CAT_STATISTICS, order = 33)
+        @Property(category = DBConstants.CAT_STATISTICS, order = 33)
         public int getIniTrans() { return iniTrans; }
-        @Property(category = CAT_STATISTICS, order = 34)
+        @Property(category = DBConstants.CAT_STATISTICS, order = 34)
         public int getMaxTrans() { return maxTrans; }
-        @Property(category = CAT_STATISTICS, order = 35)
+        @Property(category = DBConstants.CAT_STATISTICS, order = 35)
         public int getInitialExtent() { return initialExtent; }
-        @Property(category = CAT_STATISTICS, order = 36)
+        @Property(category = DBConstants.CAT_STATISTICS, order = 36)
         public int getNextExtent() { return nextExtent; }
-        @Property(category = CAT_STATISTICS, order = 37)
+        @Property(category = DBConstants.CAT_STATISTICS, order = 37)
         public int getMinExtents() { return minExtents; }
-        @Property(category = CAT_STATISTICS, order = 38)
+        @Property(category = DBConstants.CAT_STATISTICS, order = 38)
         public int getMaxExtents() { return maxExtents; }
-        @Property(category = CAT_STATISTICS, order = 39)
+        @Property(category = DBConstants.CAT_STATISTICS, order = 39)
         public int getPctIncrease() { return pctIncrease; }
-        @Property(category = CAT_STATISTICS, order = 40)
+        @Property(category = DBConstants.CAT_STATISTICS, order = 40)
         public int getFreelists() { return freelists; }
-        @Property(category = CAT_STATISTICS, order = 41)
+        @Property(category = DBConstants.CAT_STATISTICS, order = 41)
         public int getFreelistGroups() { return freelistGroups; }
-        @Property(category = CAT_STATISTICS, order = 42)
+        @Property(category = DBConstants.CAT_STATISTICS, order = 42)
         public int getBlocks() { return blocks; }
-        @Property(category = CAT_STATISTICS, order = 43)
+        @Property(category = DBConstants.CAT_STATISTICS, order = 43)
         public int getEmptyBlocks() { return emptyBlocks; }
-        @Property(category = CAT_STATISTICS, order = 44)
+        @Property(category = DBConstants.CAT_STATISTICS, order = 44)
         public int getAvgSpace() { return avgSpace; }
-        @Property(category = CAT_STATISTICS, order = 45)
+        @Property(category = DBConstants.CAT_STATISTICS, order = 45)
         public int getChainCount() { return chainCount; }
-        @Property(category = CAT_STATISTICS, order = 46)
+        @Property(category = DBConstants.CAT_STATISTICS, order = 46)
         public int getAvgRowLen() { return avgRowLen; }
-        @Property(category = CAT_STATISTICS, order = 47)
+        @Property(category = DBConstants.CAT_STATISTICS, order = 47)
         public int getAvgSpaceFreelistBlocks() { return avgSpaceFreelistBlocks; }
-        @Property(category = CAT_STATISTICS, order = 48)
+        @Property(category = DBConstants.CAT_STATISTICS, order = 48)
         public int getNumFreelistBlocks() { return numFreelistBlocks; }
     }
 
@@ -164,6 +172,70 @@ public class OracleTable extends OracleTablePhysical implements DBPScriptObject,
             }
             return additionalInfo;
         }
+    }
+
+    ///////////////////////////////////
+    // Statistics
+
+    @Override
+    public boolean hasStatistics() {
+        return tableSize != null;
+    }
+
+    @Override
+    public long getStatObjectSize() {
+        return tableSize == null ? 0 : tableSize;
+    }
+
+    @Nullable
+    @Override
+    public DBPPropertySource getStatProperties() {
+        return null;
+    }
+
+
+    @Property(viewable = false, category = DBConstants.CAT_STATISTICS, formatter = ByteNumberFormat.class)
+    public Long getTableSize(DBRProgressMonitor monitor) throws DBCException {
+        if (tableSize == null) {
+            loadSize(monitor);
+        }
+        return tableSize;
+    }
+
+    public void setTableSize(Long tableSize) {
+        this.tableSize = tableSize;
+    }
+
+    private void loadSize(DBRProgressMonitor monitor) throws DBCException {
+        tableSize = null;
+        try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load table status")) {
+            boolean hasDBA = getDataSource().isViewAvailable(monitor, OracleConstants.SCHEMA_SYS, "DBA_SEGMENTS");
+            try (JDBCPreparedStatement dbStat = session.prepareStatement(
+                "SELECT SUM(bytes) TABLE_SIZE\n" +
+                    "FROM " + OracleUtils.getSysSchemaPrefix(getDataSource()) + (hasDBA ? "DBA_SEGMENTS" : "USER_SEGMENTS") + " s\n" +
+                    "WHERE S.SEGMENT_TYPE='TABLE' AND s.SEGMENT_NAME = ?" + (hasDBA ? " AND s.OWNER = ?" : "")))
+            {
+                dbStat.setString(1, getName());
+                if (hasDBA) {
+                    dbStat.setString(2, getSchema().getName());
+                }
+                try (JDBCResultSet dbResult = dbStat.executeQuery()) {
+                    if (dbResult.next()) {
+                        fetchTableSize(dbResult);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error reading table statistics", e);
+        } finally {
+            if (tableSize == null) {
+                tableSize = 0L;
+            }
+        }
+    }
+
+    void fetchTableSize(JDBCResultSet dbResult) throws SQLException {
+        tableSize = dbResult.getLong("TABLE_SIZE");
     }
 
     @Override
@@ -267,6 +339,7 @@ public class OracleTable extends OracleTablePhysical implements DBPScriptObject,
     public DBSObject refreshObject(@NotNull DBRProgressMonitor monitor) throws DBException
     {
         getContainer().foreignKeyCache.clearObjectCache(this);
+        tableSize = null;
         return super.refreshObject(monitor);
     }
 
@@ -364,4 +437,47 @@ public class OracleTable extends OracleTablePhysical implements DBPScriptObject,
 
     }
 
+    @Override
+    public void enableReferentialIntegrity(@NotNull DBRProgressMonitor monitor, boolean enable) throws DBException {
+        Collection<OracleTableForeignKey> foreignKeys = getAssociations(monitor);
+        if (CommonUtils.isEmpty(foreignKeys)) {
+            return;
+        }
+
+        String template;
+        if (enable) {
+            template = ENABLE_REFERENTIAL_INTEGRITY_STATEMENT;
+        } else {
+            template = DISABLE_REFERENTIAL_INTEGRITY_STATEMENT;
+        }
+        template = template.replace(TABLE_NAME_PLACEHOLDER, getFullyQualifiedName(DBPEvaluationContext.DDL));
+
+        try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Changing referential integrity")) {
+            try (JDBCStatement statement = session.createStatement()) {
+                for (DBPNamedObject fk: foreignKeys) {
+                    String sql = template.replace(FOREIGN_KEY_NAME_PLACEHOLDER,  fk.getName());
+                    statement.executeUpdate(sql);
+                }
+            } catch (SQLException e) {
+                throw new DBException("Unable to change referential integrity", e);
+            }
+        }
+    }
+
+    @Override
+    public boolean supportsChangingReferentialIntegrity(@NotNull DBRProgressMonitor monitor) throws DBException {
+        return !CommonUtils.isEmpty(getAssociations(monitor));
+    }
+
+    @Nullable
+    @Override
+    public String getChangeReferentialIntegrityStatement(@NotNull DBRProgressMonitor monitor, boolean enable) throws DBException {
+        if (!supportsChangingReferentialIntegrity(monitor)) {
+            return null;
+        }
+        if (enable) {
+            return ENABLE_REFERENTIAL_INTEGRITY_STATEMENT;
+        }
+        return DISABLE_REFERENTIAL_INTEGRITY_STATEMENT;
+    }
 }

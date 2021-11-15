@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,24 +16,26 @@
  */
 package org.jkiss.dbeaver.ext.firebird.model;
 
-import org.jkiss.dbeaver.ext.generic.model.GenericStructContainer;
-import org.jkiss.dbeaver.ext.generic.model.GenericTableBase;
 import org.jkiss.dbeaver.ext.generic.model.GenericTrigger;
+import org.jkiss.dbeaver.model.DBPSystemObject;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.struct.DBSObject;
 
 /**
- * FireBirdDataSource
+ * FireBirdTrigger
  */
-public class FireBirdTrigger extends GenericTrigger {
+public abstract class FireBirdTrigger<OWNER extends DBSObject> extends GenericTrigger implements DBPSystemObject {
 
-    private FireBirdTriggerType type;
-    private int sequence;
+    private final FireBirdTriggerType type;
+    private final int sequence;
+    private final boolean isSystem;
 
-    public FireBirdTrigger(GenericStructContainer container, GenericTableBase table, String name, String description, FireBirdTriggerType type, int sequence) {
-        super(container, table, name, description);
+    public FireBirdTrigger(OWNER container, String name, String description, FireBirdTriggerType type, int sequence, boolean isSystem) {
+        super(container, name, description);
 
         this.type = type;
         this.sequence = sequence;
+        this.isSystem = isSystem;
     }
 
     public FireBirdTriggerType getType() {
@@ -48,5 +50,10 @@ public class FireBirdTrigger extends GenericTrigger {
     @Property(viewable = true, editable = true, updatable = false, order = 11)
     public int getSequence() {
         return sequence;
+    }
+
+    @Override
+    public boolean isSystem() {
+        return isSystem;
     }
 }

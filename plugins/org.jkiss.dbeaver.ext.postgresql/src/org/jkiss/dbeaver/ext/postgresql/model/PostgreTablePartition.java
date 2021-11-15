@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *               2017 Andrew Khitrin   (andrew@jkiss.org)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,11 +23,12 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBStructUtils;
+import org.jkiss.dbeaver.model.struct.rdb.DBSTablePartition;
 
 import java.sql.ResultSet;
 import java.util.Map;
 
-public class PostgreTablePartition extends PostgreTable {
+public class PostgreTablePartition extends PostgreTable implements DBSTablePartition {
 
     public static final String CAT_PARTITIONING = "Partitioning";
 
@@ -44,6 +45,7 @@ public class PostgreTablePartition extends PostgreTable {
 
     public PostgreTablePartition(PostgreTableContainer container, ResultSet dbResult) {
         super(container, dbResult);
+        this.setPartition(true);
         this.partitionExpression = JDBCUtils.safeGetString(dbResult, "partition_expr");
     }
 

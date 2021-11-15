@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,11 +29,11 @@ import java.lang.reflect.InvocationTargetException;
  */
 public class TreeLoadService extends DatabaseLoadService<Object[]> {
 
-    private DBNNode parentNode;
+    private final DBNNode parentNode;
 
-    public TreeLoadService(String serviceName, DBNDatabaseNode parentNode)
+    public TreeLoadService(String serviceName, DBNNode parentNode)
     {
-        super(serviceName, parentNode);
+        super(serviceName, (DBNDatabaseNode)(parentNode instanceof DBNDatabaseNode ? parentNode : null));
         this.parentNode = parentNode;
     }
 

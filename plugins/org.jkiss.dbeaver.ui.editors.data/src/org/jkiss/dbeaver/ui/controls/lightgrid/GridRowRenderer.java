@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@ import org.jkiss.dbeaver.ui.UITextUtils;
  * Grid row header renderer.
  */
 class GridRowRenderer extends AbstractRenderer {
-
     static final Image IMG_EXPAND = DBeaverIcons.getImage(UIIcon.TREE_EXPAND);
     static final Image IMG_COLLAPSE = DBeaverIcons.getImage(UIIcon.TREE_COLLAPSE);
     static final Rectangle EXPANDED_BOUNDS = IMG_EXPAND.getBounds();
@@ -120,7 +119,8 @@ class GridRowRenderer extends AbstractRenderer {
             UITextUtils.getShortString(grid.fontMetrics, text, width),
             bounds.x + x + selectionOffset,
             y + selectionOffset,
-            true);
+            isTransparent
+        );
     }
 
     public int computeHeaderWidth(Object element, int level) {

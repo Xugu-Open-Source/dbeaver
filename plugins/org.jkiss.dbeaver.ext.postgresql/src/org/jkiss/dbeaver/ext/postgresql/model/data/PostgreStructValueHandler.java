@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,13 @@ import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.postgresql.PostgreUtils;
+import org.jkiss.dbeaver.ext.postgresql.PostgreValueParser;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataSource;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataType;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataTypeAttribute;
+import org.jkiss.dbeaver.ext.postgresql.model.PostgreTypeType;
 import org.jkiss.dbeaver.model.data.DBDComposite;
+import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
@@ -32,6 +35,8 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCStructImpl;
 import org.jkiss.dbeaver.model.impl.jdbc.data.JDBCComposite;
 import org.jkiss.dbeaver.model.impl.jdbc.data.JDBCCompositeStatic;
 import org.jkiss.dbeaver.model.impl.jdbc.data.handlers.JDBCStructValueHandler;
+import org.jkiss.dbeaver.model.sql.SQLUtils;
+import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 
 import java.sql.SQLException;
@@ -64,7 +69,7 @@ public class PostgreStructValueHandler extends JDBCStructValueHandler {
                 statement.setNull(paramIndex, Types.STRUCT);
             } else if (struct instanceof JDBCComposite) {
                 final Object[] values = ((JDBCComposite) struct).getValues();
-                final String string = PostgreUtils.generateObjectString(values);
+                final String string = PostgreValueParser.generateObjectString(values);
                 statement.setObject(paramIndex, string, Types.OTHER);
             }
         } else {
@@ -79,6 +84,10 @@ public class PostgreStructValueHandler extends JDBCStructValueHandler {
         if (structType == null) {
             log.debug("Can't resolve struct type '" + type.getTypeName() + "'");
             return object;
+        }
+        if (structType.getTypeType() == PostgreTypeType.d) {
+            // Domains are just wrappers around underlying type.
+            structType = structType.getBaseType(session.getProgressMonitor());
         }
         try {
             if (object == null) {
@@ -99,6 +108,19 @@ public class PostgreStructValueHandler extends JDBCStructValueHandler {
         }
     }
 
+    @NotNull
+    @Override
+    public synchronized String getValueDisplayString(@NotNull DBSTypedObject column, Object value, @NotNull DBDDisplayFormat format) {
+        if (format == DBDDisplayFormat.NATIVE && value instanceof DBDComposite && column instanceof DBSObject) {
+            final DBDComposite struct = (DBDComposite) value;
+            if (!struct.isNull() && struct instanceof JDBCComposite) {
+                final Object[] values = ((JDBCComposite) struct).getValues();
+                return SQLUtils.quoteString((DBSObject) column, PostgreValueParser.generateObjectString(values));
+            }
+        }
+        return super.getValueDisplayString(column, value, format);
+    }
+
     private JDBCCompositeStatic convertStringToStruct(@NotNull DBCSession session, @NotNull PostgreDataType compType, @NotNull String value) throws DBException {
         if (value.startsWith("(") && value.endsWith(")")) {
             value = value.substring(1, value.length() - 1);
@@ -107,7 +129,7 @@ public class PostgreStructValueHandler extends JDBCStructValueHandler {
         if (attributes == null) {
             throw new DBException("Composite type '" + compType.getTypeName() + "' has no attributes");
         }
-        String[] parsedValues = PostgreUtils.parseObjectString(value);
+        String[] parsedValues = PostgreValueParser.parseSingleObject(value);
         if (parsedValues.length != attributes.size()) {
             log.debug("Number of attributes (" + attributes.size() + ") doesn't match actual number of parsed strings (" + parsedValues.length + ")");
         }
@@ -116,7 +138,7 @@ public class PostgreStructValueHandler extends JDBCStructValueHandler {
         Iterator<PostgreDataTypeAttribute> attrIter = attributes.iterator();
         for (int i = 0; i < parsedValues.length && attrIter.hasNext(); i++) {
             final PostgreDataTypeAttribute itemAttr = attrIter.next();
-            attrValues[i] = PostgreUtils.convertStringToValue(session, itemAttr, parsedValues[i], true);
+            attrValues[i] = PostgreValueParser.convertStringToValue(session, itemAttr, parsedValues[i]);
         }
 
         Struct contents = new JDBCStructImpl(compType.getTypeName(), attrValues, value);

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,22 +16,29 @@
  */
 package org.jkiss.dbeaver.tools.transfer.stream.importer;
 
-import au.com.bytecode.opencsv.CSVReader;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBFetchProgress;
+import org.jkiss.dbeaver.model.DBPDataKind;
+import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.exec.DBCExecutionPurpose;
+import org.jkiss.dbeaver.model.exec.DBCSession;
 import org.jkiss.dbeaver.model.impl.local.LocalStatement;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.tools.transfer.IDataTransferConsumer;
+import org.jkiss.dbeaver.tools.transfer.database.DatabaseTransferUtils;
 import org.jkiss.dbeaver.tools.transfer.stream.*;
-import org.jkiss.dbeaver.tools.transfer.stream.model.StreamDataSource;
-import org.jkiss.dbeaver.tools.transfer.stream.model.StreamExecutionContext;
-import org.jkiss.dbeaver.tools.transfer.stream.model.StreamTransferSession;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
+import org.jkiss.utils.Pair;
+import org.jkiss.utils.csv.CSVReader;
+import org.jkiss.utils.io.BOMInputStream;
 
 import java.io.*;
-import java.time.format.DateTimeFormatter;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +47,6 @@ import java.util.Map;
  * CSV importer
  */
 public class DataImporterCSV extends StreamImporterAbstract {
-
     private static final Log log = Log.getLog(DataImporterCSV.class);
 
     private static final String PROP_ENCODING = "encoding";
@@ -50,41 +56,96 @@ public class DataImporterCSV extends StreamImporterAbstract {
     private static final String PROP_NULL_STRING = "nullString";
     private static final String PROP_EMPTY_STRING_NULL = "emptyStringNull";
     private static final String PROP_ESCAPE_CHAR = "escapeChar";
-    private static final String PROP_TIMESTAMP_FORMAT = "timestampFormat";
+    public static final int READ_BUFFER_SIZE = 255 * 1024;
 
-    enum HeaderPosition {
+    public enum HeaderPosition {
         none,
         top,
-        both
     }
 
     public DataImporterCSV() {
     }
 
+    @NotNull
     @Override
-    public List<StreamDataImporterColumnInfo> readColumnsInfo(InputStream inputStream) throws DBException {
+    public List<StreamDataImporterColumnInfo> readColumnsInfo(StreamEntityMapping entityMapping, @NotNull InputStream inputStream) throws DBException {
         List<StreamDataImporterColumnInfo> columnsInfo = new ArrayList<>();
-        Map<Object, Object> processorProperties = getSite().getProcessorProperties();
+        Map<String, Object> processorProperties = getSite().getProcessorProperties();
         HeaderPosition headerPosition = getHeaderPosition(processorProperties);
 
-        try (Reader reader = openStreamReader(inputStream, processorProperties)) {
+        final int columnSamplesCount = Math.max(CommonUtils.toInt(processorProperties.get(PROP_COLUMN_TYPE_SAMPLES), 1000), 0);
+        final int columnMinimalLength = Math.max(CommonUtils.toInt(processorProperties.get(PROP_COLUMN_TYPE_LENGTH), 1), 1);
+        final boolean columnIsByteLength = CommonUtils.getBoolean(processorProperties.get(PROP_COLUMN_IS_BYTE_LENGTH), false);
+
+        try (Reader reader = openStreamReader(inputStream, processorProperties, false)) {
             try (CSVReader csvReader = openCSVReader(reader, processorProperties)) {
-                for (;;) {
-                    String[] line = csvReader.readNext();
-                    if (line == null) {
-                        break;
+                String[] header = getNextLine(csvReader);
+                if (header == null) {
+                    return columnsInfo;
+                }
+
+                for (int i = 0; i < header.length; i++) {
+                    String column = null;
+                    if (headerPosition == HeaderPosition.top) {
+                        column = DBUtils.getUnQuotedIdentifier(entityMapping.getDataSource(), header[i]);
                     }
-                    if (line.length == 0) {
-                        continue;
+                    if (CommonUtils.isEmptyTrimmed(column)) {
+                        column = "Column" + (i + 1);
                     }
-                    for (int i = 0; i < line.length; i++) {
-                        String column = line[i];
-                        if (headerPosition == HeaderPosition.none) {
-                            column = null;
+                    StreamDataImporterColumnInfo columnInfo = new StreamDataImporterColumnInfo(entityMapping, i, column, null, columnMinimalLength, DBPDataKind.UNKNOWN);
+                    columnInfo.setMappingMetadataPresent(headerPosition != HeaderPosition.none);
+                    columnsInfo.add(columnInfo);
+                }
+
+                for (int sample = 0; sample < columnSamplesCount; sample++) {
+                    String[] line;
+
+                    if (sample == 0 && headerPosition == HeaderPosition.none) {
+                        // Include first line (header that does not exist) for sampling
+                        line = header;
+                    } else {
+                        line = getNextLine(csvReader);
+                        if (line == null) {
+                            break;
                         }
-                        columnsInfo.add(new StreamDataImporterColumnInfo(i, column));
                     }
-                    break;
+
+                    for (int i = 0; i < Math.min(line.length, header.length); i++) {
+                        Pair<DBPDataKind, String> dataType = DatabaseTransferUtils.getDataType(line[i]);
+                        StreamDataImporterColumnInfo columnInfo = columnsInfo.get(i);
+
+                        switch (dataType.getFirst()) {
+                            case STRING:
+                                columnInfo.setDataKind(dataType.getFirst());
+                                columnInfo.setTypeName(dataType.getSecond());
+                                int length = -1;
+                                if (!columnIsByteLength) {
+                                    length = line[i].length();
+                                } else {
+                                    final String encoding = CommonUtils.toString(processorProperties.get(PROP_ENCODING), GeneralUtils.UTF8_ENCODING);
+                                    length = line[i].getBytes(encoding).length;
+                                }
+                                if (length > columnInfo.getMaxLength()) {
+                                    columnInfo.setMaxLength(length);
+                                }
+                                break;
+                            case NUMERIC:
+                            case BOOLEAN:
+                                if (columnInfo.getDataKind() == DBPDataKind.UNKNOWN) {
+                                    columnInfo.setDataKind(dataType.getFirst());
+                                    columnInfo.setTypeName(dataType.getSecond());
+                                }
+                                break;
+                        }
+                    }
+                }
+
+                for (StreamDataImporterColumnInfo columnInfo : columnsInfo) {
+                    if (columnInfo.getDataKind() == DBPDataKind.UNKNOWN) {
+                        log.warn("Cannot guess data type for column '" + columnInfo.getName() + "', defaulting to VARCHAR");
+                        columnInfo.setDataKind(DBPDataKind.STRING);
+                        columnInfo.setTypeName("VARCHAR");
+                    }
                 }
             }
         } catch (IOException e) {
@@ -94,11 +155,11 @@ public class DataImporterCSV extends StreamImporterAbstract {
         return columnsInfo;
     }
 
-    private HeaderPosition getHeaderPosition(Map<Object, Object> processorProperties) {
+    private HeaderPosition getHeaderPosition(Map<String, Object> processorProperties) {
         return CommonUtils.valueOf(HeaderPosition.class, CommonUtils.toString(processorProperties.get(PROP_HEADER)), HeaderPosition.top);
     }
 
-    private CSVReader openCSVReader(Reader reader, Map<Object, Object> processorProperties) {
+    private CSVReader openCSVReader(Reader reader, Map<String, Object> processorProperties) {
         String delimiter = StreamTransferUtils.getDelimiterString(processorProperties, PROP_DELIMITER);
         String quoteChar = CommonUtils.toString(processorProperties.get(PROP_QUOTE_CHAR));
         if (CommonUtils.isEmpty(quoteChar)) {
@@ -111,102 +172,117 @@ public class DataImporterCSV extends StreamImporterAbstract {
         return new CSVReader(reader, delimiter.charAt(0), quoteChar.charAt(0), escapeChar.charAt(0));
     }
 
-    private InputStreamReader openStreamReader(InputStream inputStream, Map<Object, Object> processorProperties) throws UnsupportedEncodingException {
-        String encoding = CommonUtils.toString(processorProperties.get(PROP_ENCODING), GeneralUtils.UTF8_ENCODING);
-        return new InputStreamReader(inputStream, encoding);
+    private Reader openStreamReader(InputStream inputStream, Map<String, Object> processorProperties, boolean useBufferedStream) throws UnsupportedEncodingException {
+        final String encoding = CommonUtils.toString(processorProperties.get(PROP_ENCODING), GeneralUtils.UTF8_ENCODING);
+        final Charset charset = Charset.forName(encoding);
+        if (useBufferedStream) {
+            inputStream = new BufferedInputStream(inputStream, READ_BUFFER_SIZE);
+        }
+        try {
+            inputStream = new BOMInputStream(inputStream, charset);
+        } catch (IllegalArgumentException ignored) {
+            // This charset does not have BOM, suppress and continue
+        }
+        return new InputStreamReader(inputStream, charset);
+    }
+
+    private String[] getNextLine(CSVReader csvReader) throws IOException {
+        while (true) {
+            String[] line = csvReader.readNext();
+            if (line == null) {
+                return null;
+            }
+            if (line.length == 0) {
+                continue;
+            }
+            return line;
+        }
     }
 
     @Override
-    public void runImport(DBRProgressMonitor monitor, InputStream inputStream, IDataTransferConsumer consumer) throws DBException {
+    public void runImport(@NotNull DBRProgressMonitor monitor, @NotNull DBPDataSource streamDataSource, @NotNull InputStream inputStream, @NotNull IDataTransferConsumer consumer) throws DBException {
         IStreamDataImporterSite site = getSite();
-        StreamProducerSettings.EntityMapping entityMapping = site.getSettings().getEntityMapping(site.getSourceObject());
-        Map<Object, Object> properties = site.getProcessorProperties();
+        StreamEntityMapping entityMapping = site.getSourceObject();
+        Map<String, Object> properties = site.getProcessorProperties();
         HeaderPosition headerPosition = getHeaderPosition(properties);
         boolean emptyStringNull = CommonUtils.getBoolean(properties.get(PROP_EMPTY_STRING_NULL), false);
         String nullValueMark = CommonUtils.toString(properties.get(PROP_NULL_STRING));
-        DateTimeFormatter tsFormat = null;
 
-        String tsFormatPattern = CommonUtils.toString(properties.get(PROP_TIMESTAMP_FORMAT));
-        if (!CommonUtils.isEmpty(tsFormatPattern)) {
-            try {
-                tsFormat = DateTimeFormatter.ofPattern(tsFormatPattern);
-            } catch (Exception e) {
-                log.error("Wrong timestamp format: " + tsFormatPattern, e);
-            }
-            //Map<Object, Object> defTSProps = site.getSourceObject().getDataSource().getContainer().getDataFormatterProfile().getFormatterProperties(DBDDataFormatter.TYPE_NAME_TIMESTAMP);
-        }
+        DBCExecutionContext context = streamDataSource.getDefaultInstance().getDefaultContext(monitor, false);
+        try (DBCSession producerSession = context.openSession(monitor, DBCExecutionPurpose.UTIL, "Transfer stream data")) {
+            LocalStatement localStatement = new LocalStatement(producerSession, "SELECT * FROM Stream");
+            StreamTransferResultSet resultSet = new StreamTransferResultSet(producerSession, localStatement, entityMapping);
 
-        final StreamDataSource streamDataSource = new StreamDataSource("Transfer stream");
-        try (StreamExecutionContext context = streamDataSource.openIsolatedContext(monitor, "Transfer stream data", null)) {
-            try (StreamTransferSession producerSession = context.openSession(monitor, DBCExecutionPurpose.UTIL, "Transfer stream data")) {
-                LocalStatement localStatement = new LocalStatement(producerSession, "SELECT * FROM Stream");
-                StreamTransferResultSet resultSet = new StreamTransferResultSet(producerSession, localStatement, entityMapping);
-                if (tsFormat != null) {
-                    resultSet.setDateTimeFormat(tsFormat);
-                }
+            consumer.fetchStart(producerSession, resultSet, -1, -1);
 
-                consumer.fetchStart(producerSession, resultSet, -1, -1);
+            applyTransformHints(resultSet, consumer, properties, PROP_TIMESTAMP_FORMAT, PROP_TIMESTAMP_ZONE);
 
-                try (Reader reader = openStreamReader(inputStream, properties)) {
-                    try (CSVReader csvReader = openCSVReader(reader, properties)) {
+            try (Reader reader = openStreamReader(inputStream, properties, true)) {
+                try (CSVReader csvReader = openCSVReader(reader, properties)) {
 
-                        int maxRows = site.getSettings().getMaxRows();
-                        int targetAttrSize = entityMapping.getStreamColumns().size();
-                        boolean headerRead = false;
-                        for (int lineNum = 0; ; ) {
-                            String[] line = csvReader.readNext();
-                            if (line == null) {
-                                break;
+                    int maxRows = site.getSettings().getMaxRows();
+                    int targetAttrSize = entityMapping.getStreamColumns().size();
+                    boolean headerRead = false;
+                    for (int lineNum = 0; ; ) {
+                        if (monitor.isCanceled()) {
+                            break;
+                        }
+                        String[] line = csvReader.readNext();
+                        if (line == null) {
+                            break;
+                        }
+                        if (line.length == 0) {
+                            continue;
+                        }
+                        if (headerPosition != HeaderPosition.none && !headerRead) {
+                            // First line is a header
+                            headerRead = true;
+                            continue;
+                        }
+                        if (maxRows > 0 && lineNum >= maxRows) {
+                            break;
+                        }
+
+                        if (line.length < targetAttrSize) {
+                            // Stream row may be shorter than header
+                            String[] newLine = new String[targetAttrSize];
+                            System.arraycopy(line, 0, newLine, 0, line.length);
+                            for (int i = line.length; i < targetAttrSize; i++) {
+                                newLine[i] = null;
                             }
-                            if (line.length == 0) {
-                                continue;
-                            }
-                            if (headerPosition != HeaderPosition.none && !headerRead) {
-                                // First line is a header
-                                headerRead = true;
-                                continue;
-                            }
-                            if (maxRows > 0 && lineNum >= maxRows) {
-                                break;
-                            }
-
-                            if (line.length < targetAttrSize) {
-                                // Stream row may be shorter than header
-                                String[] newLine = new String[targetAttrSize];
-                                System.arraycopy(line, 0, newLine, 0, line.length);
-                                for (int i = line.length; i < targetAttrSize - line.length; i++) {
-                                    newLine[i] = null;
-                                }
-                                line = newLine;
-                            }
-                            if (emptyStringNull) {
-                                for (int i = 0; i < line.length; i++) {
-                                    if ("".equals(line[i])) {
-                                        line[i] = null;
-                                    }
+                            line = newLine;
+                        }
+                        if (emptyStringNull) {
+                            for (int i = 0; i < line.length; i++) {
+                                if ("".equals(line[i])) {
+                                    line[i] = null;
                                 }
                             }
-                            if (!CommonUtils.isEmpty(nullValueMark)) {
-                                for (int i = 0; i < line.length; i++) {
-                                    if (nullValueMark.equals(line[i])) {
-                                        line[i] = null;
-                                    }
+                        }
+                        if (!CommonUtils.isEmpty(nullValueMark)) {
+                            for (int i = 0; i < line.length; i++) {
+                                if (nullValueMark.equals(line[i])) {
+                                    line[i] = null;
                                 }
                             }
+                        }
 
-                            resultSet.setStreamRow(line);
-                            consumer.fetchRow(producerSession, resultSet);
-                            lineNum++;
+                        resultSet.setStreamRow(line);
+                        consumer.fetchRow(producerSession, resultSet);
+                        lineNum++;
+
+                        if (DBFetchProgress.monitorFetchProgress(lineNum)) {
+                            monitor.subTask(lineNum + " rows processed");
                         }
                     }
-                } catch (IOException e) {
-                    throw new DBException("IO error reading CSV", e);
+                }
+            } catch (IOException e) {
+                throw new DBException("IO error reading CSV", e);
+            } finally {
+                try {
+                    consumer.fetchEnd(producerSession, resultSet);
                 } finally {
-                    try {
-                        consumer.fetchEnd(producerSession, resultSet);
-                    } finally {
-                        consumer.close();
-                    }
+                    consumer.close();
                 }
             }
         }

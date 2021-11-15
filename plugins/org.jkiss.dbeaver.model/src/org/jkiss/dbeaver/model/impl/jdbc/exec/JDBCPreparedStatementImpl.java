@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -153,16 +153,16 @@ public class JDBCPreparedStatementImpl extends JDBCStatementImpl<PreparedStateme
         if (value instanceof CharSequence) {
             return SQLUtils.quoteString(connection.getDataSource(), value.toString());
         } else if (value instanceof Number) {
-            return DBValueFormatting.convertNumberToNativeString((Number) value);
+            return DBValueFormatting.convertNumberToNativeString((Number) value, false);
         } else if (value instanceof java.util.Date) {
             try {
-                DBDDataFormatterProfile formatterProfile = getSession().getDataSource().getDataFormatterProfile();
+                DBDDataFormatterProfile formatterProfile = getSession().getDataFormatterProfile();
                 if (value instanceof Date) {
                     return SQLUtils.quoteString(connection.getDataSource(), formatterProfile.createFormatter(DBDDataFormatter.TYPE_NAME_DATE, null).formatValue(value));
                 } else if (value instanceof Time) {
                     return SQLUtils.quoteString(connection.getDataSource(), formatterProfile.createFormatter(DBDDataFormatter.TYPE_NAME_TIME, null).formatValue(value));
                 } else {
-                    return SQLUtils.quoteString(connection.getDataSource(), formatterProfile.createFormatter(DBDDataFormatter.TYPE_NAME_TIMESTAMP, null).formatValue(value));
+                    return SQLUtils.quoteString(connection.getDataSource(), formatterProfile.createFormatter(DBDDataFormatter.TYPE_NAME_TIMESTAMP_TZ, null).formatValue(value));
                 }
             } catch (Exception e) {
                 log.debug("Error formatting date [" + value + "]", e);

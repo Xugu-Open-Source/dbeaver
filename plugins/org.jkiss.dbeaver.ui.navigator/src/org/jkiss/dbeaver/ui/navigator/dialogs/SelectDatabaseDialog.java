@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,13 @@
  */
 package org.jkiss.dbeaver.ui.navigator.dialogs;
 
-import org.eclipse.swt.SWT;
+import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.swt.layout.GridData;
-import org.eclipse.swt.widgets.Combo;
+import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Shell;
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataSource;
@@ -31,14 +33,16 @@ import org.jkiss.dbeaver.model.exec.DBCExecutionContextDefaults;
 import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
 import org.jkiss.dbeaver.model.navigator.DBNUtils;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
-import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
+import org.jkiss.dbeaver.model.runtime.DBRRunnableWithResult;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
 import org.jkiss.dbeaver.model.struct.rdb.DBSCatalog;
-import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.model.struct.rdb.DBSSchema;
 import org.jkiss.dbeaver.ui.internal.UINavigatorMessages;
+import org.jkiss.dbeaver.ui.navigator.itemlist.DatabaseObjectListControl;
 import org.jkiss.utils.CommonUtils;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -47,13 +51,15 @@ import java.util.List;
 /**
  * SelectDatabaseDialog
  */
-public class SelectDatabaseDialog extends SelectObjectDialog<DBNDatabaseNode>
+public class SelectDatabaseDialog extends ObjectListDialog<DBNDatabaseNode>
 {
     private static final Log log = Log.getLog(SelectDatabaseDialog.class);
 
     private final DBPDataSourceContainer dataSourceContainer;
-    private String currentInstanceName;
-    private Collection<? extends DBSObject> instanceObjects;
+    private volatile String currentInstanceName;
+
+    private DatabaseObjectListControl<DBNDatabaseNode> instanceList;
+    private final List<DBNDatabaseNode> selectedInstances = new ArrayList<>();
 
     public SelectDatabaseDialog(
         Shell parentShell,
@@ -74,78 +80,114 @@ public class SelectDatabaseDialog extends SelectObjectDialog<DBNDatabaseNode>
 
     @Override
     protected void createUpperControls(Composite dialogArea) {
-
         DBPDataSource dataSource = dataSourceContainer.getDataSource();
-        if (currentInstanceName != null && dataSource != null) {
-
+        if (currentInstanceName == null || dataSource == null) {
+            return;
+        }
+        DBCExecutionContextDefaults contextDefaults = getContextDefaults();
+        if (contextDefaults != null && contextDefaults.supportsCatalogChange()) {
             DBSObjectContainer instanceContainer = DBUtils.getAdapter(DBSObjectContainer.class, dataSource);
-            DBCExecutionContextDefaults contextDefaults = null;
-            DBCExecutionContext defaultContext = DBUtils.getDefaultContext(instanceContainer, true);
-            if (defaultContext != null) {
-                contextDefaults = defaultContext.getContextDefaults();
-            }
-            if (instanceContainer != null && contextDefaults != null && contextDefaults.supportsCatalogChange() && contextDefaults.supportsSchemaChange()) {
-
-                // Create instance selector
-                Composite instancePanel = UIUtils.createComposite(dialogArea, 3);
-                instancePanel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-                UIUtils.createLabel(instancePanel, dataSourceContainer.getDriver().getIcon());
-                Combo instanceCombo = UIUtils.createLabelCombo(instancePanel, UINavigatorMessages.label_instance, UINavigatorMessages.label_active_service_instance, SWT.DROP_DOWN | SWT.READ_ONLY);
-                instanceCombo.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-//                Label databaseTermLabel = UIUtils.createControlLabel(instancePanel, dataSource.getInfo().getSchemaTerm());
-//                GridData gd = new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING);
-//                gd.horizontalSpan = 3;
-//                databaseTermLabel.setLayoutData(gd);
-
-                try {
-                    instanceObjects = instanceContainer.getChildren(new VoidProgressMonitor());
-                    if (instanceObjects != null) {
-                        for (DBSObject object : instanceObjects) {
-                            instanceCombo.add(object.getName());
-                        }
-                        instanceCombo.setText(currentInstanceName);
-                    }
-                } catch (DBException e) {
-                    log.error(UINavigatorMessages.label_error_list, e);
-                }
-
-                instanceCombo.addModifyListener(e -> {
-                    String instanceName = instanceCombo.getText();
-                    if (!CommonUtils.equalObjects(instanceName, currentInstanceName)) {
-                        currentInstanceName = instanceName;
-                        objectList.loadData();
-                    }
-                });
-
-                closeOnFocusLost(instanceCombo);
-            }
+            createInstanceSelector(dialogArea, instanceContainer);
         }
     }
 
-    protected Collection<DBNDatabaseNode> getObjects(DBRProgressMonitor monitor) throws DBException {
+    @Nullable
+    private DBCExecutionContextDefaults getContextDefaults() {
+        DBPDataSource dataSource = dataSourceContainer.getDataSource();
+        DBSObjectContainer instanceContainer = DBUtils.getAdapter(DBSObjectContainer.class, dataSource);
+        DBCExecutionContext defaultContext = DBUtils.getDefaultContext(instanceContainer, true);
+        if (defaultContext == null) {
+            return null;
+        }
+        return defaultContext.getContextDefaults();
+    }
+
+    private void createInstanceSelector(Composite group, DBSObjectContainer instanceContainer) {
+        ((GridLayout)group.getLayout()).numColumns++;
+        instanceList = createObjectSelector(group, true, "DatabaseInstanceSelector", selectedInstances, new DBRRunnableWithResult<List<DBNDatabaseNode>>() {
+            @Override
+            public void run(DBRProgressMonitor monitor) throws InvocationTargetException {
+                try {
+                    if (!CommonUtils.isEmpty(currentInstanceName) && selectedInstances.isEmpty()) {
+                        DBSObject activeInstance = instanceContainer.getChild(monitor, currentInstanceName);
+                        if (activeInstance != null) {
+                            DBNDatabaseNode activeInstanceNode = DBNUtils.getNodeByObject(monitor, activeInstance, false);
+                            if (activeInstanceNode != null) {
+                                selectedInstances.add(activeInstanceNode);
+                            }
+                        }
+                    }
+                    Collection<? extends DBSObject> instances = instanceContainer.getChildren(monitor);
+                    result = getNodeList(monitor, instances);
+                    objectList.loadData();
+                } catch (DBException e) {
+                    throw new InvocationTargetException(e);
+                }
+            }
+        });
+        instanceList.createProgressPanel();
+        GridData gd = new GridData(GridData.FILL_BOTH);
+        gd.heightHint = 300;
+        gd.minimumWidth = 300;
+        instanceList.setLayoutData(gd);
+        instanceList.getSelectionProvider().addSelectionChangedListener(event -> {
+            IStructuredSelection selection = (IStructuredSelection) event.getSelection();
+            selectedInstances.clear();
+            selectedInstances.addAll(selection.toList());
+            DBNDatabaseNode instance = selectedInstances.isEmpty() ? null : selectedInstances.get(0);
+            if (instance != null && !CommonUtils.equalObjects(instance.getNodeName(), currentInstanceName)) {
+                currentInstanceName = instance.getNodeName();
+                objectList.loadData();
+            }
+        });
+
+        instanceList.loadData();
+        closeOnFocusLost(instanceList);
+    }
+
+    protected List<DBNDatabaseNode> getObjects(DBRProgressMonitor monitor) throws DBException {
         DBSObject rootObject;
-        if (instanceObjects != null && currentInstanceName != null) {
-            rootObject = DBUtils.findObject(instanceObjects, currentInstanceName);
+        if (selectedInstances != null && currentInstanceName != null) {
+            DBNDatabaseNode instanceNode = DBUtils.findObject(selectedInstances, currentInstanceName);
+            rootObject = instanceNode == null ? null : instanceNode.getObject();
         } else {
             rootObject = dataSourceContainer.getDataSource();
         }
         if (rootObject instanceof DBSObjectContainer) {
-            Collection<? extends DBSObject> objectList = ((DBSObjectContainer) rootObject).getChildren(monitor);
-            if (objectList == null) {
+            try {
+                DBCExecutionContextDefaults contextDefaults = getContextDefaults();
+                Collection<? extends DBSObject> objectsCollection;
+                if (rootObject instanceof DBSCatalog && contextDefaults != null && !contextDefaults.supportsSchemaChange()) {
+                    DBSSchema schema = contextDefaults.getDefaultSchema();
+                    objectsCollection = Collections.singletonList(schema);
+                } else {
+                    objectsCollection = ((DBSObjectContainer) rootObject).getChildren(monitor);
+                }
+                return getNodeList(monitor, objectsCollection);
+            } catch (DBException e) {
+                // Do not show error (it will close the dialog)
+                log.error(e);
                 return Collections.emptyList();
             }
-            List<DBNDatabaseNode> nodeList = new ArrayList<>(objectList.size());
-            for (DBSObject object : objectList) {
-                if (object instanceof DBSObjectContainer) {
-                    DBNDatabaseNode databaseNode = DBNUtils.getNodeByObject(monitor, object, false);
-                    if (databaseNode != null) {
-                        nodeList.add(databaseNode);
-                    }
-                }
-            }
-            return nodeList;
         }
         return objects;
+    }
+
+    @NotNull
+    private static List<DBNDatabaseNode> getNodeList(@NotNull DBRProgressMonitor monitor, @Nullable Collection<? extends DBSObject> objectList) {
+        if (CommonUtils.isEmpty(objectList)) {
+            return Collections.emptyList();
+        }
+        List<DBNDatabaseNode> nodeList = new ArrayList<>(objectList.size());
+        for (DBSObject object : objectList) {
+            if (object instanceof DBSObjectContainer) {
+                DBNDatabaseNode databaseNode = DBNUtils.getNodeByObject(monitor, object, false);
+                if (databaseNode != null) {
+                    nodeList.add(databaseNode);
+                }
+            }
+        }
+        return nodeList;
     }
 
     public String getCurrentInstanceName() {

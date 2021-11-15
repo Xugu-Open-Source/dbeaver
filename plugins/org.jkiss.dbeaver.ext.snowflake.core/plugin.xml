@@ -33,17 +33,34 @@
                         webURL="https://docs.snowflake.net/manuals/user-guide/jdbc-configure.html"
                         categories="sql,analytic">
                     <replace provider="generic" driver="snowflake_generic"/>
-                    <file type="jar" path="maven:/net.snowflake:snowflake-jdbc:RELEASE"/>
+                    <file type="jar" path="maven:/net.snowflake:snowflake-jdbc:RELEASE[3.13.6]" bundle="!drivers.snowflake"/>
+                    <file type="jar" path="drivers/snowflake" bundle="drivers.snowflake"/>
 
                     <parameter name="supports-indexes" value="false"/>
                     <parameter name="query-get-active-db" value="SELECT CURRENT_DATABASE()"/>
-                    <parameter name="query-set-active-db" value="USE DATABASE ?"/>
+                    <parameter name="query-set-active-db" value="USE DATABASE &quot;?&quot;"/>
                     <parameter name="active-entity-type" value="catalog"/>
                 </driver>
+
+                <provider-properties drivers="*">
+                    <propertyGroup label="Settings">
+                        <property id="warehouse" label="Warehouse" type="string" description="Snowflake warehouse name"/>
+                        <property id="schema" label="Schema" type="string" description="Default schema name"/>
+                    </propertyGroup>
+                </provider-properties>
 
             </drivers>
 
         </datasource>
+    </extension>
+
+    <extension point="org.jkiss.dbeaver.sqlDialect">
+        <dialect id="snowflake" parent="generic" class="org.jkiss.dbeaver.ext.snowflake.model.SnowflakeSQLDialect" label="Snowflake" description="Snowflake SQL dialect." icon="icons/snowflake_icon.png">
+        </dialect>
+    </extension>
+
+    <extension point="org.eclipse.core.runtime.preferences">
+        <initializer class="org.jkiss.dbeaver.ext.snowflake.internal.SnowflakePreferencesInitializer"/>
     </extension>
 
 </plugin>

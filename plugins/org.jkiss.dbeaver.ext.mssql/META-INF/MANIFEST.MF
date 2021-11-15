@@ -2,10 +2,12 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: %Bundle-Name
 Bundle-SymbolicName: org.jkiss.dbeaver.ext.mssql;singleton:=true
-Bundle-Version: 1.0.124.qualifier
-Bundle-Release-Date: 20200406
+Bundle-Version: 1.0.162.qualifier
+Bundle-Release-Date: 20211101
+Bundle-Activator: org.jkiss.dbeaver.ext.mssql.internal.SQLServerActivator
 Require-Bundle: org.eclipse.core.runtime,
  org.jkiss.dbeaver.model,
+ org.jkiss.dbeaver.model.sql,
  org.jkiss.dbeaver.ext.generic,
  com.github.jsqlparser
 Export-Package: org.jkiss.dbeaver.ext.mssql,

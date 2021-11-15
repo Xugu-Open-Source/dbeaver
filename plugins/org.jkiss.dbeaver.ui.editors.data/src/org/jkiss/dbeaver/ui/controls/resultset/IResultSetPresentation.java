@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,15 @@
 package org.jkiss.dbeaver.ui.controls.resultset;
 
 import org.eclipse.jface.action.IMenuManager;
+import org.eclipse.swt.dnd.Transfer;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
+
+import java.util.Map;
 
 /**
  * Result set renderer.
@@ -108,11 +111,16 @@ public interface IResultSetPresentation {
 
     void setCurrentAttribute(@NotNull DBDAttributeBinding attribute);
 
+    void showAttribute(@NotNull DBDAttributeBinding attribute);
+
     @Nullable
     Point getCursorLocation();
 
-    @Nullable
-    String copySelectionToString(ResultSetCopySettings settings);
+    /**
+     * Copies selected cells in supported Transfer formats.
+     */
+    @NotNull
+    Map<Transfer, Object> copySelection(ResultSetCopySettings settings);
 
     void printResultSet();
 

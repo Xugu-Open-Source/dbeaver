@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 
 package org.jkiss.dbeaver.model.exec;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.utils.ArrayUtils;
@@ -88,6 +89,13 @@ public enum DBCLogicalOperator {
             return ArrayUtils.contains(arguments, srcValue);
         }
     },
+    ILIKE("ILIKE", 1) {
+        @Override
+        public boolean evaluate(Object srcValue, Object[] arguments) {
+            return srcValue != null && !ArrayUtils.isEmpty(arguments) &&
+                    SQLUtils.matchesLike(srcValue.toString(), arguments[0].toString());
+        }
+    },
     LIKE("LIKE", 1) {
         @Override
         public boolean evaluate(Object srcValue, Object[] arguments) {
@@ -105,7 +113,8 @@ public enum DBCLogicalOperator {
     REGEX("REGEX", 1) {
         @Override
         public boolean evaluate(Object srcValue, Object[] arguments) {
-            return false;
+            return srcValue != null && !ArrayUtils.isEmpty(arguments) &&
+                srcValue.toString().matches(arguments[0].toString());
         }
     },
     SOUNDS("SOUNDS", 1) {
@@ -138,10 +147,16 @@ public enum DBCLogicalOperator {
         this.argumentCount = argumentCount;
     }
 
+    @NotNull
+    public String getId() {
+        return name();
+    }
+
     /**
      * Operator string representation
      */
-    public String getStringValue() {
+    @NotNull
+    public String getExpression() {
         return stringValue;
     }
 

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -46,6 +46,9 @@ public class CoreMessages extends NLS {
 	public static String action_menu_transaction_smart_auto_commit_tip;
 	public static String action_menu_transaction_smart_auto_commit_recover;
 	public static String action_menu_transaction_smart_auto_commit_recover_tip;
+	public static String action_menu_transaction_auto_close_enabled;
+	public static String action_menu_transaction_auto_close_enabled_tip;
+	public static String action_menu_transaction_auto_close_ttl_tip;
 	public static String action_menu_tools_find_in_navigator;
 
 	public static String action_menu_transactionMonitor_totalStatement;
@@ -91,6 +94,7 @@ public class CoreMessages extends NLS {
 	public static String dialog_about_title;
 
 	public static String dialog_connection_button_test;
+	public static String dialog_connection_events_settings_group;
 	public static String dialog_connection_events_checkbox_show_process;
 	public static String dialog_connection_events_checkbox_terminate_at_disconnect;
 	public static String dialog_connection_events_checkbox_wait_finish;
@@ -108,6 +112,8 @@ public class CoreMessages extends NLS {
     public static String dialog_connection_wizard_final_checkbox_auto_commit;
 	public static String dialog_connection_wizard_final_checkbox_show_only_entities;
 	public static String dialog_connection_wizard_final_checkbox_show_only_entities_tip;
+	public static String dialog_connection_wizard_final_checkbox_merge_entities;
+	public static String dialog_connection_wizard_final_checkbox_merge_entities_tip;
 	public static String dialog_connection_wizard_final_checkbox_show_system_objects;
 	public static String dialog_connection_wizard_final_checkbox_show_system_objects_tip;
 	public static String dialog_connection_wizard_final_checkbox_show_util_objects;
@@ -140,6 +146,12 @@ public class CoreMessages extends NLS {
 	public static String dialog_connection_wizard_start_dialog_interrupted_message;
 	public static String dialog_connection_wizard_start_dialog_interrupted_title;
 	public static String dialog_connection_wizard_title;
+
+	public static String dialog_connection_from_url_title;
+	public static String dialog_connection_from_url_url;
+	public static String dialog_connection_from_url_drivers;
+	public static String dialog_connection_from_url_error_no_drivers_found;
+	public static String dialog_connection_from_url_error_no_driver_selected;
 
 	public static String dialog_migrate_wizard_choose_driver_description;
 	public static String dialog_migrate_wizard_choose_driver_title;
@@ -224,14 +236,22 @@ public class CoreMessages extends NLS {
 	public static String dialog_tunnel_title;
 
 	public static String dialog_version_update_available_new_version;
+	public static String dialog_version_update_ignore_version;
 	public static String dialog_version_update_button_more_info;
+	public static String dialog_version_update_button_upgrade;
+	public static String dialog_version_update_button_early_access;
 	public static String dialog_version_update_current_version;
 	public static String dialog_version_update_n_a;
 	public static String dialog_version_update_new_version;
 	public static String dialog_version_update_no_new_version;
 	public static String dialog_version_update_notes;
-	public static String dialog_version_update_press_more_info_;
+	public static String dialog_version_update_no_notes;
+	public static String dialog_version_update_press_more_info;
 	public static String dialog_version_update_title;
+	public static String dialog_version_update_error_cannot_check_version;
+	public static String dialog_version_update_downloader_title;
+	public static String dialog_version_update_downloader_confirm_install;
+	public static String dialog_version_update_downloader_error_cannot_download;
 
 	public static String model_html_read_database_meta_data;
 
@@ -317,6 +337,10 @@ public class CoreMessages extends NLS {
 	public static String pref_page_ui_general_group_general;
 	public static String pref_page_ui_general_group_language;
 	public static String pref_page_ui_general_group_editors;
+	public static String pref_page_eclipse_ui_general_group_general;
+	public static String pref_page_eclipse_ui_general_group_label;
+
+	public static String pref_page_eclipse_ui_general_connections_group_label;
 
 	public static String runtime_jobs_connect_name;
 	public static String runtime_jobs_connect_status_connected;
@@ -345,7 +369,6 @@ public class CoreMessages extends NLS {
 	public static String dialog_connection_wizard_final_label_navigator_settings;
 	public static String dialog_connection_wizard_final_label_navigator_settings_customize;
 	public static String dialog_connection_wizard_final_label_edit;
-	public static String dialog_connection_wizard_final_label_connection_folder;
 	public static String dialog_connection_wizard_final_label_connection;
 	public static String dialog_connection_wizard_final_label_isolation_level;
 	public static String dialog_connection_wizard_final_label_default_database;
@@ -366,7 +389,11 @@ public class CoreMessages extends NLS {
 	public static String dialog_connection_wizard_socksproxy_port;
 	public static String dialog_connection_wizard_socksproxy_username;
 	public static String dialog_connection_wizard_socksproxy_password;
-	public static String dialog_connection_driver_project;
+
+	public static String dialog_connection_test_title;
+	public static String dialog_connection_test_label_server;
+	public static String dialog_connection_test_label_driver;
+	public static String dialog_connection_test_properties_title;
 
 
 	// Connections
@@ -383,8 +410,6 @@ public class CoreMessages extends NLS {
 	public static String pref_page_database_general_server_side_object_filters;
 	public static String pref_page_database_general_server_side_object_filters_tip;
 	public static String pref_page_database_general_group_query_metadata;
-	public static String pref_page_database_general_use_column_names;
-	public static String pref_page_database_general_use_column_names_tip;
 	// EntityEditor
 	public static String pref_page_ui_general_keep_database_editors_tip;
 	public static String pref_page_ui_general_refresh_editor_on_open_tip;
@@ -430,6 +455,7 @@ public class CoreMessages extends NLS {
 	public static String pref_page_connection_types_label_delete_connection_type;
 	public static String pref_page_connection_types_label_delete_connection_type_description;
 	public static String pref_page_connection_types_group_settings;
+	public static String pref_page_connection_types_label_id;
 	public static String pref_page_connection_types_label_name;
 	public static String pref_page_connection_types_label_description;
 	public static String pref_page_connection_types_label_color;
@@ -494,6 +520,10 @@ public class CoreMessages extends NLS {
 	public static String dialog_connection_edit_wizard_presentation_description;
 	public static String dialog_connection_edit_wizard_sql_editor;
 	public static String dialog_connection_edit_wizard_sql_editor_description;
+	public static String dialog_connection_edit_wizard_sql_code_completion;
+	public static String dialog_connection_edit_wizard_sql_code_completion_description;
+	public static String dialog_connection_edit_wizard_sql_formatting;
+	public static String dialog_connection_edit_wizard_sql_formatting_description;
 	public static String dialog_connection_edit_wizard_sql_processing;
 	public static String dialog_connection_edit_wizard_sql_processing_description;
 
@@ -511,6 +541,20 @@ public class CoreMessages extends NLS {
 	// Driver download
 
 	public static String transaction_log_dialog_error_not_connected;
+
+	public static String resource_shortcut_deleted_title;
+	public static String resource_shortcut_deleted_message;
+
+	public static String pref_page_ui_general_boolean;
+	public static String pref_page_ui_general_boolean_label_mode;
+	public static String pref_page_ui_general_boolean_label_state;
+	public static String pref_page_ui_general_boolean_label_text;
+	public static String pref_page_ui_general_boolean_label_align;
+	public static String pref_page_ui_general_boolean_label_color;
+	public static String pref_page_ui_general_boolean_styles;
+	public static String pref_page_ui_general_boolean_color;
+	public static String pref_page_ui_general_boolean_color_use_theme_color;
+	public static String pref_page_ui_general_boolean_invalid_values;
 
 	static {
 		// initialize resource bundle

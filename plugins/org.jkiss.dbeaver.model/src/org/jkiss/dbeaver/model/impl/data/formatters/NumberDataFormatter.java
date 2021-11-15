@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ public class NumberDataFormatter implements DBDDataFormatter {
     private FieldPosition position;
 
     @Override
-    public void init(DBSTypedObject type, Locale locale, Map<Object, Object> properties)
+    public void init(DBSTypedObject type, Locale locale, Map<String, Object> properties)
     {
         numberFormat = (DecimalFormat) NumberFormat.getNumberInstance(locale);
         Object useGrouping = properties.get(NumberFormatSample.PROP_USE_GROUPING);
@@ -92,6 +92,11 @@ public class NumberDataFormatter implements DBDDataFormatter {
                 numberFormat.setMinimumFractionDigits(fractionDigits);
             }
         }
+        if (type != null && (type.getTypeModifiers() & DBSTypedObject.TYPE_MOD_NUMBER_LEADING_ZEROES) > 0) {
+            // Override number format style set from properties in favor of type's own formatting rules
+            numberFormat.setMinimumIntegerDigits((int) type.getMaxLength());
+            numberFormat.setGroupingUsed(false);
+        }
         buffer = new StringBuffer();
         position = new FieldPosition(0);
     }
@@ -136,13 +141,26 @@ public class NumberDataFormatter implements DBDDataFormatter {
             numberFormat.setParseBigDecimal(typeHint == BigDecimal.class || typeHint == BigInteger.class);
             Number number = numberFormat.parse(value);
             if (number != null && typeHint != null) {
+                boolean isFloat = number instanceof Double || number instanceof Float;
                 if (typeHint == Byte.class) {
+                    if (isFloat) {
+                        return number;
+                    }
                     return number.byteValue();
                 } else if (typeHint == Short.class) {
+                    if (isFloat) {
+                        return number;
+                    }
                     return number.shortValue();
                 } else if (typeHint == Integer.class) {
+                    if (isFloat) {
+                        return number;
+                    }
                     return number.intValue();
                 } else if (typeHint == Long.class) {
+                    if (isFloat) {
+                        return number;
+                    }
                     return number.longValue();
                 } else if (typeHint == Float.class) {
                     return number.floatValue();

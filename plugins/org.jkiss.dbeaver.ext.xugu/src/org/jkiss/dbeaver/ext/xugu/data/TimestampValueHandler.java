@@ -21,6 +21,7 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.Constants;
 import org.jkiss.dbeaver.model.data.DBDDataFormatterProfile;
+import org.jkiss.dbeaver.model.data.DBDFormatSettings;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
@@ -47,9 +48,10 @@ public class TimestampValueHandler extends JDBCDateTimeValueHandler {
 	// private static Method TIMESTAMP_READ_METHOD = null, TIMESTAMPTZ_READ_METHOD =
 	// null, TIMESTAMPLTZ_READ_METHOD = null;
 
-	public TimestampValueHandler(DBDDataFormatterProfile formatterProfile) {
-		super(formatterProfile);
-	}
+	public TimestampValueHandler(DBDFormatSettings formatSettings)
+    {
+        super(formatSettings);
+    }
 
 	@Override
 	public Object getValueFromObject(@NotNull DBCSession session, @NotNull DBSTypedObject type, Object object,

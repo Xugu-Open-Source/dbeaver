@@ -1,12 +1,28 @@
+/*
+ * DBeaver - Universal Database Manager
+ * Copyright (C) 2010-2021 DBeaver Corp and others
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.jkiss.dbeaver.ext.exasol.manager;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.ext.exasol.ExasolConstants;
 import org.jkiss.dbeaver.ext.exasol.model.ExasolTable;
 import org.jkiss.dbeaver.ext.exasol.model.ExasolTableForeignKey;
-import org.jkiss.dbeaver.ext.exasol.model.ExasolTableForeignKeyColumn;
-import org.jkiss.dbeaver.ext.exasol.model.ExasolTableUniqueKey;
 import org.jkiss.dbeaver.ext.exasol.tools.ExasolUtils;
-import org.jkiss.dbeaver.ext.exasol.ui.ExasolCreateForeignKeyDialog;
+import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
@@ -19,9 +35,7 @@ import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
-import org.jkiss.dbeaver.ui.UITask;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -48,46 +62,13 @@ public class ExasolForeignKeyManager
             "FK"
         );
         foreignKey.setName(getNewConstraintName(monitor, foreignKey));
-
-        return new UITask<ExasolTableForeignKey>() {
-            @Override
-            protected ExasolTableForeignKey runTask() {
-                ExasolCreateForeignKeyDialog editPage = new ExasolCreateForeignKeyDialog("Create Foreign Key", foreignKey);
-
-                if (!editPage.edit()) {
-                    return null;
-                }
-
-                List<ExasolTableForeignKeyColumn> columns = new ArrayList<>();
-                int cnt = 0;
-                for (ExasolCreateForeignKeyDialog.FKColumnInfo column : editPage.getColumns()) {
-                    try {
-                        ExasolTable refTable = foreignKey.getReferencedConstraint().getTable();
-                        columns.add(new ExasolTableForeignKeyColumn(
-                            foreignKey,
-                            table.getAttribute(monitor, column.getOwnColumn().getName()),
-                            refTable.getAttribute(monitor, column.getRefColumn().getName()),
-                            ++cnt));
-                    } catch (DBException e) {
-                        log.error("Could not get Attribute Information from Table");
-                        return null;
-                    }
-                }
-
-                foreignKey.setName(editPage.getName());
-                foreignKey.setReferencedConstraint((ExasolTableUniqueKey)editPage.getUniqueConstraint());
-                foreignKey.setEnabled(editPage.isEnabled());
-                foreignKey.setColumns(columns);
-
-                return foreignKey;
-            }
-        }.execute();
+        return foreignKey;
     }
 
     @Override
     protected String getDropForeignKeyPattern(ExasolTableForeignKey constraint) {
         return "ALTER TABLE " + DBUtils.getObjectFullName(constraint.getTable(), DBPEvaluationContext.DDL) + " DROP CONSTRAINT "
-            + DBUtils.getObjectFullName(constraint, DBPEvaluationContext.DDL)
+            + DBUtils.getQuotedIdentifier(constraint)
             ;
     }
 
@@ -127,28 +108,28 @@ public class ExasolForeignKeyManager
                                           ObjectChangeCommand command, Map<String, Object> options) {
         final ExasolTableForeignKey constraint = command.getObject();
 
-        if (command.getProperties().containsKey("enabled")) {
+        if (command.getProperties().containsKey(DBConstants.PROP_ID_ENABLED)) {
             actionList.add(
                 new SQLDatabasePersistAction("Alter FK",
                     "ALTER TABLE " + constraint.getTable().getFullyQualifiedName(DBPEvaluationContext.DDL) +
                         " MODIFY CONSTRAINT " + constraint.getName() + " " +
-                        (constraint.getEnabled() ? "ENABLE" : "DISABLE")
+                        (constraint.getEnabled() ? ExasolConstants.KEYWORD_ENABLE : ExasolConstants.KEYWORD_DISABLE)
                 )
             );
         }
     }
 
     @Override
-    protected void processObjectRename(DBECommandContext commandContext, ExasolTableForeignKey object, String newName) throws DBException {
-        ObjectRenameCommand command = new ObjectRenameCommand(object, ModelMessages.model_jdbc_rename_object, newName);
+    protected void processObjectRename(DBECommandContext commandContext, ExasolTableForeignKey object, Map<String, Object> options, String newName) throws DBException {
+        ObjectRenameCommand command = new ObjectRenameCommand(object, ModelMessages.model_jdbc_rename_object, options, newName);
         commandContext.addCommand(command, new RenameObjectReflector(), true);
     }
 
 
     @Override
-    public void renameObject(DBECommandContext commandContext,
-                             ExasolTableForeignKey object, String newName) throws DBException {
-        processObjectRename(commandContext, object, newName);
+    public void renameObject(@NotNull DBECommandContext commandContext,
+                             @NotNull ExasolTableForeignKey object, @NotNull Map<String, Object> options, @NotNull String newName) throws DBException {
+        processObjectRename(commandContext, object, options, newName);
     }
 
 }

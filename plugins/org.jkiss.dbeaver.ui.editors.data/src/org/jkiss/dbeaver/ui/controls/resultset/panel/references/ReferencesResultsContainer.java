@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,6 +63,15 @@ class ReferencesResultsContainer implements IResultSetContainer {
     private ResultSetViewer dataViewer;
 
     private DBSDataContainer parentDataContainer;
+
+    /**
+     * Full name of the latest parentDataContainer. It is used for detection if the underlying data container has changed.
+     * See <a href="https://github.com/dbeaver/dbeaver/issues/11201">this ticket.</a>
+     *
+     */
+    @Nullable
+    private String parentContainerFullName;
+
     private DBSDataContainer dataContainer;
 
     private final List<ReferenceKey> referenceKeys = new ArrayList<>();
@@ -164,14 +173,22 @@ class ReferencesResultsContainer implements IResultSetContainer {
         return mainComposite;
     }
 
-    public void refreshReferences() {
+    void refreshReferences() {
         dataViewer.resetHistory();
-        DBSDataContainer newParentContainer = this.parentController.getDataContainer();
-        if (newParentContainer != parentDataContainer) {
+        DBSDataContainer newParentContainer = parentController.getDataContainer();
+        if (newParentContainer != parentDataContainer || !Objects.equals(getDataContainerFullName(newParentContainer), parentContainerFullName)) {
             refreshReferenceKeyList();
         } else if (dataContainer != null) {
             refreshKeyValues(false);
         }
+    }
+
+    @Nullable
+    private static String getDataContainerFullName(@Nullable DBSDataContainer dataContainer) {
+        if (dataContainer == null) {
+            return null;
+        }
+        return DBUtils.getObjectFullName(dataContainer, DBPEvaluationContext.DDL);
     }
 
     /**
@@ -192,13 +209,17 @@ class ReferencesResultsContainer implements IResultSetContainer {
         }
 
         parentDataContainer = parentController.getDataContainer();
+        parentContainerFullName = getDataContainerFullName(parentDataContainer);
         if (parentDataContainer == null) {
             return;
         }
+
         Set<DBSEntity> allEntities = new LinkedHashSet<>();
+        Collection<DBSEntityAttribute> entityAttributes = new HashSet<>();
         for (DBDAttributeBinding attr : visibleAttributes) {
             DBSEntityAttribute entityAttribute = attr.getEntityAttribute();
             if (entityAttribute != null) {
+                entityAttributes.add(entityAttribute);
                 allEntities.add(entityAttribute.getParentObject());
             }
         }
@@ -225,22 +246,41 @@ class ReferencesResultsContainer implements IResultSetContainer {
             new AbstractJob("Load reference keys") {
                 @Override
                 protected IStatus run(DBRProgressMonitor monitor) {
+                    monitor.beginTask("Load references", allEntities.size());
                     try {
                         List<ReferenceKey> refs = new ArrayList<>();
                         for (DBSEntity entity : allEntities) {
+                            monitor.subTask(entity.getName());
                             if (entity instanceof DBVEntity) {
                                 // Skip virtual entities
                                 continue;
                             }
                             // Foreign keys
                             Collection<? extends DBSEntityAssociation> associations = DBVUtils.getAllAssociations(monitor, entity);
-                            for (DBSEntityAssociation assoc : associations) {
-                                if (assoc instanceof DBSEntityReferrer) {
-                                    List<? extends DBSEntityAttributeRef> attrs = ((DBSEntityReferrer) assoc).getAttributeReferences(monitor);
-                                    if (!CommonUtils.isEmpty(attrs)) {
-                                        ReferenceKey referenceKey = new ReferenceKey(monitor, false, assoc.getAssociatedEntity(), assoc, attrs);
-                                        refs.add(referenceKey);
+                            for (DBSEntityAssociation association: associations) {
+                                if (!(association instanceof DBSEntityReferrer)) {
+                                    continue;
+                                }
+                                DBSEntityReferrer entityReferrer = (DBSEntityReferrer) association;
+                                List<? extends DBSEntityAttributeRef> attributeRefs = entityReferrer.getAttributeReferences(monitor);
+                                if (attributeRefs == null) {
+                                    continue;
+                                }
+                                Collection<DBSEntityAttribute> attributes = new HashSet<>();
+                                for (DBSEntityAttributeRef attributeRef: attributeRefs) {
+                                    DBSEntityAttribute entityAttribute = attributeRef.getAttribute();
+                                    if (entityAttribute != null) {
+                                        attributes.add(entityAttribute);
                                     }
+                                }
+                                if (!attributes.isEmpty() && entityAttributes.containsAll(attributes)) {
+                                    refs.add(new ReferenceKey(
+                                        monitor,
+                                        false,
+                                        association.getAssociatedEntity(),
+                                        association,
+                                        attributeRefs
+                                    ));
                                 }
                             }
 
@@ -257,6 +297,7 @@ class ReferencesResultsContainer implements IResultSetContainer {
                                     }
                                 }
                             }
+                            monitor.worked(1);
                         }
                         synchronized (referenceKeys) {
                             referenceKeys.clear();
@@ -284,6 +325,8 @@ class ReferencesResultsContainer implements IResultSetContainer {
                     } catch (DBException e) {
                         log.debug("Error reading references", e);
                         // Do not show errors. References or FKs may be unsupported by current database
+                    } finally {
+                        monitor.done();
                     }
                     return Status.OK_STATUS;
                 }
@@ -386,7 +429,10 @@ class ReferencesResultsContainer implements IResultSetContainer {
                 if (isReference) {
                     targetEntity = refAssociation.getParentObject();
                 } else {
-                    targetEntity = refAssociation.getReferencedConstraint().getParentObject();
+                    DBSEntityConstraint refConstraint = refAssociation.getReferencedConstraint();
+                    if (refConstraint != null) {
+                        targetEntity = refConstraint.getParentObject();
+                    }
                 }
             }
             if (targetEntity instanceof DBVEntity) {
@@ -450,13 +496,14 @@ class ReferencesResultsContainer implements IResultSetContainer {
                 return "<No references>";
             }
             ReferenceKey key = (ReferenceKey) element;
-            String title;
+            String title = "";
             DBSObject targetEntity = key.targetEntity;
-            title = targetEntity.getName() + " (" + key.refAssociation.getName() + ")";
-            if (parentController.getDataContainer() != null && parentController.getDataContainer().getDataSource() != targetEntity.getDataSource()) {
-                title += " [" + targetEntity.getDataSource().getContainer().getName() + "]";
+            if (targetEntity != null && key.refAssociation != null) {
+                title = targetEntity.getName() + " (" + key.refAssociation.getName() + ")";
+                if (parentController.getDataContainer() != null && parentController.getDataContainer().getDataSource() != targetEntity.getDataSource()) {
+                    title += " [" + targetEntity.getDataSource().getContainer().getName() + "]";
+                }
             }
-
             return title;
         }
 

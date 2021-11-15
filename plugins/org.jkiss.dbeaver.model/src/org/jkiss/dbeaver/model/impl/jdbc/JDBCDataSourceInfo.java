@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,8 @@ public class JDBCDataSourceInfo extends AbstractDataSourceInfo
     public static final String TERM_CATALOG = ModelMessages.model_jdbc_Database;
 
     private boolean readOnly;
+    private boolean readOnlyData;
+    private boolean readOnlyMetaData;
     private String databaseProductName;
     private String databaseProductVersion;
     private String driverName;
@@ -60,6 +62,7 @@ public class JDBCDataSourceInfo extends AbstractDataSourceInfo
     private boolean supportsStoredCode = true;
     private boolean supportsBatchUpdates = false;
     private boolean supportsScroll;
+    private boolean supportsViews = true;
 
     public JDBCDataSourceInfo(DBPDataSourceContainer container)
     {
@@ -197,13 +200,21 @@ public class JDBCDataSourceInfo extends AbstractDataSourceInfo
     @Override
     public boolean isReadOnlyData()
     {
-        return readOnly;
+        return readOnly || readOnlyData;
+    }
+
+    protected void setReadOnlyData(boolean readOnly) {
+        this.readOnlyData = readOnly;
     }
 
     @Override
     public boolean isReadOnlyMetaData()
     {
-        return readOnly;
+        return readOnly || readOnlyMetaData;
+    }
+
+    protected void setReadOnlyMetaData(boolean readOnlyMetaData) {
+        this.readOnlyMetaData = readOnlyMetaData;
     }
 
     @Override
@@ -287,6 +298,15 @@ public class JDBCDataSourceInfo extends AbstractDataSourceInfo
         this.supportsIndexes = supportsIndexes;
     }
 
+
+    public boolean supportsViews() {
+        return supportsViews;
+    }
+
+    public void setSupportsViews(boolean supportsViews) {
+        this.supportsViews = supportsViews;
+    }
+
     @Override
     public boolean supportsStoredCode() {
         return supportsStoredCode;
@@ -353,6 +373,14 @@ public class JDBCDataSourceInfo extends AbstractDataSourceInfo
     public boolean supportsBatchUpdates()
     {
         return supportsBatchUpdates;
+    }
+
+    /**
+     * Checks whether this data source supports using {@link java.sql.PreparedStatement#setArray(int, java.sql.Array)}
+     * for binding array values or not. Some data sources may use {@link java.sql.PreparedStatement#setObject(int, Object)} instead.
+     */
+    public boolean supportsSetArray() {
+        return false;
     }
 
 }

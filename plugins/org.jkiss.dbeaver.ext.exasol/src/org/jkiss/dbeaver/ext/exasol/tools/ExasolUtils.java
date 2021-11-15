@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2016-2016 Karl Griesser (fullref@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ package org.jkiss.dbeaver.ext.exasol.tools;
 
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.ext.exasol.ExasolConstants;
 import org.jkiss.dbeaver.ext.exasol.model.*;
-import org.jkiss.dbeaver.ext.exasol.model.app.ExasolServerSession;
 import org.jkiss.dbeaver.ext.exasol.model.security.ExasolTableObjectType;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
@@ -31,6 +31,7 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntityAttributeRef;
 import org.jkiss.utils.CommonUtils;
 
+import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -48,11 +49,7 @@ public class ExasolUtils {
     // select columns of tables
     private static final String TABLE_QUERY_COLUMNS = "/*snapshot execution*/ SELECT * FROM EXA_ALL_COLUMNS WHERE COLUMN_SCHEMA='%s' AND COLUMN_TABLE='%s' ORDER BY COLUMN_ORDINAL_POSITION";
 
-    // list sessions
-    private static final String SESS_DBA_QUERY = "/*snapshot execution*/ select * from exa_dba_sessions";
-    private static final String SESS_ALL_QUERY = "/*snapshot execution*/ select * from exa_ALL_sessions";
-
-    private static final Log LOG = Log.getLog(ExasolUtils.class);
+    private static final Log log = Log.getLog(ExasolUtils.class);
 
     // double single quotes for sql literals  
     public static String quoteString(String input) {
@@ -71,7 +68,7 @@ public class ExasolUtils {
                                              ExasolTable exasolTable) throws DBException {
 
         StringBuilder ddlOutput = new StringBuilder();
-        ddlOutput.append("CREATE TABLE \"").append(exasolTable.getSchema().getName()).append("\".\"").append(exasolTable.getName()).append("\" (");
+        ddlOutput.append("CREATE TABLE ").append(exasolTable.getFullyQualifiedName(DBPEvaluationContext.DDL)).append(" (");
 
         try (JDBCSession session = DBUtils.openMetaSession(monitor, exasolTable, "Get Table DDL")) {
             try (JDBCStatement dbStat = session.createStatement()) {
@@ -91,24 +88,28 @@ public class ExasolUtils {
 
                     // double quotation mark for column as the name could be a
                     // reserved word
-                    columnString.append("\n\t\t\"").append(rs.getString("COLUMN_NAME")).append("\" ").append(rs.getString("COLUMN_TYPE")).append(" ");
+                    columnString.append("\n\t\t").append(DBUtils.getQuotedIdentifier(dataSource, CommonUtils.notEmpty(rs.getString("COLUMN_NAME")))).
+                            append(" ").append(rs.getString("COLUMN_TYPE"));
 
                     // has default value?
-                    if (rs.getString("COLUMN_DEFAULT") != null)
-                        columnString.append("DEFAULT ").append(rs.getString("COLUMN_DEFAULT")).append(" ");
+                    String columnDefault = rs.getString("COLUMN_DEFAULT");
+                    if (columnDefault != null)
+                        columnString.append(" DEFAULT ").append(columnDefault);
 
                     // has identity
-                    if (rs.getBigDecimal("COLUMN_IDENTITY") != null)
-                        columnString.append("IDENTITY ").append(rs.getBigDecimal("COLUMN_IDENTITY").toString()).append(" ");
+                    BigDecimal bigDecimal = rs.getBigDecimal("COLUMN_IDENTITY");
+                    if (bigDecimal != null)
+                        columnString.append(" IDENTITY ").append(bigDecimal.toString());
 
                     // has identity
                     if (!rs.getBoolean("COLUMN_IS_NULLABLE"))
-                        columnString.append("NOT NULL ");
+                        columnString.append(" NOT NULL");
 
                     // comment
-                    if (rs.getString("COLUMN_COMMENT") != null)
+                    String columnComment = rs.getString("COLUMN_COMMENT");
+                    if (columnComment != null)
                         // replace ' to double ' -> escape for SQL
-                        columnString.append("COMMENT IS '").append(rs.getString("COLUMN_COMMENT").replaceAll("'", "''")).append("'");
+                        columnString.append(" COMMENT IS '").append(columnComment.replaceAll("'", "''")).append("'");
 
                     // if distkey add column to distkey
                     if (rs.getBoolean("COLUMN_IS_DISTRIBUTION_KEY"))
@@ -128,7 +129,7 @@ public class ExasolUtils {
             
             //partitioning
             ddlOutput.append(getPartitionDdl(exasolTable, monitor));
-            ddlOutput.append(";\n");
+            //ddlOutput.append(";\n"); //partition expression has ; already
 
             //primary key
             Collection<ExasolTableUniqueKey> pks = exasolTable.getConstraints(monitor);
@@ -162,9 +163,9 @@ public class ExasolUtils {
     
     public static String getPartitionDdl(ExasolTable table, DBRProgressMonitor monitor) throws DBException {
     	
-    	if (table.getPartitions().size() == 0)
+    	if (table.getPartitions(monitor).size() == 0)
     		return "";
-    	Collection<String> cols = table.getPartitions().stream()
+    	Collection<String> cols = table.getPartitions(monitor).stream()
     			.sorted(Comparator.comparing(ExasolTablePartitionColumn::getOrdinalPosition))
     			.map(pc -> DBUtils.getQuotedIdentifier(pc))
     			.collect(Collectors.toCollection(ArrayList::new));
@@ -173,7 +174,7 @@ public class ExasolUtils {
     	
     	return String.format
     			(
-    					"ALTER TABLE %s PARTITION BY %s;",
+    					"ALTER TABLE %s PARTITION BY %s;\n",
     					DBUtils.getObjectFullName(table, DBPEvaluationContext.DDL),
     					colList
     			);
@@ -191,10 +192,10 @@ public class ExasolUtils {
         for (DBSEntityAttributeRef c : fk.getReferencedConstraint().getAttributeReferences(monitor)) {
             refColumns.add(DBUtils.getQuotedIdentifier(c.getAttribute()));
         }
-        String fk_enabled = " DISABLE ";
+        String fk_enabled = " DISABLE";
 
         if (fk.getEnabled())
-            fk_enabled = " ENABLE ";
+            fk_enabled = " ENABLE";
 
         return "ALTER TABLE " + DBUtils.getObjectFullName(exasolTable, DBPEvaluationContext.DDL) +
                 " ADD CONSTRAINT " + DBUtils.getQuotedIdentifier(fk) +
@@ -210,7 +211,7 @@ public class ExasolUtils {
         for (DBSEntityAttributeRef c : pk.getAttributeReferences(monitor)) {
             columns.add("\"" + c.getAttribute().getName() + "\"");
         }
-        return "ALTER TABLE " + DBUtils.getObjectFullName(exasolTable, DBPEvaluationContext.DDL) + " ADD CONSTRAINT " + DBUtils.getQuotedIdentifier(pk) + " PRIMARY KEY (" + CommonUtils.joinStrings(",", columns) + ") " + (pk.getEnabled() ? " ENABLE " : " DISABLE ");
+        return "ALTER TABLE " + DBUtils.getObjectFullName(exasolTable, DBPEvaluationContext.DDL) + " ADD CONSTRAINT " + DBUtils.getQuotedIdentifier(pk) + " PRIMARY KEY (" + CommonUtils.joinStrings(",", columns) + ") " + (pk.getEnabled() ? ExasolConstants.KEYWORD_ENABLE : ExasolConstants.KEYWORD_DISABLE);
     }
 
     public static String getConnectionDdl(ExasolConnection con, DBRProgressMonitor monitor) throws DBException {
@@ -241,38 +242,6 @@ public class ExasolUtils {
     }
 
 
-    public static Collection<ExasolServerSession> readSessions(
-            DBRProgressMonitor progressMonitor,
-            JDBCSession session) throws SQLException {
-        LOG.debug("read sessions");
-
-        List<ExasolServerSession> listSessions = new ArrayList<>();
-
-        //check dba view
-        try {
-            try (JDBCStatement dbStat = session.createStatement()) {
-                try (JDBCResultSet dbResult = dbStat.executeQuery(SESS_DBA_QUERY)) {
-                    while (dbResult.next()) {
-                        listSessions.add(new ExasolServerSession(dbResult));
-                    }
-                }
-            }
-
-            //now try all view
-        } catch (SQLException e) {
-            try (JDBCStatement dbStat = session.createStatement()) {
-                try (JDBCResultSet dbResult = dbStat.executeQuery(SESS_ALL_QUERY)) {
-                    while (dbResult.next()) {
-                        listSessions.add(new ExasolServerSession(dbResult));
-                    }
-                }
-            }
-        }
-
-        return listSessions;
-    }
-
-
     public static String generateDDLforSchema(DBRProgressMonitor monitor,
                                               ExasolSchema exasolSchema) {
         return "CREATE SCHEMA " + exasolSchema.getName() + ";\n"
@@ -283,7 +252,7 @@ public class ExasolUtils {
         try {
             return ExasolTableObjectType.valueOf(objectType);
         } catch (Exception e) {
-            LOG.error("Unsupported object table type: " + objectType);
+            log.error("Unsupported object table type: " + objectType);
             return ExasolTableObjectType.TABLE;
         }
     }

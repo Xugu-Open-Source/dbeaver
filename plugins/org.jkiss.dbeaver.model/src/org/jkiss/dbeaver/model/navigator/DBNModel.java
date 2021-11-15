@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import org.jkiss.dbeaver.model.DBPImage;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.app.DBPPlatform;
 import org.jkiss.dbeaver.model.app.DBPProject;
+import org.jkiss.dbeaver.model.auth.DBASessionContext;
 import org.jkiss.dbeaver.model.navigator.meta.DBXTreeFolder;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
@@ -45,6 +46,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * DBNModel.
@@ -73,28 +75,38 @@ public class DBNModel implements IResourceChangeListener {
     }
 
     private final DBPPlatform platform;
-    private final boolean global;
+    private final DBPProject modelProject;
     private DBNRoot root;
     private final List<INavigatorListener> listeners = new ArrayList<>();
     private transient INavigatorListener[] listenersCopy = null;
     private final transient List<DBNEvent> eventCache = new ArrayList<>();
     private final Map<DBSObject, Object> nodeMap = new HashMap<>();
+    private final List<Function<DBNNode, Boolean>> nodeFilters = new ArrayList<>();
 
     /**
      * Creates navigator model.
-     * @param global Global navigator. If set to false then it won't register resource listeners and won't raise navigator events.
+     * @param modelProject Model project. If null then this is global navigator model. Otherwise it points to a session-like object.
      */
-    public DBNModel(DBPPlatform platform, boolean global) {
+    public DBNModel(DBPPlatform platform, @Nullable DBPProject modelProject) {
         this.platform = platform;
-        this.global = global;
+        this.modelProject = modelProject;
     }
 
     public DBPPlatform getPlatform() {
         return platform;
     }
 
+    @Nullable
+    public DBPProject getModelProject() {
+        return modelProject;
+    }
+
+    public DBASessionContext getModelAuthContext() {
+        return modelProject != null ? modelProject.getSessionContext() : platform.getWorkspace().getAuthContext();
+    }
+
     public boolean isGlobal() {
-        return global;
+        return modelProject == null;
     }
 
     public void initialize()
@@ -104,7 +116,7 @@ public class DBNModel implements IResourceChangeListener {
         }
         this.root = new DBNRoot(this);
 
-        if (global) {
+        if (isGlobal()) {
             platform.getWorkspace().getEclipseWorkspace().addResourceChangeListener(this);
             new EventProcessingJob().schedule();
         }
@@ -112,13 +124,16 @@ public class DBNModel implements IResourceChangeListener {
 
     public void dispose()
     {
-        if (global) {
+        if (isGlobal()) {
             platform.getWorkspace().getEclipseWorkspace().removeResourceChangeListener(this);
         }
 
-        this.root.dispose(false);
-        synchronized (nodeMap) {
-            this.nodeMap.clear();
+        if (root != null) {
+            this.root.dispose(false);
+            synchronized (nodeMap) {
+                this.nodeMap.clear();
+            }
+            this.root = null;
         }
         synchronized (this.listeners) {
             if (!listeners.isEmpty()) {
@@ -129,7 +144,6 @@ public class DBNModel implements IResourceChangeListener {
             this.listeners.clear();
             this.listenersCopy = null;
         }
-        this.root = null;
     }
 
     public DBNRoot getRoot()
@@ -227,7 +241,7 @@ public class DBNModel implements IResourceChangeListener {
 
     @NotNull
     private NodePath getNodePath(@NotNull String path) {
-        DBNNode.NodePathType nodeType = DBNNode.NodePathType.database;
+        DBNNode.NodePathType nodeType = DBNNode.NodePathType.other;
         for (DBNNode.NodePathType type : DBNNode.NodePathType.values()) {
             final String prefix = type.getPrefix();
             if (path.startsWith(prefix)) {
@@ -282,6 +296,19 @@ public class DBNModel implements IResourceChangeListener {
                     }
                 }
             }
+        } else if (nodePath.type == DBNNode.NodePathType.ext) {
+            DBNProject[] projects = root.getProjects();
+            if (ArrayUtils.isEmpty(projects)) {
+                throw new DBException("No projects in workspace");
+            }
+            if (projects.length > 1) {
+                throw new DBException("Multi-project workspace. Extension nodes not supported");
+            }
+            return findNodeByPath(monitor, nodePath,
+                projects[0], 0);
+        } else if (nodePath.type == DBNNode.NodePathType.other) {
+            return findNodeByPath(monitor, nodePath,
+                root, 0);
         } else {
             for (DBNProject projectNode : getRoot().getProjects()) {
                 if (projectNode.getName().equals(nodePath.first())) {
@@ -361,8 +388,11 @@ public class DBNModel implements IResourceChangeListener {
                     } else {
                         if (child instanceof DBNDatabaseFolder) {
                             DBXTreeFolder meta = ((DBNDatabaseFolder) child).getMeta();
-                            if (meta != null && !CommonUtils.isEmpty(meta.getType()) && meta.getType().equals(item)) {
-                                nextChild = child;
+                            if (meta != null) {
+                                String idOrType = meta.getIdOrType();
+                                if (!CommonUtils.isEmpty(idOrType) && idOrType.equals(item)) {
+                                    nextChild = child;
+                                }
                             }
                         }
                         if (child.getNodeName().equals(item)) {
@@ -555,7 +585,7 @@ public class DBNModel implements IResourceChangeListener {
 
     void fireNodeEvent(final DBNEvent event)
     {
-        if (!global || platform.isShuttingDown()) {
+        if (!isGlobal() || platform.isShuttingDown()) {
             return;
         }
         synchronized (eventCache) {
@@ -640,6 +670,25 @@ public class DBNModel implements IResourceChangeListener {
         if (projectNode != null) {
             projectNode.getDatabases();
         }
+    }
+
+    public void addFilter(Function<DBNNode, Boolean> filter) {
+        nodeFilters.add(filter);
+    }
+
+    boolean isNodeVisible(DBNNode node) {
+        if (!nodeFilters.isEmpty()) {
+            for (Function<DBNNode, Boolean> f : nodeFilters) {
+                if (!f.apply(node)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    public static void disposeNode(DBNNode node, boolean reflect) {
+        node.dispose(reflect);
     }
 
     private class EventProcessingJob extends Job {

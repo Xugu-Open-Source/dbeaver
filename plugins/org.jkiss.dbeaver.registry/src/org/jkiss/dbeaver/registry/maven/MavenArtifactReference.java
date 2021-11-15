@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@ public class MavenArtifactReference implements IMavenIdentifier
     private final String id;
     @Nullable
     private final String classifier;
+    private boolean resolveOptionalDependencies;
 
     public MavenArtifactReference(@NotNull String groupId, @NotNull String artifactId, @Nullable String classifier, @NotNull String version) {
         this.groupId = CommonUtils.trim(groupId);
@@ -120,6 +121,14 @@ public class MavenArtifactReference implements IMavenIdentifier
 
     public String getPath() {
         return id + ":" + version;
+    }
+
+    public boolean isResolveOptionalDependencies() {
+        return resolveOptionalDependencies;
+    }
+
+    public void setResolveOptionalDependencies(boolean resolveOptionalDependencies) {
+        this.resolveOptionalDependencies = resolveOptionalDependencies;
     }
 
     @Override

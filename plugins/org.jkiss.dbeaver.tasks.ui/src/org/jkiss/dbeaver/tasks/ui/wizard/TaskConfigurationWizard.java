@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,42 +22,42 @@ import org.eclipse.jface.wizard.IWizardPage;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Group;
-import org.eclipse.swt.widgets.Link;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchWizard;
 import org.eclipse.ui.PartInitException;
+import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.views.IViewDescriptor;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableContext;
-import org.jkiss.dbeaver.model.task.DBTTask;
-import org.jkiss.dbeaver.model.task.DBTTaskContext;
-import org.jkiss.dbeaver.model.task.DBTTaskType;
-import org.jkiss.dbeaver.model.task.DBTaskUtils;
+import org.jkiss.dbeaver.model.task.*;
 import org.jkiss.dbeaver.registry.task.TaskRegistry;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.tasks.ui.internal.TaskUIMessages;
 import org.jkiss.dbeaver.tasks.ui.registry.TaskUIRegistry;
-import org.jkiss.dbeaver.tasks.ui.view.DatabaseTasksView;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.dialogs.BaseWizard;
+import org.jkiss.dbeaver.ui.dialogs.IWizardPageActive;
+import org.jkiss.dbeaver.ui.dialogs.IWizardPageNavigable;
 import org.jkiss.dbeaver.ui.navigator.NavigatorUtils;
 
-import java.io.PrintWriter;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-public abstract class TaskConfigurationWizard extends BaseWizard implements IWorkbenchWizard {
+public abstract class TaskConfigurationWizard<SETTINGS extends DBTTaskSettings> extends BaseWizard implements IWorkbenchWizard {
 
     private static final Log log = Log.getLog(TaskConfigurationWizard.class);
+
+    private static final String TASKS_VIEW_ID = "org.jkiss.dbeaver.tasks";
 
     private DBTTask currentTask;
     private IStructuredSelection currentSelection;
@@ -65,6 +65,7 @@ public abstract class TaskConfigurationWizard extends BaseWizard implements IWor
 
     private Map<String, Object> variables;
     private DBTTaskContext taskContext;
+    @Nullable private DBTTaskFolder currentSelectedTaskFolder;
 
     protected TaskConfigurationWizard() {
     }
@@ -72,6 +73,12 @@ public abstract class TaskConfigurationWizard extends BaseWizard implements IWor
     protected TaskConfigurationWizard(@Nullable DBTTask task) {
         this.currentTask = task;
     }
+
+    protected void initializeWizard(Composite parent) {
+
+    }
+
+    protected abstract SETTINGS getSettings();
 
     protected abstract String getDefaultWindowTitle();
 
@@ -84,7 +91,7 @@ public abstract class TaskConfigurationWizard extends BaseWizard implements IWor
     public abstract void saveTaskState(DBRRunnableContext runnableContext, DBTTask task, Map<String, Object> state);
 
     public boolean isRunTaskOnFinish() {
-        return getCurrentTask() != null && !getContainer().isSelectorMode();
+        return getCurrentTask() != null && !getCurrentTask().isTemporary() && !getContainer().isSelectorMode();
     }
 
     public IStructuredSelection getCurrentSelection() {
@@ -99,6 +106,15 @@ public abstract class TaskConfigurationWizard extends BaseWizard implements IWor
         this.currentTask = currentTask;
         updateWizardTitle();
         getContainer().updateButtons();
+    }
+
+    @Nullable
+    public DBTTaskFolder getCurrentSelectedTaskFolder() {
+        return currentSelectedTaskFolder;
+    }
+
+    public void setCurrentSelectedTaskFolder(@Nullable DBTTaskFolder taskFolder) {
+        this.currentSelectedTaskFolder = taskFolder;
     }
 
     public DBPProject getProject() {
@@ -144,11 +160,15 @@ public abstract class TaskConfigurationWizard extends BaseWizard implements IWor
     protected void addTaskConfigPages() {
         // If we are in task edit mode then add special first page.
         // Do not add it if this is an ew task wizard (because this page is added separately)
-        if (isCurrentTaskSaved()) {
+        if (isTaskEditor()) {
             // Task editor. Add first page
             addPage(new TaskConfigurationWizardPageTask(getCurrentTask()));
             addPage(new TaskConfigurationWizardPageSettings(getCurrentTask()));
         }
+    }
+
+    public boolean isNewTaskEditor() {
+        return currentTask != null && getProject().getTaskManager().getTaskById(currentTask.getId()) == null;
     }
 
     public boolean isCurrentTaskSaved() {
@@ -182,8 +202,11 @@ public abstract class TaskConfigurationWizard extends BaseWizard implements IWor
 
     @Override
     public boolean canFinish() {
+        if (isCurrentTaskSaved()) {
+            return true;
+        }
         for (IWizardPage page : getPages()) {
-            if (isPageValid(page) && !page.isPageComplete()) {
+            if (isPageNeedsCompletion(page) && isPageValid(page) && !page.isPageComplete()) {
                 return false;
             }
         }
@@ -195,9 +218,19 @@ public abstract class TaskConfigurationWizard extends BaseWizard implements IWor
         return true;
     }
 
+    protected boolean isPageNeedsCompletion(IWizardPage page) {
+        if (page instanceof TaskConfigurationWizardPageTask) {
+            return false;
+        }
+        if (page instanceof IWizardPageNavigable && !((IWizardPageNavigable) page).isPageApplicable()) {
+            return false;
+        }
+        return true;
+    }
+
     @Override
     public boolean performFinish() {
-        if (currentTask != null) {
+        if (currentTask != null && !currentTask.isTemporary()) {
             saveTask();
         }
 
@@ -219,7 +252,7 @@ public abstract class TaskConfigurationWizard extends BaseWizard implements IWor
             }
             // Run task thru task manager
             // Pass executor to visualize task progress in UI
-            TaskWizardExecutor executor = new TaskWizardExecutor(getRunnableContext(), task, log, new PrintWriter(System.out));
+            TaskWizardExecutor executor = new TaskWizardExecutor(getRunnableContext(), task, log, System.out);
             if (getCurrentTask() == null) {
                 // Execute directly in wizard
                 executor.executeTask();
@@ -238,8 +271,15 @@ public abstract class TaskConfigurationWizard extends BaseWizard implements IWor
     }
 
     private void saveTask() {
+        IWizardPage currentPage = getContainer().getCurrentPage();
+        // Save current page settings
+        if (currentPage instanceof IWizardPageActive) {
+            ((IWizardPageActive) currentPage).deactivatePage();
+            ((IWizardPageActive) currentPage).activatePage();
+        }
+        // Save task
         DBTTask currentTask = getCurrentTask();
-        if (currentTask == null) {
+        if (currentTask == null || currentTask.isTemporary()) {
             // Create new task
             DBTTaskType taskType = getTaskType();
             if (taskType == null) {
@@ -281,28 +321,25 @@ public abstract class TaskConfigurationWizard extends BaseWizard implements IWor
         }
     }
 
-    public void createTaskSaveGroup(Composite parent) {
-        Group taskGroup = UIUtils.createControlGroup(
-            parent, TaskUIMessages.task_config_wizard_group_task_label, 2, GridData.HORIZONTAL_ALIGN_BEGINNING | GridData.VERTICAL_ALIGN_BEGINNING, 0);
-        createTaskSaveButtons(taskGroup, false, 1);
-    }
-
     public void createTaskSaveButtons(Composite parent, boolean horizontal, int hSpan) {
-        if (getContainer().isSelectorMode()) {
+
+        IViewDescriptor tasksViewDescriptor = PlatformUI.getWorkbench().getViewRegistry().find(TASKS_VIEW_ID);
+        if (tasksViewDescriptor == null || getContainer().isSelectorMode()) {
             // Do not create save buttons
             UIUtils.createEmptyLabel(parent, hSpan, 1);
         } else {
             Composite panel = new Composite(parent, SWT.NONE);
+            panel.setBackground(parent.getBackground());
             if (parent.getLayout() instanceof GridLayout) {
                 GridData gd = new GridData(GridData.FILL_HORIZONTAL);
                 gd.horizontalSpan = hSpan;
                 panel.setLayoutData(gd);
             }
-            boolean supportsVariables = getTaskType().supportsVariables();
+            boolean supportsVariables = false;//getTaskType().supportsVariables();
             panel.setLayout(new GridLayout(horizontal ? (supportsVariables ? 3 : 2) : 1, false));
 
             if (supportsVariables) {
-                UIUtils.createDialogButton(panel, "Variables ...", new SelectionAdapter() {
+                UIUtils.createDialogButton(panel, TaskUIMessages.task_config_wizard_button_variables + " ...", new SelectionAdapter() {
                     @Override
                     public void widgetSelected(SelectionEvent e) {
                         configureVariables();
@@ -310,24 +347,41 @@ public abstract class TaskConfigurationWizard extends BaseWizard implements IWor
                 });
             }
 
-            saveAsTaskButton = UIUtils.createDialogButton(panel, "Save task", new SelectionAdapter() {
+            saveAsTaskButton = UIUtils.createDialogButton(panel, TaskUIMessages.task_config_wizard_button_save_task, new SelectionAdapter() {
                 @Override
                 public void widgetSelected(SelectionEvent e) {
                     saveTask();
                 }
             });
-            Link tasksLink = UIUtils.createLink(panel, "<a>Open Tasks view</a>", new SelectionAdapter() {
+            Button tasksLink = UIUtils.createDialogButton(panel, TaskUIMessages.task_config_wizard_link_open_tasks_view, new SelectionAdapter() {
                 @Override
                 public void widgetSelected(SelectionEvent e) {
                     try {
-                        UIUtils.getActiveWorkbenchWindow().getActivePage().showView(DatabaseTasksView.VIEW_ID);
+                        UIUtils.getActiveWorkbenchWindow().getActivePage().showView(TASKS_VIEW_ID);
                     } catch (PartInitException e1) {
                         DBWorkbench.getPlatformUI().showError("Show view", "Error opening database tasks view", e1);
                     }
+
                 }
             });
+            IViewDescriptor viewDescriptor = PlatformUI.getWorkbench().getViewRegistry().find("org.jkiss.dbeaver.tasks");
+            if (viewDescriptor != null) {
+                Image viewImage = viewDescriptor.getImageDescriptor().createImage();
+                tasksLink.setImage(viewImage);
+                tasksLink.setText("");
+                tasksLink.addDisposeListener(e -> viewImage.dispose());
+            }
             tasksLink.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_END));
         }
+    }
+
+    public void createVariablesEditButton(Composite parent) {
+        UIUtils.createDialogButton(parent, TaskUIMessages.task_config_wizard_button_variables + " ...", new SelectionAdapter() {
+            @Override
+            public void widgetSelected(SelectionEvent e) {
+                configureVariables();
+            }
+        });
     }
 
     private void configureVariables() {
@@ -364,10 +418,7 @@ public abstract class TaskConfigurationWizard extends BaseWizard implements IWor
 
     public void updateSaveTaskButtons() {
         if (saveAsTaskButton != null) {
-            // TODO: we should be able to save/run task immediately if it was saved before.
-            // TODO: There is a bug in DT wizard which doesn't let to do it (producers/consumers are initialized only on the last page).
-            // TODO: init transfer for all deserialized producers/consumers
-            saveAsTaskButton.setEnabled(/*(getTaskWizard() != null && getTaskWizard().isCurrentTaskSaved()) || */canFinish());
+            saveAsTaskButton.setEnabled(canFinish() && getTaskType() != null);
         }
     }
 
@@ -381,4 +432,7 @@ public abstract class TaskConfigurationWizard extends BaseWizard implements IWor
         return startingPage;
     }
 
+    public void onWizardActivation() {
+
+    }
 }

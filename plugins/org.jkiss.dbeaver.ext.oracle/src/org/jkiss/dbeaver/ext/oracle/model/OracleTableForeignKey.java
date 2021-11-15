@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,12 +24,12 @@ import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTableForeignKey;
+import org.jkiss.dbeaver.model.meta.IPropertyValueListProvider;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntityConstraintType;
 import org.jkiss.dbeaver.model.struct.rdb.DBSForeignKeyModifyRule;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableForeignKey;
-import org.jkiss.dbeaver.model.meta.IPropertyValueListProvider;
 import org.jkiss.utils.CommonUtils;
 
 import java.sql.ResultSet;
@@ -90,7 +90,22 @@ public class OracleTableForeignKey extends OracleTableConstraintBase implements 
         }
 
         String deleteRuleName = JDBCUtils.safeGetString(dbResult, "DELETE_RULE");
-        this.deleteRule = "CASCADE".equals(deleteRuleName) ? DBSForeignKeyModifyRule.CASCADE : DBSForeignKeyModifyRule.NO_ACTION;
+        if (CommonUtils.isEmpty(deleteRuleName)) {
+            this.deleteRule = DBSForeignKeyModifyRule.NO_ACTION;
+        } else {
+            switch (deleteRuleName) {
+                case "CASCADE":
+                    this.deleteRule = DBSForeignKeyModifyRule.CASCADE;
+                    break;
+                case "SET NULL":
+                    this.deleteRule = DBSForeignKeyModifyRule.SET_NULL;
+                    break;
+                case "NO ACTION":
+                default:
+                    this.deleteRule = DBSForeignKeyModifyRule.NO_ACTION;
+                    break;
+            }
+        }
     }
 
     @Property(viewable = true, order = 3)

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 package org.jkiss.dbeaver.ext.postgresql.model.plan;
 
 import org.jkiss.code.Nullable;
-import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataSource;
+import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlanCostNode;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlanNodeKind;
 import org.jkiss.dbeaver.model.impl.PropertyDescriptor;
@@ -74,7 +74,7 @@ public abstract class PostgrePlanNodeBase<NODE extends PostgrePlanNodeBase<?>> e
                           "materialize",
                           "function"));
 
-    private PostgreDataSource dataSource;
+    private final DBPDataSource dataSource;
     protected NODE parent;
     protected final List<NODE> nested = new ArrayList<>();
 
@@ -83,7 +83,7 @@ public abstract class PostgrePlanNodeBase<NODE extends PostgrePlanNodeBase<?>> e
     private String cost;
     protected Map<String, String> attributes = Collections.emptyMap();
 
-    protected PostgrePlanNodeBase(PostgreDataSource dataSource, NODE parent) {
+    protected PostgrePlanNodeBase(DBPDataSource dataSource, NODE parent) {
         this.parent = parent;
         this.dataSource = dataSource;
 
@@ -315,7 +315,7 @@ public abstract class PostgrePlanNodeBase<NODE extends PostgrePlanNodeBase<?>> e
     }
 
     @Override
-    public DBPPropertyDescriptor[] getPropertyDescriptors2() {
+    public DBPPropertyDescriptor[] getProperties() {
         DBPPropertyDescriptor[] props = new DBPPropertyDescriptor[attributes.size()];
         int index = 0;
         for (Map.Entry<String, String> attr : attributes.entrySet()) {
@@ -334,38 +334,33 @@ public abstract class PostgrePlanNodeBase<NODE extends PostgrePlanNodeBase<?>> e
     }
 
     @Override
-    public Object getPropertyValue(@Nullable DBRProgressMonitor monitor, Object id) {
+    public Object getPropertyValue(@Nullable DBRProgressMonitor monitor, String id) {
         return attributes.get(id.toString());
     }
 
     @Override
-    public boolean isPropertySet(Object id) {
+    public boolean isPropertySet(String id) {
         return false;//attributes.containsKey(id.toString());
     }
 
     @Override
-    public boolean isPropertyResettable(Object id) {
+    public boolean isPropertyResettable(String id) {
         return false;
     }
 
     @Override
-    public void resetPropertyValue(@Nullable DBRProgressMonitor monitor, Object id) {
+    public void resetPropertyValue(@Nullable DBRProgressMonitor monitor, String id) {
 
     }
 
     @Override
-    public void resetPropertyValueToDefault(Object id) {
+    public void resetPropertyValueToDefault(String id) {
 
     }
 
     @Override
-    public void setPropertyValue(@Nullable DBRProgressMonitor monitor, Object id, Object value) {
+    public void setPropertyValue(@Nullable DBRProgressMonitor monitor, String id, Object value) {
 
-    }
-
-    @Override
-    public boolean isDirty(Object id) {
-        return false;
     }
 
 }

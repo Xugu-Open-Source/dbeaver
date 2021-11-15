@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,18 +23,15 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.*;
+import org.jkiss.dbeaver.model.auth.DBAAuthCredentials;
 import org.jkiss.dbeaver.model.auth.DBAAuthModel;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
-import org.jkiss.dbeaver.model.data.DBDDataFormatterProfile;
-import org.jkiss.dbeaver.model.data.DBDPreferences;
-import org.jkiss.dbeaver.model.data.DBDValueHandler;
 import org.jkiss.dbeaver.model.exec.*;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCDatabaseMetaData;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCFactory;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
-import org.jkiss.dbeaver.model.impl.jdbc.data.handlers.JDBCObjectValueHandler;
 import org.jkiss.dbeaver.model.impl.jdbc.exec.JDBCConnectionImpl;
 import org.jkiss.dbeaver.model.impl.jdbc.exec.JDBCFactoryDefault;
 import org.jkiss.dbeaver.model.messages.ModelMessages;
@@ -54,10 +51,7 @@ import org.jkiss.utils.CommonUtils;
 
 import java.net.SocketException;
 import java.sql.*;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 /**
  * JDBC data source
@@ -68,7 +62,6 @@ public abstract class JDBCDataSource
         DBPDataTypeProvider,
         DBPErrorAssistant,
         DBPRefreshableObject,
-        DBDPreferences,
         DBSObject,
         DBSObjectContainer,
         DBSInstanceContainer,
@@ -76,6 +69,8 @@ public abstract class JDBCDataSource
         IAdaptable
 {
     private static final Log log = Log.getLog(JDBCDataSource.class);
+
+    private static final boolean REFRESH_CREDENTIALS_ON_CONNECT = false;
 
     @NotNull
     private final DBPDataSourceContainer container;
@@ -88,6 +83,8 @@ public abstract class JDBCDataSource
     private int databaseMajorVersion;
     private int databaseMinorVersion;
 
+    private final transient List<Connection> closingConnections = new ArrayList<>();
+
     protected JDBCDataSource(@NotNull DBRProgressMonitor monitor, @NotNull DBPDataSourceContainer container, @NotNull SQLDialect dialect)
         throws DBException
     {
@@ -97,13 +94,17 @@ public abstract class JDBCDataSource
     protected JDBCDataSource(@NotNull DBRProgressMonitor monitor, @NotNull DBPDataSourceContainer container, @NotNull SQLDialect dialect, boolean initContext)
         throws DBException
     {
+        this(container, dialect);
+        if (initContext) {
+            initializeRemoteInstance(monitor);
+        }
+    }
+
+    protected JDBCDataSource(@NotNull DBPDataSourceContainer container, @NotNull SQLDialect dialect) {
         this.dataSourceInfo = new JDBCDataSourceInfo(container);
         this.sqlDialect = dialect;
         this.jdbcFactory = createJdbcFactory();
         this.container = container;
-        if (initContext) {
-            initializeRemoteInstance(monitor);
-        }
     }
 
     protected void initializeRemoteInstance(@NotNull DBRProgressMonitor monitor) throws DBException {
@@ -115,11 +116,21 @@ public abstract class JDBCDataSource
     {
         // It MUST be a JDBC driver
         Driver driverInstance = null;
-        if (getContainer().getDriver().isInstantiable()) {
+        DBPDriver driver = getContainer().getDriver();
+        if (driver.isInstantiable() && !CommonUtils.isEmpty(driver.getDriverClassName())) {
             try {
                 driverInstance = getDriverInstance(monitor);
             } catch (DBException e) {
                 throw new DBCConnectException("Can't create driver instance", e, this);
+            }
+        } else {
+            if (!CommonUtils.isEmpty(driver.getDriverClassName())) {
+                try {
+                    driver.loadDriver(monitor);
+                    Class.forName(driver.getDriverClassName(), true, driver.getClassLoader());
+                } catch (Exception e) {
+                    throw new DBCException("Driver class '" + driver.getDriverClassName() + "' not found", e);
+                }
             }
         }
 
@@ -153,9 +164,15 @@ public abstract class JDBCDataSource
             final Driver driverInstanceFinal = driverInstance;
 
             try {
-                authModel.initAuthentication(monitor, container, connectionInfo, connectProps);
+                DBAAuthCredentials credentials = authModel.loadCredentials(getContainer(), connectionInfo);
+
+                if (REFRESH_CREDENTIALS_ON_CONNECT) {
+                    // Refresh credentials
+                    authModel.refreshCredentials(monitor, getContainer(), connectionInfo, credentials);
+                }
+                authModel.initAuthentication(monitor, this, credentials, connectionInfo, connectProps);
             } catch (DBException e) {
-                throw new DBCException("Authentication error", e);
+                throw new DBCException("Authentication error: " + e.getMessage(), e);
             }
 
             DBRRunnableWithProgress connectTask = monitor1 -> {
@@ -246,17 +263,6 @@ public abstract class JDBCDataSource
 
         fillConnectionProperties(connectionInfo, connectProps);
 
-        if (!CommonUtils.isEmpty(connectionInfo.getUserName())) {
-            connectProps.put(DBConstants.DATA_SOURCE_PROPERTY_USER, getConnectionUserName(connectionInfo));
-        }
-        boolean allowsEmptyPassword = getContainer().getDriver().isAllowsEmptyPassword();
-        String password = getConnectionUserPassword(connectionInfo);
-        if (password == null && allowsEmptyPassword) {
-            password = "";
-        }
-        if (!CommonUtils.isEmpty(password) || (allowsEmptyPassword && !CommonUtils.isEmpty(getConnectionUserName(connectionInfo)))) {
-            connectProps.put(DBConstants.DATA_SOURCE_PROPERTY_PASSWORD, password);
-        }
         return connectProps;
     }
 
@@ -269,21 +275,35 @@ public abstract class JDBCDataSource
         return url;
     }
 
-    protected void closeConnection(final Connection connection, String purpose)
+    /**
+     * Closes JDBC connection.
+     * Do actual close in separate thread.
+     * After ModelPreferences.CONNECTION_CLOSE_TIMEOUT delay returns false.
+     * @return true on successful connection close
+     */
+    public boolean closeConnection(final Connection connection, String purpose, boolean doRollback)
     {
         if (connection != null) {
+            synchronized (closingConnections) {
+                if (closingConnections.contains(connection)) {
+                    return true;
+                }
+                closingConnections.add(connection);
+            }
             // Close datasource (in async task)
-            RuntimeUtils.runTask(monitor -> {
-                try {
-                    // If we in transaction - rollback it.
-                    // Any valuable transaction changes should be committed by UI
-                    // so here we do it just in case to avoid error messages on close with open transaction
-                    if (!connection.isClosed() && !connection.getAutoCommit()) {
-                        connection.rollback();
+            return RuntimeUtils.runTask(monitor -> {
+                if (doRollback) {
+                    try {
+                        // If we in transaction - rollback it.
+                        // Any valuable transaction changes should be committed by UI
+                        // so here we do it just in case to avoid error messages on close with open transaction
+                        if (!connection.isClosed() && !connection.getAutoCommit()) {
+                            connection.rollback();
+                        }
+                    } catch (Throwable e) {
+                        // Do not write warning because connection maybe broken before the moment of close
+                        log.debug("Error closing active transaction", e);
                     }
-                } catch (Throwable e) {
-                    // Do not write warning because connection maybe broken before the moment of close
-                    log.debug("Error closing active transaction", e);
                 }
                 try {
                     connection.close();
@@ -291,8 +311,15 @@ public abstract class JDBCDataSource
                 catch (Throwable ex) {
                     log.debug("Error closing connection", ex);
                 }
+                synchronized (closingConnections) {
+                    closingConnections.remove(connection);
+                }
+
             }, "Close JDBC connection (" + purpose + ")",
                 getContainer().getPreferenceStore().getInt(ModelPreferences.CONNECTION_CLOSE_TIMEOUT));
+        } else {
+            log.debug("Null connection parameter");
+            return true;
         }
     }
 
@@ -394,7 +421,7 @@ public abstract class JDBCDataSource
 
             if (this.sqlDialect instanceof JDBCSQLDialect) {
                 try {
-                    ((JDBCSQLDialect) this.sqlDialect).initDriverSettings(this, metaData);
+                    ((JDBCSQLDialect) this.sqlDialect).initDriverSettings(session, this, metaData);
                 } catch (Throwable e) {
                     log.error("Error initializing dialect driver settings", e);
                 }
@@ -533,6 +560,8 @@ public abstract class JDBCDataSource
             case Types.CHAR:
             case Types.VARCHAR:
             case Types.NVARCHAR:
+            case Types.LONGVARCHAR:
+            case Types.LONGNVARCHAR:
                 return DBPDataKind.STRING;
             case Types.BIGINT:
             case Types.DECIMAL:
@@ -563,8 +592,6 @@ public abstract class JDBCDataSource
             case Types.BLOB:
             case Types.CLOB:
             case Types.NCLOB:
-            case Types.LONGVARCHAR:
-            case Types.LONGNVARCHAR:
                 return DBPDataKind.CONTENT;
             case Types.SQLXML:
                 return DBPDataKind.CONTENT;
@@ -643,22 +670,11 @@ public abstract class JDBCDataSource
         return false;
     }
 
-    protected String getConnectionUserName(@NotNull DBPConnectionConfiguration connectionInfo)
-    {
-        return connectionInfo.getUserName();
-    }
-
-    protected String getConnectionUserPassword(@NotNull DBPConnectionConfiguration connectionInfo)
-    {
-        return connectionInfo.getUserPassword();
-    }
-
     @Nullable
     protected Driver getDriverInstance(@NotNull DBRProgressMonitor monitor)
         throws DBException
     {
-        return Driver.class.cast(
-            container.getDriver().getDriverInstance(monitor));
+        return container.getDriver().getDriverInstance(monitor);
     }
 
     /**
@@ -730,23 +746,7 @@ public abstract class JDBCDataSource
     }
 
     /////////////////////////////////////////////////
-    // DBDPreferences
-
-    @Override
-    public DBDDataFormatterProfile getDataFormatterProfile() {
-        return container.getDataFormatterProfile();
-    }
-
-    @Override
-    public void setDataFormatterProfile(DBDDataFormatterProfile formatterProfile) {
-        container.setDataFormatterProfile(formatterProfile);
-    }
-
-    @NotNull
-    @Override
-    public DBDValueHandler getDefaultValueHandler() {
-        return JDBCObjectValueHandler.INSTANCE;
-    }
+    // DBDFormatSettings
 
     public void cancelStatementExecute(DBRProgressMonitor monitor, JDBCStatement statement) throws DBException {
         try {

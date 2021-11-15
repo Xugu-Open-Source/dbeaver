@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package org.jkiss.dbeaver.tools.compare.simple.ui;
 import org.eclipse.jface.dialogs.IDialogSettings;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.wizard.Wizard;
-import org.eclipse.jface.wizard.WizardPage;
 import org.eclipse.swt.SWT;
 import org.eclipse.ui.IExportWizard;
 import org.eclipse.ui.IWorkbench;
@@ -27,12 +26,14 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
-import org.jkiss.dbeaver.model.runtime.DBRRunnableWithProgress;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.tools.compare.simple.CompareObjectsExecutor;
 import org.jkiss.dbeaver.tools.compare.simple.CompareObjectsSettings;
 import org.jkiss.dbeaver.tools.compare.simple.CompareReport;
 import org.jkiss.dbeaver.tools.compare.simple.CompareReportRenderer;
+import org.jkiss.dbeaver.tools.compare.simple.ui.internal.CompareUIMessages;
 import org.jkiss.dbeaver.ui.DialogSettingsDelegate;
+import org.jkiss.dbeaver.ui.ShellUtils;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.dialogs.DialogUtils;
 import org.jkiss.utils.CommonUtils;
@@ -85,13 +86,14 @@ public class CompareObjectsWizard extends Wizard implements IExportWizard {
     @Override
     public void init(IWorkbench workbench, IStructuredSelection currentSelection)
     {
-        setWindowTitle("Compare objects");
+        setWindowTitle(CompareUIMessages.compare_objects_wizard_title);
         setNeedsProgressMonitor(true);
     }
 
-    private void showError(String error)
-    {
-        ((WizardPage)getContainer().getCurrentPage()).setErrorMessage(error);
+    private void showError(String error) {
+        if (CommonUtils.isNotEmpty(error)) {
+            DBWorkbench.getPlatformUI().showError(CompareUIMessages.compare_objects_wizard_error_title, error);
+        }
     }
 
     @Override
@@ -104,19 +106,15 @@ public class CompareObjectsWizard extends Wizard implements IExportWizard {
         // Compare
         final CompareObjectsExecutor executor = new CompareObjectsExecutor(settings);
         try {
-            UIUtils.run(getContainer(), true, true, new DBRRunnableWithProgress() {
-                @Override
-                public void run(DBRProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
-                    try {
-                        CompareReport report = generateReport(monitor, executor);
-
-                        renderReport(monitor, report);
-                    } catch (DBException e) {
-                        throw new InvocationTargetException(e);
-                    }
+            UIUtils.run(getContainer(), true, true, monitor -> {
+                try {
+                    CompareReport report = generateReport(monitor, executor);
+                    renderReport(monitor, report);
+                } catch (DBException e) {
+                    throw new InvocationTargetException(e);
                 }
             });
-            UIUtils.showMessageBox(getShell(), "Objects compare", "Objects compare finished", SWT.ICON_INFORMATION);
+            UIUtils.showMessageBox(getShell(), CompareUIMessages.compare_objects_wizard_finish_report_title, CompareUIMessages.compare_objects_wizard_finish_report_info, SWT.ICON_INFORMATION);
         } catch (InvocationTargetException e) {
             if (executor.getInitializeError() != null) {
                 showError(executor.getInitializeError().getMessage());
@@ -159,7 +157,13 @@ public class CompareObjectsWizard extends Wizard implements IExportWizard {
                         fileName.append("-").append(CommonUtils.escapeIdentifier(node.getName()));
                     }
                     fileName.append("-report.html");
-                    reportFile = new File(settings.getOutputFolder(), fileName.toString());
+                    File parentFolder = new File(settings.getOutputFolder());
+                    if (!parentFolder.exists()) {
+                        if (!parentFolder.mkdirs()) {
+                            throw new IOException("Can't create directory '" + parentFolder.getAbsolutePath() + "'");
+                        }
+                    }
+                    reportFile = new File(parentFolder, fileName.toString());
                     break;
                 }
             }
@@ -171,7 +175,9 @@ public class CompareObjectsWizard extends Wizard implements IExportWizard {
                 reportRenderer.renderReport(monitor, report, getSettings(), outputStream);
                 monitor.done();
             }
-            UIUtils.launchProgram(reportFile.getAbsolutePath());
+            if (settings.getOutputType() == CompareObjectsSettings.OutputType.BROWSER) {
+                ShellUtils.launchProgram(reportFile.getAbsolutePath());
+            }
         } catch (IOException e) {
             showError(e.getMessage());
             log.error(e);

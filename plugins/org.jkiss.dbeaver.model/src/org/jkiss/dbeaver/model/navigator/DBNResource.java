@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,21 +57,24 @@ public class DBNResource extends DBNNode// implements IContributorResourceAdapte
     }
 
     @Override
+    public boolean isDisposed() {
+        return resource == null || super.isDisposed();
+    }
+
+    @Override
     protected void dispose(boolean reflect)
     {
-        if (this.handler != null) {
-            if (children != null) {
-                for (DBNNode child : children) {
-                    child.dispose(reflect);
-                }
-                children = null;
+        if (children != null) {
+            for (DBNNode child : children) {
+                child.dispose(reflect);
             }
-            if (reflect) {
-                getModel().fireNodeEvent(new DBNEvent(this, DBNEvent.Action.REMOVE, this));
-            }
-            this.resource = null;
-            this.handler = null;
+            children = null;
         }
+        if (reflect) {
+            getModel().fireNodeEvent(new DBNEvent(this, DBNEvent.Action.REMOVE, this));
+        }
+        this.resource = null;
+        this.handler = null;
         super.dispose(reflect);
     }
 
@@ -247,7 +250,12 @@ public class DBNResource extends DBNNode// implements IContributorResourceAdapte
             if (pathName.length() > 0) {
                 pathName.insert(0, '/');
             }
-            pathName.insert(0, ((DBNResource) node).getResource().getName());
+            IResource resource = ((DBNResource) node).getResource();
+            if (resource != null) {
+                pathName.insert(0, resource.getName());
+            } else{
+                pathName.insert(0, "?");
+            }
         }
         return NodePathType.resource.getPrefix() + pathName.toString();
     }
@@ -476,6 +484,10 @@ public class DBNResource extends DBNNode// implements IContributorResourceAdapte
         return resource == null ? null : DATE_FORMAT.format(resource.getLocation().toFile().lastModified());
     }
 
+    protected boolean isResourceExists() {
+        return resource != null && resource.exists();
+    }
+
     @Override
     public <T> T getAdapter(Class<T> adapter) {
         if (resource != null && adapter.isAssignableFrom(resource.getClass())) {
@@ -498,4 +510,5 @@ public class DBNResource extends DBNNode// implements IContributorResourceAdapte
     public String toString() {
         return resource == null ? super.toString() : resource.toString();
     }
+
 }

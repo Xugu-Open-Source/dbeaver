@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,9 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.IJobChangeEvent;
 import org.eclipse.core.runtime.jobs.JobChangeAdapter;
+import org.eclipse.jface.viewers.ISelection;
+import org.eclipse.jface.viewers.ISelectionProvider;
+import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
@@ -27,26 +30,32 @@ import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.*;
+import org.eclipse.ui.IWorkbenchPart;
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
+import org.jkiss.dbeaver.model.navigator.DBNNode;
 import org.jkiss.dbeaver.model.runtime.AbstractJob;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
+import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
-import org.jkiss.dbeaver.ui.UITask;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.CustomTableEditor;
 import org.jkiss.dbeaver.ui.controls.TableColumnSortListener;
 import org.jkiss.dbeaver.ui.editors.internal.EditorsMessages;
 import org.jkiss.dbeaver.utils.GeneralUtils;
+import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.CommonUtils;
 
-import java.util.*;
 import java.util.List;
+import java.util.*;
+import java.util.function.Predicate;
 
 /**
  * AttributesSelectorPage
@@ -107,6 +116,11 @@ public abstract class AttributesSelectorPage extends BaseObjectEditPage {
         this.entity = entity;
     }
 
+    protected AttributesSelectorPage() {
+        super(null);
+        this.entity = null;
+    }
+
     public Map<String, Object> getAttributeProperties(DBSEntityAttribute attr) {
         for (AttributeInfo attrInfo : attributes) {
             if (attrInfo.attribute == attr) {
@@ -139,7 +153,6 @@ public abstract class AttributesSelectorPage extends BaseObjectEditPage {
         createColumnsGroup(panel);
         createContentsAfterColumns(panel);
         fillAttributes(entity);
-
         return panel;
     }
 
@@ -242,20 +255,35 @@ public abstract class AttributesSelectorPage extends BaseObjectEditPage {
         //item.setText(index, control.getText());
     }
 
+    protected void setEntity(DBSEntity entity) {
+        this.entity = entity;
+        this.attributes.clear();
+        this.columnsTable.removeAll();
+        fillAttributes(entity);
+    }
+
     private void fillAttributes(final DBSEntity entity)
     {
+        if (entity == null) {
+            return;
+        }
         final List<DBSEntityAttribute> attrList = new ArrayList<>();
         AbstractJob loadJob = new AbstractJob("Load entity attributes") {
             @Override
             protected IStatus run(DBRProgressMonitor monitor) {
+                monitor.beginTask("Load attributes", 1);
                 try {
                     for (DBSEntityAttribute attr : CommonUtils.safeCollection(entity.getAttributes(monitor))) {
                         if (isShowHiddenAttributes() || !DBUtils.isHiddenObject(attr) || DBUtils.isRowIdAttribute(attr)) {
                             attrList.add(attr);
+                            // Preload node - required later to display its icon
+                            DBWorkbench.getPlatform().getNavigatorModel().getNodeByObject(monitor, attr, true);
                         }
                     }
                 } catch (DBException e) {
                     return GeneralUtils.makeErrorStatus("Error loading attributes", e);
+                } finally {
+                    monitor.done();
                 }
                 return Status.OK_STATUS;
             }
@@ -276,17 +304,63 @@ public abstract class AttributesSelectorPage extends BaseObjectEditPage {
                         }
                         fillAttributeColumns(attribute, col, columnItem);
                         columnItem.setData(col);
-                        if (isColumnSelected(attribute)) {
-                            columnItem.setChecked(true);
-                            handleItemSelect(columnItem, false);
-                        }
                     }
                     UIUtils.packColumns(columnsTable);
-                    updateToggleButton();
+                    updateColumnSelection();
+                    onAttributesLoad();
+                    preselectAttributes();
                 });
             }
         });
         loadJob.schedule();
+    }
+
+    private void preselectAttributes() {
+        IStructuredSelection selection = getCurrentSelection();
+        if (selection == null) {
+            return;
+        }
+
+        for (Object selItem: selection) {
+            DBNNode selNode = RuntimeUtils.getObjectAdapter(selItem, DBNNode.class);
+            if (!(selNode instanceof DBNDatabaseNode)) {
+                continue;
+            }
+            DBSObject dbsObject = ((DBNDatabaseNode) selNode).getObject();
+            TableItem[] tableColumns = columnsTable.getItems();
+            for (TableItem tableItem: tableColumns) {
+                Object data = tableItem.getData();
+                if (!(data instanceof AttributesSelectorPage.AttributeInfo)) {
+                    continue;
+                }
+                AttributesSelectorPage.AttributeInfo attributeInfo = (AttributesSelectorPage.AttributeInfo) data;
+                if (Objects.equals(dbsObject, attributeInfo.attribute)) {
+                    tableItem.setChecked(true);
+                    handleItemSelect(tableItem, true);
+                    break;
+                }
+            }
+        }
+    }
+
+    @Nullable
+    private static IStructuredSelection getCurrentSelection() {
+        IWorkbenchPart part = UIUtils.getActiveWorkbenchWindow().getActivePage().getActivePart();
+        if (part == null) { //fixme it's a copy from navigator utils
+            return null;
+        }
+        ISelectionProvider selectionProvider = part.getSite().getSelectionProvider();
+        if (selectionProvider == null) {
+            return null;
+        }
+        ISelection selection = selectionProvider.getSelection();
+        if (selection.isEmpty() || !(selection instanceof IStructuredSelection)) {
+            return null;
+        }
+        return (IStructuredSelection) selection;
+    }
+
+    protected void onAttributesLoad() {
     }
 
     protected boolean isShowHiddenAttributes() {
@@ -304,8 +378,7 @@ public abstract class AttributesSelectorPage extends BaseObjectEditPage {
         return tableGroup;
     }
 
-    private void handleItemSelect(TableItem item, boolean notify)
-    {
+    void handleItemSelect(TableItem item, boolean notify) {
         final AttributeInfo col = (AttributeInfo) item.getData();
         if (item.getChecked() && col.position < 0) {
             // Checked
@@ -361,7 +434,8 @@ public abstract class AttributesSelectorPage extends BaseObjectEditPage {
         }
     }
 
-    public Collection<DBSEntityAttribute> getSelectedAttributes()
+    @NotNull
+    public List<DBSEntityAttribute> getSelectedAttributes()
     {
         List<DBSEntityAttribute> tableColumns = new ArrayList<>();
         Set<AttributeInfo> orderedAttributes = new TreeSet<>(new Comparator<AttributeInfo>() {
@@ -389,6 +463,24 @@ public abstract class AttributesSelectorPage extends BaseObjectEditPage {
 
     }
 
+    public void updateColumnSelection(@NotNull Predicate<DBSEntityAttribute> predicate) {
+        for (TableItem item : columnsTable.getItems()) {
+            item.setChecked(false);
+            if (item.getData() instanceof AttributeInfo) {
+                DBSEntityAttribute attribute = ((AttributeInfo) item.getData()).getAttribute();
+                if (predicate.test(attribute)) {
+                    item.setChecked(true);
+                }
+            }
+            handleItemSelect(item, false);
+        }
+        updateToggleButton();
+    }
+
+    public void updateColumnSelection() {
+        updateColumnSelection(this::isColumnSelected);
+    }
+
     public boolean isColumnSelected(DBSEntityAttribute attribute)
     {
         return false;
@@ -408,5 +500,4 @@ public abstract class AttributesSelectorPage extends BaseObjectEditPage {
         }
         return false;
     }
-
 }

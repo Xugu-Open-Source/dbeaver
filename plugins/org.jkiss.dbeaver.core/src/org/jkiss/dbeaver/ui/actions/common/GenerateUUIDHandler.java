@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,12 +22,13 @@ import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.ITextViewer;
 import org.eclipse.jface.text.TextSelection;
 import org.eclipse.jface.viewers.ISelection;
-import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.dnd.Clipboard;
+import org.eclipse.swt.dnd.TextTransfer;
+import org.eclipse.swt.dnd.Transfer;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.handlers.HandlerUtil;
-import org.eclipse.ui.texteditor.AbstractTextEditor;
 import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
-import org.jkiss.dbeaver.model.data.DBDValueDefaultGenerator;
 import org.jkiss.dbeaver.model.data.DBDValueHandler;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.UIUtils;
@@ -36,7 +37,6 @@ import org.jkiss.dbeaver.ui.controls.resultset.IResultSetSelection;
 import org.jkiss.dbeaver.ui.controls.resultset.ResultSetRow;
 import org.jkiss.dbeaver.ui.controls.resultset.ResultSetValueController;
 import org.jkiss.dbeaver.ui.data.IValueController;
-import org.jkiss.dbeaver.ui.data.managers.BaseValueManager;
 import org.jkiss.dbeaver.ui.navigator.actions.NavigatorHandlerObjectBase;
 
 import java.util.UUID;
@@ -49,6 +49,7 @@ public class GenerateUUIDHandler extends NavigatorHandlerObjectBase {
         if (activePart == null) {
             return null;
         }
+        String uuid = generateUUID();
 
         IResultSetController rsc = activePart.getAdapter(IResultSetController.class);
         if (rsc != null && UIUtils.hasFocus(rsc.getControl())) {
@@ -65,7 +66,6 @@ public class GenerateUUIDHandler extends NavigatorHandlerObjectBase {
                             IValueController.EditType.NONE,
                             null);
                         DBDValueHandler valueHandler = valueController.getValueHandler();
-                        String uuid = generateUUID();
                         valueController.updateValue(uuid, false);
                     }
                 }
@@ -80,7 +80,6 @@ public class GenerateUUIDHandler extends NavigatorHandlerObjectBase {
                     try {
                         int offset = ((TextSelection) selection).getOffset();
                         int length = ((TextSelection) selection).getLength();
-                        String uuid = generateUUID();
                         textViewer.getDocument().replace(
                             offset,
                             length, uuid);
@@ -89,6 +88,17 @@ public class GenerateUUIDHandler extends NavigatorHandlerObjectBase {
                         DBWorkbench.getPlatformUI().showError("Insert UUID", "Error inserting UUID in text editor", e);
                     }
                 }
+            } else {
+                Clipboard clipboard = new Clipboard(Display.getCurrent());
+                try {
+                    TextTransfer textTransfer = TextTransfer.getInstance();
+                    clipboard.setContents(
+                        new Object[]{uuid},
+                        new Transfer[]{textTransfer});
+                } finally {
+                    clipboard.dispose();
+                }
+
             }
         }
 

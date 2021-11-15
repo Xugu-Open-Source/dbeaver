@@ -1,9 +1,27 @@
+/*
+ * DBeaver - Universal Database Manager
+ * Copyright (C) 2010-2021 DBeaver Corp and others
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.jkiss.dbeaver.model.connection;
 
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.DBPDataSourcePermission;
 import org.jkiss.dbeaver.model.DBPDataSourcePermissionOwner;
 import org.jkiss.dbeaver.model.messages.ModelMessages;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.ArrayList;
@@ -16,12 +34,51 @@ import java.util.List;
  */
 public class DBPConnectionType implements DBPDataSourcePermissionOwner {
 
-    public static final DBPConnectionType DEV = new DBPConnectionType("dev", ModelMessages.dbp_connection_type_table_development, "255,255,255", ModelMessages.dbp_connection_type_table_regular_development_database, true, false, false, true, null); //$NON-NLS-1$ //$NON-NLS-3$
-    public static final DBPConnectionType TEST = new DBPConnectionType("test", ModelMessages.dbp_connection_type_table_test, "196,255,181", ModelMessages.dbp_connection_type_table_test_database, true, false, true, true, null); //$NON-NLS-1$ //$NON-NLS-3$
-    public static final DBPConnectionType PROD = new DBPConnectionType("prod", ModelMessages.dbp_connection_type_table_production, "247,159,129", ModelMessages.dbp_connection_type_table_production_database, false, true, true, true, null); //$NON-NLS-1$ //$NON-NLS-3$
+    public static final DBPConnectionType DEV;
+    public static final DBPConnectionType TEST;
+    public static final DBPConnectionType PROD;
 
-    public static final DBPConnectionType[] SYSTEM_TYPES = {DEV, TEST, PROD};
-    public static final DBPConnectionType DEFAULT_TYPE = DEV;
+    public static final DBPConnectionType[] SYSTEM_TYPES;
+    public static final DBPConnectionType DEFAULT_TYPE;
+
+    static {
+        DEV = new DBPConnectionType(
+            "dev",
+            ModelMessages.dbp_connection_type_table_development,
+            "255,255,255",
+            ModelMessages.dbp_connection_type_table_regular_development_database,
+            true,
+            false,
+            false,
+            false,
+            true,
+            null); //$NON-NLS-1$ //$NON-NLS-3$
+        TEST = new DBPConnectionType(
+            "test",
+            ModelMessages.dbp_connection_type_table_test,
+            "org.jkiss.dbeaver.color.connectionType.qa.background",
+            ModelMessages.dbp_connection_type_table_test_database,
+            true,
+            false,
+            true,
+            false,
+            true,
+            null); //$NON-NLS-1$ //$NON-NLS-3$
+        PROD = new DBPConnectionType(
+            "prod",
+            ModelMessages.dbp_connection_type_table_production,
+            "org.jkiss.dbeaver.color.connectionType.prod.background",
+            ModelMessages.dbp_connection_type_table_production_database,
+            false,
+            true,
+            true,
+            true,
+            true,
+            null); //$NON-NLS-1$ //$NON-NLS-3$
+
+        SYSTEM_TYPES = new DBPConnectionType[] { DEV, TEST, PROD };
+        DEFAULT_TYPE = DEV;
+    }
 
     private String id;
     private String name;
@@ -30,6 +87,8 @@ public class DBPConnectionType implements DBPDataSourcePermissionOwner {
     private boolean autocommit;
     private boolean confirmExecute;
     private boolean confirmDataChange;
+    private boolean autoCloseTransactions;
+
     private final boolean predefined;
     private List<DBPDataSourcePermission> connectionModifyRestrictions;
 
@@ -42,6 +101,7 @@ public class DBPConnectionType implements DBPDataSourcePermissionOwner {
             source.autocommit,
             source.confirmExecute,
             source.confirmDataChange,
+            source.autoCloseTransactions,
             source.predefined,
             source.connectionModifyRestrictions);
     }
@@ -53,9 +113,10 @@ public class DBPConnectionType implements DBPDataSourcePermissionOwner {
         String description,
         boolean autocommit,
         boolean confirmExecute,
-        boolean confirmDataChange)
+        boolean confirmDataChange,
+        boolean autoCloseTransactions)
     {
-        this(id, name, color, description, autocommit, confirmExecute, confirmDataChange, false, null);
+        this(id, name, color, description, autocommit, confirmExecute, confirmDataChange, autoCloseTransactions, false, null);
     }
 
     private DBPConnectionType(
@@ -66,16 +127,18 @@ public class DBPConnectionType implements DBPDataSourcePermissionOwner {
         boolean autocommit,
         boolean confirmExecute,
         boolean confirmDataChange,
+        boolean autoCloseTransactions,
         boolean predefined,
         List<DBPDataSourcePermission> connectionModifyRestrictions)
     {
         this.id = id;
         this.name = name;
-        this.color = color;
+        this.color = getColorValueFixed(color);
         this.description = description;
         this.autocommit = autocommit;
         this.confirmExecute = confirmExecute;
         this.confirmDataChange = confirmDataChange;
+        this.autoCloseTransactions = autoCloseTransactions;
         this.predefined = predefined;
         if (connectionModifyRestrictions != null) {
             this.connectionModifyRestrictions = new ArrayList<>(connectionModifyRestrictions);
@@ -88,6 +151,10 @@ public class DBPConnectionType implements DBPDataSourcePermissionOwner {
 
     public String getId() {
         return id;
+    }
+
+    public String setId(String id) {
+        return this.id = id;
     }
 
     public String getName() {
@@ -103,7 +170,7 @@ public class DBPConnectionType implements DBPDataSourcePermissionOwner {
     }
 
     public void setColor(String color) {
-        this.color = color;
+        this.color = getColorValueFixed(color);
     }
 
     public String getDescription() {
@@ -138,6 +205,14 @@ public class DBPConnectionType implements DBPDataSourcePermissionOwner {
         this.confirmDataChange = confirmDataChange;
     }
 
+    public boolean isAutoCloseTransactions() {
+        return autoCloseTransactions;
+    }
+
+    public void setAutoCloseTransactions(boolean autoCloseTransactions) {
+        this.autoCloseTransactions = autoCloseTransactions;
+    }
+
     @Override
     public boolean hasModifyPermission(DBPDataSourcePermission permission) {
         return connectionModifyRestrictions == null || !connectionModifyRestrictions.contains(permission);
@@ -161,6 +236,17 @@ public class DBPConnectionType implements DBPDataSourcePermissionOwner {
         }
     }
 
+    private String getColorValueFixed(String color) {
+        // Backward compatibility.
+        // In old times we had hardcoded colors now we need to change them to color constants
+        if (PROD != null && this.id.equals(PROD.id) && color.equals("247,159,129")) {
+            return PROD.color;
+        } else if (TEST != null && this.id.equals(TEST.id) && color.equals("196,255,181")) {
+            return TEST.color;
+        }
+        return color;
+    }
+
     @Override
     public String toString() {
         return name;
@@ -177,6 +263,7 @@ public class DBPConnectionType implements DBPDataSourcePermissionOwner {
                 autocommit == ct.autocommit &&
                 confirmExecute == ct.confirmExecute &&
                 confirmDataChange == ct.confirmDataChange &&
+                autoCloseTransactions == ct.autoCloseTransactions &&
                 predefined == ct.predefined &&
                 CommonUtils.equalObjects(connectionModifyRestrictions, ct.connectionModifyRestrictions);
         }
@@ -187,4 +274,20 @@ public class DBPConnectionType implements DBPDataSourcePermissionOwner {
     public int hashCode() {
         return id.hashCode();
     }
+
+    private static final String DEFAULT_CONNECTION_TYPE_PREF = "default.connection.type";
+
+    public static DBPConnectionType getDefaultConnectionType() {
+        String defTypeName = ModelPreferences.getPreferences().getString(DEFAULT_CONNECTION_TYPE_PREF);
+        if (CommonUtils.isEmpty(defTypeName)) {
+            defTypeName = DEV.getName();
+        }
+
+        return DBWorkbench.getPlatform().getDataSourceProviderRegistry().getConnectionType(defTypeName, DEV);
+    }
+
+    public static void setDefaultConnectionType(DBPConnectionType connectionType) {
+        ModelPreferences.getPreferences().setValue(DEFAULT_CONNECTION_TYPE_PREF, connectionType.getId());
+    }
+
 }

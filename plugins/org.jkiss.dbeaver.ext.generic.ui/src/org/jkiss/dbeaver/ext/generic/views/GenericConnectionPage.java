@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,11 @@ package org.jkiss.dbeaver.ext.generic.views;
 
 import org.eclipse.jface.dialogs.IDialogPage;
 import org.eclipse.jface.dialogs.MessageDialog;
-import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.*;
@@ -40,7 +40,7 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.registry.DataSourceDescriptor;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
-import org.jkiss.dbeaver.ui.ICompositeDialogPage;
+import org.jkiss.dbeaver.ui.IDialogPageProvider;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.dialogs.connection.ConnectionPageWithAuth;
 import org.jkiss.dbeaver.ui.dialogs.connection.DriverPropertiesDialogPage;
@@ -54,7 +54,7 @@ import java.util.*;
 /**
  * GenericConnectionPage
  */
-public class GenericConnectionPage extends ConnectionPageWithAuth implements ICompositeDialogPage
+public class GenericConnectionPage extends ConnectionPageWithAuth implements IDialogPageProvider
 {
     private static final Log log = Log.getLog(GenericConnectionPage.class);
 
@@ -136,7 +136,7 @@ public class GenericConnectionPage extends ConnectionPageWithAuth implements ICo
 
             portText = new Text(settingsGroup, SWT.BORDER);
             gd = new GridData(GridData.CENTER);
-            gd.widthHint = 60;
+            gd.widthHint = UIUtils.getFontHeight(portText) * 7;
             portText.setLayoutData(gd);
             //portText.addVerifyListener(UIUtils.INTEGER_VERIFY_LISTENER);
             portText.addModifyListener(textListener);
@@ -265,12 +265,26 @@ public class GenericConnectionPage extends ConnectionPageWithAuth implements ICo
             addControlToGroup(GROUP_LOGIN, getAuthPanelComposite());
         }
 
+        createAdvancedSettingsGroup(addrGroup);
+
         createDriverPanel(addrGroup);
         setControl(addrGroup);
     }
 
+    public void createAdvancedSettingsGroup(Composite composite) {
+
+    }
+
+    public void setPortText(String text) {
+        portText.setText(text);
+        saveAndUpdate();
+    }
+
     @Override
     protected void updateDriverInfo(DBPDriver driver) {
+        if (!isCustom) {
+            site.getActiveDataSource().getConnectionConfiguration().setUrl(null);
+        }
         parseSampleURL(driver);
         saveAndUpdate();
     }
@@ -305,26 +319,27 @@ public class GenericConnectionPage extends ConnectionPageWithAuth implements ICo
     }
 
     @Override
+    public Image getImage() {
+        DBPDriver driver = getSite().getDriver();
+        DBPImage iconBig = driver.getIconBig();
+        if (iconBig != null) {
+            try {
+                Image image = DBeaverIcons.getImage(iconBig);
+                if (image.getImageData().width >= 64) {
+                    return image;
+                }
+            } catch (Exception e) {
+                log.error(e);
+            }
+        }
+
+        return super.getImage();
+    }
+
+    @Override
     public void loadSettings()
     {
         super.loadSettings();
-
-        {
-            DBPDriver driver = getSite().getDriver();
-            DBPImage iconBig = driver.getIconBig();
-            if (iconBig != null) {
-                try {
-                    ImageDescriptor imageDescriptor = DBeaverIcons.getImageDescriptor(iconBig);
-                    if (imageDescriptor.getImageData().width >= 64) {
-                        setImageDescriptor(imageDescriptor);
-                    } else {
-                        setImageDescriptor(null);
-                    }
-                } catch (Exception e) {
-                    log.error(e);
-                }
-            }
-        }
 
         // Load values from new connection info
         DBPConnectionConfiguration connectionInfo = site.getActiveDataSource().getConnectionConfiguration();
@@ -338,19 +353,25 @@ public class GenericConnectionPage extends ConnectionPageWithAuth implements ICo
                 }
             }
             if (portText != null) {
-                if (!CommonUtils.isEmpty(connectionInfo.getHostPort())) {
-                    portText.setText(String.valueOf(connectionInfo.getHostPort()));
-                } else if (site.getDriver().getDefaultPort() != null) {
-                    portText.setText(site.getDriver().getDefaultPort());
-                } else {
-                    portText.setText(""); //$NON-NLS-1$
+                if (site.isNew() && CommonUtils.isEmpty(connectionInfo.getHostPort())) {
+                    portText.setText(CommonUtils.notEmpty(site.getDriver().getDefaultPort()));
+                } else if (!CommonUtils.isEmpty(connectionInfo.getHostPort())) {
+                    portText.setText(connectionInfo.getHostPort());
                 }
             }
             if (serverText != null) {
-                serverText.setText(CommonUtils.notEmpty(connectionInfo.getServerName()));
+                if (site.isNew() && CommonUtils.isEmpty(connectionInfo.getServerName())) {
+                    serverText.setText(CommonUtils.notEmpty(site.getDriver().getDefaultServer()));
+                } else {
+                    serverText.setText(CommonUtils.notEmpty(connectionInfo.getServerName()));
+                }
             }
             if (dbText != null) {
-                dbText.setText(CommonUtils.notEmpty(connectionInfo.getDatabaseName()));
+                if (site.isNew() && CommonUtils.isEmpty(connectionInfo.getDatabaseName())) {
+                    dbText.setText(CommonUtils.notEmpty(site.getDriver().getDefaultDatabase()));
+                } else {
+                    dbText.setText(CommonUtils.notEmpty(connectionInfo.getDatabaseName()));
+                }
             }
             if (pathText != null) {
                 pathText.setText(CommonUtils.notEmpty(connectionInfo.getDatabaseName()));
@@ -462,8 +483,7 @@ public class GenericConnectionPage extends ConnectionPageWithAuth implements ICo
         showControlGroup(GROUP_LOGIN, !driver.isAnonymousAccess());
         updateCreateButton(driver);
 
-
-        settingsGroup.layout();
+        settingsGroup.getParent().layout();
     }
 
     private void updateCreateButton(DBPDriver driver) {
@@ -488,7 +508,7 @@ public class GenericConnectionPage extends ConnectionPageWithAuth implements ICo
 
         saveSettings(testDataSource);
         DBPConnectionConfiguration cfg = testDataSource.getConnectionConfiguration();
-        cfg.setUrl(cfg.getUrl() + paramCreate);
+        cfg.setDatabaseName(cfg.getDatabaseName() + paramCreate);
         String databaseName = cfg.getDatabaseName();
         testDataSource.setName(databaseName);
 
@@ -537,12 +557,14 @@ public class GenericConnectionPage extends ConnectionPageWithAuth implements ICo
         List<Control> controlList = propGroupMap.get(group);
         if (controlList != null) {
             for (Control control : controlList) {
-                GridData gd = (GridData)control.getLayoutData();
+                Object gd = control.getLayoutData();
                 if (gd == null) {
                     gd = new GridData(GridData.BEGINNING);
                     control.setLayoutData(gd);
                 }
-                gd.exclude = !show;
+                if (gd instanceof GridData) {
+                    ((GridData)gd).exclude = !show;
+                }
                 control.setVisible(show);
             }
         }
@@ -557,7 +579,7 @@ public class GenericConnectionPage extends ConnectionPageWithAuth implements ICo
     }
 
     @Override
-    public IDialogPage[] getSubPages(boolean extrasOnly, boolean forceCreate)
+    public IDialogPage[] getDialogPages(boolean extrasOnly, boolean forceCreate)
     {
         return new IDialogPage[] {
             new DriverPropertiesDialogPage(this)

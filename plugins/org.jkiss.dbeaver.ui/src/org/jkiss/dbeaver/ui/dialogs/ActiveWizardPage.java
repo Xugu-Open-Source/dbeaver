@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,15 +23,15 @@ import org.eclipse.jface.wizard.WizardPage;
 /**
  * ActiveWizardPage
  */
-public abstract class ActiveWizardPage<WIZARD extends IWizard> extends WizardPage
-{
+public abstract class ActiveWizardPage<WIZARD extends IWizard> extends WizardPage implements IWizardPageActive {
+
     protected ActiveWizardPage(String pageName) {
         super(pageName);
     }
 
     @Override
     public WIZARD getWizard() {
-        return (WIZARD)super.getWizard();
+        return (WIZARD) super.getWizard();
     }
 
     /**
@@ -46,25 +46,22 @@ public abstract class ActiveWizardPage<WIZARD extends IWizard> extends WizardPag
     }
 
     protected boolean determinePageCompletion() {
-        return false;
+        return true;
     }
 
     @Override
-    public void setVisible(boolean visible)
-    {
+    public void setVisible(boolean visible) {
         super.setVisible(visible);
         if (visible) {
             activatePage();
         }
-//        else {
-//            deactivatePage();
-//        }
     }
 
+    @Override
     public void activatePage() {
-
     }
 
+    @Override
     public void deactivatePage() {
 
     }

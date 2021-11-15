@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.CommonUtils;
 
+import java.lang.reflect.InvocationTargetException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
@@ -46,6 +47,8 @@ public class JDBCExecutionContext extends AbstractExecutionContext<JDBCDataSourc
     public static final String TYPE_MAIN = "Main";
     public static final String TYPE_METADATA = "Metadata";
 
+    protected static final String TASK_TITLE_SET_SCHEMA = "Set active schema"; //$NON-NLS-1$
+
     private static final Log log = Log.getLog(JDBCExecutionContext.class);
 
     // Time to wait for txn level/auto-commit detection
@@ -56,6 +59,7 @@ public class JDBCExecutionContext extends AbstractExecutionContext<JDBCDataSourc
     private volatile Connection connection;
     private volatile Boolean autoCommit;
     private volatile Integer transactionIsolationLevel;
+    private transient volatile boolean txnIsolationLevelReadInProgress;
 
     public JDBCExecutionContext(@NotNull JDBCRemoteInstance instance, String purpose) {
         super(instance.getDataSource(), purpose);
@@ -72,8 +76,12 @@ public class JDBCExecutionContext extends AbstractExecutionContext<JDBCDataSourc
     }
 
     @NotNull
-    private Connection getConnection() {
-        return connection;
+    private Connection getConnection() throws DBCException {
+        Connection dbCon = this.connection;
+        if (dbCon == null) {
+            throw new DBCException("Disconnected");
+        }
+        return dbCon;
     }
 
     public void connect(DBRProgressMonitor monitor) throws DBCException {
@@ -106,6 +114,15 @@ public class JDBCExecutionContext extends AbstractExecutionContext<JDBCDataSourc
                 txnLevel = dataSource.getContainer().getDefaultTransactionsIsolation();
             }
 
+            if (txnLevel != null) {
+                try {
+                    this.getConnection().setTransactionIsolation(txnLevel);
+                    this.transactionIsolationLevel = txnLevel;
+                } catch (Throwable e) {
+                    log.debug("Can't set transaction isolation level", e); //$NON-NLS-1$
+                }
+            }
+
             try {
                 connection.setAutoCommit(autoCommit);
                 this.autoCommit = autoCommit;
@@ -122,21 +139,24 @@ public class JDBCExecutionContext extends AbstractExecutionContext<JDBCDataSourc
                 }
             }
 
-            if (!this.autoCommit && txnLevel != null) {
-                try {
-                    this.connection.setTransactionIsolation(txnLevel);
-                    this.transactionIsolationLevel = txnLevel;
-                } catch (Throwable e) {
-                    log.debug("Can't set transaction isolation level", e); //$NON-NLS-1$
-                }
-            }
-
             try {
                 this.initContextBootstrap(monitor, autoCommit);
             } catch (DBCException e) {
                 log.warn("Error while running context bootstrap", e);
             }
 
+            if (addContext) {
+                // Add self to context list
+                currentInstance.addContext(this);
+            }
+        } finally {
+            DBExecUtils.finishContextInitiation(dataSource.getContainer());
+            currentInstance.getExclusiveLock().releaseExclusiveLock(exclusiveLock);
+        }
+
+        // Now initialize context state
+        // Do it outside of exclusive lock to avoid dead locks
+        {
             try {
                 // Init (or copy) context state
                 this.dataSource.initializeContextState(monitor, this, initFrom);
@@ -148,22 +168,16 @@ public class JDBCExecutionContext extends AbstractExecutionContext<JDBCDataSourc
                 // Commit transaction. We can perform init SQL which potentially may lock some resources
                 // Let's free them.
                 if (!this.autoCommit) {
-                    try (JDBCSession session = openSession(monitor, DBCExecutionPurpose.META, "End transaction")) {
+                    try (JDBCSession session = openSession(monitor, DBCExecutionPurpose.META, "Start transaction")) {
+                        session.enableLogging(false); // Disable logging to avoid smart commit recovery activation
                         session.commit();
                     }
                 }
             } catch (Throwable e) {
                 log.error("Error ending transaction after context initialize", e);
             }
-
-            if (addContext) {
-                // Add self to context list
-                currentInstance.addContext(this);
-            }
-        } finally {
-            DBExecUtils.finishContextInitiation(dataSource.getContainer());
-            currentInstance.getExclusiveLock().releaseExclusiveLock(exclusiveLock);
         }
+
     }
 
     protected void disconnect() {
@@ -171,7 +185,9 @@ public class JDBCExecutionContext extends AbstractExecutionContext<JDBCDataSourc
         // while UI may invoke callbacks to operate with connection
         synchronized (this) {
             if (this.connection != null) {
-                this.dataSource.closeConnection(connection, purpose);
+                if (!this.dataSource.closeConnection(connection, purpose, true)) {
+                    log.debug("Connection close timeout");
+                }
             }
             this.connection = null;
         }
@@ -223,21 +239,15 @@ public class JDBCExecutionContext extends AbstractExecutionContext<JDBCDataSourc
             return InvalidateResult.CONNECTED;
         }
 
-        // Do not test - just reopen the tunnel. Otherwise it may take too much time.
-        boolean checkOk = false;//JDBCUtils.isConnectionAlive(getDataSource(), getConnection());
-        closeOnFailure = true;
+        Boolean prevAutocommit = autoCommit;
+        Integer txnLevel = transactionIsolationLevel;
+        closeContext(false);
+        // Try to connect again.
+        // If connect will fail then context will remain in the list but with null connection.
+        // On next invalidate it will try to reopen
+        connect(monitor, prevAutocommit, txnLevel, this, false);
 
-        if (!checkOk) {
-            Boolean prevAutocommit = autoCommit;
-            Integer txnLevel = transactionIsolationLevel;
-            if (closeOnFailure) {
-                closeContext(false);
-            }
-            connect(monitor, prevAutocommit, txnLevel, this, false);
-
-            return InvalidateResult.RECONNECTED;
-        }
-        return InvalidateResult.ALIVE;
+        return InvalidateResult.RECONNECTED;
     }
 
     @Override
@@ -246,12 +256,14 @@ public class JDBCExecutionContext extends AbstractExecutionContext<JDBCDataSourc
     }
 
     private void closeContext(boolean removeContext) {
-        disconnect();
-
+        // We remove context before it is actually closed.
+        // Because disconnect may (potentially) hang in socket forever
         if (removeContext) {
             // Remove self from context list
             this.instance.removeContext(this);
         }
+
+        disconnect();
     }
 
     //////////////////////////////////////////////////////////////
@@ -262,15 +274,32 @@ public class JDBCExecutionContext extends AbstractExecutionContext<JDBCDataSourc
     public DBPTransactionIsolation getTransactionIsolation()
         throws DBCException {
         if (transactionIsolationLevel == null) {
-            if (!RuntimeUtils.runTask(monitor -> {
+            if (!txnIsolationLevelReadInProgress) {
+                txnIsolationLevelReadInProgress = true;
                 try {
-                    transactionIsolationLevel = getConnection().getTransactionIsolation();
-                } catch (Throwable e) {
-                    transactionIsolationLevel = Connection.TRANSACTION_NONE;
-                    log.error("Error getting transaction isolation level", e);
+                    if (!RuntimeUtils.runTask(monitor -> {
+                        try {
+                            DBExecUtils.tryExecuteRecover(monitor, getDataSource(), monitor1 -> {
+                                try {
+                                    transactionIsolationLevel = getConnection().getTransactionIsolation();
+                                } catch (Throwable e) {
+                                    transactionIsolationLevel = Connection.TRANSACTION_NONE;
+                                    log.error("Error getting transaction isolation level", e);
+                                }
+                            });
+                        } catch (DBException e) {
+                            throw new InvocationTargetException(e);
+                        }
+                    }, "Get transaction isolation level", TXN_INFO_READ_TIMEOUT, true)) {
+                        throw new DBCException("Can't determine transaction isolation - timeout");
+                    }
+                } finally {
+                    txnIsolationLevelReadInProgress = false;
                 }
-            }, "Get transaction isolation level", TXN_INFO_READ_TIMEOUT)) {
-                throw new DBCException("Can't determine transaction isolation - timeout");
+            }
+            if (transactionIsolationLevel == null) {
+                transactionIsolationLevel = Connection.TRANSACTION_NONE;
+                log.error("Cannot determine transaction isolation level due to connection hanging. Setting to NONE.");
             }
         }
         return JDBCTransactionIsolation.getByCode(transactionIsolationLevel);
@@ -302,12 +331,22 @@ public class JDBCExecutionContext extends AbstractExecutionContext<JDBCDataSourc
             // Run in task with timeout
             if (!RuntimeUtils.runTask(monitor -> {
                 try {
-                    autoCommit = getConnection().getAutoCommit();
-                } catch (Exception e) {
-                    log.error("Error getting auto commit state", e);
+                    DBExecUtils.tryExecuteRecover(monitor, getDataSource(), monitor1 -> {
+                        try {
+                            autoCommit = getConnection().getAutoCommit();
+                        } catch (Exception e) {
+                            log.error("Error getting auto commit state", e);
+                        }
+                    });
+                } catch (DBException e) {
+                    throw new InvocationTargetException(e);
                 }
             }, "Get auto commit state", TXN_INFO_READ_TIMEOUT)) {
                 throw new DBCException("Can't determine auto-commit state - timeout");
+            }
+            if (autoCommit == null) {
+                log.error("Cannot determine autocommit state due to connection hanging. Setting to manual commit mode.");
+                autoCommit = false;
             }
         }
         return autoCommit;
@@ -318,8 +357,9 @@ public class JDBCExecutionContext extends AbstractExecutionContext<JDBCDataSourc
         throws DBCException {
         monitor.subTask("Set JDBC connection auto-commit " + autoCommit);
         try {
-            connection.setAutoCommit(autoCommit);
-            this.autoCommit = connection.getAutoCommit();
+            Connection dbCon = getConnection();
+            dbCon.setAutoCommit(autoCommit);
+            this.autoCommit = dbCon.getAutoCommit();
         } catch (SQLException e) {
             throw new JDBCException(e, this);
         } finally {
@@ -332,10 +372,11 @@ public class JDBCExecutionContext extends AbstractExecutionContext<JDBCDataSourc
         throws DBCException {
         Savepoint savepoint;
         try {
+            Connection dbCon = getConnection();
             if (name == null) {
-                savepoint = getConnection().setSavepoint();
+                savepoint = dbCon.setSavepoint();
             } else {
-                savepoint = getConnection().setSavepoint(name);
+                savepoint = dbCon.setSavepoint(name);
             }
         } catch (SQLException e) {
             throw new DBCException(e, this);
@@ -352,10 +393,11 @@ public class JDBCExecutionContext extends AbstractExecutionContext<JDBCDataSourc
     public void releaseSavepoint(@NotNull DBRProgressMonitor monitor, @NotNull DBCSavepoint savepoint)
         throws DBCException {
         try {
+            Connection dbCon = getConnection();
             if (savepoint instanceof JDBCSavepointImpl) {
-                getConnection().releaseSavepoint(((JDBCSavepointImpl) savepoint).getOriginal());
+                dbCon.releaseSavepoint(((JDBCSavepointImpl) savepoint).getOriginal());
             } else if (savepoint instanceof Savepoint) {
-                getConnection().releaseSavepoint((Savepoint) savepoint);
+                dbCon.releaseSavepoint((Savepoint) savepoint);
             } else {
                 throw new SQLFeatureNotSupportedException(ModelMessages.model_jdbc_exception_bad_savepoint_object);
             }
@@ -382,16 +424,17 @@ public class JDBCExecutionContext extends AbstractExecutionContext<JDBCDataSourc
     public void rollback(@NotNull DBCSession session, DBCSavepoint savepoint)
         throws DBCException {
         try {
+            Connection dbCon = getConnection();
             if (savepoint != null) {
                 if (savepoint instanceof JDBCSavepointImpl) {
-                    getConnection().rollback(((JDBCSavepointImpl) savepoint).getOriginal());
+                    dbCon.rollback(((JDBCSavepointImpl) savepoint).getOriginal());
                 } else if (savepoint instanceof Savepoint) {
-                    getConnection().rollback((Savepoint) savepoint);
+                    dbCon.rollback((Savepoint) savepoint);
                 } else {
                     throw new SQLFeatureNotSupportedException(ModelMessages.model_jdbc_exception_bad_savepoint_object);
                 }
             } else {
-                getConnection().rollback();
+                dbCon.rollback();
             }
         } catch (SQLException e) {
             throw new JDBCException(e, this);

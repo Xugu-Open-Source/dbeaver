@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.wizard.IWizardPage;
 import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
-import org.eclipse.ui.IExportWizard;
 import org.eclipse.ui.IWorkbench;
 import org.jkiss.dbeaver.ext.postgresql.PostgreMessages;
 import org.jkiss.dbeaver.ext.postgresql.tasks.PostgreDatabaseBackupInfo;
@@ -30,13 +29,15 @@ import org.jkiss.dbeaver.model.runtime.DBRRunnableContext;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.task.DBTTask;
 import org.jkiss.dbeaver.registry.task.TaskPreferenceStore;
+import org.jkiss.dbeaver.tasks.ui.nativetool.AbstractNativeExportWizard;
+import org.jkiss.dbeaver.ui.ShellUtils;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.Collection;
 import java.util.Map;
 
-class PostgreBackupWizard extends PostgreBackupRestoreWizard<PostgreDatabaseBackupSettings, PostgreDatabaseBackupInfo> implements IExportWizard {
+class PostgreBackupWizard extends AbstractNativeExportWizard<PostgreDatabaseBackupSettings, PostgreDatabaseBackupInfo> {
 
     private PostgreBackupWizardPageObjects objectsPage;
     private PostgreBackupWizardPageSettings settingsPage;
@@ -101,12 +102,11 @@ class PostgreBackupWizard extends PostgreBackupRestoreWizard<PostgreDatabaseBack
             PostgreMessages.wizard_backup_msgbox_success_title,
             NLS.bind(PostgreMessages.wizard_backup_msgbox_success_description, CommonUtils.truncateString(getObjectsName(), 255)),
             SWT.ICON_INFORMATION);
-        UIUtils.launchProgram(getSettings().getOutputFolder().getAbsolutePath());
+        ShellUtils.launchProgram(getSettings().getOutputFolder().getAbsolutePath());
 	}
 
     @Override
     protected PostgreDatabaseBackupSettings createSettings() {
         return new PostgreDatabaseBackupSettings();
     }
-
 }

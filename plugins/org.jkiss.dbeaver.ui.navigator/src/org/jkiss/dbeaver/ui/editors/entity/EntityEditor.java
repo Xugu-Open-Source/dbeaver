@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,9 @@ import org.eclipse.jface.viewers.ISelectionProvider;
 import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.events.*;
+import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.FillLayout;
@@ -40,6 +42,7 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.edit.DBECommand;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
+import org.jkiss.dbeaver.model.edit.DBEObjectManager;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
@@ -51,12 +54,14 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.ProxyProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
-import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
+import org.jkiss.dbeaver.model.struct.rdb.DBSTable;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.ui.UIServiceSQL;
 import org.jkiss.dbeaver.ui.*;
+import org.jkiss.dbeaver.ui.actions.datasource.DataSourceToolbarUtils;
+import org.jkiss.dbeaver.ui.controls.CustomFormEditor;
 import org.jkiss.dbeaver.ui.controls.ProgressPageControl;
 import org.jkiss.dbeaver.ui.controls.PropertyPageStandard;
 import org.jkiss.dbeaver.ui.controls.folders.ITabbedFolder;
@@ -64,6 +69,7 @@ import org.jkiss.dbeaver.ui.controls.folders.ITabbedFolderContainer;
 import org.jkiss.dbeaver.ui.controls.folders.ITabbedFolderListener;
 import org.jkiss.dbeaver.ui.dialogs.ConfirmationDialog;
 import org.jkiss.dbeaver.ui.editors.*;
+import org.jkiss.dbeaver.ui.editors.entity.properties.ObjectPropertiesEditor;
 import org.jkiss.dbeaver.ui.internal.UINavigatorMessages;
 import org.jkiss.dbeaver.ui.navigator.NavigatorPreferences;
 import org.jkiss.dbeaver.ui.navigator.NavigatorUtils;
@@ -80,7 +86,7 @@ import java.util.*;
  * EntityEditor
  */
 public class EntityEditor extends MultiPageDatabaseEditor
-    implements IPropertyChangeReflector, IProgressControlProvider, ISaveablePart2, ITabbedFolderContainer, IDataSourceContainerProvider, IEntityEditorContext
+    implements IPropertyChangeReflector, IProgressControlProvider, ISaveablePart2, IRevertableEditor, ITabbedFolderContainer, IDataSourceContainerProvider, IEntityEditorContext
 {
     public static final String ID = "org.jkiss.dbeaver.ui.editors.entity.EntityEditor"; //$NON-NLS-1$
 
@@ -310,8 +316,22 @@ public class EntityEditor extends MultiPageDatabaseEditor
         }
     }
 
-    private boolean saveCommandContext(final DBRProgressMonitor monitor, Map<String, Object> options)
-    {
+    @Override
+    public void doRevertToSaved() {
+        for (IEditorPart editor : editorMap.values()) {
+            if (editor instanceof IRevertableEditor) {
+                ((IRevertableEditor) editor).doRevertToSaved();
+            }
+        }
+
+        // Revert command context
+        DBECommandContext commandContext = getCommandContext();
+        if (commandContext != null) {
+            commandContext.resetChanges(true);
+        }
+    }
+
+    private boolean saveCommandContext(final DBRProgressMonitor monitor, Map<String, Object> options) {
         monitor.beginTask("Save entity", 1);
         Throwable error = null;
         final DBECommandContext commandContext = getCommandContext();
@@ -359,21 +379,18 @@ public class EntityEditor extends MultiPageDatabaseEditor
             // It'll refresh database object and all it's descendants
             // So we'll get actual data from database
             final DBNDatabaseNode treeNode = getEditorInput().getNavigatorNode();
-            try {
-                boolean doRefresh = isNewObject;
-                UIUtils.runInProgressService(monitor1 -> {
+            boolean doRefresh = isNewObject;
+            new AbstractJob("Database node refresh") { //$NON-NLS-1$
+                @Override
+                protected IStatus run(DBRProgressMonitor monitor) {
                     try {
-                        treeNode.refreshNode(monitor1,
-                            doRefresh ? DBNEvent.FORCE_REFRESH : DBNEvent.UPDATE_ON_SAVE);
+                        treeNode.refreshNode(monitor, doRefresh ? DBNEvent.FORCE_REFRESH : DBNEvent.UPDATE_ON_SAVE);
                     } catch (DBException e) {
-                        throw new InvocationTargetException(e);
+                        return GeneralUtils.makeExceptionStatus(e);
                     }
-                });
-            } catch (InvocationTargetException e) {
-                error = e.getTargetException();
-            } catch (InterruptedException e) {
-                // ok
-            }
+                    return Status.OK_STATUS;
+                }
+            }.schedule();
         }
         monitor.done();
 
@@ -413,7 +430,7 @@ public class EntityEditor extends MultiPageDatabaseEditor
             if (commandContext != null) {
                 commandContext.resetChanges(true);
             }
-            refreshPart(this, false);
+            refreshPart(this, true, false);
             firePropertyChange(IEditorPart.PROP_DIRTY);
         }
     }
@@ -529,8 +546,10 @@ public class EntityEditor extends MultiPageDatabaseEditor
             try {
                 addPage(new ProgressEditorPart(this), editorInput);
                 setPageText(0, "Initializing ...");
-                setPageImage(0, DBeaverIcons.getImage(UIIcon.REFRESH));
+                Image tabImage = DBeaverIcons.getImage(UIIcon.REFRESH);
+                setPageImage(0, tabImage);
                 setActivePage(0);
+                ((CTabFolder)getContainer()).setTabHeight(tabImage.getBounds().height + 2);
             } catch (PartInitException e) {
                 log.error(e);
             }
@@ -640,7 +659,11 @@ public class EntityEditor extends MultiPageDatabaseEditor
 
     @Override
     protected void pageChange(int newPageIndex) {
-        super.pageChange(newPageIndex);
+        try {
+            super.pageChange(newPageIndex);
+        } catch (Throwable e) {
+            log.error(e);
+        }
 
         activeEditor = getEditor(newPageIndex);
 
@@ -850,13 +873,19 @@ public class EntityEditor extends MultiPageDatabaseEditor
     }
 
     @Override
-    public void refreshPart(final Object source, boolean force)
-    {
-        if (getContainer() == null || getContainer().isDisposed() || isSaveInProgress()) {
-            return;
+    public RefreshResult refreshPart(final Object source, boolean force) {
+        return refreshPart(source, force, true);
+    }
+
+    private RefreshResult refreshPart(final Object source, boolean force, boolean showConfirmation) {
+        if (getContainer() == null || getContainer().isDisposed() || saveInProgress) {
+            return RefreshResult.IGNORED;
         }
 
-        if (force && isDirty()) {
+        DBSObject databaseObject = getEditorInput().getDatabaseObject();
+        boolean isPersistedObject = databaseObject != null && databaseObject.isPersisted();
+
+        if (force && isPersistedObject && isDirty() && showConfirmation) {
             if (ConfirmationDialog.showConfirmDialog(
                 ResourceBundle.getBundle(UINavigatorMessages.BUNDLE_NAME),
                 null,
@@ -864,31 +893,50 @@ public class EntityEditor extends MultiPageDatabaseEditor
                 ConfirmationDialog.QUESTION,
                 getTitle()) != IDialogConstants.YES_ID)
             {
-                return;
+                return RefreshResult.CANCELED;
             }
         }
 
-        if (source instanceof DBNEvent && ((DBNEvent) source).getNodeChange() == DBNEvent.NodeChange.REFRESH) {
-            // This may happen if editor was refreshed indirectly (it is a child of refreshed node)
-            //force = true;
-        }
-
-        if (force && getDatabaseObject().isPersisted()) {
-            // Lists and commands should be refreshed only if we make real refresh from remote storage
-            // Otherwise just update object's properties
-            DBECommandContext commandContext = getCommandContext();
-            if (commandContext != null) {
-                // Just clear command context. Do not undo because object state was already refreshed
-                commandContext.resetChanges(true);
+        boolean isRename = false;
+        if (source instanceof DBNEvent) {
+            if (((DBNEvent) source).getNodeChange() == DBNEvent.NodeChange.REFRESH) {
+                // This may happen if editor was refreshed indirectly (it is a child of refreshed node)
+                //force = true;
+            }
+            Object source2 = ((DBNEvent) source).getSource();
+            if (source2 instanceof DBPEvent) {
+                if (((DBPEvent) source2).getData() == DBPEvent.RENAME) {
+                    Map<String, Object> options = ((DBPEvent) source2).getOptions();
+                    Object uiSource = options.get(DBEObjectManager.OPTION_UI_SOURCE);
+                    if (uiSource != null && !(uiSource instanceof CustomFormEditor)) {
+                        isRename = true;
+                    }
+                }
             }
         }
 
-        DBSObject databaseObject = getEditorInput().getDatabaseObject();
+        if (force) {
+            if (isPersistedObject) {
+                // Lists and commands should be refreshed only if we make real refresh from remote storage
+                // Otherwise just update object's properties
+                DBECommandContext commandContext = getCommandContext();
+                if (commandContext != null && commandContext.isDirty()) {
+                    // Just clear command context. Do not undo because object state was already refreshed
+                    commandContext.resetChanges(true);
+                }
+            }
+        }
+
         if (databaseObject != null) {
             // Refresh visual content in parts
             for (IEditorPart editor : editorMap.values()) {
                 if (editor instanceof IRefreshablePart) {
-                    ((IRefreshablePart)editor).refreshPart(source, force);
+                    // If it is a rename event then force refresh
+                    boolean refreshNestedPart = force;
+                    if (!refreshNestedPart && editor instanceof ObjectPropertiesEditor && isRename) {
+                        refreshNestedPart = true;
+                    }
+                    ((IRefreshablePart)editor).refreshPart(source, refreshNestedPart);
                 }
             }
         }
@@ -900,6 +948,10 @@ public class EntityEditor extends MultiPageDatabaseEditor
             // Update main editor image
             setPageImage(0, DBeaverIcons.getImage(getEditorInput().getNavigatorNode().getNodeIconDefault()));
         }
+
+        firePropertyChange(IWorkbenchPartConstants.PROP_DIRTY);
+
+        return RefreshResult.REFRESHED;
     }
 
     @Override
@@ -1018,6 +1070,7 @@ public class EntityEditor extends MultiPageDatabaseEditor
     public void recreateEditorControl() {
         recreatePages();
         firePropertyChange(PROP_OBJECT_INIT);
+        DataSourceToolbarUtils.refreshSelectorToolbar(getSite().getWorkbenchWindow());
     }
 
     private static final int MAX_BREADCRUMBS_MENU_ITEM = 300;
@@ -1182,8 +1235,8 @@ public class EntityEditor extends MultiPageDatabaseEditor
     @Override
     public boolean isEntityContainer(DBSObjectContainer object) {
         try {
-            Class<? extends DBSObject> childType = object.getChildType(new VoidProgressMonitor());
-            return childType != null && DBSEntity.class.isAssignableFrom(childType);
+            Class<? extends DBSObject> childType = object.getPrimaryChildType(null);
+            return childType != null && DBSTable.class.isAssignableFrom(childType);
         } catch (DBException e) {
             log.error(e);
             return false;
@@ -1192,7 +1245,13 @@ public class EntityEditor extends MultiPageDatabaseEditor
 
     @Override
     public boolean isRelationalObject(DBSObject object) {
-        return true;
+        DBPDataSource dataSource = object.getDataSource();
+        return dataSource != null && dataSource.getInfo().supportsReferentialIntegrity();
     }
 
+    @Override
+    public String toString() {
+        DBSObject databaseObject = getDatabaseObject();
+        return databaseObject == null ? super.toString() : DBUtils.getObjectFullName(databaseObject, DBPEvaluationContext.UI);
+    }
 }

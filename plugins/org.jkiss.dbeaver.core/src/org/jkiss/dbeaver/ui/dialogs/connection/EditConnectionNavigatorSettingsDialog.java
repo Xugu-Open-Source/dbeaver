@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,28 +16,40 @@
  */
 package org.jkiss.dbeaver.ui.dialogs.connection;
 
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Shell;
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.core.CoreMessages;
+import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.navigator.DBNBrowseSettings;
 import org.jkiss.dbeaver.registry.DataSourceNavigatorSettings;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.dialogs.BaseDialog;
 
 public class EditConnectionNavigatorSettingsDialog extends BaseDialog {
-    private DataSourceNavigatorSettings navigatorSettings;
+    private final DataSourceNavigatorSettings navigatorSettings;
+    @Nullable
+    private final DBPDataSourceContainer dataSourceDescriptor;
 
     private Button showSystemObjects;
     private Button showUtilityObjects;
     private Button showOnlyEntities;
+    private Button mergeEntities;
     private Button hideFolders;
 
-    public EditConnectionNavigatorSettingsDialog(Shell shell, DBNBrowseSettings navigatorSettings) {
+    public EditConnectionNavigatorSettingsDialog(
+        @NotNull Shell shell,
+        @NotNull DBNBrowseSettings navigatorSettings,
+        @Nullable DBPDataSourceContainer dataSourceDescriptor) {
         super(shell, CoreMessages.dialog_connection_wizard_final_group_navigator, null);
         this.navigatorSettings = new DataSourceNavigatorSettings(navigatorSettings);
+        this.dataSourceDescriptor = dataSourceDescriptor;
     }
 
     @Override
@@ -49,7 +61,7 @@ public class EditConnectionNavigatorSettingsDialog extends BaseDialog {
                 composite,
                 CoreMessages.pref_page_ui_general_group_general,
                 1, GridData.VERTICAL_ALIGN_BEGINNING, 0);
-            miscGroup.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING));
+            miscGroup.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING | GridData.FILL_HORIZONTAL));
 
             showSystemObjects = UIUtils.createCheckbox(
                 miscGroup,
@@ -72,12 +84,52 @@ public class EditConnectionNavigatorSettingsDialog extends BaseDialog {
                 navigatorSettings.isShowOnlyEntities(),
                 1);
 
+            mergeEntities = UIUtils.createCheckbox(
+                miscGroup,
+                CoreMessages.dialog_connection_wizard_final_checkbox_merge_entities,
+                CoreMessages.dialog_connection_wizard_final_checkbox_merge_entities_tip,
+                navigatorSettings.isMergeEntities(),
+                1);
+
+
+            boolean mergeEntitiesEnabled;
+            if (dataSourceDescriptor != null) {
+                mergeEntitiesEnabled = dataSourceDescriptor.getDriver().getProviderDescriptor().getTreeDescriptor().supportsEntityMerge();
+                mergeEntities.setEnabled(mergeEntitiesEnabled);
+            } else {
+                mergeEntitiesEnabled = false;
+            }
+
+            mergeEntities.addSelectionListener(new SelectionAdapter() {
+                @Override
+                public void widgetSelected(SelectionEvent e) {
+                    if (hideFolders != null) {
+                        if (mergeEntities.getSelection()) {
+                            hideFolders.setEnabled(false);
+                        } else if (!hideFolders.getEnabled()) {
+                            hideFolders.setEnabled(true);
+                        }
+                    }
+                }
+            });
+
             hideFolders = UIUtils.createCheckbox(
                 miscGroup,
                 CoreMessages.dialog_connection_wizard_final_checkbox_hide_folders,
                 CoreMessages.dialog_connection_wizard_final_checkbox_hide_folders_tip,
                 navigatorSettings.isHideFolders(),
                 1);
+
+            hideFolders.addSelectionListener(new SelectionAdapter() {
+                @Override
+                public void widgetSelected(SelectionEvent e) {
+                    if (hideFolders.getSelection()) {
+                        mergeEntities.setEnabled(false);
+                    } else if (mergeEntitiesEnabled) {
+                        mergeEntities.setEnabled(true);
+                    }
+                }
+            });
         }
 
         return composite;
@@ -88,6 +140,7 @@ public class EditConnectionNavigatorSettingsDialog extends BaseDialog {
         navigatorSettings.setShowSystemObjects(showSystemObjects.getSelection());
         navigatorSettings.setShowUtilityObjects(showUtilityObjects.getSelection());
         navigatorSettings.setShowOnlyEntities(showOnlyEntities.getSelection());
+        navigatorSettings.setMergeEntities(mergeEntities.getSelection());
         navigatorSettings.setHideFolders(hideFolders.getSelection());
         super.okPressed();
     }

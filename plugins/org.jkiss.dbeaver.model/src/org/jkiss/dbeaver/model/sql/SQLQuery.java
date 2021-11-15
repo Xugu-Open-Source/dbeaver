@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 
 package org.jkiss.dbeaver.model.sql;
 
+import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Database;
 import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.Statement;
@@ -27,6 +28,7 @@ import net.sf.jsqlparser.statement.create.view.CreateView;
 import net.sf.jsqlparser.statement.delete.Delete;
 import net.sf.jsqlparser.statement.drop.Drop;
 import net.sf.jsqlparser.statement.insert.Insert;
+import net.sf.jsqlparser.statement.merge.Merge;
 import net.sf.jsqlparser.statement.select.*;
 import net.sf.jsqlparser.statement.update.Update;
 import org.jkiss.code.NotNull;
@@ -50,7 +52,7 @@ import java.util.regex.Pattern;
  */
 public class SQLQuery implements SQLScriptElement {
 
-    private static final Pattern QUERY_TITLE_PATTERN = Pattern.compile("(?:--|/\\*)\\s*(?:NAME|TITLE)\\s*:\\s*(.+)\\s*", Pattern.CASE_INSENSITIVE);
+    private static final Pattern QUERY_TITLE_PATTERN = Pattern.compile("^\\s*(?:--|//|/\\*)\\s*(?:name|title)\\s*:\\s*(.+)$", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE);
 
     @Nullable
     private final DBPDataSource dataSource;
@@ -107,7 +109,7 @@ public class SQLQuery implements SQLScriptElement {
         queryTitle = null;
         final Matcher matcher = QUERY_TITLE_PATTERN.matcher(text);
         if (matcher.find()) {
-            queryTitle = matcher.group(1);
+            queryTitle = matcher.group(1).trim();
         }
     }
 
@@ -133,20 +135,30 @@ public class SQLQuery implements SQLScriptElement {
                 SelectBody selectBody = ((Select) statement).getSelectBody();
                 if (selectBody instanceof PlainSelect) {
                     PlainSelect plainSelect = (PlainSelect) selectBody;
-                    if (plainSelect.getFromItem() instanceof Table &&
-                        CommonUtils.isEmpty(plainSelect.getJoins()) &&
-                        (plainSelect.getGroupBy() == null || CommonUtils.isEmpty(plainSelect.getGroupBy().getGroupByExpressions())) &&
-                        CommonUtils.isEmpty(plainSelect.getIntoTables()))
+                    FromItem fromItem = plainSelect.getFromItem();
+
+                    if (fromItem instanceof SubSelect &&
+                        isPotentiallySingleSourceSelect(plainSelect) &&
+                        ((SubSelect) fromItem).getSelectBody() instanceof PlainSelect &&
+                        isPotentiallySingleSourceSelect((PlainSelect) ((SubSelect) fromItem).getSelectBody()))
                     {
-                        boolean hasSubSelects = false;
+                        // Real select is in sub-select
+                        plainSelect = (PlainSelect) ((SubSelect) fromItem).getSelectBody();
+                        fromItem = plainSelect.getFromItem();
+                    }
+                    if (fromItem instanceof Table &&
+                        isPotentiallySingleSourceSelect(plainSelect))
+                    {
+                        boolean hasSubSelects = false, hasDirectSelects = false;
                         for (SelectItem si : plainSelect.getSelectItems()) {
                             if (si instanceof SelectExpressionItem && ((SelectExpressionItem) si).getExpression() instanceof SubSelect) {
                                 hasSubSelects = true;
-                                break;
+                            } else if (si instanceof SelectExpressionItem && ((SelectExpressionItem) si).getExpression() instanceof Column) {
+                                hasDirectSelects = true;
                             }
                         }
-                        if (!hasSubSelects) {
-                            fillSingleSource((Table) plainSelect.getFromItem());
+                        if (hasDirectSelects || !hasSubSelects) {
+                            fillSingleSource((Table) fromItem);
                         }
                     }
                     // Extract select items info
@@ -154,7 +166,7 @@ public class SQLQuery implements SQLScriptElement {
                     if (items != null && !items.isEmpty()) {
                         selectItems = new ArrayList<>();
                         for (SelectItem item : items) {
-                            selectItems.add(new SQLSelectItem(item));
+                            selectItems.add(new SQLSelectItem(this, item));
                         }
                     }
                 }
@@ -183,6 +195,8 @@ public class SQLQuery implements SQLScriptElement {
                 statement instanceof Drop ||
                 statement instanceof CreateIndex) {
                 type = SQLQueryType.DDL;
+            } else if (statement instanceof Merge) {
+                type = SQLQueryType.MERGE;
             } else {
                 type = SQLQueryType.UNKNOWN;
             }
@@ -193,12 +207,22 @@ public class SQLQuery implements SQLScriptElement {
         }
     }
 
+    private boolean isPotentiallySingleSourceSelect(PlainSelect plainSelect) {
+        return CommonUtils.isEmpty(plainSelect.getJoins()) &&
+            (plainSelect.getGroupBy() == null || CommonUtils.isEmpty(plainSelect.getGroupBy().getGroupByExpressionList().getExpressions())) &&
+            CommonUtils.isEmpty(plainSelect.getIntoTables());
+    }
+
     private void fillSingleSource(Table fromItem) {
+        singleTableMeta = createTableMetaData(fromItem);
+    }
+
+    SingleTableMeta createTableMetaData(Table fromItem) {
         Database database = fromItem.getDatabase();
         String catalogName = database == null ? null : database.getDatabaseName();
         String schemaName = fromItem.getSchemaName();
         String tableName = fromItem.getName();
-        singleTableMeta = new SingleTableMeta(
+        return new SingleTableMeta(
             unquoteIdentifier(catalogName),
             unquoteIdentifier(schemaName),
             unquoteIdentifier(tableName));
@@ -240,6 +264,10 @@ public class SQLQuery implements SQLScriptElement {
             }
         }
         return null;
+    }
+
+    public int getSelectItemCount() {
+        return selectItems == null ? 0 : selectItems.size();
     }
 
     public SQLSelectItem getSelectItem(int index) {

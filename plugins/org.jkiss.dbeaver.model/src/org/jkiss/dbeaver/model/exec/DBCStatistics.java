@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  */
 package org.jkiss.dbeaver.model.exec;
 
+import org.jkiss.code.Nullable;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.*;
@@ -23,7 +24,7 @@ import java.util.*;
 /**
  * Execution statistics
  */
-public class DBCStatistics {
+public class DBCStatistics implements DBCExecutionResult {
 
     private final long startTime;
     private long rowsUpdated = -1;
@@ -34,6 +35,8 @@ public class DBCStatistics {
     private String queryText;
     private Map<String, Object> infoMap;
     private List<String> messages;
+    private Throwable error;
+    private List<Throwable> warnings;
 
     public DBCStatistics() {
         this.startTime = System.currentTimeMillis();
@@ -181,4 +184,26 @@ public class DBCStatistics {
         infoMap = null;
     }
 
+    @Nullable
+    @Override
+    public Throwable getError() {
+        return error;
+    }
+
+    public void setError(Throwable error) {
+        this.error = error;
+    }
+
+    @Nullable
+    @Override
+    public List<Throwable> getWarnings() {
+        return warnings;
+    }
+
+    public void addWarning(Throwable warning) {
+        if (warnings == null) {
+            warnings = new ArrayList<>();
+        }
+        warnings.add(warning);
+    }
 }

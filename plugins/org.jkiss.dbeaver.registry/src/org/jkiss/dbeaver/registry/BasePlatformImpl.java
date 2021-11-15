@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
  */
 package org.jkiss.dbeaver.registry;
 
-import org.eclipse.core.net.proxy.IProxyService;
 import org.eclipse.core.runtime.Platform;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
@@ -36,15 +35,12 @@ import org.jkiss.dbeaver.registry.driver.DriverDescriptor;
 import org.jkiss.dbeaver.registry.formatter.DataFormatterRegistry;
 import org.jkiss.dbeaver.registry.language.PlatformLanguageRegistry;
 import org.jkiss.dbeaver.runtime.IPluginService;
-import org.jkiss.dbeaver.runtime.jobs.KeepAliveListenerJob;
-import org.jkiss.dbeaver.runtime.net.GlobalProxySelector;
-import org.jkiss.dbeaver.utils.GeneralUtils;
+import org.jkiss.dbeaver.runtime.jobs.DataSourceMonitorJob;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.ProxySelector;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
@@ -93,24 +89,23 @@ public abstract class BasePlatformImpl implements DBPPlatform, DBPPlatformLangua
         }
 
         // Navigator model
-        this.navigatorModel = new DBNModel(this, true);
+        this.navigatorModel = new DBNModel(this, null);
         this.navigatorModel.initialize();
 
-        // Activate proxy service
-        activateProxyService();
-
-        // Activate plugin services
-        for (IPluginService pluginService : PluginServiceRegistry.getInstance().getServices()) {
-            try {
-                pluginService.activateService();
-                activatedServices.add(pluginService);
-            } catch (Throwable e) {
-                log.error("Error activating plugin service", e);
+        if (!getApplication().isExclusiveMode()) {
+            // Activate plugin services
+            for (IPluginService pluginService : PluginServiceRegistry.getInstance().getServices()) {
+                try {
+                    pluginService.activateService();
+                    activatedServices.add(pluginService);
+                } catch (Throwable e) {
+                    log.error("Error activating plugin service", e);
+                }
             }
-        }
 
-        // Keep-alive job
-        new KeepAliveListenerJob(this).scheduleMonitor();
+            // Connections monitoring job
+            new DataSourceMonitorJob(this).scheduleMonitor();
+        }
     }
 
     public synchronized void dispose() {
@@ -130,15 +125,6 @@ public abstract class BasePlatformImpl implements DBPPlatform, DBPPlatformLangua
             this.navigatorModel.dispose();
             //this.navigatorModel = null;
         }
-    }
-
-    protected void installProxySelector() {
-        // Init default network settings
-        ProxySelector defProxySelector = GeneralUtils.adapt(this, ProxySelector.class);
-        if (defProxySelector == null) {
-            defProxySelector = new GlobalProxySelector(ProxySelector.getDefault());
-        }
-        ProxySelector.setDefault(defProxySelector);
     }
 
     @NotNull
@@ -193,6 +179,23 @@ public abstract class BasePlatformImpl implements DBPPlatform, DBPPlatformLangua
     }
 
     @Override
+    public boolean isLanguageChangeEnabled() {
+        File iniFile = getApplicationConfiguration();
+        if (iniFile.exists() && iniFile.canWrite()) {
+            // Try to create temp file in the same folder
+            File testFile = new File(iniFile.getParentFile(), ".test-dbeaver-" + System.currentTimeMillis() + ".ini");
+            try {
+                testFile.createNewFile();
+                testFile.delete();
+                return true;
+            } catch (IOException e) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public void setPlatformLanguage(@NotNull DBPPlatformLanguage language) throws DBException {
         if (CommonUtils.equalObjects(language, this.language)) {
             return;
@@ -237,12 +240,9 @@ public abstract class BasePlatformImpl implements DBPPlatform, DBPPlatformLangua
         return DriverDescriptor.getCustomDriversHome();
     }
 
-    private void activateProxyService() {
-        try {
-            log.debug("Proxy service '" + IProxyService.class.getName() + "' loaded");
-        } catch (Throwable e) {
-            log.debug("Proxy service not found");
-        }
+    @Override
+    public boolean isReadOnly() {
+        return Platform.getInstanceLocation().isReadOnly();
     }
 
     // Patch config and add/update -nl parameter

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,6 +35,8 @@ public class UIConnectionMessages extends NLS {
     public static String dialog_connection_wizard_final_checkbox_save_password_locally;
 
     public static String controls_client_home_selector_browse;
+    public static String controls_client_home_selector_missing;
+    public static String controls_client_home_selector_tip;
     public static String controls_client_homes_panel_button_add_home;
     public static String controls_client_homes_panel_button_remove_home;
     public static String controls_client_homes_panel_confirm_remove_home_text;
@@ -53,6 +55,22 @@ public class UIConnectionMessages extends NLS {
     public static String dialog_setting_connection_driver_properties_advanced_tip;
     public static String dialog_setting_connection_driver_properties_docs_web_reference;
 
+    public static String dialog_setting_ssl_configurator_label_optional;
+    public static String dialog_setting_ssl_configurator_label_description;
+    public static String dialog_setting_ssl_configurator_legend_parameters;
+    public static String dialog_setting_ssl_configurator_method;
+    public static String dialog_setting_ssl_configurator_method_certs;
+    public static String dialog_setting_ssl_configurator_method_keystore;
+    public static String dialog_setting_ssl_configurator_certs_ca_name;
+    public static String dialog_setting_ssl_configurator_certs_ca_title;
+    public static String dialog_setting_ssl_configurator_certs_client_name;
+    public static String dialog_setting_ssl_configurator_certs_client_title;
+    public static String dialog_setting_ssl_configurator_certs_client_key_name;
+    public static String dialog_setting_ssl_configurator_certs_client_key_title;
+    public static String dialog_setting_ssl_configurator_keystore_name;
+    public static String dialog_setting_ssl_configurator_keystore_title;
+    public static String dialog_setting_ssl_configurator_keystore_password_name;
+
     public static String controls_connection_properties_action_add_property;
     public static String controls_connection_properties_action_remove_property;
     public static String controls_connection_properties_category_user_properties;
@@ -70,8 +88,6 @@ public class UIConnectionMessages extends NLS {
     public static String dialog_connection_network_socket_label_username;
     public static String dialog_connection_network_socket_label_password;
 
-    public static String dialog_view_classpath_title;
-
     public static String dialog_edit_driver_button_add_file;
     public static String dialog_edit_driver_button_add_folder;
     public static String dialog_edit_driver_button_add_artifact;
@@ -86,10 +102,19 @@ public class UIConnectionMessages extends NLS {
     public static String dialog_edit_driver_dialog_driver_error_title;
     public static String dialog_edit_driver_dialog_open_driver_directory;
     public static String dialog_edit_driver_dialog_open_driver_library;
+    public static String dialog_edit_driver_dialog_delete_library_title;
+    public static String dialog_edit_driver_dialog_delete_library_message;
+    public static String dialog_edit_driver_dialog_save_exists_title;
+    public static String dialog_edit_driver_dialog_save_exists_message;
+    public static String dialog_edit_driver_dialog_bad_configuration;
     public static String dialog_edit_driver_label_category;
     public static String dialog_edit_driver_label_class_name;
     public static String dialog_edit_driver_label_class_name_tip;
     public static String dialog_edit_driver_label_default_port;
+    public static String dialog_edit_driver_label_default_database;
+    public static String dialog_edit_driver_label_default_user;
+    public static String dialog_edit_driver_label_id;
+    public static String dialog_edit_driver_label_id_tip;
     public static String dialog_edit_driver_label_description;
     public static String dialog_edit_driver_label_driver_class;
     public static String dialog_edit_driver_label_driver_name;
@@ -142,8 +167,10 @@ public class UIConnectionMessages extends NLS {
     public static String dialog_edit_driver_embedded_tip;
     public static String dialog_edit_driver_anonymous_label;
     public static String dialog_edit_driver_anonymous_tip;
-    public static String dialog_edit_driver_aloows_empty_password_label;
-    public static String dialog_edit_driver_aloows_empty_password_tip;
+    public static String dialog_edit_driver_allows_empty_password_label;
+    public static String dialog_edit_driver_allows_empty_password_tip;
+    public static String dialog_edit_driver_use_legacy_instantiation_label;
+    public static String dialog_edit_driver_use_legacy_instantiation_tip;
     public static String dialog_edit_driver_description;
     public static String dialog_edit_driver_edit_maven_title;
     public static String dialog_edit_driver_edit_maven_group_id_label;
@@ -200,6 +227,14 @@ public class UIConnectionMessages extends NLS {
     public static String pref_page_drivers_label_enter_drivers_location_url;
     public static String pref_page_drivers_button_remove;
 
+    // Drivers Classpath
+    public static String pref_page_drivers_classpath_system_classpath_group;
+    public static String pref_page_drivers_classpath_global_libraries_group;
+    public static String pref_page_drivers_classpath_global_libraries_choose_files;
+    public static String pref_page_drivers_classpath_global_libraries_info;
+    public static String pref_page_drivers_classpath_global_libraries_restart_prompt_title;
+    public static String pref_page_drivers_classpath_global_libraries_restart_prompt_body;
+
     // DriversMaven
     public static String pref_page_drivers_maven_group_repositories;
     public static String pref_page_drivers_maven_button_add;
@@ -225,6 +260,12 @@ public class UIConnectionMessages extends NLS {
     public static String pref_page_ui_general_label_proxy_user;
     public static String pref_page_ui_general_label_proxy_password;
     public static String pref_page_drivers_group_location;
+
+    public static String dialog_connection_driver_project;
+
+    public static String dialog_user_password_change_label;
+    public static String dialog_user_password_change_question_label;
+    public static String dialog_user_password_change_question_message;
 
     static {
         // initialize resource bundle

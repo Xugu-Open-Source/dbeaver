@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,6 @@ import org.jkiss.dbeaver.model.struct.cache.AbstractObjectCache;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 
@@ -68,7 +67,7 @@ public abstract class JDBCObjectCache<OWNER extends DBSObject, OBJECT extends DB
 
     @NotNull
     @Override
-    public Collection<OBJECT> getAllObjects(@NotNull DBRProgressMonitor monitor, @Nullable OWNER owner)
+    public List<OBJECT> getAllObjects(@NotNull DBRProgressMonitor monitor, @Nullable OWNER owner)
         throws DBException
     {
         if (!isFullyCached()) {
@@ -100,46 +99,54 @@ public abstract class JDBCObjectCache<OWNER extends DBSObject, OBJECT extends DB
         if (dataSource == null) {
             throw new DBException(ModelMessages.error_not_connected_to_database);
         }
-        try {
-            try (JDBCSession session = DBUtils.openMetaSession(monitor, owner, "Load objects from " + owner.getName())) {
-                try (JDBCStatement dbStat = prepareObjectsStatement(session, owner)) {
-                    monitor.subTask("Load " + getCacheName());
-                    dbStat.setFetchSize(DBConstants.METADATA_FETCH_SIZE);
-                    dbStat.executeStatement();
-                    JDBCResultSet dbResult = dbStat.getResultSet();
-                    if (dbResult != null) {
-                        try {
-                            while (dbResult.next()) {
-                                if (monitor.isCanceled()) {
-                                    return;
-                                }
+        if (owner.isPersisted()) {
+            // Load cache from database only for persisted objects
+            try {
+                try (JDBCSession session = DBUtils.openMetaSession(monitor, owner, "Load objects from " + owner.getName())) {
+                    beforeCacheLoading(session, owner);
+                    try (JDBCStatement dbStat = prepareObjectsStatement(session, owner)) {
+                        monitor.subTask("Load " + getCacheName());
+                        dbStat.setFetchSize(DBConstants.METADATA_FETCH_SIZE);
+                        dbStat.executeStatement();
+                        JDBCResultSet dbResult = dbStat.getResultSet();
+                        if (dbResult != null) {
+                            try {
+                                while (dbResult.next()) {
+                                    if (monitor.isCanceled()) {
+                                        return;
+                                    }
 
-                                OBJECT object = fetchObject(session, owner, dbResult);
-                                if (object == null) {
-                                    continue;
-                                }
-                                tmpObjectList.add(object);
+                                    OBJECT object = fetchObject(session, owner, dbResult);
+                                    if (object == null || !isValidObject(monitor, owner, object)) {
+                                        continue;
+                                    }
+                                    tmpObjectList.add(object);
 
-                                // Do not log every object load. This overheats UI in case of long lists
-                                //monitor.subTask(object.getName());
-                                if (tmpObjectList.size() == maximumCacheSize) {
-                                    log.warn("Maximum cache size exceeded (" + maximumCacheSize + ") in " + this);
-                                    break;
+                                    // Do not log every object load. This overheats UI in case of long lists
+                                    //monitor.subTask(object.getName());
+                                    if (tmpObjectList.size() == maximumCacheSize) {
+                                        log.warn("Maximum cache size exceeded (" + maximumCacheSize + ") in " + this);
+                                        break;
+                                    }
                                 }
+                            } finally {
+                                dbResult.close();
                             }
-                        } finally {
-                            dbResult.close();
                         }
+                    } finally {
+                        afterCacheLoading(session, owner);
                     }
+                } catch (SQLException ex) {
+                    throw new DBException(ex, dataSource);
+                } catch (DBException ex) {
+                    throw ex;
+                } catch (Exception ex) {
+                    throw new DBException("Internal driver error", ex);
                 }
-            } catch (SQLException ex) {
-                throw new DBException(ex, dataSource);
-            } catch (Exception ex) {
-                throw new DBException("Internal driver error", ex);
-            }
-        } catch (Exception e) {
-            if (!handleCacheReadError(e)) {
-                throw e;
+            } catch (Exception e) {
+                if (!handleCacheReadError(e)) {
+                    throw e;
+                }
             }
         }
 
@@ -153,6 +160,14 @@ public abstract class JDBCObjectCache<OWNER extends DBSObject, OBJECT extends DB
         detectCaseSensitivity(owner);
         mergeCache(tmpObjectList);
         this.invalidateObjects(monitor, owner, new CacheIterator());
+    }
+
+    public void beforeCacheLoading(JDBCSession session, OWNER owner) throws DBException {
+        // Do nothing
+    }
+
+    public void afterCacheLoading(JDBCSession session, OWNER owner) {
+        // Do nothing
     }
 
     protected String getCacheName() {

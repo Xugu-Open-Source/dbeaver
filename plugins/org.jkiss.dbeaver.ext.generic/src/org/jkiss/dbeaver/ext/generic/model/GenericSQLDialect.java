@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,10 @@ import org.jkiss.dbeaver.ext.generic.GenericConstants;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCDatabaseMetaData;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSource;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCSQLDialect;
+import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 
 /**
@@ -36,7 +38,7 @@ public class GenericSQLDialect extends JDBCSQLDialect {
 
     private static String[] EXEC_KEYWORDS =  { "EXEC", "CALL" };
 
-    private String scriptDelimiter;
+    private String[] scriptDelimiters;
     private char stringEscapeCharacter = '\0';
     private String scriptDelimiterRedefiner;
     private boolean legacySQLDialect;
@@ -48,19 +50,25 @@ public class GenericSQLDialect extends JDBCSQLDialect {
     private boolean hasDelimiterAfterQuery;
     private boolean hasDelimiterAfterBlock;
     private boolean callableQueryInBrackets;
+    private boolean omitCatalogName;
 
     public GenericSQLDialect() {
-        super("Generic");
+        super("Generic", "generic");
     }
 
-    protected GenericSQLDialect(String name) {
-        super(name);
+    protected GenericSQLDialect(String name, String id) {
+        super(name, id);
     }
 
-    public void initDriverSettings(JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
-        super.initDriverSettings(dataSource, metaData);
+    public void initDriverSettings(JDBCSession session, JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
+        super.initDriverSettings(session, dataSource, metaData);
         DBPDriver driver = dataSource.getContainer().getDriver();
-        this.scriptDelimiter = CommonUtils.toString(driver.getDriverParameter(GenericConstants.PARAM_SCRIPT_DELIMITER));
+        String delimitersString = CommonUtils.toString(driver.getDriverParameter(GenericConstants.PARAM_SCRIPT_DELIMITER));
+        if (delimitersString.contains(",")) {
+            scriptDelimiters = delimitersString.split(",");
+        } else if (!CommonUtils.isEmpty(delimitersString)){
+            scriptDelimiters = new String[]{delimitersString};
+        }
         String escapeStr = CommonUtils.toString(driver.getDriverParameter(GenericConstants.PARAM_STRING_ESCAPE_CHAR));
         if (!CommonUtils.isEmpty(escapeStr)) {
             this.stringEscapeCharacter = escapeStr.charAt(0);
@@ -83,12 +91,13 @@ public class GenericSQLDialect extends JDBCSQLDialect {
         if (this.dualTable.isEmpty()) {
             this.dualTable = null;
         }
+        this.omitCatalogName = CommonUtils.toBoolean(driver.getDriverParameter(GenericConstants.PARAM_OMIT_CATALOG_NAME));
     }
 
     @NotNull
     @Override
-    public String getScriptDelimiter() {
-        return CommonUtils.isEmpty(scriptDelimiter) ? super.getScriptDelimiter() : scriptDelimiter;
+    public String[] getScriptDelimiters() {
+        return ArrayUtils.isEmpty(scriptDelimiters) ? super.getScriptDelimiters() : scriptDelimiters;
     }
 
     @Override
@@ -164,5 +173,14 @@ public class GenericSQLDialect extends JDBCSQLDialect {
         } else {
             return null;
         }
+    }
+
+    // Some databases do not need specified catalog name in queries (like Informix), although the driver may not think so
+    @Override
+    public int getCatalogUsage() {
+        if (omitCatalogName) {
+            return USAGE_NONE;
+        }
+        return super.getCatalogUsage();
     }
 }

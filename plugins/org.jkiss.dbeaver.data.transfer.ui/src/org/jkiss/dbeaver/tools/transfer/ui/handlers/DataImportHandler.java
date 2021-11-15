@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,19 @@
 package org.jkiss.dbeaver.tools.transfer.ui.handlers;
 
 import org.eclipse.core.resources.IFile;
+import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBPObject;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
-import org.jkiss.dbeaver.model.struct.DBSDataManipulator;
+import org.jkiss.dbeaver.model.struct.*;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.tools.transfer.IDataTransferNode;
 import org.jkiss.dbeaver.tools.transfer.database.DatabaseTransferConsumer;
 import org.jkiss.dbeaver.tools.transfer.registry.DataTransferNodeDescriptor;
 import org.jkiss.dbeaver.tools.transfer.registry.DataTransferProcessorDescriptor;
 import org.jkiss.dbeaver.tools.transfer.registry.DataTransferRegistry;
+import org.jkiss.dbeaver.tools.transfer.stream.StreamEntityMapping;
 import org.jkiss.dbeaver.tools.transfer.stream.StreamTransferProducer;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.ArrayUtils;
@@ -33,8 +39,10 @@ import java.util.Locale;
 
 public class DataImportHandler extends DataTransferHandler {
 
+    private static final Log log = Log.getLog(DataImportHandler.class);
+
     @Override
-    protected IDataTransferNode adaptTransferNode(Object object)
+    protected IDataTransferNode<?> adaptTransferNode(Object object)
     {
         final DBSDataManipulator adapted = RuntimeUtils.getObjectAdapter(object, DBSDataManipulator.class);
         if (adapted != null) {
@@ -44,6 +52,26 @@ public class DataImportHandler extends DataTransferHandler {
             if (file != null) {
                 return getNodeByFile(file);
             }
+            DBSObjectContainer objectContainer = RuntimeUtils.getObjectAdapter(object, DBSObjectContainer.class);
+            if (objectContainer == null) {
+                if (object instanceof DBSWrapper) {
+                    object = ((DBSWrapper) object).getObject();
+                }
+                if (object instanceof DBPObject) {
+                    object = DBUtils.getPublicObject((DBSObject) object);
+                }
+                if (object instanceof DBSObjectContainer) {
+                    objectContainer = (DBSObjectContainer) object;
+                }
+            }
+
+            if (objectContainer != null) {
+                if (isObjectContainerSupportsImport(objectContainer)) {
+                    return new DatabaseTransferConsumer(objectContainer);
+                } else {
+                    DBWorkbench.getPlatformUI().showError("Wrong container", objectContainer.getName() + " doesn't support direct data import");
+                }
+            }
             return null;
         }
     }
@@ -51,7 +79,9 @@ public class DataImportHandler extends DataTransferHandler {
     private IDataTransferNode getNodeByFile(IFile file) {
         DataTransferProcessorDescriptor processor = getProcessorByFile(file);
         if (processor != null) {
-            return new StreamTransferProducer(file.getFullPath().toFile(), processor);
+            return new StreamTransferProducer(
+                new StreamEntityMapping(file.getFullPath().toFile()),
+                processor);
         }
         return null;
     }
@@ -76,6 +106,16 @@ public class DataImportHandler extends DataTransferHandler {
             }
         }
         return null;
+    }
+
+    public static boolean isObjectContainerSupportsImport(DBSObjectContainer object) {
+        try {
+            Class<? extends DBSObject> childType = object.getPrimaryChildType(null);
+            return DBSDataContainer.class.isAssignableFrom(childType);
+        } catch (DBException e) {
+            log.error(e);
+        }
+        return false;
     }
 
 }

@@ -278,4 +278,9 @@ public class NewProcedureParameter implements DBSProcedureParameter, DBSTypedObj
 		// TODO Auto-generated method stub
 		return this.procedure().getDataSource();
 	}
+
+	@Override
+	public long getTypeModifiers() {
+		return 0;
+	}
 }

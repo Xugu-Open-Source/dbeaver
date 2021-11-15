@@ -55,10 +55,10 @@
         </editor>
         <editor id="postgresql.table.permissions" class="org.jkiss.dbeaver.ext.postgresql.ui.editors.PostgresRolePrivilegesEditor"
                 label="%db.editor.table.permission.name" description="%db.editor.table.permission.description" icon="#permissions" position="additions_middle" type="folder">
-            <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreTableBase" if="object.dataSource.serverType.supportsRoles()"/>
-            <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreTableColumn" if="object.dataSource.serverType.supportsRoles()"/>
-            <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreProcedure" if="object.dataSource.serverType.supportsRoles()"/>
-            <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreSchema" if="object.dataSource.serverType.supportsRoles()"/>
+            <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreTableBase" if="object.dataSource.supportsRoles()"/>
+            <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreTableColumn" if="object.dataSource.supportsRoles()"/>
+            <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreProcedure" if="object.dataSource.supportsRoles()"/>
+            <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreSchema" if="object.dataSource.supportsRoles()"/>
         </editor>
         <editor id="postgresql.source.view" class="org.jkiss.dbeaver.ext.postgresql.ui.editors.PostgreSourceViewEditor"
                 label="%db.editor.source.name" description="%db.editor.source.description" icon="#sql_text" position="additions_middle"
@@ -78,6 +78,7 @@
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreSchema"/>
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreDataType"/>
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreTablespace"/>
+            <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreRole"/>
         </editor>
         <editor id="postgresql.source.ddl" class="org.jkiss.dbeaver.ext.postgresql.ui.editors.PostgreSourceViewEditor"
                 label="%db.editor.ddl.name" description="%db.editor.ddl.description" icon="#sql_text" position="additions_middle"
@@ -113,17 +114,18 @@
         <configurator class="org.jkiss.dbeaver.ext.postgresql.ui.config.PostgreSequenceConfigurator">
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreSequence"/>
         </configurator>
-        <configurator class="org.jkiss.dbeaver.ext.postgresql.ui.config.PostgreTableColumnConfigurator">
-            <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreTableColumn"/>
-        </configurator>
         <configurator class="org.jkiss.dbeaver.ext.postgresql.ui.config.PostgreExtensionConfigurator">
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreExtension"/>
         </configurator>
         <configurator class="org.jkiss.dbeaver.ext.postgresql.ui.config.PostgreTablespaceConfigurator">
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreTablespace"/>
         </configurator>
-        
-        
+
+        <configurator class="org.jkiss.dbeaver.ext.postgresql.ui.config.PostgreExplainPlanConfigurator">
+            <objectType name="org.jkiss.dbeaver.ext.postgresql.model.plan.PostgreQueryPlaner"/>
+        </configurator>
+
+
     </extension>
 
     <extension point="org.jkiss.dbeaver.dataManager">
@@ -284,5 +286,7 @@
             <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
         </page>
     </extension>
+
+    org.jkiss.dbeaver.ext.postgresql.model.plan
 
 </plugin>

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,12 +22,13 @@ import org.eclipse.jface.dialogs.IDialogSettings;
 import org.eclipse.jface.text.TextViewer;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.StyledText;
+import org.eclipse.swt.dnd.TextTransfer;
+import org.eclipse.swt.dnd.Transfer;
 import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Text;
-import org.eclipse.ui.internal.part.StatusPart;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
@@ -42,6 +43,10 @@ import org.jkiss.dbeaver.ui.controls.resultset.IResultSetController;
 import org.jkiss.dbeaver.ui.controls.resultset.ResultSetCopySettings;
 import org.jkiss.dbeaver.ui.controls.resultset.ResultSetUtils;
 import org.jkiss.dbeaver.ui.editors.TextEditorUtils;
+import org.jkiss.utils.CommonUtils;
+
+import java.util.Collections;
+import java.util.Map;
 
 /**
  * Error message presentation.
@@ -56,7 +61,7 @@ public class ErrorPresentation extends AbstractPresentation {
     private final String sqlText;
     private final IStatus status;
     private Composite errorComposite;
-    private StatusPart statusPart;
+    private ErrorDetailsPart statusPart;
     private Composite sqlPanel;
     private StyledText textWidget;
     private Object editorPanel;
@@ -75,7 +80,7 @@ public class ErrorPresentation extends AbstractPresentation {
 
         errorComposite = UIUtils.createComposite(partDivider, 1);
         errorComposite.setLayoutData(new GridData(GridData.FILL_BOTH));
-        statusPart = new StatusPart(errorComposite, status);
+        statusPart = new ErrorDetailsPart(errorComposite, status);
 
         for (Control child : errorComposite.getChildren()) {
             if (child instanceof Text) {
@@ -156,10 +161,12 @@ public class ErrorPresentation extends AbstractPresentation {
         return null;
     }
 
-    @Nullable
+    @NotNull
     @Override
-    public String copySelectionToString(ResultSetCopySettings settings) {
-        return null;
+    public Map<Transfer, Object> copySelection(ResultSetCopySettings settings) {
+        return Collections.singletonMap(
+            TextTransfer.getInstance(),
+            CommonUtils.notEmpty(status.getMessage()));
     }
 
     @Override

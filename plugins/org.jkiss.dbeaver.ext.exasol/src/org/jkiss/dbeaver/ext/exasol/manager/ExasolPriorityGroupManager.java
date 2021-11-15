@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2019 Karl Griesser (fullref@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,13 +17,12 @@
  */
 package org.jkiss.dbeaver.ext.exasol.manager;
 
-import org.eclipse.jface.dialogs.IDialogConstants;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.exasol.ExasolMessages;
 import org.jkiss.dbeaver.ext.exasol.model.ExasolDataSource;
 import org.jkiss.dbeaver.ext.exasol.model.ExasolPriorityGroup;
 import org.jkiss.dbeaver.ext.exasol.tools.ExasolUtils;
-import org.jkiss.dbeaver.ext.exasol.ui.ExasolPriorityGroupDialog;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
@@ -34,8 +33,6 @@ import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
-import org.jkiss.dbeaver.ui.UITask;
-import org.jkiss.dbeaver.ui.UIUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -55,20 +52,7 @@ public class ExasolPriorityGroupManager extends SQLObjectEditor<ExasolPriorityGr
     @Override
     protected ExasolPriorityGroup createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context,
                                                        Object container, Object copyFrom, Map<String, Object> options) throws DBException {
-        ExasolPriorityGroup group = new ExasolPriorityGroup((ExasolDataSource) container, "PG", null, 0);
-        return new UITask<ExasolPriorityGroup>() {
-            @Override
-            protected ExasolPriorityGroup runTask() {
-                ExasolPriorityGroupDialog dialog = new ExasolPriorityGroupDialog(UIUtils.getActiveWorkbenchShell(), group);
-                if (dialog.open() != IDialogConstants.OK_ID) {
-                    return null;
-                }
-                group.setName(dialog.getName());
-                group.setDescription(dialog.getComment());
-                group.setWeight(dialog.getWeight());
-                return group;
-            }
-        }.execute();
+        return new ExasolPriorityGroup((ExasolDataSource) container, "PG", null, 0);
     }
 
     @Override
@@ -130,9 +114,9 @@ public class ExasolPriorityGroupManager extends SQLObjectEditor<ExasolPriorityGr
     }
 
     @Override
-    public void renameObject(DBECommandContext commandContext, ExasolPriorityGroup object, String newName)
+    public void renameObject(@NotNull DBECommandContext commandContext, @NotNull ExasolPriorityGroup object, @NotNull Map<String, Object> options, @NotNull String newName)
         throws DBException {
-        processObjectRename(commandContext, object, newName);
+        processObjectRename(commandContext, object, options, newName);
     }
 
     @Override

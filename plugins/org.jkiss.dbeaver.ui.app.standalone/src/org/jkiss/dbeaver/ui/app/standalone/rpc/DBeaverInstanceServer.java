@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,10 @@
 package org.jkiss.dbeaver.ui.app.standalone.rpc;
 
 import org.apache.commons.cli.CommandLine;
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
+import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
@@ -37,12 +41,20 @@ import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.IOUtils;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.OutputStream;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.rmi.server.RMIClientSocketFactory;
+import java.rmi.server.RMIServerSocketFactory;
+import java.rmi.server.RMISocketFactory;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.Arrays;
 import java.util.Map;
@@ -55,8 +67,15 @@ public class DBeaverInstanceServer implements IInstanceController {
 
     private static final Log log = Log.getLog(DBeaverInstanceServer.class);
 
+    private static final String VAR_RMI_SERVER_HOSTNAME = "java.rmi.server.hostname";
+
     private static int portNumber;
     private static Registry registry;
+    private static FileChannel configFileChannel;
+
+    private static final RMIClientSocketFactory CSF_DEFAULT = RMISocketFactory.getDefaultSocketFactory();
+    private static final RMIServerSocketFactory SSF_LOCAL = port -> new ServerSocket(port, 0, InetAddress.getLoopbackAddress());
+    private static boolean localRMI = false;
 
     @Override
     public String getVersion() {
@@ -129,7 +148,13 @@ public class DBeaverInstanceServer implements IInstanceController {
     public void quit() {
         log.info("Program termination requested");
 
-        System.exit(-1);
+        new Job("Terminate application") {
+            @Override
+            protected IStatus run(IProgressMonitor monitor) {
+                System.exit(-1);
+                return Status.OK_STATUS;
+            }
+        }.schedule(1000);
     }
 
     @Override
@@ -165,28 +190,61 @@ public class DBeaverInstanceServer implements IInstanceController {
 
     public static IInstanceController startInstanceServer(CommandLine commandLine, IInstanceController server) {
         try {
-            portNumber = IOUtils.findFreePort(20000, 65000);
+            openRmiRegistry();
 
-            log.debug("Starting RMI server at " + portNumber);
-            registry = LocateRegistry.createRegistry(portNumber);
             {
-                IInstanceController stub = (IInstanceController) UnicastRemoteObject.exportObject(server, 0);
+                IInstanceController stub;
+                if (localRMI) {
+                    stub = (IInstanceController) UnicastRemoteObject.exportObject(server, 0, null, SSF_LOCAL);
+                } else {
+                    stub = (IInstanceController) UnicastRemoteObject.exportObject(server, 0);
+                }
+
+                //IInstanceController stub = (IInstanceController) UnicastRemoteObject.exportObject(server, 0);
                 registry.bind(CONTROLLER_ID, stub);
             }
             for (CommandLineParameterHandler remoteHandler : DBeaverCommandLine.getRemoteParameterHandlers(commandLine)) {
 
             }
 
-            File rmiFile = new File(GeneralUtils.getMetadataFolder(), RMI_PROP_FILE);
-            Properties props = new Properties();
-            props.setProperty("port", String.valueOf(portNumber));
-            try (OutputStream os = new FileOutputStream(rmiFile)) {
-                props.store(os, "DBeaver instance server properties");
+            final IInstanceController client = InstanceClient.createClient(GeneralUtils.getMetadataFolder().getParent(), true);
+            if (client != null) {
+                log.debug("Can't start RMI server because other instance is already running");
+                return null;
             }
+
+            configFileChannel = FileChannel.open(
+                GeneralUtils.getMetadataFolder().toPath().resolve(RMI_PROP_FILE),
+                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE
+            );
+
+            try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
+                Properties props = new Properties();
+                props.setProperty("port", String.valueOf(portNumber));
+                props.store(os, "DBeaver instance server properties");
+                configFileChannel.write(ByteBuffer.wrap(os.toByteArray()));
+            }
+
             return server;
         } catch (Exception e) {
             log.error("Can't start RMI server", e);
             return null;
+        }
+    }
+
+    private static void openRmiRegistry() throws RemoteException {
+        portNumber = IOUtils.findFreePort(20000, 65000);
+
+        log.debug("Starting RMI server at " + portNumber);
+        // We must bing to localhost only
+        // It is tricky (https://groups.google.com/g/comp.lang.java.programmer/c/QQT2EOTFoKk?pli=1)
+        if (System.getProperty(VAR_RMI_SERVER_HOSTNAME) == null) {
+            System.setProperty(VAR_RMI_SERVER_HOSTNAME, "127.0.0.1");
+            localRMI = true;
+
+            registry = LocateRegistry.createRegistry(portNumber, CSF_DEFAULT, SSF_LOCAL);
+        } else {
+            registry = LocateRegistry.createRegistry(portNumber);
         }
     }
 
@@ -195,13 +253,12 @@ public class DBeaverInstanceServer implements IInstanceController {
             log.debug("Stop RMI server");
             registry.unbind(CONTROLLER_ID);
 
-            File rmiFile = new File(GeneralUtils.getMetadataFolder(), RMI_PROP_FILE);
-            if (rmiFile.exists()) {
-                if (!rmiFile.delete()) {
-                    log.debug("Can't delete props file");
-                }
+            if (configFileChannel != null) {
+                configFileChannel.close();
+                Files.delete(GeneralUtils.getMetadataFolder().toPath().resolve(RMI_PROP_FILE));
             }
 
+            log.debug("RMI controller has been stopped");
         } catch (Exception e) {
             log.error("Can't stop RMI server", e);
         }

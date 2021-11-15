@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTableForeignKey;
+import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntityAssociation;
 import org.jkiss.dbeaver.model.struct.DBSEntityAttributeRef;
@@ -81,12 +82,40 @@ public class MySQLTableForeignKey extends JDBCTableForeignKey<MySQLTable, MySQLT
         return columns;
     }
 
+    @NotNull
+    @Override
+    @Property(viewable = true, editable = true, updatable = true, listProvider = ConstraintModifyRuleListProvider.class, order = 5)
+    public DBSForeignKeyModifyRule getDeleteRule() {
+        return super.getDeleteRule();
+    }
+
+    @NotNull
+    @Override
+    @Property(viewable = true, editable = true, updatable = true, listProvider = ConstraintModifyRuleListProvider.class, order = 6)
+    public DBSForeignKeyModifyRule getUpdateRule() {
+        return super.getUpdateRule();
+    }
+
     public void addColumn(MySQLTableForeignKeyColumn column)
     {
         if (columns == null) {
             columns = new ArrayList<>();
         }
         columns.add(column);
+    }
+
+    public boolean hasColumn(MySQLTableForeignKeyColumn column) {
+        if (columns != null) {
+            String columnName = column.getName();
+            String refName = column.getReferencedColumn().getName();
+            for (MySQLTableForeignKeyColumn col : columns) {
+                if (columnName.equals(col.getName()) &&
+                    refName.equals(col.getReferencedColumn().getName())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @NotNull

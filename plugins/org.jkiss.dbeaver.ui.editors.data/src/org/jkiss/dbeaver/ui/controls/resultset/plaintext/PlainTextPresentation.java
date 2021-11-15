@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,11 +25,14 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.StyleRange;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.custom.StyledTextPrintOptions;
+import org.eclipse.swt.dnd.TextTransfer;
+import org.eclipse.swt.dnd.Transfer;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.graphics.FontData;
+import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.printing.PrintDialog;
 import org.eclipse.swt.printing.Printer;
@@ -39,7 +42,6 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.ScrollBar;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.themes.ITheme;
-import org.eclipse.ui.themes.IThemeManager;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.ModelPreferences;
@@ -60,6 +62,7 @@ import org.jkiss.utils.CommonUtils;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Empty presentation.
@@ -124,7 +127,7 @@ public class PlainTextPresentation extends AbstractPresentation implements IAdap
         findReplaceTarget = new StyledTextFindReplaceTarget(text);
         TextEditorUtils.enableHostEditorKeyBindingsSupport(controller.getSite(), text);
 
-        applyThemeSettings();
+        applyCurrentThemeSettings();
 
         registerContextMenu();
         activateTextKeyBindings(controller, text);
@@ -141,11 +144,9 @@ public class PlainTextPresentation extends AbstractPresentation implements IAdap
     }
 
     @Override
-    protected void applyThemeSettings() {
-        IThemeManager themeManager = controller.getSite().getWorkbenchWindow().getWorkbench().getThemeManager();
-        curLineColor = themeManager.getCurrentTheme().getColorRegistry().get(ThemeConstants.COLOR_SQL_RESULT_CELL_ODD_BACK);
+    protected void applyThemeSettings(ITheme currentTheme) {
+        curLineColor = currentTheme.getColorRegistry().get(ThemeConstants.COLOR_SQL_RESULT_CELL_ODD_BACK);
 
-        ITheme currentTheme = themeManager.getCurrentTheme();
         Font rsFont = currentTheme.getFontRegistry().get(ThemeConstants.FONT_SQL_RESULT_SET);
         if (rsFont != null) {
             int fontHeight = rsFont.getFontData()[0].getHeight();
@@ -213,10 +214,8 @@ public class PlainTextPresentation extends AbstractPresentation implements IAdap
                         horOffsetEnd - horOffsetBegin - 1,
                         null,
                         curLineColor);
-                    UIUtils.asyncExec(() -> {
-                        text.setStyleRanges(new StyleRange[]{curLineRange});
-                        text.redraw();
-                    });
+                    text.setStyleRanges(new StyleRange[]{curLineRange});
+                    text.redraw();
                 }
             }
 
@@ -254,6 +253,8 @@ public class PlainTextPresentation extends AbstractPresentation implements IAdap
         int maxColumnSize = prefs.getInt(ResultSetPreferences.RESULT_TEXT_MAX_COLUMN_SIZE);
         boolean delimLeading = prefs.getBoolean(ResultSetPreferences.RESULT_TEXT_DELIMITER_LEADING);
         boolean delimTrailing = prefs.getBoolean(ResultSetPreferences.RESULT_TEXT_DELIMITER_TRAILING);
+        boolean delimTop = prefs.getBoolean(ResultSetPreferences.RESULT_TEXT_DELIMITER_TOP);
+        boolean delimBottom = prefs.getBoolean(ResultSetPreferences.RESULT_TEXT_DELIMITER_BOTTOM);
         boolean extraSpaces = prefs.getBoolean(ResultSetPreferences.RESULT_TEXT_EXTRA_SPACES);
         this.showNulls = getController().getPreferenceStore().getBoolean(ResultSetPreferences.RESULT_TEXT_SHOW_NULLS);
 
@@ -287,43 +288,31 @@ public class PlainTextPresentation extends AbstractPresentation implements IAdap
             }
         }
 
-        if (!append) {
-            // Print header
-            if (delimLeading) grid.append("|");
-            for (int i = 0; i < attrs.size(); i++) {
-                if (i > 0) grid.append("|");
-                if (extraSpaces) grid.append(" ");
-                DBDAttributeBinding attr = attrs.get(i);
-                String attrName = getAttributeName(attr);
-                grid.append(attrName);
-                for (int k = colWidths[i] - attrName.length() - extraSpacesNum; k > 0; k--) {
-                    grid.append(" ");
-                }
-                if (extraSpaces) grid.append(" ");
-            }
-            if (delimTrailing) grid.append("|");
-            grid.append("\n");
-
-            // Print divider
-            // Print header
-            if (delimLeading) grid.append("|");
-            for (int i = 0; i < attrs.size(); i++) {
-                if (i > 0) grid.append("|");
-                for (int k = colWidths[i]; k > 0; k--) {
-                    grid.append("-");
-                }
-            }
-            if (delimTrailing) grid.append("|");
-            grid.append("\n");
+        if (delimTop) {
+            // Print divider before header
+            printSeparator(delimLeading, delimTrailing, colWidths, grid);
         }
+        // Print header
+        if (delimLeading) grid.append("|");
+        for (int i = 0; i < attrs.size(); i++) {
+            if (i > 0) grid.append("|");
+            if (extraSpaces) grid.append(" ");
+            DBDAttributeBinding attr = attrs.get(i);
+            String attrName = getAttributeName(attr);
+            grid.append(attrName);
+            for (int k = colWidths[i] - attrName.length() - extraSpacesNum; k > 0; k--) {
+                grid.append(" ");
+            }
+            if (extraSpaces) grid.append(" ");
+        }
+        if (delimTrailing) grid.append("|");
+        grid.append("\n");
+
+        // Print divider
+        printSeparator(delimLeading, delimTrailing, colWidths, grid);
 
         // Print rows
-        int firstRow = append ? totalRows : 0;
-        if (append) {
-            grid.append("\n");
-        }
-        for (int i = firstRow; i < allRows.size(); i++) {
-            ResultSetRow row = allRows.get(i);
+        for (ResultSetRow row : allRows) {
             if (delimLeading) grid.append("|");
             for (int k = 0; k < attrs.size(); k++) {
                 if (k > 0) grid.append("|");
@@ -356,12 +345,23 @@ public class PlainTextPresentation extends AbstractPresentation implements IAdap
             if (delimTrailing) grid.append("|");
             grid.append("\n");
         }
+        if (delimBottom) {
+            // Print divider after rows
+            printSeparator(delimLeading, delimTrailing, colWidths, grid);
+        }
         grid.setLength(grid.length() - 1); // cut last line feed
 
+        final int topIndex = text.getTopIndex();
+        final int horizontalIndex = text.getHorizontalIndex();
+        final int caretOffset = text.getCaretOffset();
+
+        text.setText(grid.toString());
+
         if (append) {
-            text.append(grid.toString());
-        } else {
-            text.setText(grid.toString());
+            // Restore scroll and caret position
+            text.setTopIndex(topIndex);
+            text.setHorizontalIndex(horizontalIndex);
+            text.setCaretOffset(caretOffset);
         }
 
         totalRows = allRows.size();
@@ -438,6 +438,8 @@ public class PlainTextPresentation extends AbstractPresentation implements IAdap
         DBPPreferenceStore prefs = getController().getPreferenceStore();
         boolean delimLeading = prefs.getBoolean(ResultSetPreferences.RESULT_TEXT_DELIMITER_LEADING);
         boolean delimTrailing = prefs.getBoolean(ResultSetPreferences.RESULT_TEXT_DELIMITER_TRAILING);
+        boolean delimTop = prefs.getBoolean(ResultSetPreferences.RESULT_TEXT_DELIMITER_TOP);
+        boolean delimBottom = prefs.getBoolean(ResultSetPreferences.RESULT_TEXT_DELIMITER_BOTTOM);
         DBDDisplayFormat displayFormat = DBDDisplayFormat.safeValueOf(prefs.getString(ResultSetPreferences.RESULT_TEXT_VALUE_FORMAT));
         boolean extraSpaces = prefs.getBoolean(ResultSetPreferences.RESULT_TEXT_EXTRA_SPACES);
         String indent = extraSpaces ? " " : "";
@@ -459,9 +461,12 @@ public class PlainTextPresentation extends AbstractPresentation implements IAdap
                 valueWidth = Math.max(valueWidth, values[i].length());
             }
         }
-        if (extraSpaces) {
-            //nameWidth += 1;
-            //valueWidth += 1;
+        final int extraSpacesNum = extraSpaces ? 2 : 0;
+        final int[] colWidths = {nameWidth + extraSpacesNum, valueWidth + extraSpacesNum};
+
+        if (delimTop) {
+            // Print divider before header
+            printSeparator(delimLeading, delimTrailing, colWidths, grid);
         }
 
         // Header
@@ -478,14 +483,8 @@ public class PlainTextPresentation extends AbstractPresentation implements IAdap
         if (delimTrailing) grid.append("|");
         grid.append("\n");
 
-        if (delimLeading) grid.append("|");
-        if (extraSpaces) grid.append("--");
-        for (int j = 0; j < nameWidth; j++) grid.append("-");
-        grid.append("|");
-        if (extraSpaces) grid.append("--");
-        for (int j = 0; j < valueWidth; j++) grid.append("-");
-        if (delimTrailing) grid.append("|");
-        grid.append("\n");
+        // Print divider between header and data
+        printSeparator(delimLeading, delimTrailing, colWidths, grid);
 
         if (currentRow != null) {
             // Values
@@ -511,8 +510,28 @@ public class PlainTextPresentation extends AbstractPresentation implements IAdap
                 grid.append("\n");
             }
         }
+        if (delimBottom) {
+            // Print divider after record
+            printSeparator(delimLeading, delimTrailing, colWidths, grid);
+        }
         grid.setLength(grid.length() - 1); // cut last line feed
         text.setText(grid.toString());
+    }
+
+    private void printSeparator(boolean delimLeading, boolean delimTrailing, int[] colWidths, StringBuilder output) {
+        if (delimLeading) {
+            output.append('+');
+        }
+        for (int i = 0; i < colWidths.length; i++) {
+            if (i > 0) output.append('+');
+            for (int k = colWidths[i]; k > 0; k--) {
+                output.append('-');
+            }
+        }
+        if (delimTrailing) {
+            output.append('+');
+        }
+        output.append('\n');
     }
 
     @Override
@@ -539,7 +558,9 @@ public class PlainTextPresentation extends AbstractPresentation implements IAdap
 
     @Override
     public void changeMode(boolean recordMode) {
-
+        text.setSelection(0);
+        text.setBlockSelectionBounds(new Rectangle(0, 0, 0, 0));
+        curSelection = null;
     }
 
     @Override
@@ -590,10 +611,12 @@ public class PlainTextPresentation extends AbstractPresentation implements IAdap
         return curAttribute;
     }
 
-    @Nullable
+    @NotNull
     @Override
-    public String copySelectionToString(ResultSetCopySettings settings) {
-        return text.getSelectionText();
+    public Map<Transfer, Object> copySelection(ResultSetCopySettings settings) {
+        return Collections.singletonMap(
+            TextTransfer.getInstance(),
+            text.getSelectionText());
     }
 
     private static PrinterData fgPrinterData= null;

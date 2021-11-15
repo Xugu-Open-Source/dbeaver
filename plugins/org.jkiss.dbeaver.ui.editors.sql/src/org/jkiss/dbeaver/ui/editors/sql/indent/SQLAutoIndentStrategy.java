@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,17 @@
 package org.jkiss.dbeaver.ui.editors.sql.indent;
 
 import org.eclipse.jface.text.*;
+import org.eclipse.jface.text.source.ISourceViewer;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPKeywordType;
+import org.jkiss.dbeaver.model.DBPMessageType;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.sql.SQLConstants;
 import org.jkiss.dbeaver.model.sql.SQLSyntaxManager;
+import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.sql.parser.SQLParserPartitions;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.dbeaver.runtime.DBeaverNotifications;
 import org.jkiss.dbeaver.ui.editors.sql.SQLPreferenceConstants;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 
@@ -36,6 +40,7 @@ public class SQLAutoIndentStrategy extends DefaultIndentLineAutoEditStrategy {
     private static final boolean KEYWORD_INDENT_ENABLED = false;
 
     private String partitioning;
+    private ISourceViewer sourceViewer;
     private SQLSyntaxManager syntaxManager;
 
     private Map<Integer, String> autoCompletionMap = new HashMap<>();
@@ -50,9 +55,10 @@ public class SQLAutoIndentStrategy extends DefaultIndentLineAutoEditStrategy {
     /**
      * Creates a new SQL auto indent strategy for the given document partitioning.
      */
-    public SQLAutoIndentStrategy(String partitioning, SQLSyntaxManager syntaxManager)
+    public SQLAutoIndentStrategy(String partitioning, ISourceViewer sourceViewer, SQLSyntaxManager syntaxManager)
     {
         this.partitioning = partitioning;
+        this.sourceViewer = sourceViewer;
         this.syntaxManager = syntaxManager;
     }
 
@@ -70,7 +76,18 @@ public class SQLAutoIndentStrategy extends DefaultIndentLineAutoEditStrategy {
 
         if (command.text != null && command.text.length() > MINIMUM_SOUCE_CODE_LENGTH) {
             if (syntaxManager.getPreferenceStore().getBoolean(SQLPreferenceConstants.SQL_FORMAT_EXTRACT_FROM_SOURCE)) {
-                transformSourceCode(document, command);
+                if (transformSourceCode(document, command)) {
+                    DBeaverNotifications.showNotification(
+                        "sql.sourceCode.transform",
+                        "SQL transformation (click to undo)",
+                        "SQL query was extracted from the source code",
+                        DBPMessageType.INFORMATION,
+                        () -> {
+                            if (sourceViewer instanceof ITextOperationTarget) {
+                                ((ITextOperationTarget) sourceViewer).doOperation(ITextOperationTarget.UNDO);
+                            }
+                        });
+                }
             }
         } else if (command.length == 0 && command.text != null) {
             final boolean lineDelimiter = isLineDelimiter(document, command.text);
@@ -81,7 +98,12 @@ public class SQLAutoIndentStrategy extends DefaultIndentLineAutoEditStrategy {
                     (lineDelimiter || (command.text.length() == 1 && !Character.isJavaIdentifierPart(command.text.charAt(0)))) &&
                     syntaxManager.getPreferenceStore().getBoolean(SQLPreferenceConstants.SQL_FORMAT_KEYWORD_CASE_AUTO))
                 {
-                    updateKeywordCase(document, command);
+                    IRegion lineRegion = document.getLineInformationOfOffset(command.offset);
+                    String line = document.get(lineRegion.getOffset(), lineRegion.getLength()).trim();
+
+                    if (!SQLUtils.isCommentLine(syntaxManager.getDialect(), line)) {
+                        updateKeywordCase(document, command);
+                    }
                 }
             } catch (BadLocationException e) {
                 log.debug(e);
@@ -154,12 +176,12 @@ public class SQLAutoIndentStrategy extends DefaultIndentLineAutoEditStrategy {
 	        	if (prevChar == escapeChar) {
 		            switch (ch) {
 	                case 'n':
-	                    if (!endsWithLF(result)) {
+	                    if (!endsWithLF(result, '\n')) {
 	                        result.append("\n");
 	                    }
 	                    break;
 	                case 'r':
-	                    if (!endsWithLF(result)) {
+	                    if (!endsWithLF(result, '\r')) {
 	                        result.append("\r");
 	                    }
 	                    break;
@@ -180,18 +202,10 @@ public class SQLAutoIndentStrategy extends DefaultIndentLineAutoEditStrategy {
 	                    if (ch == escapeChar) {
 	                        break;
 	                    }
-	                    if (inString) {
-	                        result.append(ch);
-	                    } else if (ch == '\n' && result.length() > 0) {
-	                        // Append linefeed even if it is outside of quotes
-	                        // (but only if string in quotes doesn't end with linefeed - we don't need doubles)
-	                        if (!endsWithLF(result)) {
-	                            result.append(ch);
-	                        }
-	                    }
-		            }
+                        result.append(ch);
+                    }
 		        }
-	        } 
+	        }
             else if (inComment) {
         		if (commentType == CommentType.Unknown && prevChar == '/' && ch == '*') {
         			commentType = CommentType.Block;
@@ -216,9 +230,11 @@ public class SQLAutoIndentStrategy extends DefaultIndentLineAutoEditStrategy {
             		inString = true;
             		break;
                 case '\n':
-                    // Line feed outside of actual query
-                    if (result.length() > 0 && result.charAt(result.length() - 1) != '\n') {
-                        result.append("\n");
+                case '\r':
+                    // Append linefeed even if it is outside of quotes
+                    // (but only if string in quotes doesn't end with linefeed - we don't need doubles)
+                    if (result.length() > 0 && !endsWithLF(result, '\n') && !endsWithLF(result, '\r')) {
+                        result.append(ch == '\n' ? "\n" : "\r");
                     }
                     break;
             	}
@@ -242,14 +258,14 @@ public class SQLAutoIndentStrategy extends DefaultIndentLineAutoEditStrategy {
         return true;
     }
 
-    private boolean endsWithLF(StringBuilder result) {
+    private boolean endsWithLF(StringBuilder result, char lfChar) {
         boolean endsWithLF = false;
         for (int k = result.length(); k > 0; k--) {
             final char lch = result.charAt(k - 1);
             if (!Character.isWhitespace(lch)) {
                 break;
             }
-            if (lch == '\n' || lch == '\r') {
+            if (lch == lfChar) {
                 endsWithLF = true;
                 break;
             }

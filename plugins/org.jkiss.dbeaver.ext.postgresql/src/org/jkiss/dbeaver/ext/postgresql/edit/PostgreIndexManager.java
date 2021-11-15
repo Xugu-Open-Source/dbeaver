@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,15 @@
  */
 package org.jkiss.dbeaver.ext.postgresql.edit;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.postgresql.model.*;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPScriptObject;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
+import org.jkiss.dbeaver.model.edit.DBEObjectRenamer;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
@@ -40,13 +43,18 @@ import java.util.Map;
 /**
  * Postgre index manager
  */
-public class PostgreIndexManager extends SQLIndexManager<PostgreIndex, PostgreTableBase> {
+public class PostgreIndexManager extends SQLIndexManager<PostgreIndex, PostgreTableBase> implements DBEObjectRenamer<PostgreIndex> {
+
+    @Override
+    public boolean canRenameObject(PostgreIndex object) {
+        return object.getDataSource().getServerType().supportsKeyAndIndexRename();
+    }
 
     @Nullable
     @Override
     public DBSObjectCache<PostgreTableContainer, PostgreIndex> getObjectsCache(PostgreIndex object)
     {
-        return object.getTable().getContainer().getSchema().indexCache;
+        return object.getTable().getContainer().getSchema().getIndexCache();
     }
 
     @Override
@@ -116,10 +124,26 @@ public class PostgreIndexManager extends SQLIndexManager<PostgreIndex, PostgreTa
         }
     }
 
-    static void addIndexCommentAction(List<DBEPersistAction> actions, PostgreIndex index) {
+    private static void addIndexCommentAction(List<DBEPersistAction> actions, PostgreIndex index) {
         actions.add(new SQLDatabasePersistAction(
             "Comment index",
             "COMMENT ON INDEX " + index.getFullyQualifiedName(DBPEvaluationContext.DDL) +
                 " IS " + SQLUtils.quoteString(index, index.getDescription())));
+    }
+
+    @Override
+    public void renameObject(@NotNull DBECommandContext commandContext, @NotNull PostgreIndex object, @NotNull Map<String, Object> options, @NotNull String newName) throws DBException {
+        processObjectRename(commandContext, object, options, newName);
+    }
+
+    @Override
+    protected void addObjectRenameActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, List<DBEPersistAction> actions, ObjectRenameCommand command, Map<String, Object> options) {
+        PostgreIndex index = command.getObject();
+        actions.add(
+                new SQLDatabasePersistAction(
+                        "Rename index",
+                        "ALTER INDEX " + index.getFullyQualifiedName(DBPEvaluationContext.DDL) + //$NON-NLS-1$
+                                " RENAME TO " + DBUtils.getQuotedIdentifier(index.getDataSource(), command.getNewName())) //$NON-NLS-1$
+        );
     }
 }

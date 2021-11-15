@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,6 +75,9 @@ public class OracleConstants {
     public static final String PROP_SESSION_LANGUAGE = DBConstants.INTERNAL_PROP_PREFIX + "session-language@";
     public static final String PROP_SESSION_TERRITORY = DBConstants.INTERNAL_PROP_PREFIX + "session-territory@";
     public static final String PROP_SESSION_NLS_DATE_FORMAT = DBConstants.INTERNAL_PROP_PREFIX + "session-nls-date-format@";
+    public static final String PROP_SESSION_NLS_TIMESTAMP_FORMAT = "session-nls-timestamp-format";
+    public static final String PROP_SESSION_NLS_LENGTH_FORMAT = "session-nls-length-format";
+    public static final String PROP_SESSION_NLS_CURRENCY_FORMAT = "session-nls-currency-format";
     public static final String PROP_CHECK_SCHEMA_CONTENT = DBConstants.INTERNAL_PROP_PREFIX + "check-schema-content@";
     public static final String PROP_ALWAYS_SHOW_DBA = DBConstants.INTERNAL_PROP_PREFIX + "always-show-dba@";
     public static final String PROP_ALWAYS_USE_DBA_VIEWS = DBConstants.INTERNAL_PROP_PREFIX + "always-use-dba-views@";
@@ -82,7 +85,8 @@ public class OracleConstants {
     public static final String PROP_USE_META_OPTIMIZER = DBConstants.INTERNAL_PROP_PREFIX + "use-meta-optimizer@";
     public static final String PROP_METADATA_USE_SYS_SCHEMA = DBConstants.INTERNAL_PROP_PREFIX + "meta-use-sys-schema@";
     public static final String PROP_METADATA_USE_SIMPLE_CONSTRAINTS = DBConstants.INTERNAL_PROP_PREFIX + "meta-use-simple-constraints@";
-
+    public static final String PROP_METADATA_USE_ALTERNATIVE_TABLE_QUERY = DBConstants.INTERNAL_PROP_PREFIX + "meta-use-alternative-table-query@";
+    public static final String PROP_SEARCH_METADATA_IN_SYNONYMS = "oracle.meta-search-in-synonyms"; //$NON-NLS-1$
 
     public static final String OS_AUTH_PROP = DBConstants.INTERNAL_PROP_PREFIX + "os-authentication@";
 
@@ -98,8 +102,18 @@ public class OracleConstants {
     public static final String TYPE_NAME_GEOMETRY = "PUBLIC.SDO_GEOMETRY";
     public static final String TYPE_FQ_GEOMETRY = "MDSYS.SDO_GEOMETRY";
     public static final String TYPE_NAME_BFILE = "BFILE";
+    public static final String TYPE_NAME_CFILE = "CFILE";
+    public static final String TYPE_CONTENT_POINTER = "CONTENT POINTER";
     public static final String TYPE_NAME_DATE = "DATE";
     public static final String TYPE_NAME_TIMESTAMP = "TIMESTAMP";
+    public static final String TYPE_NUMBER = "NUMBER";
+    public static final String TYPE_DECIMAL = "DECIMAL";
+    public static final String TYPE_NAME_REFCURSOR = "REFCURSOR";
+    public static final String TYPE_LONG = "LONG";
+    public static final String TYPE_LONG_RAW = "LONG RAW";
+    public static final String TYPE_OCTET = "OCTET";
+    public static final String TYPE_INTERVAL_YEAR_MONTH = "INTERVAL YEAR TO MONTH";
+    public static final String TYPE_INTERVAL_DAY_SECOND = "INTERVAL DAY TO SECOND";
 
     public static final int TIMESTAMP_TYPE_LENGTH = 13;
     public static final int DATE_TYPE_LENGTH = 7;
@@ -147,6 +161,7 @@ public class OracleConstants {
 
     public static final int DATA_TYPE_TIMESTAMP_WITH_TIMEZONE = 101;
     public static final int DATA_TYPE_TIMESTAMP_WITH_LOCAL_TIMEZONE = 102;
+    public static final int DATA_TYPE_REFCURSOR = -10;
 
     public static final DBSEntityConstraintType CONSTRAINT_WITH_CHECK_OPTION = new DBSEntityConstraintType("V", "With Check Option", null, false, false, false, false);
     public static final DBSEntityConstraintType CONSTRAINT_WITH_READ_ONLY = new DBSEntityConstraintType("O", "With Read Only", null, false, false, false, false);
@@ -158,7 +173,11 @@ public class OracleConstants {
      * Oracle error codes
      */
     public static final int EC_FEATURE_NOT_SUPPORTED = 17023;
+    public static final int EC_NO_RESULTSET_AVAILABLE = 17283;
     public static final int EC_PASSWORD_EXPIRED = 28001;
+    public static final int NUMERIC_MAX_PRECISION = 38;
+    public static final int INTERVAL_DEFAULT_SECONDS_PRECISION = 6;
+    public static final int INTERVAL_DEFAULT_YEAR_DAY_PRECISION = 2;
 
     /**
      * Connection type

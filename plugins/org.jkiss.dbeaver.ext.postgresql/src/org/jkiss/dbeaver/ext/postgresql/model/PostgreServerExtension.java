@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectLookupCache;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 
 import java.util.List;
 import java.util.Map;
@@ -28,8 +29,7 @@ import java.util.Map;
 /**
  * PostgreServerExtension
  */
-public interface PostgreServerExtension
-{
+public interface PostgreServerExtension {
     String getServerTypeName();
 
     boolean supportsTransactions();
@@ -119,4 +119,43 @@ public interface PostgreServerExtension
     List<PostgrePrivilege> readObjectPermissions(DBRProgressMonitor monitor, PostgreTableBase object, boolean includeNestedObjects) throws DBException;
 
     Map<String, String> getDataTypeAliases();
+
+    boolean supportsTableStatistics();
+
+    // True if driver returns source table name in ResultSetMetaData.
+    // It works for original PG driver but doesn't work for many forks (e.g. Redshift).
+    boolean supportsEntityMetadataInResults();
+
+    boolean supportsPGConstraintExpressionColumn();
+
+    boolean supportsHasOidsColumn();
+
+    boolean supportsDatabaseSize();
+
+    boolean isAlterTableAtomic();
+
+    boolean supportsSuperusers();
+
+    boolean supportsRolesWithCreateDBAbility();
+
+    boolean supportSerialTypes();
+
+    boolean supportsExternalTypes();
+
+    boolean supportsBackslashStringEscape();
+
+    boolean supportsDisablingAllTriggers();
+
+    boolean supportsGeneratedColumns();
+
+    boolean supportsKeyAndIndexRename();
+
+    boolean supportsAlterUserChangePassword();
+
+    boolean supportsCopyFromStdIn();
+
+    int getParameterBindType(DBSTypedObject type, Object value);
+
+    int getTruncateToolModes();
+
 }

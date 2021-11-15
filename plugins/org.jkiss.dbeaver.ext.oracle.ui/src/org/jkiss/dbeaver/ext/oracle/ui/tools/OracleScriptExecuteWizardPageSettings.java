@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,14 +23,14 @@ import org.eclipse.swt.widgets.Group;
 import org.jkiss.dbeaver.ext.oracle.tasks.OracleScriptExecuteSettings;
 import org.jkiss.dbeaver.ext.oracle.ui.internal.OracleUIMessages;
 import org.jkiss.dbeaver.model.struct.DBSObject;
-import org.jkiss.dbeaver.tasks.ui.nativetool.AbstractToolWizardPage;
+import org.jkiss.dbeaver.tasks.ui.nativetool.AbstractNativeToolWizardPage;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.TextWithOpenFile;
 
 import java.util.List;
 
 
-class OracleScriptExecuteWizardPageSettings extends AbstractToolWizardPage<OracleScriptExecuteWizard> {
+class OracleScriptExecuteWizardPageSettings extends AbstractNativeToolWizardPage<OracleScriptExecuteWizard> {
     private TextWithOpenFile inputFileText;
 
     OracleScriptExecuteWizardPageSettings(OracleScriptExecuteWizard wizard) {
@@ -40,8 +40,12 @@ class OracleScriptExecuteWizardPageSettings extends AbstractToolWizardPage<Oracl
     }
 
     @Override
-    public boolean isPageComplete() {
-        return super.isPageComplete() && wizard.getSettings().getInputFile() != null;
+    protected boolean determinePageCompletion() {
+        if (wizard.getSettings().getInputFile() == null) {
+            setErrorMessage("Input file not specified");
+            return false;
+        }
+        return super.determinePageCompletion();
     }
 
     @Override
@@ -52,8 +56,6 @@ class OracleScriptExecuteWizardPageSettings extends AbstractToolWizardPage<Oracl
         outputGroup.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
         inputFileText = new TextWithOpenFile(outputGroup, OracleUIMessages.tools_script_execute_wizard_page_settings_label_input_file, new String[] { "*.sql", "*.txt", "*" } );
         inputFileText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-
-        wizard.createTaskSaveGroup(composite);
 
         setControl(composite);
 

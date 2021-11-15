@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.eclipse.jface.window.Window;
 import org.eclipse.osgi.service.datalocation.Location;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IWorkbench;
@@ -32,11 +33,12 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.internal.WorkbenchPlugin;
 import org.eclipse.ui.internal.ide.ChooseWorkspaceData;
 import org.eclipse.ui.internal.ide.ChooseWorkspaceDialog;
-import org.eclipse.ui.internal.ide.application.DelayedEventsProcessor;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBeaverPreferences;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.app.DBASecureStorage;
+import org.jkiss.dbeaver.model.app.DBPApplicationController;
 import org.jkiss.dbeaver.model.impl.app.DefaultSecureStorage;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.registry.BaseApplicationImpl;
@@ -55,15 +57,20 @@ import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.IOUtils;
 import org.jkiss.utils.StandardConstants;
+import org.osgi.framework.Version;
 
 import java.io.*;
+import java.lang.reflect.Field;
 import java.net.URL;
-import java.util.Properties;
+import java.nio.file.*;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * This class controls all aspects of the application's execution
  */
-public class DBeaverApplication extends BaseApplicationImpl {
+public class DBeaverApplication extends BaseApplicationImpl implements DBPApplicationController {
 
     private static final Log log = Log.getLog(DBeaverApplication.class);
 
@@ -72,6 +79,8 @@ public class DBeaverApplication extends BaseApplicationImpl {
     public static final String WORKSPACE_DIR_LEGACY = "${user.home}/.dbeaver"; //$NON-NLS-1$
     public static final String WORKSPACE_DIR_4 = "${user.home}/.dbeaver4"; //$NON-NLS-1$
     public static final String WORKSPACE_DIR_6; //$NON-NLS-1$
+
+    private static final Path FILE_WITH_WORKSPACES;
 
     public static final String DBEAVER_DATA_DIR = "DBeaverData";
 
@@ -84,12 +93,15 @@ public class DBeaverApplication extends BaseApplicationImpl {
     static final String VERSION_PROP_PRODUCT_NAME = "product-name";
     static final String VERSION_PROP_PRODUCT_VERSION = "product-version";
 
+    private static final String PROP_EXIT_DATA = IApplicationContext.EXIT_DATA_PROPERTY; //$NON-NLS-1$
     private static final String PROP_EXIT_CODE = "eclipse.exitcode"; //$NON-NLS-1$
 
     static boolean WORKSPACE_MIGRATED = false;
 
     static DBeaverApplication instance;
-    boolean reuseWorkspace = false;
+
+    private boolean exclusiveMode = false;
+    private boolean reuseWorkspace = false;
     private boolean primaryInstance = true;
     private boolean headlessMode = false;
 
@@ -101,7 +113,8 @@ public class DBeaverApplication extends BaseApplicationImpl {
 
     private Display display = null;
 
-    private boolean resetUIOnRestart;
+    private boolean resetUIOnRestart, resetWorkspaceOnRestart;
+    private long lastUserActivityTime = -1;
 
     static {
         // Explicitly set UTF-8 as default file encoding
@@ -141,9 +154,11 @@ public class DBeaverApplication extends BaseApplicationImpl {
 
         // Workspace dir
         WORKSPACE_DIR_6 = new File(workingDirectory, "workspace6").getAbsolutePath();
-
         WORKSPACE_DIR_CURRENT = WORKSPACE_DIR_6;
+        FILE_WITH_WORKSPACES = Paths.get(workingDirectory, ".workspaces"); //$NON-NLS-1$
     }
+
+
 
     /**
      * Gets singleton instance of DBeaver application
@@ -154,11 +169,15 @@ public class DBeaverApplication extends BaseApplicationImpl {
     }
 
     @Override
+    public long getLastUserActivityTime() {
+        return lastUserActivityTime;
+    }
+
+    @Override
     public Object start(IApplicationContext context) {
         instance = this;
 
         Location instanceLoc = Platform.getInstanceLocation();
-        boolean ideWorkspaceSet = setIDEWorkspace(instanceLoc);
 
         CommandLine commandLine = DBeaverCommandLine.getCommandLine();
         {
@@ -169,25 +188,33 @@ public class DBeaverApplication extends BaseApplicationImpl {
             }
         }
 
-        // Lock the workspace
-        try {
-            if (!instanceLoc.isSet()) {
-                if (!setDefaultWorkspacePath(instanceLoc)) {
-                    return IApplication.EXIT_OK;
-                }
-            } else if (instanceLoc.isLocked() && !ideWorkspaceSet) {
-                // Check for locked workspace
-                if (!setDefaultWorkspacePath(instanceLoc)) {
-                    return IApplication.EXIT_OK;
-                }
-            }
+        boolean ideWorkspaceSet = setIDEWorkspace(instanceLoc);
 
+        {
             // Lock the workspace
-            if (!instanceLoc.isLocked()) {
-                instanceLoc.lock();
+            try {
+                if (!instanceLoc.isSet()) {
+                    if (!setDefaultWorkspacePath(instanceLoc)) {
+                        return IApplication.EXIT_OK;
+                    }
+                } else if (instanceLoc.isLocked() && !ideWorkspaceSet && !isExclusiveMode()) {
+                    // Check for locked workspace
+                    if (!setDefaultWorkspacePath(instanceLoc)) {
+                        return IApplication.EXIT_OK;
+                    }
+                }
+
+                if (isExclusiveMode()) {
+                    markLocationReadOnly(instanceLoc);
+                } else {
+                    // Lock the workspace
+                    if (!instanceLoc.isLocked()) {
+                        instanceLoc.lock();
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
 
         // Custom parameters
@@ -198,6 +225,11 @@ public class DBeaverApplication extends BaseApplicationImpl {
             }
         } finally {
             headlessMode = false;
+        }
+
+        if (isExclusiveMode()) {
+            // In shared mode we mustn't run UI
+            return IApplication.EXIT_OK;
         }
 
         initDebugWriter();
@@ -232,8 +264,11 @@ public class DBeaverApplication extends BaseApplicationImpl {
             getDisplay();
             int returnCode = PlatformUI.createAndRunWorkbench(display, createWorkbenchAdvisor());
 
-            if (resetUIOnRestart) {
+            if (resetUIOnRestart || resetWorkspaceOnRestart) {
                 resetUISettings(instanceLoc);
+            }
+            if (resetWorkspaceOnRestart) {
+                // FIXME: ???
             }
 
             // Copy-pasted from IDEApplication
@@ -269,48 +304,100 @@ public class DBeaverApplication extends BaseApplicationImpl {
         }
     }
 
-    private boolean setIDEWorkspace(Location instanceLoc) {
+    private void markLocationReadOnly(Location instanceLoc) {
+        try {
+            Field isReadOnlyField = instanceLoc.getClass().getDeclaredField("isReadOnly");
+            isReadOnlyField.setAccessible(true);
+            isReadOnlyField.set(instanceLoc, true);
+        } catch (Throwable e) {
+            // ignore
+            e.printStackTrace();
+        }
+    }
+
+    private static boolean setIDEWorkspace(@NotNull Location instanceLoc) {
         if (instanceLoc.isSet()) {
             return false;
         }
-        ChooseWorkspaceData launchData = new ChooseWorkspaceData(instanceLoc.getDefault());
-        String[] recentWorkspaces = launchData.getRecentWorkspaces();
-
-        if (recentWorkspaces != null && recentWorkspaces.length > 1 && !ArrayUtils.contains(recentWorkspaces, WORKSPACE_DIR_CURRENT)) {
-            // Add default workspace in the recent list
-            boolean added = false;
-            for (int i = 0; i < recentWorkspaces.length; i++) {
-                if (recentWorkspaces[i] == null) {
-                    recentWorkspaces[i] = WORKSPACE_DIR_CURRENT;
-                    added = true;
-                    break;
-                }
-            }
-            if (!added) {
-                recentWorkspaces[recentWorkspaces.length - 1] = WORKSPACE_DIR_CURRENT;
-            }
-            launchData.setRecentWorkspaces(recentWorkspaces);
-            launchData.writePersistedData();
+        Collection<String> recentWorkspaces = getRecentWorkspaces(instanceLoc);
+        if (recentWorkspaces.isEmpty()) {
+            return false;
         }
+        String lastWorkspace = recentWorkspaces.iterator().next();
+        if (!CommonUtils.isEmpty(lastWorkspace) && !WORKSPACE_DIR_CURRENT.equals(lastWorkspace)) {
+            try {
+                final URL selectedWorkspaceURL = new URL(
+                    "file",  //$NON-NLS-1$
+                    null,
+                    lastWorkspace);
+                instanceLoc.set(selectedWorkspaceURL, true);
 
-        if (!ArrayUtils.isEmpty(recentWorkspaces)) {
-            String lastWorkspace = recentWorkspaces[0];
-            if (!CommonUtils.isEmpty(lastWorkspace) && !WORKSPACE_DIR_CURRENT.equals(lastWorkspace)) {
-                try {
-                    final URL selectedWorkspaceURL = new URL(
-                        "file",  //$NON-NLS-1$
-                        null,
-                        lastWorkspace);
-                    instanceLoc.set(selectedWorkspaceURL, true);
-
-                    return true;
-                } catch (Exception e) {
-                    System.err.println("Can't set IDE workspace to '" + lastWorkspace + "'");
-                    e.printStackTrace();
-                }
+                return true;
+            } catch (Exception e) {
+                System.err.println("Can't set IDE workspace to '" + lastWorkspace + "'");
+                e.printStackTrace();
             }
         }
         return false;
+    }
+
+    @NotNull
+    private static Collection<String> getRecentWorkspaces(@NotNull Location instanceLoc) {
+        ChooseWorkspaceData launchData = new ChooseWorkspaceData(instanceLoc.getDefault());
+        String[] arrayOfRecentWorkspaces = launchData.getRecentWorkspaces();
+        Collection<String> recentWorkspaces;
+        int maxSize;
+        if (arrayOfRecentWorkspaces == null) {
+            maxSize = 0;
+            recentWorkspaces = new ArrayList<>();
+        } else {
+            maxSize = arrayOfRecentWorkspaces.length;
+            recentWorkspaces = new ArrayList<>(Arrays.asList(arrayOfRecentWorkspaces));
+        }
+        recentWorkspaces.removeIf(Objects::isNull);
+        Collection<String> backedUpWorkspaces = getBackedUpWorkspaces();
+        if (recentWorkspaces.equals(backedUpWorkspaces) && backedUpWorkspaces.contains(WORKSPACE_DIR_CURRENT)) {
+            return backedUpWorkspaces;
+        }
+
+        List<String> workspaces = Stream.concat(recentWorkspaces.stream(), backedUpWorkspaces.stream())
+            .distinct()
+            .limit(maxSize)
+            .collect(Collectors.toList());
+        if (!recentWorkspaces.contains(WORKSPACE_DIR_CURRENT)) {
+            if (recentWorkspaces.size() < maxSize) {
+                recentWorkspaces.add(WORKSPACE_DIR_CURRENT);
+            } else if (maxSize > 1) {
+                workspaces.set(recentWorkspaces.size() - 1, WORKSPACE_DIR_CURRENT);
+            }
+        }
+        launchData.setRecentWorkspaces(Arrays.copyOf(workspaces.toArray(new String[0]), maxSize));
+        launchData.writePersistedData();
+        saveWorkspacesToBackup(workspaces);
+        return workspaces;
+    }
+
+    @NotNull
+    private static Collection<String> getBackedUpWorkspaces() {
+        if (!Files.exists(FILE_WITH_WORKSPACES)) {
+            return Collections.emptyList();
+        }
+        try {
+            return Files.readAllLines(FILE_WITH_WORKSPACES);
+        } catch (IOException e) {
+            System.err.println("Unable to read backed up workspaces"); //$NON-NLS-1$
+            e.printStackTrace();
+            return Collections.emptyList();
+        }
+    }
+
+    private static void saveWorkspacesToBackup(@NotNull Iterable<? extends CharSequence> workspaces) {
+        try {
+            Files.write(FILE_WITH_WORKSPACES, workspaces, StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (IOException e) {
+            System.err.println("Unable to save backed up workspaces"); //$NON-NLS-1$
+            e.printStackTrace();
+        }
     }
 
     private String getDefaultInstanceLocation() {
@@ -403,9 +490,17 @@ public class DBeaverApplication extends BaseApplicationImpl {
             if (display == null) {
                 display = PlatformUI.createDisplay();
             }
-            DelayedEventsProcessor processor = new DelayedEventsProcessor(display);
+            addIdleListeners();
         }
         return display;
+    }
+
+    private void addIdleListeners() {
+        int [] events = {SWT.KeyDown, SWT.KeyUp, SWT.MouseDown, SWT.MouseMove, SWT.MouseUp, SWT.MouseWheel};
+        Listener idleListener = event -> lastUserActivityTime = System.currentTimeMillis();
+        for (int event : events) {
+            display.addFilter(event, idleListener);
+        }
     }
 
     private boolean setDefaultWorkspacePath(Location instanceLoc) {
@@ -441,7 +536,7 @@ public class DBeaverApplication extends BaseApplicationImpl {
             boolean keepTrying = true;
             while (keepTrying) {
                 if (instanceLoc.isLocked() || !instanceLoc.set(defaultHomeURL, true)) {
-                    if (reuseWorkspace) {
+                    if (exclusiveMode || reuseWorkspace) {
                         instanceLoc.set(defaultHomeURL, false);
                         keepTrying = false;
                         primaryInstance = false;
@@ -530,7 +625,7 @@ public class DBeaverApplication extends BaseApplicationImpl {
         }
         String logLocation = preferenceStore.getString(DBeaverPreferences.LOGS_DEBUG_LOCATION);
         if (CommonUtils.isEmpty(logLocation)) {
-            logLocation = new File(GeneralUtils.getMetadataFolder(), "dbeaver-debug.log").getAbsolutePath(); //$NON-NLS-1$
+            logLocation = new File(GeneralUtils.getMetadataFolder(), DBConstants.DEBUG_LOG_FILE_NAME).getAbsolutePath(); //$NON-NLS-1$
         }
         logLocation = GeneralUtils.replaceVariables(logLocation, new SystemVariablesResolver());
         File debugLogFile = new File(logLocation);
@@ -590,6 +685,28 @@ public class DBeaverApplication extends BaseApplicationImpl {
         return headlessMode;
     }
 
+    @Override
+    public boolean isExclusiveMode() {
+        return exclusiveMode;
+    }
+
+    public void setExclusiveMode(boolean exclusiveMode) {
+        this.exclusiveMode = exclusiveMode;
+    }
+
+    public boolean isReuseWorkspace() {
+        return reuseWorkspace;
+    }
+
+    public void setReuseWorkspace(boolean reuseWorkspace) {
+        this.reuseWorkspace = reuseWorkspace;
+    }
+
+    @Override
+    public void setHeadlessMode(boolean headlessMode) {
+        this.headlessMode = headlessMode;
+    }
+
     @NotNull
     @Override
     public DBASecureStorage getSecureStorage() {
@@ -618,7 +735,7 @@ public class DBeaverApplication extends BaseApplicationImpl {
         return msgResult;
     }
 
-    public void notifyVersionUpgrade(VersionDescriptor currentVersion, VersionDescriptor newVersion, boolean showSkip) {
+    public void notifyVersionUpgrade(@NotNull Version currentVersion, @NotNull VersionDescriptor newVersion, boolean showSkip) {
         VersionUpdateDialog dialog = new VersionUpdateDialog(
             UIUtils.getActiveWorkbenchShell(),
             currentVersion,
@@ -629,6 +746,10 @@ public class DBeaverApplication extends BaseApplicationImpl {
 
     public void setResetUIOnRestart(boolean resetUIOnRestart) {
         this.resetUIOnRestart = resetUIOnRestart;
+    }
+
+    public void setResetWorkspaceOnRestart(boolean resetWorkspaceOnRestart) {
+        this.resetWorkspaceOnRestart = resetWorkspaceOnRestart;
     }
 
     private class ProxyPrintStream extends OutputStream {
@@ -665,5 +786,4 @@ public class DBeaverApplication extends BaseApplicationImpl {
         }
 
     }
-
 }

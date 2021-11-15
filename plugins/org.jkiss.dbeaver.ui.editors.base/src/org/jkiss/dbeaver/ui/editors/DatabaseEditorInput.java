@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ public abstract class DatabaseEditorInput<NODE extends DBNDatabaseNode> implemen
     private final DBECommandContext commandContext;
     private String defaultPageId;
     private String defaultFolderId;
-    private Map<String, Object> attributes = new LinkedHashMap<>();
+    private final Map<String, Object> attributes = new LinkedHashMap<>();
 
     protected DatabaseEditorInput(@Nullable NODE node)
     {
@@ -68,7 +68,7 @@ public abstract class DatabaseEditorInput<NODE extends DBNDatabaseNode> implemen
         if (object != null) {
             this.executionContext = DBUtils.getDefaultContext(object, false);
             if (this.executionContext == null) {
-                log.error("Database object is not associated with any execution context");
+                log.error("Database object '" + object.getName() + "' is not associated with any execution context");
             }
             this.commandContext = commandContext != null ?
                 commandContext :

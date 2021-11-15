@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,8 +38,8 @@ import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.LoadingJob;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.TreeContentProvider;
-import org.jkiss.dbeaver.ui.navigator.itemlist.NodeListControl;
 import org.jkiss.dbeaver.ui.navigator.INavigatorModelView;
+import org.jkiss.dbeaver.ui.navigator.itemlist.NodeListControl;
 import org.jkiss.dbeaver.ui.search.internal.UISearchMessages;
 import org.jkiss.utils.CommonUtils;
 
@@ -233,7 +233,7 @@ public abstract class AbstractSearchResultsPage <OBJECT_TYPE> extends Page imple
         }
 
         @Override
-        protected LoadingJob<Collection<DBNNode>> createLoadService()
+        protected LoadingJob<Collection<DBNNode>> createLoadService(boolean forUpdate)
         {
             // No load service
             return null;

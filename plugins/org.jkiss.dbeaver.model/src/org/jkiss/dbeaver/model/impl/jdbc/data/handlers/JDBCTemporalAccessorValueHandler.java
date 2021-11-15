@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.data.DBDDataFormatter;
-import org.jkiss.dbeaver.model.data.DBDDataFormatterProfile;
 import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
+import org.jkiss.dbeaver.model.data.DBDFormatSettings;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCResultSet;
 import org.jkiss.dbeaver.model.exec.DBCSession;
@@ -50,9 +50,9 @@ public class JDBCTemporalAccessorValueHandler extends TemporalAccessorValueHandl
     public static final DateTimeFormatter DEFAULT_TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("''" + DBConstants.DEFAULT_TIMESTAMP_FORMAT + "''");
     public static final DateTimeFormatter DEFAULT_TIMESTAMP_TZ_FORMAT = DateTimeFormatter.ofPattern("''" + DBConstants.DEFAULT_TIMESTAMP_TZ_FORMAT + "''");
 
-    public JDBCTemporalAccessorValueHandler(DBDDataFormatterProfile formatterProfile)
+    public JDBCTemporalAccessorValueHandler(DBDFormatSettings formatSettings)
     {
-        super(formatterProfile);
+        super(formatSettings);
     }
 
     @Override
@@ -60,6 +60,15 @@ public class JDBCTemporalAccessorValueHandler extends TemporalAccessorValueHandl
         try {
             if (resultSet instanceof JDBCResultSet) {
                 JDBCResultSet dbResults = (JDBCResultSet) resultSet;
+
+                if (session.isUseNativeDateTimeFormat()) {
+                    try {
+                        return dbResults.getString(index + 1);
+                    } catch (SQLException e) {
+                        log.debug("Can't read date/time value as string: " + e.getMessage());
+                    }
+                }
+
                 if (isZonedType(type)) {
                     return dbResults.getObject(index + 1, ZonedDateTime.class);
                 } else {
@@ -129,10 +138,13 @@ public class JDBCTemporalAccessorValueHandler extends TemporalAccessorValueHandl
     {
         switch (column.getTypeID()) {
             case Types.TIME:
-            case Types.TIME_WITH_TIMEZONE:
                 return DBDDataFormatter.TYPE_NAME_TIME;
             case Types.DATE:
                 return DBDDataFormatter.TYPE_NAME_DATE;
+            case Types.TIME_WITH_TIMEZONE:
+                return DBDDataFormatter.TYPE_NAME_TIME_TZ;
+            case Types.TIMESTAMP_WITH_TIMEZONE:
+                return DBDDataFormatter.TYPE_NAME_TIMESTAMP_TZ;
             default:
                 return DBDDataFormatter.TYPE_NAME_TIMESTAMP;
         }

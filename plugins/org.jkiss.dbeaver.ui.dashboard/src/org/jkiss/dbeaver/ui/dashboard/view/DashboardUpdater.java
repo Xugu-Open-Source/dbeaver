@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.exec.*;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
@@ -64,6 +65,8 @@ public class DashboardUpdater {
     }
 
     private void updateDashboards(DBRProgressMonitor monitor, List<DashboardContainer> dashboards) {
+        monitor.beginTask("Update dashboards", dashboards.size());
+
         // Get all map queries used by dashboards
         for (DashboardContainer dashboard : dashboards) {
             DashboardMapQuery mapQuery = dashboard.getMapQuery();
@@ -84,6 +87,7 @@ public class DashboardUpdater {
         }
 
         for (Map.Entry<DBPDataSourceContainer, List<MapQueryInfo>> mqEntry : mapQueries.entrySet()) {
+            monitor.subTask("Read dashboard data");
             DBPDataSourceContainer dsContainer = mqEntry.getKey();
             DBPDataSource dataSource = dsContainer.getDataSource();
             if (dataSource == null) {
@@ -120,7 +124,9 @@ public class DashboardUpdater {
             } catch (DBException e) {
                 log.debug("Error reading dashboard '" + dashboard.getDashboardId() + "' data: " + GeneralUtils.getRootCause(e).getMessage());
             }
+            monitor.worked(1);
         }
+        monitor.done();
     }
 
     private void readMapQueryData(DBRProgressMonitor monitor, MapQueryInfo mqInfo) throws DBCException {
@@ -169,15 +175,34 @@ public class DashboardUpdater {
         try (DBCSession session = executionContext.openSession(
             monitor, DBCExecutionPurpose.UTIL, "Read dashboard '" + dashboard.getDashboardTitle() + "' data")) {
             session.enableLogging(false);
-            for (DashboardQuery query : queries) {
-                try (DBCStatement dbStat = session.prepareStatement(DBCStatementType.QUERY, query.getQueryText(), false, false, false)) {
-                    if (dbStat.executeStatement()) {
-                        try (DBCResultSet dbResults = dbStat.openResultSet()) {
-                            fetchDashboardData(dashboard, dbResults);
+
+            DBCTransactionManager txnManager = DBUtils.getTransactionManager(session.getExecutionContext());
+            boolean revertTxn = false;
+            if (false) {
+                // FIXME: dashboards must be queued in auto-commit mode?
+                // FIXME: we can't switch to auto-commit because connection may be used by another tasks (e.g. SQL editor)
+                if (txnManager != null && txnManager.isSupportsTransactions() && !txnManager.isAutoCommit()) {
+                    txnManager.setAutoCommit(monitor, true);
+                    revertTxn = true;
+                }
+            }
+            try {
+                for (DashboardQuery query : queries) {
+                    try (DBCStatement dbStat = session.prepareStatement(DBCStatementType.QUERY, query.getQueryText(), false, false, false)) {
+                        if (dbStat.executeStatement()) {
+                            try (DBCResultSet dbResults = dbStat.openResultSet()) {
+                                if (dbResults != null) {
+                                    fetchDashboardData(dashboard, dbResults);
+                                }
+                            }
                         }
+                    } catch (Exception e) {
+                        throw new DBCException("Error updating dashboard " + dashboard.getDashboardId(), e, session.getExecutionContext());
                     }
-                } catch (Exception e) {
-                    throw new DBCException("Error updating dashboard " + dashboard.getDashboardId(), e, session.getExecutionContext());
+                }
+            } finally {
+                if (revertTxn) {
+                    txnManager.setAutoCommit(monitor, false);
                 }
             }
         }

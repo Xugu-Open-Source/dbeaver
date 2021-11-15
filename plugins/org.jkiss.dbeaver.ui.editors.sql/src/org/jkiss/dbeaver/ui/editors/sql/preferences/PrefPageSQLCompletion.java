@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,6 +25,7 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.sql.SQLModelPreferences;
+import org.jkiss.dbeaver.model.sql.SQLTableAliasInsertMode;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.editors.sql.SQLPreferenceConstants;
 import org.jkiss.dbeaver.ui.editors.sql.internal.SQLEditorMessages;
@@ -33,7 +34,7 @@ import org.jkiss.dbeaver.ui.preferences.TargetPrefPage;
 import org.jkiss.dbeaver.utils.PrefUtils;
 
 /**
- * PrefPageSQLEditor
+ * PrefPageSQLCompletion
  */
 public class PrefPageSQLCompletion extends TargetPrefPage
 {
@@ -52,20 +53,12 @@ public class PrefPageSQLCompletion extends TargetPrefPage
     private Button csLongName;
     private Button csInsertSpace;
     private Button csSortAlphabetically;
-    private Button csInsertTableAlias;
     private Button csShowServerHelpTopics;
+    private Combo csInsertTableAlias;
 
     private Button csMatchContains;
     private Button csUseGlobalSearch;
     private Button csShowColumnProcedures;
-
-    // Auto-close
-    private Button acSingleQuotesCheck;
-    private Button acDoubleQuotesCheck;
-    private Button acBracketsCheck;
-    // Auto-Format
-    private Button afKeywordCase;
-    private Button afExtractFromSource;
 
     public PrefPageSQLCompletion()
     {
@@ -93,13 +86,7 @@ public class PrefPageSQLCompletion extends TargetPrefPage
             store.contains(SQLPreferenceConstants.PROPOSALS_MATCH_CONTAINS) ||
             store.contains(SQLPreferenceConstants.USE_GLOBAL_ASSISTANT) ||
             store.contains(SQLPreferenceConstants.SHOW_COLUMN_PROCEDURES) ||
-            store.contains(SQLPreferenceConstants.SHOW_SERVER_HELP_TOPICS) ||
-
-            store.contains(SQLPreferenceConstants.SQLEDITOR_CLOSE_SINGLE_QUOTES) ||
-            store.contains(SQLPreferenceConstants.SQLEDITOR_CLOSE_DOUBLE_QUOTES) ||
-            store.contains(SQLPreferenceConstants.SQLEDITOR_CLOSE_BRACKETS) ||
-            store.contains(SQLPreferenceConstants.SQL_FORMAT_KEYWORD_CASE_AUTO) ||
-            store.contains(SQLPreferenceConstants.SQL_FORMAT_EXTRACT_FROM_SOURCE)
+            store.contains(SQLPreferenceConstants.SHOW_SERVER_HELP_TOPICS)
         ;
     }
 
@@ -152,8 +139,11 @@ public class PrefPageSQLCompletion extends TargetPrefPage
             csLongName = UIUtils.createCheckbox(assistGroup, SQLEditorMessages.pref_page_sql_completion_label_use_long_names, null, false, 2);
             csInsertSpace = UIUtils.createCheckbox(assistGroup, SQLEditorMessages.pref_page_sql_completion_label_insert_space, null, false, 2);
             csSortAlphabetically = UIUtils.createCheckbox(assistGroup, SQLEditorMessages.pref_page_sql_completion_label_sort_alphabetically, null, false, 2);
-            csInsertTableAlias = UIUtils.createCheckbox(assistGroup, SQLEditorMessages.pref_page_sql_completion_label_insert_table_alias, null, false, 2);
             csShowServerHelpTopics = UIUtils.createCheckbox(assistGroup, SQLEditorMessages.pref_page_sql_completion_label_show_server_help_topics, SQLEditorMessages.pref_page_sql_completion_label_show_server_help_topics_tip, false, 2);
+            csInsertTableAlias = UIUtils.createLabelCombo(assistGroup, SQLEditorMessages.pref_page_sql_completion_label_insert_table_alias, SWT.READ_ONLY | SWT.DROP_DOWN);
+            for (SQLTableAliasInsertMode mode : SQLTableAliasInsertMode.values()) {
+                csInsertTableAlias.add(mode.getText());
+            }
         }
 
         Composite rightPanel = new Composite(composite, SWT.NONE);
@@ -166,28 +156,6 @@ public class PrefPageSQLCompletion extends TargetPrefPage
             csMatchContains = UIUtils.createCheckbox(assistGroup, SQLEditorMessages.pref_page_sql_completion_label_match_contains, SQLEditorMessages.pref_page_sql_completion_label_match_contains_tip, false, 2);
             csUseGlobalSearch = UIUtils.createCheckbox(assistGroup, SQLEditorMessages.pref_page_sql_completion_label_use_global_search, SQLEditorMessages.pref_page_sql_completion_label_use_global_search_tip, false, 2);
             csShowColumnProcedures = UIUtils.createCheckbox(assistGroup, SQLEditorMessages.pref_page_sql_completion_label_show_column_procedures, SQLEditorMessages.pref_page_sql_completion_label_show_column_procedures_tip, false, 2);
-        }
-        // Autoclose
-        {
-            Composite acGroup = UIUtils.createControlGroup(rightPanel, SQLEditorMessages.pref_page_sql_format_group_auto_close, 1, GridData.FILL_HORIZONTAL | GridData.VERTICAL_ALIGN_BEGINNING, 0);
-
-            acSingleQuotesCheck = UIUtils.createCheckbox(acGroup, SQLEditorMessages.pref_page_sql_format_label_single_quotes, false);
-            acDoubleQuotesCheck = UIUtils.createCheckbox(acGroup, SQLEditorMessages.pref_page_sql_format_label_double_quotes, false);
-            acBracketsCheck = UIUtils.createCheckbox(acGroup, SQLEditorMessages.pref_page_sql_format_label_brackets, false);
-        }
-
-        {
-            // Formatting
-            Composite afGroup = UIUtils.createControlGroup(rightPanel, SQLEditorMessages.pref_page_sql_format_group_auto_format, 1, GridData.FILL_HORIZONTAL | GridData.VERTICAL_ALIGN_BEGINNING, 0);
-            afKeywordCase = UIUtils.createCheckbox(
-                afGroup,
-                SQLEditorMessages.pref_page_sql_format_label_convert_keyword_case,
-                SQLEditorMessages.pref_page_sql_format_label_convert_keyword_case_tip,
-                false, 1);
-            afExtractFromSource = UIUtils.createCheckbox(
-                afGroup,
-                SQLEditorMessages.pref_page_sql_format_label_extract_sql_from_source_code,
-                SQLEditorMessages.pref_page_sql_format_label_extract_sql_from_source_code_tip, false, 1);
         }
 
         return composite;
@@ -209,18 +177,12 @@ public class PrefPageSQLCompletion extends TargetPrefPage
             csLongName.setSelection(store.getBoolean(SQLPreferenceConstants.PROPOSAL_ALWAYS_FQ));
             csInsertSpace.setSelection(store.getBoolean(SQLPreferenceConstants.INSERT_SPACE_AFTER_PROPOSALS));
             csSortAlphabetically.setSelection(store.getBoolean(SQLPreferenceConstants.PROPOSAL_SORT_ALPHABETICALLY));
-            csInsertTableAlias.setSelection(store.getBoolean(SQLModelPreferences.SQL_PROPOSAL_INSERT_TABLE_ALIAS));
             csShowServerHelpTopics.setSelection(store.getBoolean(SQLPreferenceConstants.SHOW_SERVER_HELP_TOPICS));
+            csInsertTableAlias.select(SQLTableAliasInsertMode.fromPreferences(store).ordinal());
 
             csMatchContains.setSelection(store.getBoolean(SQLPreferenceConstants.PROPOSALS_MATCH_CONTAINS));
             csUseGlobalSearch.setSelection(store.getBoolean(SQLPreferenceConstants.USE_GLOBAL_ASSISTANT));
             csShowColumnProcedures.setSelection(store.getBoolean(SQLPreferenceConstants.SHOW_COLUMN_PROCEDURES));
-
-            acSingleQuotesCheck.setSelection(store.getBoolean(SQLPreferenceConstants.SQLEDITOR_CLOSE_SINGLE_QUOTES));
-            acDoubleQuotesCheck.setSelection(store.getBoolean(SQLPreferenceConstants.SQLEDITOR_CLOSE_DOUBLE_QUOTES));
-            acBracketsCheck.setSelection(store.getBoolean(SQLPreferenceConstants.SQLEDITOR_CLOSE_BRACKETS));
-            afKeywordCase.setSelection(store.getBoolean(SQLPreferenceConstants.SQL_FORMAT_KEYWORD_CASE_AUTO));
-            afExtractFromSource.setSelection(store.getBoolean(SQLPreferenceConstants.SQL_FORMAT_EXTRACT_FROM_SOURCE));
 
         } catch (Exception e) {
             log.warn(e);
@@ -242,19 +204,12 @@ public class PrefPageSQLCompletion extends TargetPrefPage
             store.setValue(SQLPreferenceConstants.PROPOSAL_ALWAYS_FQ, csLongName.getSelection());
             store.setValue(SQLPreferenceConstants.INSERT_SPACE_AFTER_PROPOSALS, csInsertSpace.getSelection());
             store.setValue(SQLPreferenceConstants.PROPOSAL_SORT_ALPHABETICALLY, csSortAlphabetically.getSelection());
-            store.setValue(SQLModelPreferences.SQL_PROPOSAL_INSERT_TABLE_ALIAS, csInsertTableAlias.getSelection());
             store.setValue(SQLPreferenceConstants.SHOW_SERVER_HELP_TOPICS, csShowServerHelpTopics.getSelection());
+            store.setValue(SQLModelPreferences.SQL_PROPOSAL_INSERT_TABLE_ALIAS, SQLTableAliasInsertMode.values()[csInsertTableAlias.getSelectionIndex()].name());
 
             store.setValue(SQLPreferenceConstants.PROPOSALS_MATCH_CONTAINS, csMatchContains.getSelection());
             store.setValue(SQLPreferenceConstants.USE_GLOBAL_ASSISTANT, csUseGlobalSearch.getSelection());
             store.setValue(SQLPreferenceConstants.SHOW_COLUMN_PROCEDURES, csShowColumnProcedures.getSelection());
-
-            store.setValue(SQLPreferenceConstants.SQLEDITOR_CLOSE_SINGLE_QUOTES, acSingleQuotesCheck.getSelection());
-            store.setValue(SQLPreferenceConstants.SQLEDITOR_CLOSE_DOUBLE_QUOTES, acDoubleQuotesCheck.getSelection());
-            store.setValue(SQLPreferenceConstants.SQLEDITOR_CLOSE_BRACKETS, acBracketsCheck.getSelection());
-
-            store.setValue(SQLPreferenceConstants.SQL_FORMAT_KEYWORD_CASE_AUTO, afKeywordCase.getSelection());
-            store.setValue(SQLPreferenceConstants.SQL_FORMAT_EXTRACT_FROM_SOURCE, afExtractFromSource.getSelection());
         } catch (Exception e) {
             log.warn(e);
         }
@@ -276,18 +231,12 @@ public class PrefPageSQLCompletion extends TargetPrefPage
         store.setToDefault(SQLPreferenceConstants.PROPOSAL_ALWAYS_FQ);
         store.setToDefault(SQLPreferenceConstants.INSERT_SPACE_AFTER_PROPOSALS);
         store.setToDefault(SQLPreferenceConstants.PROPOSAL_SORT_ALPHABETICALLY);
-        store.setToDefault(SQLModelPreferences.SQL_PROPOSAL_INSERT_TABLE_ALIAS);
         store.setToDefault(SQLPreferenceConstants.SHOW_SERVER_HELP_TOPICS);
+        store.setToDefault(SQLModelPreferences.SQL_PROPOSAL_INSERT_TABLE_ALIAS);
 
         store.setToDefault(SQLPreferenceConstants.PROPOSALS_MATCH_CONTAINS);
         store.setToDefault(SQLPreferenceConstants.USE_GLOBAL_ASSISTANT);
         store.setToDefault(SQLPreferenceConstants.SHOW_COLUMN_PROCEDURES);
-
-        store.setToDefault(SQLPreferenceConstants.SQLEDITOR_CLOSE_SINGLE_QUOTES);
-        store.setToDefault(SQLPreferenceConstants.SQLEDITOR_CLOSE_DOUBLE_QUOTES);
-        store.setToDefault(SQLPreferenceConstants.SQLEDITOR_CLOSE_BRACKETS);
-        store.setToDefault(SQLPreferenceConstants.SQL_FORMAT_KEYWORD_CASE_AUTO);
-        store.setToDefault(SQLPreferenceConstants.SQL_FORMAT_EXTRACT_FROM_SOURCE);
     }
 
     @Override

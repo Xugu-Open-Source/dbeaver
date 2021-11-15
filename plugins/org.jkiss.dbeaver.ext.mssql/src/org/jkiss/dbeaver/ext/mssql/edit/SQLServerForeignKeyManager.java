@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.jkiss.dbeaver.ext.mssql.edit;
 
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.ext.mssql.model.SQLServerTable;
+import org.jkiss.dbeaver.ext.mssql.model.SQLServerTableBase;
 import org.jkiss.dbeaver.ext.mssql.model.SQLServerTableForeignKey;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
 import org.jkiss.dbeaver.model.impl.sql.edit.struct.SQLForeignKeyManager;
@@ -31,7 +32,7 @@ import java.util.Map;
 /**
  * SQL Server foreign key manager
  */
-public class SQLServerForeignKeyManager extends SQLForeignKeyManager<SQLServerTableForeignKey, SQLServerTable> {
+public class SQLServerForeignKeyManager extends SQLForeignKeyManager<SQLServerTableForeignKey, SQLServerTableBase> {
 
     @Nullable
     @Override

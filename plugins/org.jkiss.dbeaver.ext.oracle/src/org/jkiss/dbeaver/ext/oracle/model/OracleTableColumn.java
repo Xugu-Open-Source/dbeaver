@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,16 +23,14 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTableColumn;
-import org.jkiss.dbeaver.model.meta.IPropertyCacheValidator;
-import org.jkiss.dbeaver.model.meta.IPropertyValueListProvider;
-import org.jkiss.dbeaver.model.meta.LazyProperty;
-import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.*;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSDataType;
 import org.jkiss.dbeaver.model.struct.DBSTypedObjectEx;
+import org.jkiss.dbeaver.model.struct.DBSTypedObjectExt3;
+import org.jkiss.dbeaver.model.struct.DBSTypedObjectExt4;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableColumn;
-import org.jkiss.utils.CommonUtils;
 
 import java.sql.ResultSet;
 import java.sql.Types;
@@ -43,7 +41,8 @@ import java.util.List;
 /**
  * OracleTableColumn
  */
-public class OracleTableColumn extends JDBCTableColumn<OracleTableBase> implements DBSTableColumn, DBSTypedObjectEx, DBPHiddenObject, DBPNamedObject2
+public class OracleTableColumn extends JDBCTableColumn<OracleTableBase> implements
+    DBSTableColumn, DBSTypedObjectEx, DBSTypedObjectExt3, DBPHiddenObject, DBPNamedObject2, DBSTypedObjectExt4<OracleDataType>, DBPObjectWithLazyDescription
 {
     private static final Log log = Log.getLog(OracleTableColumn.class);
 
@@ -51,6 +50,7 @@ public class OracleTableColumn extends JDBCTableColumn<OracleTableBase> implemen
     private OracleDataTypeModifier typeMod;
     private String comment;
     private boolean hidden;
+    private Integer scale;
 
     public OracleTableColumn(OracleTableBase table)
     {
@@ -88,6 +88,7 @@ public class OracleTableColumn extends JDBCTableColumn<OracleTableBase> implemen
         setRequired(!"Y".equals(JDBCUtils.safeGetString(dbResult, "NULLABLE")));
         this.scale = JDBCUtils.safeGetInteger(dbResult, "DATA_SCALE");
         if (this.scale == null) {
+            // Scale can be null in case when type was declared without parameters (examples: NUMBER, NUMBER(*), FLOAT)
             if (this.type != null && this.type.getScale() != null) {
                 this.scale = this.type.getScale();
             }
@@ -109,45 +110,21 @@ public class OracleTableColumn extends JDBCTableColumn<OracleTableBase> implemen
         return DBUtils.getFullTypeName(this);
     }
 
-    public void setFullTypeName(String typeName) throws DBException {
-        String plainTypeName;
-        int divPos = typeName.indexOf("(");
-        if (divPos == -1) {
-            plainTypeName = typeName;
-        } else {
-            plainTypeName = typeName.substring(0, divPos);
-            int divPos2 = typeName.indexOf(')', divPos);
-            if (divPos2 != -1) {
-                String modifiers = typeName.substring(divPos + 1, divPos2);
-                int divPos3 = modifiers.indexOf(',');
-                if (divPos3 == -1) {
-                    if (getDataKind() == DBPDataKind.STRING) {
-                        maxLength = CommonUtils.toInt(modifiers);
-                    } else {
-                        precision = CommonUtils.toInt(modifiers);
-                    }
-                } else {
-                    precision= CommonUtils.toInt(modifiers.substring(0, divPos3).trim());
-                    scale = CommonUtils.toInt(modifiers.substring(divPos3 + 1).trim());
-                }
-            }
+    @Override
+    protected void validateTypeName(String typeName) throws DBException {
+        if (getDataSource().resolveDataType(new VoidProgressMonitor(), typeName) == null) {
+            throw new DBException("Bad data type name " + typeName);
         }
-        OracleDataType newDataType = getDataSource().resolveDataType(new VoidProgressMonitor(), plainTypeName);
-        if (newDataType == null) {
-            throw new DBException("Bad data type: " + plainTypeName);
-        }
-        this.type = newDataType;
-        this.typeName = this.type.getTypeName();
     }
 
     @Nullable
     @Override
-    @Property(viewable = false, editableExpr = "!object.table.view", updatableExpr = "!object.table.view", order = 21, listProvider = ColumnDataTypeListProvider.class)
-    public OracleDataType getDataType()
-    {
+    //@Property(viewable = false, editableExpr = "!object.table.view", updatableExpr = "!object.table.view", order = 21, listProvider = ColumnDataTypeListProvider.class)
+    public OracleDataType getDataType() {
         return type;
     }
 
+    @Override
     public void setDataType(OracleDataType type)
     {
         this.type = type;
@@ -185,7 +162,12 @@ public class OracleTableColumn extends JDBCTableColumn<OracleTableBase> implemen
     @Property(viewable = false, editableExpr = "!object.table.view", updatableExpr = "!object.table.view", order = 42)
     public Integer getScale()
     {
-        return super.getScale();
+        return scale;
+    }
+
+    @Override
+    public void setScale(Integer scale) {
+        this.scale = scale;
     }
 
     @Property(viewable = true, editableExpr = "!object.table.view", updatableExpr = "!object.table.view", order = 50)
@@ -216,11 +198,16 @@ public class OracleTableColumn extends JDBCTableColumn<OracleTableBase> implemen
         }
     }
 
-    @Property(viewable = true, editable = true, updatable = true, multiline = true, order = 100)
+    @Nullable
+    @Override
+    public String getDescription(DBRProgressMonitor monitor) {
+        return getComment(monitor);
+    }
+
+    @Property(viewable = true, editable = true, updatable = true, length = PropertyLength.MULTILINE, order = 100)
     @LazyProperty(cacheValidator = CommentLoadValidator.class)
-    public String getComment(DBRProgressMonitor monitor)
-    {
-        if (comment == null) {
+    public String getComment(DBRProgressMonitor monitor) {
+        if (isPersisted() && comment == null) {
             // Load comments for all table columns
             getTable().loadColumnComments(monitor);
         }

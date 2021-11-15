@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -156,8 +156,10 @@ public class SearchDataQuery implements ISearchQuery {
                 searchResult.addObjects(Collections.singletonList(object));
                 return true;
             }
-            return false;
+        } catch (DBCException e) {
+            log.error("Error searching data in container", e);
         }
+        return false;
     }
 
     private DBCStatistics findRows(
@@ -199,13 +201,13 @@ public class SearchDataQuery implements ISearchQuery {
                         }
                         operator = DBCLogicalOperator.EQUALS;
                         try {
-                            value = new Integer(params.searchString);
+                            value = Integer.valueOf(params.searchString);
                         } catch (NumberFormatException e) {
                             try {
-                                value = new Long(params.searchString);
+                                value = Long.valueOf(params.searchString);
                             } catch (NumberFormatException e1) {
                                 try {
-                                    value = new Double(params.searchString);
+                                    value = Double.valueOf(params.searchString);
                                 } catch (NumberFormatException e2) {
                                     try {
                                         value = new BigDecimal(params.searchString);
@@ -227,7 +229,11 @@ public class SearchDataQuery implements ISearchQuery {
 //                        if (attribute.getMaxLength() > 0 && attribute.getMaxLength() < params.searchString.length()) {
 //                            continue;
 //                        }
-                        if (ArrayUtils.contains(supportedOperators, DBCLogicalOperator.LIKE)) {
+
+                        if (!params.isCaseSensitive() && ArrayUtils.contains(supportedOperators, DBCLogicalOperator.ILIKE)) {
+                            operator = DBCLogicalOperator.ILIKE;
+                            value = "%" + params.searchString + "%";
+                        } else if (ArrayUtils.contains(supportedOperators, DBCLogicalOperator.LIKE)) {
                             operator = DBCLogicalOperator.LIKE;
                             value = "%" + params.searchString + "%";
                         } else if (ArrayUtils.contains(supportedOperators, DBCLogicalOperator.EQUALS)) {
@@ -303,7 +309,7 @@ public class SearchDataQuery implements ISearchQuery {
         private int rowCount = 0;
         private DBDDataFilter filter;
 
-        public TestDataReceiver(SearchTableMonitor searchMonitor) {
+        TestDataReceiver(SearchTableMonitor searchMonitor) {
             this.searchMonitor = searchMonitor;
         }
 

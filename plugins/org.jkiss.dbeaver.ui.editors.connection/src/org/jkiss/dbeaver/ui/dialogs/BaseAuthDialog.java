@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,13 +30,17 @@ import org.jkiss.utils.CommonUtils;
 /**
  * Base authentication dialog
  */
-public class BaseAuthDialog extends BaseDialog
+public class BaseAuthDialog extends BaseDialog implements BlockingPopupDialog
 {
     private static final String DIALOG_ID = "DBeaver.BaseAuthDialog";//$NON-NLS-1$
 
+    private String userNameLabel = UIConnectionMessages.dialog_connection_auth_label_username;
+    private String passwordLabel = UIConnectionMessages.dialog_connection_auth_label_password;
     private boolean passwordOnly;
     private boolean showSavePassword;
     private DBPAuthInfo authInfo = new DBPAuthInfo();
+    private String savePasswordText;
+    private String savePasswordToolTipText;
 
     private Text usernameText;
     private Text passwordText;
@@ -52,6 +56,14 @@ public class BaseAuthDialog extends BaseDialog
     @Override
     protected IDialogSettings getDialogBoundsSettings() {
         return UIUtils.getDialogSettings(DIALOG_ID);
+    }
+
+    public void setUserNameLabel(String userNameLabel) {
+        this.userNameLabel = userNameLabel;
+    }
+
+    public void setPasswordLabel(String passwordLabel) {
+        this.passwordLabel = passwordLabel;
     }
 
     public DBPAuthInfo getAuthInfo()
@@ -83,6 +95,22 @@ public class BaseAuthDialog extends BaseDialog
         this.authInfo.setSavePassword(savePassword);
     }
 
+    public String getSavePasswordText() {
+        return savePasswordText;
+    }
+
+    public void setSavePasswordText(String text) {
+        this.savePasswordText = text;
+    }
+
+    public String getSavePasswordToolTipText() {
+        return savePasswordToolTipText;
+    }
+
+    public void setSavePasswordToolTipText(String text) {
+        this.savePasswordToolTipText = text;
+    }
+
     @Override
     protected Composite createDialogArea(Composite parent)
     {
@@ -105,7 +133,7 @@ public class BaseAuthDialog extends BaseDialog
             credGroup.setLayoutData(gd);
             if (!passwordOnly) {
                 Label usernameLabel = new Label(credGroup, SWT.NONE);
-                usernameLabel.setText(UIConnectionMessages.dialog_connection_auth_label_username);
+                usernameLabel.setText(this.userNameLabel);
                 usernameLabel.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_END));
 
                 usernameText = new Text(credGroup, SWT.BORDER);
@@ -120,7 +148,7 @@ public class BaseAuthDialog extends BaseDialog
             }
 
             Label passwordLabel = new Label(credGroup, SWT.NONE);
-            passwordLabel.setText(UIConnectionMessages.dialog_connection_auth_label_password);
+            passwordLabel.setText(this.passwordLabel);
             passwordLabel.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_END));
 
             passwordText = new Text(credGroup, SWT.BORDER | SWT.PASSWORD);
@@ -135,7 +163,8 @@ public class BaseAuthDialog extends BaseDialog
         {
             savePasswordCheck = new Button(addrGroup, SWT.CHECK);
             savePasswordCheck.setEnabled(showSavePassword);
-            savePasswordCheck.setText(UIConnectionMessages.dialog_connection_auth_checkbox_save_password);
+            savePasswordCheck.setText(CommonUtils.toString(savePasswordText, UIConnectionMessages.dialog_connection_auth_checkbox_save_password));
+            savePasswordCheck.setToolTipText(savePasswordToolTipText);
             gd = new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING);
             savePasswordCheck.setLayoutData(gd);
             savePasswordCheck.setSelection(authInfo.isSavePassword());

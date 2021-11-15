@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,11 @@ package org.jkiss.dbeaver.model.net.ssh.registry;
 
 import org.eclipse.core.runtime.IConfigurationElement;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.model.impl.AbstractContextDescriptor;
 import org.jkiss.dbeaver.model.impl.AbstractDescriptor;
 import org.jkiss.dbeaver.model.net.ssh.SSHImplementation;
-import org.jkiss.dbeaver.model.impl.AbstractContextDescriptor;
 import org.jkiss.dbeaver.registry.RegistryConstants;
+import org.jkiss.utils.CommonUtils;
 
 /**
  * SSHImplementationDescriptor
@@ -33,6 +34,7 @@ public class SSHImplementationDescriptor extends AbstractContextDescriptor
     private final AbstractDescriptor.ObjectType implClass;
     private final String id;
     private final String label;
+    private final boolean supportsJumpServer;
 
     SSHImplementationDescriptor(
         IConfigurationElement config)
@@ -42,6 +44,7 @@ public class SSHImplementationDescriptor extends AbstractContextDescriptor
         this.id = config.getAttribute(RegistryConstants.ATTR_ID);
         this.label = config.getAttribute(RegistryConstants.ATTR_LABEL);
         this.implClass = new AbstractDescriptor.ObjectType(config.getAttribute(RegistryConstants.ATTR_CLASS));
+        this.supportsJumpServer = CommonUtils.getBoolean(config.getAttribute("supportsJumpServer"));
     }
 
     public ObjectType getImplClass() {
@@ -54,6 +57,10 @@ public class SSHImplementationDescriptor extends AbstractContextDescriptor
 
     public String getLabel() {
         return label;
+    }
+
+    public boolean isSupportsJumpServer() {
+        return supportsJumpServer;
     }
 
     public SSHImplementation createImplementation()

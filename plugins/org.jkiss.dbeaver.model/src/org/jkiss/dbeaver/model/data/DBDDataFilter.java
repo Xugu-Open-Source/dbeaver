@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ public class DBDDataFilter {
     @Nullable
     public DBDAttributeConstraint getConstraint(DBDAttributeBinding binding) {
         for (DBDAttributeConstraint co : constraints) {
-            if (co.getAttribute() == binding) {
+            if (binding.equals(co.getAttribute())) {
                 return co;
             }
         }
@@ -159,6 +159,18 @@ public class DBDDataFilter {
         }
         for (DBDAttributeConstraint constraint : constraints) {
             if (constraint.getOrderPosition() > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean isDirty() {
+        if (!CommonUtils.isEmpty(this.order) || !CommonUtils.isEmpty(this.where)) {
+            return true;
+        }
+        for (DBDAttributeConstraint constraint : constraints) {
+            if (constraint.isDirty()) {
                 return true;
             }
         }

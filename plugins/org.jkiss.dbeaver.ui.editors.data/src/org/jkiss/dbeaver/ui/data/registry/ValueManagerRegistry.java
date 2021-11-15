@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import org.jkiss.dbeaver.ui.data.IStreamValueManager;
 import org.jkiss.dbeaver.ui.data.IValueManager;
 import org.jkiss.dbeaver.ui.data.managers.DefaultValueManager;
+import org.jkiss.dbeaver.utils.ContentUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.MimeType;
 
@@ -100,8 +101,13 @@ public class ValueManagerRegistry {
     }
 
     public Map<StreamValueManagerDescriptor, IStreamValueManager.MatchType> getApplicableStreamManagers(@NotNull DBRProgressMonitor monitor, @NotNull DBSTypedObject attribute, @Nullable DBDContent value) {
+        boolean isTextContent = ContentUtils.isTextContent(value);
         Map<StreamValueManagerDescriptor, IStreamValueManager.MatchType> result = new LinkedHashMap<>();
         for (StreamValueManagerDescriptor contentManager : streamManagers) {
+            if (isTextContent && !contentManager.supportsText()) {
+                // Skip different kind of manager
+                continue;
+            }
             IStreamValueManager.MatchType matchType = contentManager.getInstance().matchesTo(monitor, attribute, value);
             switch (matchType) {
                 case NONE:

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,16 +32,18 @@ class ScrollBarAdapter implements IGridScrollBar
      * Delegates to this scrollbar.
      */
     private ScrollBar scrollBar;
+    private boolean vertical;
 
     /**
      * Contructs this adapter by delegating to the given scroll bar.
      * 
      * @param scrollBar delegate
      */
-    public ScrollBarAdapter(ScrollBar scrollBar)
+    public ScrollBarAdapter(ScrollBar scrollBar, boolean vertical)
     {
         super();
         this.scrollBar = scrollBar;
+        this.vertical = vertical;
     }
 
     @Override
@@ -146,7 +148,6 @@ class ScrollBarAdapter implements IGridScrollBar
     @Override
     public void handleMouseWheel(Event e)
     {
-        //do nothing        
     }
 
     @Override

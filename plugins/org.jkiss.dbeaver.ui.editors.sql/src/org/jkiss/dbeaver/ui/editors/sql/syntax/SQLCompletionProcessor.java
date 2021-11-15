@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,10 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.jface.text.*;
 import org.eclipse.jface.text.contentassist.*;
+import org.eclipse.jface.text.templates.GlobalTemplateVariables;
 import org.eclipse.jface.text.templates.Template;
 import org.eclipse.jface.text.templates.TemplateProposal;
+import org.eclipse.jface.viewers.ISelection;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
@@ -47,6 +49,7 @@ import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
@@ -103,52 +106,63 @@ public class SQLCompletionProcessor implements IContentAssistProcessor
         SQLWordPartDetector wordDetector = request.getWordDetector();
 
 
+        String contentType;
         try {
             // Check that word start position is in default partition (#5994)
-            String contentType = TextUtilities.getContentType(document, SQLParserPartitions.SQL_PARTITIONING, wordDetector.getStartOffset(), true);
-            if (contentType == null || (!IDocument.DEFAULT_CONTENT_TYPE.equals(contentType) && !SQLParserPartitions.CONTENT_TYPE_SQL_QUOTED.equals(contentType))) {
-                return new ICompletionProposal[0];
-            }
+            contentType = TextUtilities.getContentType(document, SQLParserPartitions.SQL_PARTITIONING, documentOffset, true);
         } catch (BadLocationException e) {
             log.debug(e);
             return new ICompletionProposal[0];
         }
 
-        if (lookupTemplates) {
-            return makeTemplateProposals(viewer, request);
+        if (contentType == null) {
+            return new ICompletionProposal[0];
         }
 
-        try {
-            String commandPrefix = editor.getSyntaxManager().getControlCommandPrefix();
-            if (wordDetector.getStartOffset() >= commandPrefix.length() &&
-                viewer.getDocument().get(wordDetector.getStartOffset() - commandPrefix.length(), commandPrefix.length()).equals(commandPrefix))
-            {
-                return makeCommandProposals(request, request.getWordPart());
+        request.setContentType(contentType);
+
+        List<SQLCompletionProposalBase> proposals;
+        switch (contentType) {
+        case IDocument.DEFAULT_CONTENT_TYPE:
+        case SQLParserPartitions.CONTENT_TYPE_SQL_STRING:
+        case SQLParserPartitions.CONTENT_TYPE_SQL_QUOTED:
+            if (lookupTemplates) {
+                return makeTemplateProposals(viewer, request);
             }
-        } catch (BadLocationException e) {
-            log.debug(e);
-        }
 
-
-        SQLCompletionAnalyzer analyzer = new SQLCompletionAnalyzer(request);
-        DBPDataSource dataSource = editor.getDataSource();
-        if (request.getWordPart() != null) {
-            if (dataSource != null) {
-                ProposalSearchJob searchJob = new ProposalSearchJob(analyzer);
-                searchJob.schedule();
-                // Wait until job finished
-                UIUtils.waitJobCompletion(searchJob);
+            try {
+                String commandPrefix = editor.getSyntaxManager().getControlCommandPrefix();
+                if (wordDetector.getStartOffset() >= commandPrefix.length() &&
+                    viewer.getDocument().get(wordDetector.getStartOffset() - commandPrefix.length(), commandPrefix.length()).equals(commandPrefix)) {
+                    return makeCommandProposals(request, request.getWordPart());
+                }
+            } catch (BadLocationException e) {
+                log.debug(e);
             }
+
+            SQLCompletionAnalyzer analyzer = new SQLCompletionAnalyzer(request);
+            DBPDataSource dataSource = editor.getDataSource();
+            if (request.getWordPart() != null) {
+                if (dataSource != null) {
+                    ProposalSearchJob searchJob = new ProposalSearchJob(analyzer);
+                    searchJob.schedule();
+                    // Wait until job finished
+                    UIUtils.waitJobCompletion(searchJob);
+                }
+            }
+
+            proposals = analyzer.getProposals();
+            break;
+        default:
+            proposals = Collections.emptyList();
         }
 
-        List<SQLCompletionProposalBase> proposals = analyzer.getProposals();
         List<ICompletionProposal> result = new ArrayList<>();
         for (SQLCompletionProposalBase cp : proposals) {
             if (cp instanceof ICompletionProposal) {
                 result.add((ICompletionProposal) cp);
             }
         }
-
         return ArrayUtils.toArray(ICompletionProposal.class, result);
     }
 
@@ -173,13 +187,18 @@ public class SQLCompletionProcessor implements IContentAssistProcessor
         // Templates
         for (Template template : editor.getTemplatesPage().getTemplateStore().getTemplates()) {
             if (template.getName().toLowerCase().startsWith(wordPart)) {
+                SQLContext templateContext = new SQLContext(
+                    SQLTemplatesRegistry.getInstance().getTemplateContextRegistry().getContextType(template.getContextTypeId()),
+                    viewer.getDocument(),
+                    new Position(request.getWordDetector().getStartOffset(), request.getWordDetector().getLength()),
+                    editor);
+                ISelection selection = viewer.getSelectionProvider().getSelection();
+                if (selection instanceof TextSelection) {
+                    templateContext.setVariable(GlobalTemplateVariables.SELECTION, ((TextSelection) selection).getText());
+                }
                 templateProposals.add(new SQLTemplateCompletionProposal(
                     template,
-                    new SQLContext(
-                        SQLTemplatesRegistry.getInstance().getTemplateContextRegistry().getContextType(template.getContextTypeId()),
-                        viewer.getDocument(),
-                        new Position(request.getWordDetector().getStartOffset(), request.getWordDetector().getLength()),
-                        editor),
+                    templateContext,
                     new Region(request.getDocumentOffset(), 0),
                     null));
             }

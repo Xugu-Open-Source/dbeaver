@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import org.eclipse.jface.preference.IPreferenceStore;
 import org.eclipse.jface.text.*;
 import org.eclipse.jface.text.contentassist.IContentAssistProcessor;
 import org.eclipse.jface.text.contentassist.IContentAssistant;
-import org.eclipse.jface.text.formatter.ContentFormatter;
 import org.eclipse.jface.text.formatter.IContentFormatter;
 import org.eclipse.jface.text.formatter.IFormattingStrategy;
 import org.eclipse.jface.text.hyperlink.*;
@@ -61,8 +60,11 @@ import org.jkiss.utils.ArrayUtils;
  * highlighting, auto-indent strategy, double click strategy.
  */
 public class SQLEditorSourceViewerConfiguration extends TextSourceViewerConfiguration {
-
     private static final Log log = Log.getLog(SQLEditorSourceViewerConfiguration.class);
+
+    @Nullable
+    private final SQLReconcilingStrategy reconcilingStrategy;
+
     /**
      * The editor with which this configuration is associated.
      */
@@ -88,13 +90,17 @@ public class SQLEditorSourceViewerConfiguration extends TextSourceViewerConfigur
      *
      * @param editor the SQLEditor to configure
      */
-    public SQLEditorSourceViewerConfiguration(
-        SQLEditorBase editor, IPreferenceStore preferenceStore) {
+    public SQLEditorSourceViewerConfiguration(SQLEditorBase editor, IPreferenceStore preferenceStore) {
+        this(editor, preferenceStore, new SQLReconcilingStrategy(editor));
+    }
+
+    public SQLEditorSourceViewerConfiguration(SQLEditorBase editor, IPreferenceStore preferenceStore, @Nullable SQLReconcilingStrategy reconcilingStrategy) {
         super(preferenceStore);
         this.editor = editor;
         this.ruleManager = editor.getRuleScanner();
         this.contextInformer = new SQLContextInformer(editor, editor.getSyntaxManager());
         this.hyperlinkDetector = new SQLHyperlinkDetector(editor, this.contextInformer);
+        this.reconcilingStrategy = reconcilingStrategy;
     }
 
     public SQLContextInformer getContextInformer() {
@@ -126,7 +132,8 @@ public class SQLEditorSourceViewerConfiguration extends TextSourceViewerConfigur
     @Override
     public IAutoEditStrategy[] getAutoEditStrategies(ISourceViewer sourceViewer, String contentType) {
         if (IDocument.DEFAULT_CONTENT_TYPE.equals(contentType)) {
-            return new IAutoEditStrategy[]{new SQLAutoIndentStrategy(SQLParserPartitions.SQL_PARTITIONING, editor.getSyntaxManager())};
+            return new IAutoEditStrategy[]{
+                new SQLAutoIndentStrategy(SQLParserPartitions.SQL_PARTITIONING, sourceViewer, editor.getSyntaxManager())};
         } else if (SQLParserPartitions.CONTENT_TYPE_SQL_COMMENT.equals(contentType) || SQLParserPartitions.CONTENT_TYPE_SQL_MULTILINE_COMMENT.equals(contentType)) {
             return new IAutoEditStrategy[]{new SQLCommentAutoIndentStrategy(SQLParserPartitions.SQL_PARTITIONING)};
         } else if (SQLParserPartitions.CONTENT_TYPE_SQL_STRING.equals(contentType)) {
@@ -165,7 +172,7 @@ public class SQLEditorSourceViewerConfiguration extends TextSourceViewerConfigur
 
         final DBPPreferenceStore configStore = store;
 
-        final SQLContentAssistant assistant = new SQLContentAssistant();
+        final SQLContentAssistant assistant = new SQLContentAssistant(editor);
 
         assistant.setDocumentPartitioning(getConfiguredDocumentPartitioning(sourceViewer));
 
@@ -176,6 +183,7 @@ public class SQLEditorSourceViewerConfiguration extends TextSourceViewerConfigur
         try {
             assistant.addContentAssistProcessor(completionProcessor, IDocument.DEFAULT_CONTENT_TYPE);
             assistant.addContentAssistProcessor(completionProcessor, SQLParserPartitions.CONTENT_TYPE_SQL_QUOTED);
+            assistant.addContentAssistProcessor(completionProcessor, SQLParserPartitions.CONTENT_TYPE_SQL_STRING);
         } catch (Throwable e) {
             // addContentAssistProcessor API was added in 4.12
             // Let's support older Eclipse versions
@@ -183,9 +191,7 @@ public class SQLEditorSourceViewerConfiguration extends TextSourceViewerConfigur
         }
 
         // Configure how content assist information will appear.
-        assistant.enableAutoActivation(store.getBoolean(SQLPreferenceConstants.ENABLE_AUTO_ACTIVATION));
-        assistant.setAutoActivationDelay(store.getInt(SQLPreferenceConstants.AUTO_ACTIVATION_DELAY));
-        assistant.setProposalPopupOrientation(IContentAssistant.PROPOSAL_OVERLAY);
+        configureContentAssistant(store, assistant);
         assistant.setSorter(new SQLCompletionSorter());
 
         assistant.setInformationControlCreator(getInformationControlCreator(sourceViewer));
@@ -224,6 +230,12 @@ public class SQLEditorSourceViewerConfiguration extends TextSourceViewerConfigur
         return assistant;
     }
 
+    private void configureContentAssistant(DBPPreferenceStore store, SQLContentAssistant assistant) {
+        assistant.enableAutoActivation(store.getBoolean(SQLPreferenceConstants.ENABLE_AUTO_ACTIVATION));
+        assistant.setAutoActivationDelay(store.getInt(SQLPreferenceConstants.AUTO_ACTIVATION_DELAY));
+        assistant.setProposalPopupOrientation(IContentAssistant.PROPOSAL_OVERLAY);
+    }
+
     @Override
     public IInformationControlCreator getInformationControlCreator(ISourceViewer sourceViewer) {
         return parent -> new DefaultInformationControl(parent, true);
@@ -236,7 +248,7 @@ public class SQLEditorSourceViewerConfiguration extends TextSourceViewerConfigur
      */
     @Override
     public IContentFormatter getContentFormatter(ISourceViewer sourceViewer) {
-        ContentFormatter formatter = new ContentFormatter();
+        SQLContentFormatter formatter = new SQLContentFormatter(editor);
         formatter.setDocumentPartitioning(SQLParserPartitions.SQL_PARTITIONING);
 
         IFormattingStrategy formattingStrategy = new SQLFormattingStrategy(sourceViewer, this, editor.getSyntaxManager());
@@ -375,19 +387,21 @@ public class SQLEditorSourceViewerConfiguration extends TextSourceViewerConfigur
     void onDataSourceChange() {
         contextInformer.refresh(editor.getSyntaxManager());
         ((IHyperlinkDetectorExtension) hyperlinkDetector).dispose();
+        if (reconcilingStrategy != null) {
+            reconcilingStrategy.onDataSourceChange();
+        }
+    }
+
+    void saveFoldingState() {
+        if (reconcilingStrategy != null) {
+            reconcilingStrategy.saveState();
+        }
     }
 
     public IReconciler getReconciler(ISourceViewer sourceViewer) {
-        if (!editor.isFoldingEnabled()) {
+        if (reconcilingStrategy == null) {
             return null;
         }
-
-        SQLReconcilingStrategy strategy = new SQLReconcilingStrategy();
-        strategy.setEditor(editor);
-
-        MonoReconciler reconciler = new MonoReconciler(strategy, true);
-
-        return reconciler;
+        return new MonoReconciler(reconcilingStrategy, false);
     }
-
 }

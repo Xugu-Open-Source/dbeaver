@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,11 @@
 package org.jkiss.dbeaver.ext.generic.edit;
 
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.generic.model.GenericObjectContainer;
 import org.jkiss.dbeaver.ext.generic.model.GenericProcedure;
 import org.jkiss.dbeaver.ext.generic.model.GenericStructContainer;
+import org.jkiss.dbeaver.ext.generic.model.meta.GenericMetaModel;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
@@ -71,11 +73,23 @@ public class GenericProcedureManager extends SQLObjectEditor<GenericProcedure, G
     protected void addObjectDeleteActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, List<DBEPersistAction> actions, ObjectDeleteCommand command, Map<String, Object> options)
     {
         GenericProcedure object = command.getObject();
+        String procedureName;
+        GenericMetaModel metaModel = object.getDataSource().getMetaModel();
+        if (metaModel.supportsOverloadedProcedureNames()) {
+            try {
+                procedureName = object.getProcedureSignature(monitor, metaModel.showProcedureParamNames());
+            } catch (DBException e) {
+                log.debug("Can't read procedure/function parameters", e);
+                procedureName = object.getFullyQualifiedName(DBPEvaluationContext.DDL);
+            }
+        } else {
+            procedureName = object.getFullyQualifiedName(DBPEvaluationContext.DDL);
+        }
         actions.add(
             new SQLDatabasePersistAction(
                 ModelMessages.model_jdbc_drop_table,
                 "DROP " + object.getProcedureType().name() +  //$NON-NLS-2$
-                    " " + object.getFullyQualifiedName(DBPEvaluationContext.DDL))
+                    " " + procedureName)
         );
     }
 

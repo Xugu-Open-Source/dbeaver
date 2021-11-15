@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,7 +44,9 @@ public class DBIcon implements DBPImage
     public static final DBIcon TREE_ADMIN = new DBIcon("admin", "tree/admin.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_DATABASE = new DBIcon("database", "tree/database.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_DATABASE_CATEGORY = new DBIcon("database_category", "tree/database_category.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_DATABASE_SHARED = new DBIcon("database_shared", "tree/database_shared.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_SCHEMA = new DBIcon("schema", "tree/schema.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_SCHEMA_SHARED = new DBIcon("schema_shared", "tree/schema_shared.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_SCHEMA_SYSTEM = new DBIcon("schema_system", "tree/schema_system.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_SCHEMA_UTIL = new DBIcon("schema_util", "tree/schema_util.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_TABLE = new DBIcon("table", "tree/table.png"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -53,7 +55,9 @@ public class DBIcon implements DBPImage
     public static final DBIcon TREE_TABLE_INDEX = new DBIcon("table_index", "tree/table_index.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_TABLE_SYSTEM = new DBIcon("table_system", "tree/table_index.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_TABLE_EXTERNAL = new DBIcon("table_external", "tree/table_external.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_TABLE_SHARED = new DBIcon("table_shared", "tree/table_shared.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_VIEW = new DBIcon("view", "tree/view.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_VIEW_SHARED = new DBIcon("view_shared", "tree/view_shared.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_FUNCTION = new DBIcon("function", "tree/function.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_PROCEDURE = new DBIcon("procedure", "tree/procedure.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_COLUMNS = new DBIcon("columns", "tree/columns.png"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -146,6 +150,13 @@ public class DBIcon implements DBPImage
     public static final DBIcon JAR = new DBIcon("jar", "misc/jar.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon LIBRARY = new DBIcon("library", "misc/library.png"); //$NON-NLS-1$ //$NON-NLS-2$
 
+    public static final DBIcon STATUS_ERROR = new DBIcon("status_error", "status/error.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon STATUS_WARNING = new DBIcon("status_warning", "status/warning.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon STATUS_QUESTION = new DBIcon("status_question", "status/question.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon STATUS_INFO = new DBIcon("status_info", "status/info.png"); //$NON-NLS-1$ //$NON-NLS-2$
+
+    private static final boolean VALIDATE_ICON_FILE = false;
+
     private static Map<String, DBPImage> iconMap = new HashMap<>();
 
 
@@ -171,18 +182,20 @@ public class DBIcon implements DBPImage
                 if (!icon.path.startsWith("platform:")) {
                     icon.path = "platform:/plugin/" + iconBundle.getSymbolicName() + "/icons/" + icon.path;
                 }
-                URL fileURL = FileLocator.toFileURL(new URL(icon.path));
-                try {
-                    URI filePath = GeneralUtils.makeURIFromFilePath(fileURL.toString());
-                    File file = new File(filePath);
-                    if (!file.exists()) {
-                        log.warn("Bad image '" + icon.getToken() + "' location: " + icon.getLocation());
-                        continue;
+                if (VALIDATE_ICON_FILE) {
+                    URL fileURL = FileLocator.toFileURL(new URL(icon.path));
+                    try {
+                        URI filePath = GeneralUtils.makeURIFromFilePath(fileURL.toString());
+                        File file = new File(filePath);
+                        if (!file.exists()) {
+                            log.warn("Bad image '" + icon.getToken() + "' location: " + icon.getLocation());
+                            continue;
+                        }
+                    } catch (URISyntaxException e) {
+                        throw new IOException("Bad local file path: " + fileURL, e);
                     }
-                    DBIcon.iconMap.put(icon.getToken(), icon);
-                } catch (URISyntaxException e) {
-                    throw new IOException("Bad local file path: " + fileURL, e);
                 }
+                DBIcon.iconMap.put(icon.getToken(), icon);
             } catch (Exception e) {
                 log.error(e);
             }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -99,6 +99,11 @@ public abstract class JDBCCompositeCache<
     // First cache must cache all unique constraint, second must cache foreign keys references which refers unique keys
     protected void cacheChildren2(DBRProgressMonitor monitor, OBJECT object, List<ROW_REF> children) {
 
+    }
+
+    // Checks whether object may not have any children or this situation should be treated as an error.
+    protected boolean isEmptyObjectRowsAllowed() {
+        return false;
     }
 
     @NotNull
@@ -222,8 +227,8 @@ public abstract class JDBCCompositeCache<
     {
         synchronized (objectCache) {
             this.objectCache.clear();
-            super.clearCache();
         }
+        super.clearCache();
     }
 
     @Override
@@ -277,6 +282,7 @@ public abstract class JDBCCompositeCache<
         // Load index columns
         DBPDataSource dataSource = owner.getDataSource();
         assert (dataSource != null);
+        monitor.beginTask("Load composite cache", 1);
         try (JDBCSession session = DBUtils.openMetaSession(monitor, owner, "Load composite objects")) {
 
             JDBCStatement dbStat = prepareObjectsStatement(session, owner, forParent);
@@ -293,10 +299,10 @@ public abstract class JDBCCompositeCache<
                             forParent.getName() :
                             (parentColumnName instanceof Number ?
                                 JDBCUtils.safeGetString(dbResult, ((Number)parentColumnName).intValue()) :
-                                JDBCUtils.safeGetString(dbResult, parentColumnName.toString()));
+                                JDBCUtils.safeGetStringTrimmed(dbResult, parentColumnName.toString()));
                         String objectName = objectColumnName instanceof Number ?
                             JDBCUtils.safeGetString(dbResult, ((Number)objectColumnName).intValue()) :
-                            JDBCUtils.safeGetString(dbResult, objectColumnName.toString());
+                            JDBCUtils.safeGetStringTrimmed(dbResult, objectColumnName.toString());
 
                         if (CommonUtils.isEmpty(objectName)) {
                             // Use default name
@@ -333,7 +339,7 @@ public abstract class JDBCCompositeCache<
                         ObjectInfo objectInfo = objectMap.get(objectName);
                         if (objectInfo == null) {
                             OBJECT object = fetchObject(session, owner, parent, objectName, dbResult);
-                            if (object == null) {
+                            if (object == null || !isValidObject(monitor, owner, object)) {
                                 // Can't fetch object
                                 continue;
                             }
@@ -343,10 +349,12 @@ public abstract class JDBCCompositeCache<
                         }
                         ROW_REF[] rowRef = fetchObjectRow(session, parent, objectInfo.object, dbResult);
                         if (rowRef == null || rowRef.length == 0) {
-                            // At least one of rows is broken.
-                            // So entire object is broken, let's just skip it.
-                            objectInfo.broken = true;
-                            //log.debug("Object '" + objectName + "' metadata corrupted - NULL child returned");
+                            if (!isEmptyObjectRowsAllowed()) {
+                                // At least one of rows is broken.
+                                // So entire object is broken, let's just skip it.
+                                objectInfo.broken = true;
+                                //log.debug("Object '" + objectName + "' metadata corrupted - NULL child returned");
+                            }
                             continue;
                         }
                         for (ROW_REF row : rowRef) {
@@ -370,6 +378,9 @@ public abstract class JDBCCompositeCache<
             } else {
                 throw new DBException(ex, dataSource);
             }
+        }
+        finally {
+            monitor.done();
         }
 
         if (monitor.isCanceled()) {

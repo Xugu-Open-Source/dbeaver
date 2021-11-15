@@ -220,7 +220,8 @@ public class SchedulerJobManager extends SQLObjectEditor<SchedulerJob, Schema> i
 	}
 
 	@Override
-	public void renameObject(DBECommandContext commandContext, SchedulerJob object, String newName) throws DBException {
-		processObjectRename(commandContext, object, newName);
+	public void renameObject(DBECommandContext commandContext, SchedulerJob object, Map<String, Object> options,
+			String newName) throws DBException {
+		processObjectRename(commandContext, object, options, newName);
 	}
 }

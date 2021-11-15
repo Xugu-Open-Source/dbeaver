@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.jkiss.dbeaver.ext.oracle.model;
 
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.ext.oracle.edit.OracleTableColumnManager;
 import org.jkiss.dbeaver.ext.oracle.model.source.OracleSourceObject;
 import org.jkiss.dbeaver.ext.oracle.model.source.OracleStatefulObject;
 import org.jkiss.dbeaver.model.*;
@@ -31,6 +32,8 @@ import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.sql.SQLConstants;
+import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectLazy;
 import org.jkiss.dbeaver.model.struct.DBStructUtils;
@@ -44,6 +47,7 @@ import java.io.Reader;
 import java.io.StringWriter;
 import java.sql.Clob;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
@@ -99,6 +103,7 @@ public class OracleUtils {
             }
 
             String ddl;
+            // Read main object DDL
             try (JDBCPreparedStatement dbStat = session.prepareStatement(
                 "SELECT DBMS_METADATA.GET_DDL(?,?" + (schema == null ? "" : ",?") + ") TXT FROM DUAL")) {
                 dbStat.setString(1, objectType);
@@ -127,22 +132,30 @@ public class OracleUtils {
                     }
                 }
             }
-            if (ddlFormat != OracleDDLFormat.COMPACT) {
+            ddl = ddl.trim();
+
+            if (!CommonUtils.isEmpty(object.getIndexes(monitor))) {
+                // Add index info to main DDL. For some reasons, GET_DDL returns columns, constraints, but not indexes
                 try (JDBCPreparedStatement dbStat = session.prepareStatement(
-                    "SELECT DBMS_METADATA.GET_DEPENDENT_DDL('COMMENT',?" + (schema == null ? "" : ",?") + ") TXT FROM DUAL")) {
+                        "SELECT DBMS_METADATA.GET_DEPENDENT_DDL('INDEX',?" + (schema == null ? "" : ",?") + ") TXT FROM DUAL")) {
                     dbStat.setString(1, object.getName());
                     if (schema != null) {
                         dbStat.setString(2, schema.getName());
                     }
                     try (JDBCResultSet dbResult = dbStat.executeQuery()) {
                         if (dbResult.next()) {
-                            ddl += "\n" + dbResult.getString(1);
+                            ddl += "\n\n" + dbResult.getString(1).trim();
                         }
                     }
                 } catch (Exception e) {
-                    // No dependent DDL or something went wrong
-                    log.debug("Error reading dependent DDL", e);
+                    // No dependent index DDL or something went wrong
+                    log.debug("Error reading dependent index DDL", e);
                 }
+            }
+
+            if (ddlFormat != OracleDDLFormat.COMPACT) {
+                // Add object and objects columns info to main DDL
+                ddl = addCommentsToDDL(monitor, object, ddl);
             }
             return ddl;
 
@@ -156,6 +169,46 @@ public class OracleUtils {
         } finally {
             monitor.done();
         }
+    }
+
+    private static String addCommentsToDDL(DBRProgressMonitor monitor, OracleTableBase object, String ddl) {
+        StringBuilder ddlBuilder = new StringBuilder(ddl);
+        String objectFullName = object.getFullyQualifiedName(DBPEvaluationContext.DDL);
+
+        String objectComment = object.getComment(monitor);
+        if (!CommonUtils.isEmpty(objectComment)) {
+            String objectTypeName = "TABLE";
+            if (object instanceof OracleMaterializedView) {
+                objectTypeName = "MATERIALIZED VIEW";
+            }
+            ddlBuilder.append("\n\n").append("COMMENT ON ").append(objectTypeName).append(" ").append(objectFullName).append(" IS ").
+                    append(SQLUtils.quoteString(object.getDataSource(), objectComment)).append(SQLConstants.DEFAULT_STATEMENT_DELIMITER);
+        }
+
+        try {
+            List<OracleTableColumn> attributes = object.getAttributes(monitor);
+            if (!CommonUtils.isEmpty(attributes)) {
+                List<DBEPersistAction> actions = new ArrayList<>();
+                if (CommonUtils.isEmpty(objectComment)) {
+                    ddlBuilder.append("\n");
+                }
+                for (OracleTableColumn column : CommonUtils.safeCollection(attributes)) {
+                    String columnComment = column.getComment(monitor);
+                    if (!CommonUtils.isEmpty(columnComment)) {
+                        OracleTableColumnManager.addColumnCommentAction(actions, column, column.getTable());
+                    }
+                }
+                if (!CommonUtils.isEmpty(actions)) {
+                    for (DBEPersistAction action : actions) {
+                        ddlBuilder.append("\n").append(action.getScript()).append(SQLConstants.DEFAULT_STATEMENT_DELIMITER);
+                    }
+                }
+            }
+        } catch (DBException e) {
+            log.debug("Error reading object columns", e);
+        }
+
+        return ddlBuilder.toString();
     }
 
     public static void setCurrentSchema(JDBCSession session, String schema) throws SQLException {
@@ -233,7 +286,7 @@ public class OracleUtils {
             log.warn("Can't read source for custom source objects");
             return "-- ???? CUSTOM SOURCE";
         }
-        final String sourceType = sourceObject.getSourceType().name();
+        final String sourceType = sourceObject.getSourceType().name().replace("_", " ");
         final OracleSchema sourceOwner = sourceObject.getSchema();
         if (sourceOwner == null) {
             log.warn("No source owner for object '" + sourceObject.getName() + "'");
@@ -249,9 +302,15 @@ public class OracleUtils {
                 "SELECT TEXT FROM " + getSysSchemaPrefix(sourceObject.getDataSource()) + sysViewName + " " +
                     "WHERE TYPE=? AND OWNER=? AND NAME=? " +
                     "ORDER BY LINE")) {
+                String sourceName;
+                if (sourceObject instanceof OracleJavaClass) {
+                    sourceName = ((OracleJavaClass) sourceObject).getSourceName();
+                } else {
+                    sourceName = sourceObject.getName();
+                }
                 dbStat.setString(1, body ? sourceType + " BODY" : sourceType);
                 dbStat.setString(2, sourceOwner.getName());
-                dbStat.setString(3, sourceObject.getName());
+                dbStat.setString(3, sourceName);
                 dbStat.setFetchSize(DBConstants.METADATA_FETCH_SIZE);
                 try (JDBCResultSet dbResult = dbStat.executeQuery()) {
                     StringBuilder source = null;
@@ -260,11 +319,18 @@ public class OracleUtils {
                         if (monitor.isCanceled()) {
                             break;
                         }
-                        final String line = dbResult.getString(1);
+                        String line = dbResult.getString(1);
                         if (source == null) {
                             source = new StringBuilder(200);
                         }
+                        if (line == null) {
+                            line = "";
+                        }
                         source.append(line);
+                        if (sourceObject instanceof OracleJavaClass && !line.endsWith("\n")) {
+                            // Java source
+                            source.append("\n");
+                        }
                         lineCount++;
                         monitor.subTask("Line " + lineCount);
                     }

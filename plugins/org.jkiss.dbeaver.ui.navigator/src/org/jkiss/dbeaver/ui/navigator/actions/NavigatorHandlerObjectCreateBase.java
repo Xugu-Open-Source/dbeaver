@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.IJobChangeEvent;
 import org.eclipse.core.runtime.jobs.JobChangeAdapter;
+import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
@@ -38,9 +39,13 @@ import org.jkiss.dbeaver.model.struct.DBSInstanceLazy;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.ui.actions.ObjectPropertyTester;
 import org.jkiss.dbeaver.ui.editors.DatabaseNodeEditorInput;
 import org.jkiss.dbeaver.ui.editors.IDatabaseEditor;
+import org.jkiss.dbeaver.ui.editors.IDatabaseEditorInput;
+import org.jkiss.dbeaver.ui.editors.IDatabaseModellerEditor;
 import org.jkiss.dbeaver.ui.editors.entity.EntityEditor;
+import org.jkiss.dbeaver.ui.editors.entity.EntityEditorDescriptor;
 import org.jkiss.dbeaver.ui.navigator.database.DatabaseNavigatorView;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
@@ -69,6 +74,9 @@ public abstract class NavigatorHandlerObjectCreateBase extends NavigatorHandlerO
             }
             if (container == null) {
                 throw new DBException("Can't detect container for '" + element.getNodeName() + "'");
+            }
+            if (container instanceof DBNDatabaseNode && ObjectPropertyTester.isMetadataChangeDisabled((DBNDatabaseNode) container)) {
+                throw new DBException("Object create not available in simple view mode");
             }
             if (newObjectType == null) {
                 Class<?> childType = container instanceof DBNContainer ? ((DBNContainer) container).getChildrenClass() : null;
@@ -123,6 +131,16 @@ public abstract class NavigatorHandlerObjectCreateBase extends NavigatorHandlerO
                 }
             }
 
+            DBNDatabaseNode editorNode = null;
+            IEditorPart activeEditor = workbenchWindow.getActivePage().getActiveEditor();
+            if (workbenchWindow.getActivePage().getActivePart() == activeEditor &&
+                activeEditor.getAdapter(IDatabaseModellerEditor.class) != null &&
+                activeEditor.getAdapter(IDatabaseModellerEditor.class).isModelEditEnabled() &&
+                activeEditor.getEditorInput() instanceof IDatabaseEditorInput)
+            {
+                // We are in model editor.
+                editorNode = ((IDatabaseEditorInput) activeEditor.getEditorInput()).getNavigatorNode();
+            }
 
             DBEObjectManager<?> objectManager = DBWorkbench.getPlatform().getEditorsRegistry().getObjectManager(newObjectType);
             if (objectManager == null) {
@@ -137,13 +155,15 @@ public abstract class NavigatorHandlerObjectCreateBase extends NavigatorHandlerO
             CommandTarget commandTarget = getCommandTarget(
                 workbenchWindow,
                 container,
+                editorNode,
                 newObjectType,
                 openEditor);
 
             // Parent is model object - not node
             Map<String, Object> options = new HashMap<>();
-            options.put(DBEObjectMaker.OPTION_CONTAINER, container);
-            options.put(DBEObjectMaker.OPTION_OBJECT_TYPE, newObjectType);
+            options.put(DBEObjectManager.OPTION_CONTAINER, container);
+            options.put(DBEObjectManager.OPTION_OBJECT_TYPE, newObjectType);
+            options.put(DBEObjectManager.OPTION_ACTIVE_EDITOR, activeEditor);
             createDatabaseObject(commandTarget, objectMaker, parentObject instanceof DBPObject ? (DBPObject) parentObject : null, sourceObject, options);
         }
         catch (Throwable e) {
@@ -276,6 +296,8 @@ public abstract class NavigatorHandlerObjectCreateBase extends NavigatorHandlerO
                         DatabaseNodeEditorInput editorInput = new DatabaseNodeEditorInput(
                             newChild,
                             commandTarget.getContext());
+                        // New object editors must open main editor
+                        editorInput.setDefaultPageId(EntityEditorDescriptor.DEFAULT_OBJECT_EDITOR_ID);
                         workbenchWindow.getActivePage().openEditor(
                             editorInput,
                             EntityEditor.class.getName());
@@ -298,7 +320,7 @@ public abstract class NavigatorHandlerObjectCreateBase extends NavigatorHandlerO
         private OBJECT_TYPE newObject;
         private Map<String, Object> options;
 
-        public ObjectCreator(DBEObjectMaker<OBJECT_TYPE, CONTAINER_TYPE> objectMaker, CommandTarget commandTarget, CONTAINER_TYPE parentObject, DBSObject sourceObject, Map<String, Object> options) {
+        ObjectCreator(DBEObjectMaker<OBJECT_TYPE, CONTAINER_TYPE> objectMaker, CommandTarget commandTarget, CONTAINER_TYPE parentObject, DBSObject sourceObject, Map<String, Object> options) {
             this.objectMaker = objectMaker;
             this.commandTarget = commandTarget;
             this.parentObject = parentObject;
@@ -308,10 +330,14 @@ public abstract class NavigatorHandlerObjectCreateBase extends NavigatorHandlerO
 
         @Override
         public void run(DBRProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
+            monitor.beginTask("Create new database object", 1);
             try {
+                monitor.subTask("Create object instance");
                 newObject = objectMaker.createNewObject(monitor, commandTarget.getContext(), parentObject, sourceObject, options);
             } catch (DBException e) {
                 throw new InvocationTargetException(e);
+            } finally {
+                monitor.done();
             }
         }
     }

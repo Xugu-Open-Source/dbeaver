@@ -477,7 +477,7 @@ public class Schema extends BaseGlobalObject
 	}
 
 	@Override
-	public Class<? extends DBSEntity> getChildType(@NotNull DBRProgressMonitor monitor) throws DBException {
+	public Class<? extends DBSObject> getPrimaryChildType(DBRProgressMonitor monitor) throws DBException {
 		return DBSEntity.class;
 	}
 

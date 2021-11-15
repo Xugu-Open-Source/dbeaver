@@ -48,6 +48,7 @@ import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.ui.UITask;
 import org.jkiss.dbeaver.ui.UIUtils;
@@ -243,8 +244,8 @@ public class TableSubPartitionManager extends SQLObjectEditor<TableSubPartition,
 			colCombo = UIUtils.createLabelCombo(composite, "column", 8);
 			colCombo.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 			try {
-				Collection<TableColumn> cols = table.getAttributes(monitor);
-				Iterator<TableColumn> it = cols.iterator();
+				Collection<? extends DBSEntityAttribute> cols = table.getAttributes(monitor);
+				Iterator<? extends DBSEntityAttribute> it = cols.iterator();
 				while (it.hasNext()) {
 					String name = it.next().getName();
 					colCombo.add(name);

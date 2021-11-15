@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -260,6 +260,11 @@ public class TabbedFolderComposite extends Composite implements ITabbedFolderCon
         super.setBackground(color);
     }
 
+    public int getTabsWidth() {
+        FolderPane pane = getActiveFolderPane();
+        return pane == null ? 0 : pane.folderList.computeSize(SWT.DEFAULT, SWT.DEFAULT).x;
+    }
+
     /**
      * @param objectId ID used to save/load folders state
      * @param folders  list of folders
@@ -395,8 +400,9 @@ public class TabbedFolderComposite extends Composite implements ITabbedFolderCon
                     if (folderPane.folderList.getSelectionIndex() != i) {
                         folderPane.folderList.select(i, setFocus);
                         lastActiveFolder = folderPane;
+                        return true;
                     }
-                    return true;
+                    return false;
                 }
             }
         }

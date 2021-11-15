@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,27 +19,33 @@ package org.jkiss.dbeaver.ext.oracle.model;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.ext.oracle.data.OracleBinaryFormatter;
+import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.data.DBDBinaryFormatter;
+import org.jkiss.dbeaver.model.exec.DBCLogicalOperator;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCDatabaseMetaData;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSource;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCSQLDialect;
 import org.jkiss.dbeaver.model.impl.sql.BasicSQLDialect;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.sql.SQLConstants;
-import org.jkiss.dbeaver.model.struct.DBSAttributeBase;
+import org.jkiss.dbeaver.model.sql.SQLExpressionFormatter;
+import org.jkiss.dbeaver.model.struct.DBSDataType;
+import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedure;
 import org.jkiss.utils.ArrayUtils;
+import org.jkiss.utils.CommonUtils;
 
 import java.util.Arrays;
 
 /**
  * Oracle SQL dialect
  */
-class OracleSQLDialect extends JDBCSQLDialect {
+public class OracleSQLDialect extends JDBCSQLDialect {
 
-    public static final String[] EXEC_KEYWORDS = new String[]{ "call" };
+    private static final String[] EXEC_KEYWORDS = new String[]{ "call" };
 
-    public static final String[] ORACLE_NON_TRANSACTIONAL_KEYWORDS = ArrayUtils.concatArrays(
+    private static final String[] ORACLE_NON_TRANSACTIONAL_KEYWORDS = ArrayUtils.concatArrays(
         BasicSQLDialect.NON_TRANSACTIONAL_KEYWORDS,
         new String[]{
             "CREATE", "ALTER", "DROP",
@@ -47,15 +53,31 @@ class OracleSQLDialect extends JDBCSQLDialect {
         }
     );
 
-    public static final String[][] ORACLE_BEGIN_END_BLOCK = new String[][]{
+    private static final String[][] ORACLE_BEGIN_END_BLOCK = new String[][]{
         {SQLConstants.BLOCK_BEGIN, SQLConstants.BLOCK_END},
         {"IF", SQLConstants.BLOCK_END},
         {"LOOP", SQLConstants.BLOCK_END + " LOOP"},
-        {"CASE", SQLConstants.BLOCK_END + " CASE"},
+        {SQLConstants.KEYWORD_CASE, SQLConstants.BLOCK_END + " " + SQLConstants.KEYWORD_CASE},
     };
 
-    public static final String[] ORACLE_BLOCK_HEADERS = new String[]{
+    private static final String[] ORACLE_BLOCK_HEADERS = new String[]{
         "DECLARE",
+        "PACKAGE"
+    };
+
+    private static final String[] ORACLE_INNER_BLOCK_PREFIXES = new String[]{
+        "AS",
+        "IS",
+    };
+
+    public static final String[] OTHER_TYPES_FUNCTIONS = {
+        //functions without parentheses #8710
+        "CURRENT_DATE",
+        "CURRENT_TIMESTAMP",
+        "DBTIMEZONE",
+        "SESSIONTIMEZONE",
+        "SYSDATE",
+        "SYSTIMESTAMP"
     };
 
     public static final String[] ADVANCED_KEYWORDS = {
@@ -63,6 +85,8 @@ class OracleSQLDialect extends JDBCSQLDialect {
         "PACKAGE",
         "FUNCTION",
         "TYPE",
+        "BODY",
+        "RECORD",
         "TRIGGER",
         "MATERIALIZED",
         "IF",
@@ -87,11 +111,12 @@ class OracleSQLDialect extends JDBCSQLDialect {
     private DBPPreferenceStore preferenceStore;
 
     public OracleSQLDialect() {
-        super("Oracle");
+        super("Oracle", "oracle");
+        setUnquotedIdentCase(DBPIdentifierCase.UPPER);
     }
 
-    public void initDriverSettings(JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
-        super.initDriverSettings(dataSource, metaData);
+    public void initDriverSettings(JDBCSession session, JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
+        super.initDriverSettings(session, dataSource, metaData);
         crlfBroken = !dataSource.isServerVersionAtLeast(11, 0);
         preferenceStore = dataSource.getContainer().getPreferenceStore();
 
@@ -136,10 +161,10 @@ class OracleSQLDialect extends JDBCSQLDialect {
                 "INSTR2",
                 "INSTR4",
                 "LENGTHB",
+                "LENGTH",
 
                 //Datetime Functions:
                 "ADD_MONTHS",
-                "DBTIMEZONE",
                 "FROM_TZ",
                 "LAST_DAY",
                 "MONTHS_BETWEEN",
@@ -147,10 +172,7 @@ class OracleSQLDialect extends JDBCSQLDialect {
                 "NEXT_DAY",
                 "NUMTODSINTERVAL",
                 "NUMTOYMINTERVAL",
-                "SESSIONTIMEZONE",
                 "SYS_EXTRACT_UTC",
-                "SYSDATE",
-                "SYSTIMESTAMP",
                 "TO_CHAR",
                 "TO_TIMESTAMP",
                 "TO_TIMESTAMP_TZ",
@@ -302,6 +324,7 @@ class OracleSQLDialect extends JDBCSQLDialect {
                 "RATIO_TO_REPORT",
                 "STDDEV",
                 "VARIANCE",
+                "COALESCE",
 
                 //Object Reference Functions:
                 "MAKE_REF",
@@ -317,13 +340,17 @@ class OracleSQLDialect extends JDBCSQLDialect {
                 // Other #4134
                 "EXTRACT",
                 "LISTAGG",
-                "OVER"
+                "OVER",
+                "RANK"
             ));
         removeSQLKeyword("SYSTEM");
 
         for (String kw : ADVANCED_KEYWORDS) {
             addSQLKeyword(kw);
         }
+
+        addKeywords(Arrays.asList(OTHER_TYPES_FUNCTIONS), DBPKeywordType.OTHER);
+        turnFunctionIntoKeyword("TRUNCATE");
     }
 
     @Override
@@ -336,6 +363,12 @@ class OracleSQLDialect extends JDBCSQLDialect {
         return ORACLE_BLOCK_HEADERS;
     }
 
+    @Nullable
+    @Override
+    public String[] getInnerBlockPrefixes() {
+        return ORACLE_INNER_BLOCK_PREFIXES;
+    }
+
     @NotNull
     @Override
     public String[] getExecuteKeywords() {
@@ -344,8 +377,19 @@ class OracleSQLDialect extends JDBCSQLDialect {
 
     @NotNull
     @Override
-    public MultiValueInsertMode getMultiValueInsertMode() {
-        return MultiValueInsertMode.GROUP_ROWS;
+    public MultiValueInsertMode getDefaultMultiValueInsertMode() {
+        return MultiValueInsertMode.INSERT_ALL;
+    }
+
+    @NotNull
+    @Override
+    public String escapeScriptValue(DBSTypedObject attribute, @NotNull Object value, @NotNull String strValue) {
+        if (CommonUtils.isNaN(value) || CommonUtils.isInfinite(value)) {
+            // These special values should be quoted, as shown in the example below
+            // https://docs.oracle.com/cd/B19306_01/server.102/b14200/functions090.htm
+            return '\'' + String.valueOf(value) + '\'';
+        }
+        return super.escapeScriptValue(attribute, value, strValue);
     }
 
     @Override
@@ -361,6 +405,15 @@ class OracleSQLDialect extends JDBCSQLDialect {
     @Override
     public boolean supportsTableDropCascade() {
         return true;
+    }
+
+    @Nullable
+    @Override
+    public SQLExpressionFormatter getCaseInsensitiveExpressionFormatter(@NotNull DBCLogicalOperator operator) {
+        if (operator == DBCLogicalOperator.LIKE) {
+            return (left, right) -> "UPPER(" + left + ") LIKE UPPER(" + right + ")";
+        }
+        return super.getCaseInsensitiveExpressionFormatter(operator);
     }
 
     @Override
@@ -399,17 +452,55 @@ class OracleSQLDialect extends JDBCSQLDialect {
 
     @NotNull
     @Override
-    public String getScriptDelimiter() {
-        return super.getScriptDelimiter();
+    public String[] getScriptDelimiters() {
+        return super.getScriptDelimiters();
     }
 
     @Override
     public boolean isCRLFBroken() {
         return crlfBroken;
     }
-   
+
     @Override
-    public String escapeScriptValue(DBSAttributeBase attribute, @NotNull Object value, @NotNull String strValue) {
-        return '\'' + escapeString(strValue) + '\'';
+    public String getColumnTypeModifiers(@NotNull DBPDataSource dataSource, @NotNull DBSTypedObject column, @NotNull String typeName, @NotNull DBPDataKind dataKind) {
+        Integer scale;
+        switch (typeName) {
+            case OracleConstants.TYPE_NUMBER:
+            case OracleConstants.TYPE_DECIMAL:
+                DBSDataType dataType = DBUtils.getDataType(column);
+                scale = column.getScale();
+                int precision = CommonUtils.toInt(column.getPrecision());
+                if (precision == 0 && dataType != null && scale != null && scale == dataType.getMinScale()) {
+                    return "";
+                }
+                if (precision == 0 || precision > OracleConstants.NUMERIC_MAX_PRECISION) {
+                    precision = OracleConstants.NUMERIC_MAX_PRECISION;
+                }
+                if (scale != null && precision > 0) {
+                    return "(" + precision + ',' + scale + ")";
+                }
+                break;
+            case OracleConstants.TYPE_INTERVAL_DAY_SECOND:
+                // This interval type has fractional seconds precision. In bounds from 0 to 9. We can show this parameter.
+                // FIXME: This type has day precision inside type name. Like INTERVAL DAY(2) TO SECOND(6). So far we can't show it (But we do it in Column Manager)
+                scale = column.getScale();
+                if (scale == null) {
+                    return "";
+                }
+                if (scale < 0 || scale > 9) {
+                    scale = OracleConstants.INTERVAL_DEFAULT_SECONDS_PRECISION;
+                }
+                return "(" + scale + ")";
+            case OracleConstants.TYPE_NAME_BFILE:
+            case OracleConstants.TYPE_NAME_CFILE:
+            case OracleConstants.TYPE_CONTENT_POINTER:
+            case OracleConstants.TYPE_LONG:
+            case OracleConstants.TYPE_LONG_RAW:
+            case OracleConstants.TYPE_OCTET:
+            case OracleConstants.TYPE_INTERVAL_YEAR_MONTH:
+                // Don't add modifiers to these types
+                return "";
+        }
+        return super.getColumnTypeModifiers(dataSource, column, typeName, dataKind);
     }
 }

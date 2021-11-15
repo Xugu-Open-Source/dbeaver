@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,6 +47,7 @@ public abstract class DBDAttributeBinding implements DBSObject, DBSAttributeBase
     @Nullable
     private List<DBDAttributeBinding> nestedBindings;
     private boolean transformed;
+    private boolean disableTransformers;
 
     protected DBDAttributeBinding(@NotNull DBDValueHandler valueHandler)
     {
@@ -100,7 +101,7 @@ public abstract class DBDAttributeBinding implements DBSObject, DBSAttributeBase
      * Most valuable attribute reference.
      * @return resolved entity attribute or just meta attribute
      */
-    @Nullable
+    @NotNull
     public DBSAttributeBase getAttribute()
     {
         DBSEntityAttribute attr = getEntityAttribute();
@@ -162,6 +163,10 @@ public abstract class DBDAttributeBinding implements DBSObject, DBSAttributeBase
 
     public boolean isTransformed() {
         return transformed;
+    }
+
+    public void disableTransformers(boolean disableTransformers) {
+        this.disableTransformers = disableTransformers;
     }
 
     @NotNull
@@ -299,6 +304,9 @@ public abstract class DBDAttributeBinding implements DBSObject, DBSAttributeBase
     }
 
     public void lateBinding(@NotNull DBCSession session, List<Object[]> rows) throws DBException {
+        if (disableTransformers) {
+            return;
+        }
         DBSAttributeBase attribute = getAttribute();
         final DBDAttributeTransformer[] transformers = DBVUtils.findAttributeTransformers(this, null);
         if (transformers != null) {
@@ -338,7 +346,12 @@ public abstract class DBDAttributeBinding implements DBSObject, DBSAttributeBase
 
     @Override
     public String toString() {
-        return getName() + " [" + getOrdinalPosition() + "]";
+        DBDAttributeBinding parentAttr = getParentObject();
+        if (parentAttr == null) {
+            return getName();
+        } else {
+            return parentAttr.getName() + "." + getName();
+        }
     }
 
 }

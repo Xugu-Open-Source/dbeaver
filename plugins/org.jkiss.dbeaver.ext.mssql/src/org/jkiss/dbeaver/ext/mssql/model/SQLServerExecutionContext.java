@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.jkiss.dbeaver.ext.mssql.model;
 
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.mssql.SQLServerConstants;
@@ -26,7 +27,9 @@ import org.jkiss.dbeaver.model.connection.DBPConnectionBootstrap;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContextDefaults;
 import org.jkiss.dbeaver.model.exec.DBCExecutionPurpose;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCExecutionContext;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCRemoteInstance;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
@@ -71,6 +74,7 @@ public class SQLServerExecutionContext extends JDBCExecutionContext implements D
         return getDataSource().getDatabase(activeDatabaseName);
     }
 
+    @Nullable
     @Override
     public SQLServerSchema getDefaultSchema() {
         if (CommonUtils.isEmpty(activeSchemaName)) {
@@ -96,7 +100,7 @@ public class SQLServerExecutionContext extends JDBCExecutionContext implements D
     }
 
     @Override
-    public void setDefaultCatalog(DBRProgressMonitor monitor, SQLServerDatabase catalog, SQLServerSchema schema) throws DBCException {
+    public void setDefaultCatalog(DBRProgressMonitor monitor, SQLServerDatabase catalog, @Nullable SQLServerSchema schema) throws DBCException {
         if (activeDatabaseName != null && activeDatabaseName.equals(catalog.getName())) {
             return;
         }
@@ -114,6 +118,10 @@ public class SQLServerExecutionContext extends JDBCExecutionContext implements D
 
         // Send notifications
         DBUtils.fireObjectSelectionChange(oldActiveDatabase, catalog);
+
+        if (schema != null) {
+            setDefaultSchema(monitor, schema);
+        }
     }
 
     @Override
@@ -135,16 +143,19 @@ public class SQLServerExecutionContext extends JDBCExecutionContext implements D
     @Override
     public boolean refreshDefaults(DBRProgressMonitor monitor, boolean useBootstrapSettings) throws DBException {
         // Check default active schema
-        try (JDBCSession session = openSession(monitor, DBCExecutionPurpose.META, "Query active database")) {
+        try (JDBCSession session = openSession(monitor, DBCExecutionPurpose.META, "Query active schema and database")) {
+            String currentDatabase = null;
             try {
-                currentUser = SQLServerUtils.getCurrentUser(session);
+                try (JDBCStatement dbStat = session.createStatement()) {
+                    try (JDBCResultSet dbResult = dbStat.executeQuery("SELECT db_name(), schema_name(), original_login()")) {
+                        dbResult.next();
+                        currentDatabase = dbResult.getString(1);
+                        activeSchemaName = dbResult.getString(2);
+                        currentUser = dbResult.getString(3);
+                    }
+                }
             } catch (Throwable e) {
                 log.debug("Error getting current user: " + e.getMessage());
-            }
-            try {
-                activeSchemaName = SQLServerUtils.getCurrentSchema(session);
-            } catch (Throwable e) {
-                log.debug("Error getting current schema: " + e.getMessage());
             }
             if (CommonUtils.isEmpty(activeSchemaName)) {
                 activeSchemaName = SQLServerConstants.DEFAULT_SCHEMA_NAME;
@@ -161,13 +172,10 @@ public class SQLServerExecutionContext extends JDBCExecutionContext implements D
 */
             }
 
-            String currentDatabase = SQLServerUtils.getCurrentDatabase(session);
-            if (!CommonUtils.equalObjects(currentDatabase, activeDatabaseName)) {
+            if (!CommonUtils.isEmpty(currentDatabase) && !CommonUtils.equalObjects(currentDatabase, activeDatabaseName)) {
                 activeDatabaseName = currentDatabase;
                 return true;
             }
-        } catch (SQLException e) {
-            throw new DBCException(e, this);
         }
 
         return false;

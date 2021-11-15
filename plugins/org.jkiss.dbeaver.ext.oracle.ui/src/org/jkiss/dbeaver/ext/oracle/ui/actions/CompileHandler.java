@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -100,10 +100,13 @@ public class CompileHandler extends OracleTaskHandler
                 Throwable error = null;
                 try {
                     UIUtils.runInProgressService(monitor -> {
+                        monitor.beginTask("Compile", 1);
                         try {
                             compileUnit(monitor, compileLog, unit);
                         } catch (DBCException e) {
                             throw new InvocationTargetException(e);
+                        } finally {
+                            monitor.done();
                         }
                     });
                     if (compileLog.getError() != null) {
@@ -202,7 +205,7 @@ public class CompileHandler extends OracleTaskHandler
     {
         final DBEPersistAction[] compileActions = unit.getCompileActions(monitor);
         if (ArrayUtils.isEmpty(compileActions)) {
-            return true;
+            throw new DBCException("No compile actions associated with " + unit.getSourceType().name());
         }
 
         try (JDBCSession session = DBUtils.openUtilSession(monitor, unit, "Compile '" + unit.getName() + "'")) {

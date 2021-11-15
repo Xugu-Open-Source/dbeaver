@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.eclipse.swt.dnd.TextTransfer;
 import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.*;
 import org.eclipse.ui.IWorkbenchWindow;
@@ -34,6 +35,7 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.data.*;
+import org.jkiss.dbeaver.model.exec.DBExecUtils;
 import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
 import org.jkiss.dbeaver.model.navigator.DBNUtils;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
@@ -43,6 +45,7 @@ import org.jkiss.dbeaver.ui.LoadingJob;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.ProgressLoaderVisualizer;
 import org.jkiss.dbeaver.ui.controls.resultset.ResultSetUtils;
+import org.jkiss.dbeaver.ui.controls.resultset.ThemeConstants;
 import org.jkiss.dbeaver.ui.controls.resultset.internal.ResultSetMessages;
 import org.jkiss.dbeaver.ui.data.IAttributeController;
 import org.jkiss.dbeaver.ui.data.IValueController;
@@ -63,13 +66,13 @@ import java.util.List;
  * @author Serge Rider
  */
 public class ReferenceValueEditor {
-
     private static final Log log = Log.getLog(ReferenceValueEditor.class);
 
+    private final Color selectionColor = UIUtils.getColorRegistry().get(ThemeConstants.COLOR_SQL_RESULT_SET_SELECTION_BACK);
     private IValueController valueController;
     private IValueEditor valueEditor;
     private DBSEntityReferrer refConstraint;
-    private Tree editorSelector;
+    private Table editorSelector;
     private volatile boolean sortByValue = true;
     private volatile boolean sortAsc = true;
     private volatile boolean dictLoaded = false;
@@ -100,7 +103,7 @@ public class ReferenceValueEditor {
 
     public boolean createEditorSelector(final Composite parent)
     {
-        if (!(valueController instanceof IAttributeController) || valueController.isReadOnly()) {
+        if (!(valueController instanceof IAttributeController)) {
             return false;
         }
         refConstraint = getEnumerableConstraint();
@@ -140,7 +143,7 @@ public class ReferenceValueEditor {
                     public void widgetSelected(SelectionEvent e) {
                         EditDictionaryPage editDictionaryPage = new EditDictionaryPage(refTable);
                         if (editDictionaryPage.edit(parent.getShell())) {
-                            reloadSelectorValues(null);
+                            reloadSelectorValues(null, true);
                         }
                     }
                 });
@@ -148,7 +151,7 @@ public class ReferenceValueEditor {
             }
         }
 
-        editorSelector = new Tree(parent, SWT.BORDER | SWT.SINGLE | SWT.FULL_SELECTION | SWT.H_SCROLL | SWT.V_SCROLL);
+        editorSelector = new Table(parent, SWT.BORDER | SWT.SINGLE | SWT.FULL_SELECTION | SWT.H_SCROLL | SWT.V_SCROLL);
         editorSelector.setLinesVisible(true);
         editorSelector.setHeaderVisible(true);
         GridData gd = new GridData(GridData.FILL_BOTH);
@@ -158,9 +161,9 @@ public class ReferenceValueEditor {
         //gd.grabExcessHorizontalSpace = true;
         editorSelector.setLayoutData(gd);
 
-        TreeColumn valueColumn = UIUtils.createTreeColumn(editorSelector, SWT.LEFT, ResultSetMessages.dialog_value_view_column_value);
+        TableColumn valueColumn = UIUtils.createTableColumn(editorSelector, SWT.LEFT, ResultSetMessages.dialog_value_view_column_value);
         valueColumn.setData(Boolean.TRUE);
-        TreeColumn descColumn = UIUtils.createTreeColumn(editorSelector, SWT.LEFT, ResultSetMessages.dialog_value_view_column_description);
+        TableColumn descColumn = UIUtils.createTableColumn(editorSelector, SWT.LEFT, ResultSetMessages.dialog_value_view_column_description);
         descColumn.setData(Boolean.FALSE);
 
         SortListener sortListener = new SortListener();
@@ -169,9 +172,11 @@ public class ReferenceValueEditor {
 
         editorSelector.addSelectionListener(new SelectionAdapter() {
             @Override
-            public void widgetSelected(SelectionEvent e)
-            {
-                TreeItem[] selection = editorSelector.getSelection();
+            public void widgetSelected(SelectionEvent e) {
+                if (valueEditor.isReadOnly()) {
+                    return;
+                }
+                TableItem[] selection = editorSelector.getSelection();
                 if (selection != null && selection.length > 0) {
                     Object value = selection[0].getData();
                     //editorControl.setText(selection[0].getText());
@@ -209,24 +214,23 @@ public class ReferenceValueEditor {
                 ((IAttributeController) valueController).getBinding(),
                 curEditorValue,
                 DBDDisplayFormat.EDIT);
-            boolean valueFound = false;
-            if (curTextValue != null) {
-                TreeItem[] items = editorSelector.getItems();
-                for (int i = 0; i < items.length; i++) {
-                    TreeItem item = items[i];
-                    if (curTextValue.equalsIgnoreCase(item.getText(0)) || curTextValue.equalsIgnoreCase(item.getText(1))) {
-                        editorSelector.select(item);
-                        editorSelector.showItem(item);
-                        //editorSelector.setTopIndex(i);
-                        valueFound = true;
-                        break;
-                    }
+            boolean newValueFound = false;
+            TableItem[] items = editorSelector.getItems();
+            for (TableItem item : items) {
+                if (curTextValue.equalsIgnoreCase(item.getText(0)) || curTextValue.equalsIgnoreCase(item.getText(1))) {
+                    editorSelector.deselectAll();
+                    item.setBackground(selectionColor);
+                    item.setForeground(UIUtils.getContrastColor(selectionColor));
+                    editorSelector.showItem(item);
+                    newValueFound = true;
+                } else {
+                    item.setBackground(null);
+                    item.setForeground(null);
                 }
             }
 
-            if (!valueFound) {
-                // Read dictionary
-                reloadSelectorValues(curEditorValue);
+            if (!newValueFound) {
+                reloadSelectorValues(curEditorValue, false);
             }
         };
         if (control instanceof Text) {
@@ -240,7 +244,7 @@ public class ReferenceValueEditor {
             valueFilterText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
             valueFilterText.addModifyListener(e -> {
                 String filterPattern = valueFilterText.getText();
-                reloadSelectorValues(filterPattern);
+                reloadSelectorValues(filterPattern, false);
             });
             valueFilterText.addPaintListener(e -> {
                 if (valueFilterText.isEnabled() && valueFilterText.getCharCount() == 0) {
@@ -253,13 +257,13 @@ public class ReferenceValueEditor {
         }
         final Object curValue = valueController.getValue();
 
-        reloadSelectorValues(curValue);
+        reloadSelectorValues(curValue, false);
 
         return true;
     }
 
-    private void reloadSelectorValues(Object pattern) {
-        if (dictLoaded && CommonUtils.equalObjects(String.valueOf(lastPattern), String.valueOf(pattern))) {
+    private void reloadSelectorValues(Object pattern, boolean force) {
+        if (!force && dictLoaded && CommonUtils.equalObjects(String.valueOf(lastPattern), String.valueOf(pattern))) {
             selectCurrentValue();
             return;
         }
@@ -283,7 +287,7 @@ public class ReferenceValueEditor {
         try {
             editorSelector.removeAll();
             for (DBDLabelValuePair entry : valuesData.keyValues) {
-                TreeItem discItem = new TreeItem(editorSelector, SWT.NONE);
+                TableItem discItem = new TableItem(editorSelector, SWT.NONE);
                 discItem.setText(0,
                     valuesData.keyHandler.getValueDisplayString(
                         valuesData.keyColumn.getAttribute(),
@@ -295,7 +299,7 @@ public class ReferenceValueEditor {
 
             selectCurrentValue();
 
-            UIUtils.packColumns(editorSelector, false, null);
+            UIUtils.packColumns(editorSelector, false);
         } finally {
             editorSelector.setRedraw(true);
         }
@@ -309,24 +313,27 @@ public class ReferenceValueEditor {
                 final String curTextValue = valueController.getValueHandler().getValueDisplayString(
                         ((IAttributeController) valueController).getBinding(),
                         curValue,
-                        DBDDisplayFormat.EDIT);
-
-                TreeItem curItem = null;
-                TreeItem[] items = editorSelector.getItems();
+                        DBDDisplayFormat.EDIT
+                );
+                TableItem curItem = null;
+                int curItemIndex = -1;
+                TableItem[] items = editorSelector.getItems();
                 for (int i = 0; i < items.length; i++) {
-                    TreeItem item = items[i];
+                    TableItem item = items[i];
                     if (item.getText(0).equals(curTextValue)) {
                         curItem = item;
-                        break;
+                        curItemIndex = i;
+                    } else {
+                        item.setBackground(null);
                     }
                 }
+                editorSelector.deselectAll();
                 if (curItem != null) {
-                    editorSelector.setSelection(curItem);
+                    curItem.setBackground(selectionColor);
+                    curItem.setForeground(UIUtils.getContrastColor(selectionColor));
                     editorSelector.showItem(curItem);
                     // Show cur item on top
-                    editorSelector.setTopItem(curItem);
-                } else {
-                    editorSelector.deselectAll();
+                    editorSelector.setTopIndex(curItemIndex);
                 }
             } catch (DBException e) {
                 log.error(e);
@@ -342,7 +349,7 @@ public class ReferenceValueEditor {
         @Override
         public void run() {
             StringBuilder result = new StringBuilder();
-            for (TreeItem item : editorSelector.getSelection()) {
+            for (TableItem item : editorSelector.getSelection()) {
                 if (result.length() > 0) result.append("\n");
                 result.append(item.getText(0));
             }
@@ -351,7 +358,7 @@ public class ReferenceValueEditor {
     }
 
     private class SortListener implements Listener {
-        private TreeColumn prevColumn = null;
+        private TableColumn prevColumn = null;
         private int sortDirection = SWT.DOWN;
 
         public SortListener() {
@@ -359,7 +366,7 @@ public class ReferenceValueEditor {
 
         @Override
         public void handleEvent(Event event) {
-            TreeColumn column = (TreeColumn) event.widget;
+            TableColumn column = (TableColumn) event.widget;
             if (prevColumn == column) {
                 // Set reverse order
                 sortDirection = (sortDirection == SWT.UP ? SWT.DOWN : SWT.UP);
@@ -369,7 +376,7 @@ public class ReferenceValueEditor {
             sortAsc = sortDirection == SWT.DOWN;
             editorSelector.setSortColumn(column);
             editorSelector.setSortDirection(sortDirection);
-            reloadSelectorValues(lastPattern);
+            reloadSelectorValues(lastPattern, true);
         }
     }
 
@@ -378,7 +385,7 @@ public class ReferenceValueEditor {
         DBSEntityAttributeRef keyColumn;
         DBDValueHandler keyHandler;
 
-        public EnumValuesData(Collection<DBDLabelValuePair> keyValues, DBSEntityAttributeRef keyColumn, DBDValueHandler keyHandler) {
+        EnumValuesData(Collection<DBDLabelValuePair> keyValues, DBSEntityAttributeRef keyColumn, DBDValueHandler keyHandler) {
             this.keyValues = new ArrayList<>(keyValues);
             this.keyColumn = keyColumn;
             this.keyHandler = keyHandler;
@@ -399,95 +406,110 @@ public class ReferenceValueEditor {
         }
 
         @Override
-        public EnumValuesData evaluate(DBRProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
+        public EnumValuesData evaluate(DBRProgressMonitor monitor) {
             if (editorSelector.isDisposed()) {
                 return null;
             }
-/*
-            final Map<Object, String> keyValues = new TreeMap<>((o1, o2) -> {
-                if (o1 instanceof Comparable && o2 instanceof Comparable) {
-                    return ((Comparable) o1).compareTo(o2);
-                }
-                if (o1 == o2) {
-                    return 0;
-                } else if (o1 == null) {
-                    return -1;
-                } else if (o2 == null) {
-                    return 1;
-                } else {
-                    return o1.toString().compareTo(o2.toString());
-                }
-            });
-*/
+            EnumValuesData[] result = new EnumValuesData[1];
             try {
-                IAttributeController attributeController = (IAttributeController)valueController;
-                final DBSEntityAttribute tableColumn = attributeController.getBinding().getEntityAttribute();
-                if (tableColumn == null) {
-                    return null;
-                }
-                final DBSEntityAttributeRef fkColumn = DBUtils.getConstraintAttribute(monitor, refConstraint, tableColumn);
-                if (fkColumn == null) {
-                    return null;
-                }
-                DBSEntityAssociation association;
-                if (refConstraint instanceof DBSEntityAssociation) {
-                    association = (DBSEntityAssociation)refConstraint;
-                } else {
-                    return null;
-                }
-                final DBSEntityAttribute refColumn = DBUtils.getReferenceAttribute(monitor, association, tableColumn, false);
-                if (refColumn == null) {
-                    return null;
-                }
-                List<DBDAttributeValue> precedingKeys = null;
-                List<? extends DBSEntityAttributeRef> allColumns = CommonUtils.safeList(refConstraint.getAttributeReferences(monitor));
-                if (allColumns.size() > 1 && allColumns.get(0) != fkColumn) {
-                    // Our column is not a first on in foreign key.
-                    // So, fill uo preceeding keys
-                    List<DBDAttributeBinding> rowAttributes = attributeController.getRowController().getRowAttributes();
-                    precedingKeys = new ArrayList<>();
-                    for (DBSEntityAttributeRef precColumn : allColumns) {
-                        if (precColumn == fkColumn) {
-                            // Enough
-                            break;
-                        }
-                        DBSEntityAttribute precAttribute = precColumn.getAttribute();
-                        if (precAttribute != null) {
-                            DBDAttributeBinding rowAttr = DBUtils.findBinding(rowAttributes, precAttribute);
-                            if (rowAttr != null) {
-                                Object precValue = attributeController.getRowController().getAttributeValue(rowAttr);
-                                precedingKeys.add(new DBDAttributeValue(precAttribute, precValue));
-                            }
-                        }
+                DBExecUtils.tryExecuteRecover(monitor, valueController.getExecutionContext().getDataSource(), param -> {
+                    try {
+                        result[0] = readEnum(monitor);
+                    } catch (DBException e) {
+                        throw new InvocationTargetException(e);
                     }
-                }
-                final DBSEntityAttribute fkAttribute = fkColumn.getAttribute();
-                final DBSEntityConstraint refConstraint = association.getReferencedConstraint();
-                final DBSDictionary enumConstraint = (DBSDictionary) refConstraint.getParentObject();
-                if (fkAttribute != null && enumConstraint != null) {
-                    Collection<DBDLabelValuePair> enumValues = enumConstraint.getDictionaryEnumeration(
-                        monitor,
-                        refColumn,
-                        pattern,
-                        precedingKeys,
-                        sortByValue,
-                        sortAsc,
-                        200);
-//                        for (DBDLabelValuePair pair : enumValues) {
-//                            keyValues.put(pair.getValue(), pair.getLabel());
-//                        }
-                    if (monitor.isCanceled()) {
-                        return null;
-                    }
-                    final DBDValueHandler colHandler = DBUtils.findValueHandler(fkAttribute.getDataSource(), fkAttribute);
-                    return new EnumValuesData(enumValues, fkColumn, colHandler);
-                }
-
+                });
             } catch (DBException e) {
                 // error
                 // just ignore
-                log.warn(e);
+                log.warn(e.getMessage());
             }
+            return result[0];
+        }
+
+        @Nullable
+        private EnumValuesData readEnum(DBRProgressMonitor monitor) throws DBException {
+    /*
+                final Map<Object, String> keyValues = new TreeMap<>((o1, o2) -> {
+                    if (o1 instanceof Comparable && o2 instanceof Comparable) {
+                        return ((Comparable) o1).compareTo(o2);
+                    }
+                    if (o1 == o2) {
+                        return 0;
+                    } else if (o1 == null) {
+                        return -1;
+                    } else if (o2 == null) {
+                        return 1;
+                    } else {
+                        return o1.toString().compareTo(o2.toString());
+                    }
+                });
+    */
+
+            IAttributeController attributeController = (IAttributeController)valueController;
+            final DBSEntityAttribute tableColumn = attributeController.getBinding().getEntityAttribute();
+            if (tableColumn == null) {
+                return null;
+            }
+            final DBSEntityAttributeRef fkColumn = DBUtils.getConstraintAttribute(monitor, refConstraint, tableColumn);
+            if (fkColumn == null) {
+                return null;
+            }
+            DBSEntityAssociation association;
+            if (refConstraint instanceof DBSEntityAssociation) {
+                association = (DBSEntityAssociation)refConstraint;
+            } else {
+                return null;
+            }
+            final DBSEntityAttribute refColumn = DBUtils.getReferenceAttribute(monitor, association, tableColumn, false);
+            if (refColumn == null) {
+                return null;
+            }
+            List<DBDAttributeValue> precedingKeys = null;
+            List<? extends DBSEntityAttributeRef> allColumns = CommonUtils.safeList(refConstraint.getAttributeReferences(monitor));
+            if (allColumns.size() > 1 && allColumns.get(0) != fkColumn) {
+                // Our column is not a first on in foreign key.
+                // So, fill uo preceeding keys
+                List<DBDAttributeBinding> rowAttributes = attributeController.getRowController().getRowAttributes();
+                precedingKeys = new ArrayList<>();
+                for (DBSEntityAttributeRef precColumn : allColumns) {
+                    if (precColumn == fkColumn) {
+                        // Enough
+                        break;
+                    }
+                    DBSEntityAttribute precAttribute = precColumn.getAttribute();
+                    if (precAttribute != null) {
+                        DBDAttributeBinding rowAttr = DBUtils.findBinding(rowAttributes, precAttribute);
+                        if (rowAttr != null) {
+                            Object precValue = attributeController.getRowController().getAttributeValue(rowAttr);
+                            precedingKeys.add(new DBDAttributeValue(precAttribute, precValue));
+                        }
+                    }
+                }
+            }
+            final DBSEntityAttribute fkAttribute = fkColumn.getAttribute();
+            final DBSEntityConstraint refConstraint = association.getReferencedConstraint();
+            final DBSDictionary enumConstraint = (DBSDictionary) refConstraint.getParentObject();
+            if (fkAttribute != null && enumConstraint != null) {
+                Collection<DBDLabelValuePair> enumValues = enumConstraint.getDictionaryEnumeration(
+                    monitor,
+                    refColumn,
+                    pattern,
+                    precedingKeys,
+                    sortByValue,
+                    sortAsc,
+                    false,
+                    200);
+//                        for (DBDLabelValuePair pair : enumValues) {
+//                            keyValues.put(pair.getValue(), pair.getLabel());
+//                        }
+                if (monitor.isCanceled()) {
+                    return null;
+                }
+                final DBDValueHandler colHandler = DBUtils.findValueHandler(fkAttribute.getDataSource(), fkAttribute);
+                return new EnumValuesData(enumValues, fkColumn, colHandler);
+            }
+
             return null;
         }
 
@@ -517,5 +539,4 @@ public class ReferenceValueEditor {
             }
         }
     }
-
 }

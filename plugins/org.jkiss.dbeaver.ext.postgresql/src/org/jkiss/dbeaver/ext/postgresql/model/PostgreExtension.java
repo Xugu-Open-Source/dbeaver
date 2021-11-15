@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,12 +21,14 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.postgresql.PostgreConstants;
+import org.jkiss.dbeaver.model.DBPSystemInfoObject;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.IPropertyValueListProvider;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.utils.StandardConstants;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -36,7 +38,7 @@ import java.util.Map;
 /**
  * PostgreExtension
  */
-public class PostgreExtension implements PostgreObject, PostgreScriptObject {
+public class PostgreExtension implements PostgreObject, PostgreScriptObject, DBPSystemInfoObject {
 
     private static final Log log = Log.getLog(PostgreExtension.class);
     
@@ -163,11 +165,12 @@ public class PostgreExtension implements PostgreObject, PostgreScriptObject {
 
     @Override
     public String getObjectDefinitionText(DBRProgressMonitor monitor, Map<String, Object> options) throws DBException {
+        String lineBreak = System.getProperty(StandardConstants.ENV_LINE_SEPARATOR);
         return
-            "-- Extension: " + getName() + "\n\n" +
-            "-- DROP EXTENSION " + getName() + ";\n\n" +
-            "CREATE EXTENSION " + getName() + "\n\t" +
-            "SCHEMA \"" + getSchema() + "\"\n\t" +
+            "-- Extension: " + getName() + lineBreak + lineBreak +
+            "-- DROP EXTENSION " + getName() + ";" + lineBreak + lineBreak +
+            "CREATE EXTENSION " + getName() + lineBreak + "\t" +
+            "SCHEMA \"" + getSchema() + "\"" + lineBreak + "\t" +
             "VERSION " + version;
     }
 

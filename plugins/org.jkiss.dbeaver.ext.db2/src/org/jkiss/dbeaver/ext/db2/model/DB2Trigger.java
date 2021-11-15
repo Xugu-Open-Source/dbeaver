@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2013-2015 Denis Forveille (titou10.titou10@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,17 +23,13 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.db2.DB2Constants;
 import org.jkiss.dbeaver.ext.db2.editors.DB2SourceObject;
 import org.jkiss.dbeaver.ext.db2.model.cache.DB2TriggerDepCache;
-import org.jkiss.dbeaver.ext.db2.model.dict.DB2OwnerType;
-import org.jkiss.dbeaver.ext.db2.model.dict.DB2TriggerEvent;
-import org.jkiss.dbeaver.ext.db2.model.dict.DB2TriggerGranularity;
-import org.jkiss.dbeaver.ext.db2.model.dict.DB2TriggerTime;
-import org.jkiss.dbeaver.ext.db2.model.dict.DB2TriggerValid;
-import org.jkiss.dbeaver.ext.db2.model.dict.DB2YesNo;
+import org.jkiss.dbeaver.ext.db2.model.dict.*;
 import org.jkiss.dbeaver.model.DBPRefreshableObject;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.format.SQLFormatUtils;
 import org.jkiss.dbeaver.model.struct.DBSObject;
@@ -339,7 +335,7 @@ public class DB2Trigger extends DB2SchemaObject implements DBSTrigger, DB2Source
 
     @Nullable
     @Override
-    @Property(viewable = false, multiline = true)
+    @Property(viewable = false, length = PropertyLength.MULTILINE)
     public String getDescription()
     {
         return remarks;

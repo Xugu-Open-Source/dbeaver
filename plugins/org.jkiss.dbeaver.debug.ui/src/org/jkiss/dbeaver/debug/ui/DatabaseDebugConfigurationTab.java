@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2017-2018 Alexander Fedorov (alexander.fedorov@jkiss.org)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,6 @@
 
 package org.jkiss.dbeaver.debug.ui;
 
-import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.debug.core.ILaunchConfiguration;
 import org.eclipse.debug.core.ILaunchConfigurationWorkingCopy;
@@ -32,6 +31,7 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.*;
 import org.eclipse.ui.PlatformUI;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.debug.DBGConstants;
 import org.jkiss.dbeaver.debug.core.DebugUtils;
 import org.jkiss.dbeaver.debug.ui.internal.DebugConfigurationPanelDescriptor;
@@ -39,7 +39,6 @@ import org.jkiss.dbeaver.debug.ui.internal.DebugConfigurationPanelRegistry;
 import org.jkiss.dbeaver.debug.ui.internal.DebugUIMessages;
 import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
-import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableContext;
 import org.jkiss.dbeaver.registry.DataSourceRegistry;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
@@ -54,6 +53,8 @@ import java.util.List;
 import java.util.Map;
 
 public class DatabaseDebugConfigurationTab extends AbstractLaunchConfigurationTab implements DBGConfigurationPanelContainer {
+
+    static protected final Log log = Log.getLog(DatabaseDebugConfigurationTab.class);
 
     private DebugConfigurationPanelDescriptor selectedDebugType;
     private DBGConfigurationPanel selectedDebugPanel;
@@ -199,8 +200,12 @@ public class DatabaseDebugConfigurationTab extends AbstractLaunchConfigurationTa
     public void initializeFrom(ILaunchConfiguration configuration) {
         this.currentConfiguration = configuration;
         try {
-            String dsId = configuration.getAttribute(DBGConstants.ATTR_DATASOURCE_ID, (String) null);
-            DBPDataSourceContainer dataSource = DBUtils.findDataSource(dsId);
+            DBPDataSourceContainer dataSource = null;
+            try {
+                dataSource = DebugUtils.getDataSourceContainer(configuration);
+            } catch (CoreException e) {
+                log.debug(e);
+            }
             connectionCombo.select(dataSource);
             if (dataSource != null) {
                 driverText.setText(dataSource.getDriver().getFullName());

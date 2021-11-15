@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  */
 package org.jkiss.dbeaver.ext.postgresql.edit;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreSchema;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreSequence;
@@ -47,7 +48,7 @@ public class PostgreSequenceManager extends SQLObjectEditor<PostgreTableBase, Po
 
     @Override
     public DBSObjectCache<? extends DBSObject, PostgreTableBase> getObjectsCache(PostgreTableBase object) {
-        return object.getContainer().getSchema().tableCache;
+        return object.getContainer().getSchema().getTableCache();
     }
 
     @Override
@@ -57,7 +58,7 @@ public class PostgreSequenceManager extends SQLObjectEditor<PostgreTableBase, Po
     }
 
     @Override
-    protected void validateObjectProperties(ObjectChangeCommand command, Map<String, Object> options)
+    protected void validateObjectProperties(DBRProgressMonitor monitor, ObjectChangeCommand command, Map<String, Object> options)
         throws DBException
     {
         if (CommonUtils.isEmpty(command.getObject().getName())) {
@@ -72,16 +73,25 @@ public class PostgreSequenceManager extends SQLObjectEditor<PostgreTableBase, Po
     }
 
     @Override
-    protected void addObjectCreateActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, List<DBEPersistAction> actions, ObjectCreateCommand command, Map<String, Object> options)
-    {
-        createOrReplaceSequenceQuery(actions, command.getObject());
+    protected void addObjectCreateActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, List<DBEPersistAction> actions, ObjectCreateCommand command, Map<String, Object> options) {
+        actions.add(new SQLDatabasePersistAction(
+            "Create sequence",
+            "CREATE SEQUENCE " + command.getObject().getFullyQualifiedName(DBPEvaluationContext.DDL)
+        ));
     }
 
     @Override
-    protected void addObjectModifyActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, List<DBEPersistAction> actionList, ObjectChangeCommand command, Map<String, Object> options)
-    {
-        if (command.getProperties().size() > 1 || command.getProperty(DBConstants.PROP_ID_DESCRIPTION) == null) {
-            createOrReplaceSequenceQuery(actionList, command.getObject());
+    protected void addObjectModifyActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, List<DBEPersistAction> actions, ObjectChangeCommand command, Map<String, Object> options) {
+        final PostgreSequence sequence = (PostgreSequence) command.getObject();
+        final String sequenceName = sequence.getFullyQualifiedName(DBPEvaluationContext.DDL);
+        final StringBuilder sequenceOptions = new StringBuilder();
+        addSequenceOptions(sequenceOptions, command.getProperties());
+
+        if (sequenceOptions.length() > 0) {
+            actions.add(new SQLDatabasePersistAction(
+                "Alter sequence",
+                "ALTER SEQUENCE " + sequenceName + sequenceOptions
+            ));
         }
     }
 
@@ -93,10 +103,32 @@ public class PostgreSequenceManager extends SQLObjectEditor<PostgreTableBase, Po
         );
     }
 
-    private void createOrReplaceSequenceQuery(List<DBEPersistAction> actions, PostgreTableBase sequence)
-    {
-        actions.add(
-            new SQLDatabasePersistAction("Create sequence", "CREATE SEQUENCE " + sequence.getFullyQualifiedName(DBPEvaluationContext.DDL)));
+    private void addSequenceOptions(StringBuilder ddl, Map<Object, Object> options) {
+        if (options.containsKey("incrementBy")) {
+            ddl.append("\n\tINCREMENT BY ").append(options.get("incrementBy"));
+        }
+        if (options.containsKey("minValue")) {
+            ddl.append("\n\tMINVALUE ").append(options.get("minValue"));
+        }
+        if (options.containsKey("maxValue")) {
+            ddl.append("\n\tMAXVALUE ").append(options.get("maxValue"));
+        }
+        if (options.containsKey("startValue")) {
+            ddl.append("\n\tSTART ").append(options.get("startValue"));
+        }
+        if (options.get("lastValue") != null) {
+            ddl.append("\n\tRESTART ").append(options.get("lastValue"));
+        }
+        if (options.containsKey("cacheValue")) {
+            ddl.append("\n\tCACHE ").append(options.get("cacheValue"));
+        }
+        if (options.containsKey("cycled")) {
+            ddl.append("\n\t");
+            if (!CommonUtils.toBoolean(options.get("cycled"))) {
+                ddl.append("NO ");
+            }
+            ddl.append("CYCLE");
+        }
     }
 
     @Override
@@ -108,18 +140,18 @@ public class PostgreSequenceManager extends SQLObjectEditor<PostgreTableBase, Po
     }
 
     @Override
-    public void renameObject(DBECommandContext commandContext, PostgreTableBase object, String newName) throws DBException {
-        ObjectRenameCommand command = new ObjectRenameCommand(object, ModelMessages.model_jdbc_rename_object, newName);
+    public void renameObject(@NotNull DBECommandContext commandContext, @NotNull PostgreTableBase object, @NotNull Map<String, Object> options, @NotNull String newName) throws DBException {
+        ObjectRenameCommand command = new ObjectRenameCommand(object, ModelMessages.model_jdbc_rename_object, options, newName);
         commandContext.addCommand(command, new RenameObjectReflector(), true);
     }
 
     @Override
     protected void addObjectExtraActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, List<DBEPersistAction> actions, NestedObjectCommand<PostgreTableBase, PropertyHandler> command, Map<String, Object> options) {
-        if (command.getProperty(DBConstants.PROP_ID_DESCRIPTION) != null) {
+        if (command.hasProperty(DBConstants.PROP_ID_DESCRIPTION)) {
             actions.add(new SQLDatabasePersistAction(
                 "Comment sequence",
                 "COMMENT ON SEQUENCE " + command.getObject().getFullyQualifiedName(DBPEvaluationContext.DDL) +
-                    " IS " + SQLUtils.quoteString(command.getObject(), command.getObject().getDescription())));
+                    " IS " + SQLUtils.quoteString(command.getObject(), CommonUtils.notEmpty(command.getObject().getDescription()))));
         }
     }
 

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.dialogs.IDialogConstants;
-import org.eclipse.swt.SWT;
 import org.eclipse.swt.dnd.Clipboard;
 import org.eclipse.swt.dnd.HTMLTransfer;
 import org.eclipse.swt.dnd.TextTransfer;
@@ -37,9 +36,7 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.DBeaverPreferences;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ModelPreferences;
-import org.jkiss.dbeaver.model.DBPDataSource;
-import org.jkiss.dbeaver.model.DBPDataSourceContainer;
-import org.jkiss.dbeaver.model.DBPErrorAssistant;
+import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.access.DBAPasswordChangeInfo;
 import org.jkiss.dbeaver.model.connection.DBPAuthInfo;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
@@ -54,18 +51,18 @@ import org.jkiss.dbeaver.model.runtime.load.ILoadService;
 import org.jkiss.dbeaver.model.runtime.load.ILoadVisualizer;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.dbeaver.runtime.DBeaverNotifications;
 import org.jkiss.dbeaver.runtime.ui.DBPPlatformUI;
 import org.jkiss.dbeaver.ui.*;
 import org.jkiss.dbeaver.ui.actions.datasource.DataSourceInvalidateHandler;
-import org.jkiss.dbeaver.ui.dialogs.AcceptLicenseDialog;
-import org.jkiss.dbeaver.ui.dialogs.BaseAuthDialog;
-import org.jkiss.dbeaver.ui.dialogs.StandardErrorDialog;
+import org.jkiss.dbeaver.ui.dialogs.*;
 import org.jkiss.dbeaver.ui.dialogs.connection.PasswordChangeDialog;
 import org.jkiss.dbeaver.ui.dialogs.driver.DriverDownloadDialog;
 import org.jkiss.dbeaver.ui.dialogs.driver.DriverEditDialog;
 import org.jkiss.dbeaver.ui.dialogs.exec.ExecutionQueueErrorJob;
+import org.jkiss.dbeaver.ui.internal.UIConnectionMessages;
 import org.jkiss.dbeaver.ui.navigator.actions.NavigatorHandlerObjectOpen;
-import org.jkiss.dbeaver.ui.navigator.dialogs.BrowseObjectDialog;
+import org.jkiss.dbeaver.ui.navigator.dialogs.ObjectBrowserDialog;
 import org.jkiss.dbeaver.ui.views.process.ProcessPropertyTester;
 import org.jkiss.dbeaver.ui.views.process.ShellProcessView;
 import org.jkiss.dbeaver.utils.GeneralUtils;
@@ -157,7 +154,17 @@ public class DBeaverUI implements DBPPlatformUI {
             // Notifications disabled
             return;
         }
-        getInstance().trayItem.notify(message, status);
+        if (TrayIconHandler.isSupported()) {
+            getInstance().trayItem.notify(message, status);
+        } else {
+            DBeaverNotifications.showNotification(
+                "agentNotify",
+                "Agent Notification",
+                message,
+                status == IStatus.INFO ? DBPMessageType.INFORMATION :
+                    (status == IStatus.ERROR ? DBPMessageType.ERROR : DBPMessageType.WARNING),
+                null);
+        }
     }
 
     @Override
@@ -185,6 +192,7 @@ public class DBeaverUI implements DBPPlatformUI {
 
     @Override
     public UserResponse showError(@NotNull final String title, @Nullable final String message, @NotNull final IStatus status) {
+        IStatus rootStatus = status;
         for (IStatus s = status; s != null; ) {
             if (s.getException() instanceof DBException) {
                 UserResponse dbErrorResp = showDatabaseError(message, (DBException) s.getException());
@@ -195,11 +203,13 @@ public class DBeaverUI implements DBPPlatformUI {
                 break;
             }
             if (s.getChildren() != null && s.getChildren().length > 0) {
-                s = s.getChildren()[0];
+                s = rootStatus = s.getChildren()[0];
             } else {
                 break;
             }
         }
+        log.error(rootStatus.getMessage(), rootStatus.getException());
+
         // log.debug(message);
         Runnable runnable = () -> {
             // Display the dialog
@@ -213,8 +223,6 @@ public class DBeaverUI implements DBPPlatformUI {
 
     @Override
     public UserResponse showError(@NotNull String title, @Nullable String message, @NotNull Throwable error) {
-        log.error(error);
-
         return showError(title, message, GeneralUtils.makeExceptionStatus(error));
     }
 
@@ -225,13 +233,26 @@ public class DBeaverUI implements DBPPlatformUI {
 
     @Override
     public void showMessageBox(@NotNull String title, String message, boolean error) {
-        UIUtils.syncExec(() -> {
-            UIUtils.showMessageBox(
-                UIUtils.getActiveWorkbenchShell(),
-                title,
-                message,
-                error ? SWT.ICON_ERROR : SWT.ICON_INFORMATION);
-            });
+        if (error) {
+            showMessageBox(title, message, DBIcon.STATUS_ERROR);
+        } else {
+            showMessageBox(title, message, DBIcon.STATUS_INFO);
+        }
+    }
+
+    @Override
+    public void showWarningMessageBox(@NotNull String title, String message) {
+        showMessageBox(title, message, DBIcon.STATUS_WARNING);
+    }
+
+    private static void showMessageBox(@NotNull String title, @NotNull String message, @NotNull DBPImage image) {
+        UIUtils.syncExec(() -> MessageBoxBuilder.builder(UIUtils.getActiveWorkbenchShell())
+            .setTitle(title)
+            .setMessage(message)
+            .setPrimaryImage(image)
+            .setReplies(Reply.OK)
+            .showMessageBox()
+        );
     }
 
     @Override
@@ -271,13 +292,24 @@ public class DBeaverUI implements DBPPlatformUI {
 
     @Override
     public DBPAuthInfo promptUserCredentials(final String prompt, final String userName, final String userPassword, final boolean passwordOnly, boolean showSavePassword) {
+        return promptUserCredentials(prompt,
+            UIConnectionMessages.dialog_connection_auth_label_username,
+            userName,
+            UIConnectionMessages.dialog_connection_auth_label_password,
+            userPassword,
+            passwordOnly,
+            showSavePassword);
+    }
 
-        // Ask user
+    @Override
+    public DBPAuthInfo promptUserCredentials(String prompt, String userNameLabel, String userName, String passwordLabel, String userPassword, boolean passwordOnly, boolean showSavePassword) {
         return new UITask<DBPAuthInfo>() {
             @Override
             public DBPAuthInfo runTask() {
                 final Shell shell = UIUtils.getActiveWorkbenchShell();
                 final BaseAuthDialog authDialog = new BaseAuthDialog(shell, prompt, passwordOnly, showSavePassword);
+                authDialog.setUserNameLabel(userNameLabel);
+                authDialog.setPasswordLabel(passwordLabel);
                 if (!passwordOnly) {
                     authDialog.setUserName(userName);
                 }
@@ -292,13 +324,13 @@ public class DBeaverUI implements DBPPlatformUI {
     }
 
     @Override
-    public DBAPasswordChangeInfo promptUserPasswordChange(String prompt, String userName, String oldPassword) {
+    public DBAPasswordChangeInfo promptUserPasswordChange(String prompt, String userName, String oldPassword, boolean userEditable, boolean oldPasswordVisible) {
         // Ask user
         return new UITask<DBAPasswordChangeInfo>() {
             @Override
             public DBAPasswordChangeInfo runTask() {
                 final Shell shell = UIUtils.getActiveWorkbenchShell();
-                final PasswordChangeDialog passwordChangeDialog = new PasswordChangeDialog(shell, prompt, userName, oldPassword);
+                final PasswordChangeDialog passwordChangeDialog = new PasswordChangeDialog(shell, prompt, userName, oldPassword, userEditable, oldPasswordVisible);
                 if (passwordChangeDialog.open() == IDialogConstants.OK_ID) {
                     return passwordChangeDialog.getPasswordInfo();
                 } else {
@@ -311,7 +343,7 @@ public class DBeaverUI implements DBPPlatformUI {
     @Override
     public DBNNode selectObject(@NotNull Object parentShell, String title, DBNNode rootNode, DBNNode selectedNode, Class<?>[] allowedTypes, Class<?>[] resultTypes, Class<?>[] leafTypes) {
         Shell shell = (parentShell instanceof Shell ? (Shell)parentShell : UIUtils.getActiveWorkbenchShell());
-        return BrowseObjectDialog.selectObject(shell, title, rootNode, selectedNode, allowedTypes, resultTypes, leafTypes);
+        return ObjectBrowserDialog.selectObject(shell, title, rootNode, selectedNode, allowedTypes, resultTypes, leafTypes);
     }
 
     @Override
@@ -418,14 +450,24 @@ public class DBeaverUI implements DBPPlatformUI {
 
     @Override
     public void executeShellProgram(String shellCommand) {
-        UIUtils.asyncExec(() -> UIUtils.launchProgram(shellCommand));
+        UIUtils.asyncExec(() -> ShellUtils.launchProgram(shellCommand));
     }
 
     @Override
-    public void readAndDispatchEvents() {
+    public void showInSystemExplorer(@NotNull String path) {
+        UIUtils.asyncExec(() -> ShellUtils.showInSystemExplorer(path));
+    }
+
+    @Override
+    public boolean readAndDispatchEvents() {
         Display currentDisplay = Display.getCurrent();
         if (currentDisplay != null) {
-            currentDisplay.readAndDispatch();
+            if (!currentDisplay.readAndDispatch()) {
+                currentDisplay.sleep();
+            }
+            return true;
+        } else {
+            return false;
         }
     }
 

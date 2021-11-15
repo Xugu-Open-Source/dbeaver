@@ -9,7 +9,7 @@
 	<name>DBeaver - 3rd party dependencies</name>
 
 	<properties>
-		<tycho-version>1.4.0</tycho-version>
+		<tycho-version>2.1.0</tycho-version>
 		<reficio-p2-version>1.4.1</reficio-p2-version>
 		<repo-name>DBeaver CE Update</repo-name>
 	</properties>
@@ -34,16 +34,19 @@
 						<id>default-cli</id>
 						<configuration>
 							<artifacts>
-								<artifact><id>com.github.jsqlparser:jsqlparser:3.0</id></artifact>
+								<artifact><id>com.github.jsqlparser:jsqlparser:4.2</id></artifact>
+<!--								<artifact><id>com.manticore-projects.jsqlformatter:jsqlformatter:0.1.7</id></artifact>-->
+
 								<artifact><id>org.apache.commons:commons-jexl3:3.1</id></artifact>
-								<artifact><id>net.sf.opencsv:opencsv:2.3</id></artifact>
 								<artifact><id>commons-cli:commons-cli:1.3.1</id></artifact>
 								<artifact><id>com.ibm.icu:com.ibm.icu.base:58.2.0</id></artifact>
 
+								<!-- GEF3 -->
+								<artifact><id>org.eclipse.draw2dl.plugins:org.eclipse.draw2dl:3.12.100-SNAPSHOT</id></artifact>
+								<artifact><id>org.eclipse.gef3.plugins:org.eclipse.gef3:3.12.100-SNAPSHOT</id></artifact>
+
 								<!-- POI and dependencies -->
 								<artifact><id>org.jkiss.bundle:org.jkiss.bundle.apache.poi:LATEST</id></artifact>
-								<artifact><id>org.apache.commons:commons-collections4:4.1</id></artifact>
-								<artifact><id>org.apache.xmlbeans:xmlbeans:2.6.0</id></artifact>
 
 								<!-- GIS -->
 								<artifact><id>org.jkiss.bundle:org.jkiss.bundle.gis:LATEST</id></artifact>
@@ -53,8 +56,6 @@
 
 								<!-- SSH and BouncyCastle -->
 								<artifact><id>org.jkiss.bundle:org.jkiss.bundle.sshj:LATEST</id></artifact>
-								<!-- Bouncy castle left here for backward compatibility (older DBeaver versions still require it. To remove in future versions -->
-								<artifact><id>org.jkiss.bundle:org.jkiss.bundle.bouncycastle:LATEST</id></artifact>
 								<!-- Ant minimized -->
 								<artifact><id>org.jkiss.bundle:org.apache.ant:1.10.0</id></artifact>
 
@@ -62,6 +63,11 @@
 								<artifact><id>org.jkiss.bundle:org.jkiss.bundle.apache.batik:LATEST</id></artifact>
 								<!-- GraphQL -->
 								<artifact><id>org.jkiss.bundle:org.jkiss.bundle.graphql.java:LATEST</id></artifact>
+								<!-- DBCP -->
+								<artifact><id>org.jkiss.bundle:org.jkiss.bundle.apache.dbcp:LATEST</id></artifact>
+
+								<!-- Tests -->
+								<artifact><id>org.mockito:mockito-all:1.10.19</id></artifact>
 							</artifacts>
 							<additionalArgs>-metadataRepositoryName "${repo-name}" -artifactRepositoryName "${repo-name}"</additionalArgs>
 

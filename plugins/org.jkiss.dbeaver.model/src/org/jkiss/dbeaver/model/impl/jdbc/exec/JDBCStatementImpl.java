@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,11 +22,11 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.exec.DBCException;
-import org.jkiss.dbeaver.model.exec.DBCExecutionSource;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
 import org.jkiss.dbeaver.model.impl.AbstractStatement;
+import org.jkiss.dbeaver.model.impl.jdbc.JDBCTrace;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.qm.QMUtils;
@@ -57,8 +57,7 @@ public class JDBCStatementImpl<STATEMENT extends Statement> extends AbstractStat
     private long rsOffset = -1;
     private long rsMaxRows = -1;
 
-    private DBCExecutionSource source;
-    private int updateCount;
+    private long updateCount;
     private Throwable executeError;
 
     public JDBCStatementImpl(@NotNull JDBCSession connection, @NotNull STATEMENT original, boolean disableLogging)
@@ -189,10 +188,13 @@ public class JDBCStatementImpl<STATEMENT extends Statement> extends AbstractStat
     }
 
     @Override
-    public int getUpdateRowCount() throws DBCException
-    {
+    public long getUpdateRowCount() throws DBCException {
         try {
-            return getUpdateCount();
+            try {
+                return getLargeUpdateCount();
+            } catch (Throwable ignored) {
+                return getUpdateCount();
+            }
         } catch (SQLException e) {
             throw new DBCException(e, connection.getExecutionContext());
         }
@@ -233,19 +235,6 @@ public class JDBCStatementImpl<STATEMENT extends Statement> extends AbstractStat
                 log.debug(getOriginal().getClass().getName() + ".setMaxRows not supported?", e);
             }
         }
-    }
-
-    @Nullable
-    @Override
-    public DBCExecutionSource getStatementSource()
-    {
-        return this.source;
-    }
-
-    @Override
-    public void setStatementSource(DBCExecutionSource source)
-    {
-        this.source = source;
     }
 
     @Nullable
@@ -313,6 +302,9 @@ public class JDBCStatementImpl<STATEMENT extends Statement> extends AbstractStat
         this.executeError = null;
         if (isQMLoggingEnabled()) {
             QMUtils.getDefaultHandler().handleStatementExecuteBegin(this);
+        }
+        if (JDBCTrace.isApiTraceEnabled()) {
+            JDBCTrace.traceQueryBegin(getQueryString());
         }
         this.startBlock();
     }
@@ -653,7 +645,17 @@ public class JDBCStatementImpl<STATEMENT extends Statement> extends AbstractStat
     {
         int uc = getOriginal().getUpdateCount();
         if (uc >= 0) {
-            // Cache update cound (for QM logging)
+            // Cache update count (for QM logging)
+            this.updateCount = uc;
+        }
+        return uc;
+    }
+
+    @Override
+    public long getLargeUpdateCount() throws SQLException {
+        final long uc = getOriginal().getLargeUpdateCount();
+        if (uc >= 0) {
+            // Cache update count (for QM logging)
             this.updateCount = uc;
         }
         return uc;

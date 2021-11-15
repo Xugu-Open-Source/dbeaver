@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,10 @@ package org.jkiss.dbeaver.ext.mysql.model;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.model.DBConstants;
-import org.jkiss.dbeaver.model.DBPSaveableObject;
-import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.DBSObject;
@@ -39,10 +38,9 @@ import java.util.Map;
 /**
  * MySQLEvent
  */
-public class MySQLEvent implements MySQLSourceObject, DBPSaveableObject {
+public class MySQLEvent implements MySQLSourceObject, DBPSaveableObject, DBPQualifiedObject {
 
     private static final String CAT_DETAILS = "Details";
-    private static final String CAT_STATS = "Statistics";
 
     private MySQLCatalog catalog;
     private boolean persisted;
@@ -125,7 +123,7 @@ public class MySQLEvent implements MySQLSourceObject, DBPSaveableObject {
 
     @Nullable
     @Override
-    @Property(viewable = true, multiline = true, category = CAT_DETAILS, order = 100)
+    @Property(viewable = true, length = PropertyLength.MULTILINE, category = CAT_DETAILS, order = 100)
     public String getDescription() {
         return eventComment;
     }
@@ -200,7 +198,7 @@ public class MySQLEvent implements MySQLSourceObject, DBPSaveableObject {
         return ends;
     }
 
-    @Property(category = CAT_STATS, order = 35)
+    @Property(category = DBConstants.CAT_STATISTICS, order = 35)
     public String getStatus() {
         return status;
     }
@@ -210,17 +208,17 @@ public class MySQLEvent implements MySQLSourceObject, DBPSaveableObject {
         return onCompletion;
     }
 
-    @Property(category = CAT_STATS, order = 37)
+    @Property(category = DBConstants.CAT_STATISTICS, order = 37)
     public Date getCreated() {
         return created;
     }
 
-    @Property(category = CAT_STATS, order = 38)
+    @Property(category = DBConstants.CAT_STATISTICS, order = 38)
     public Date getLastAltered() {
         return lastAltered;
     }
 
-    @Property(category = CAT_STATS, order = 39)
+    @Property(category = DBConstants.CAT_STATISTICS, order = 39)
     public Date getLastExecuted() {
         return lastExecuted;
     }
@@ -257,6 +255,10 @@ public class MySQLEvent implements MySQLSourceObject, DBPSaveableObject {
         sql.append(" EVENT ").append(DBUtils.getQuotedIdentifier(this)).append("\n");
         if (intervalValue != null && intervalField != null) {
             sql.append("ON SCHEDULE EVERY ").append(intervalValue).append(" ").append(intervalField).append("\n");
+        } else if (executeAt != null) {
+            sql.append("ON SCHEDULE AT '").append(dateFormat.format(executeAt)).append("'\n");
+        } else {
+            sql.append("ON SCHEDULE AT CURRENT_TIMESTAMP\n");
         }
         if (starts != null) {
             sql.append("STARTS '").append(dateFormat.format(starts)).append("'\n");
@@ -292,4 +294,11 @@ public class MySQLEvent implements MySQLSourceObject, DBPSaveableObject {
         return catalog;
     }
 
+    @NotNull
+    @Override
+    public String getFullyQualifiedName(DBPEvaluationContext context) {
+        return DBUtils.getFullQualifiedName(getDataSource(),
+                catalog,
+                this);
+    }
 }

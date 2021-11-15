@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -101,14 +101,19 @@ public abstract class CustomTableEditor implements MouseListener, TraverseListen
         editor.addFocusListener(new FocusAdapter() {
             @Override
             public void focusLost(FocusEvent e) {
-                saveEditorValue(editor, columnIndex, tableEditor.getItem());
-                if (!isProposalPopupActive()) {
-                    closeEditor();
-                }
+                onFocusLost(editor);
             }
         });
+        UIUtils.installMacOSFocusLostSubstitution(editor, () -> onFocusLost(editor));
         editor.addTraverseListener(this);
         tableEditor.setEditor(editor, item, columnIndex);
+    }
+
+    private void onFocusLost(Control editor) {
+        saveEditorValue(editor, columnIndex, tableEditor.getItem());
+        if (!isProposalPopupActive()) {
+            closeEditor();
+        }
     }
 
     private boolean isProposalPopupActive() {
@@ -116,8 +121,10 @@ public abstract class CustomTableEditor implements MouseListener, TraverseListen
     }
 
     public void closeEditor() {
-        Control oldEditor = this.tableEditor.getEditor();
-        if (oldEditor != null) oldEditor.dispose();
+        Control editor = tableEditor.getEditor();
+        if (editor != null) {
+            editor.dispose();
+        }
     }
 
     @Override

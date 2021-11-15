@@ -270,7 +270,8 @@ public class ViewManager extends SQLObjectEditor<View, Schema> implements DBEObj
 	}
 
 	@Override
-	public void renameObject(DBECommandContext commandContext, View object, String newName) throws DBException {
-		processObjectRename(commandContext, object, newName);
+	public void renameObject(DBECommandContext commandContext, View object, Map<String, Object> options, String newName)
+			throws DBException {
+		processObjectRename(commandContext, object, options, newName);
 	}
 }

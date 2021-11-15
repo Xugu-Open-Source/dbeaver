@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,10 +27,11 @@ import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.layout.GridData;
-import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.*;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.app.DBPPlatform;
 import org.jkiss.dbeaver.model.app.DBPProject;
@@ -53,7 +54,6 @@ import java.util.List;
 import java.util.*;
 
 public class SearchMetadataPage extends AbstractSearchPage {
-
     private static final String PROP_MASK = "search.metadata.mask"; //$NON-NLS-1$
     private static final String PROP_CASE_SENSITIVE = "search.metadata.case-sensitive"; //$NON-NLS-1$
     private static final String PROP_MAX_RESULT = "search.metadata.max-results"; //$NON-NLS-1$
@@ -61,13 +61,19 @@ public class SearchMetadataPage extends AbstractSearchPage {
     private static final String PROP_HISTORY = "search.metadata.history"; //$NON-NLS-1$
     private static final String PROP_OBJECT_TYPE = "search.metadata.object-type"; //$NON-NLS-1$
     private static final String PROP_SOURCES = "search.metadata.object-source"; //$NON-NLS-1$
+    private static final String PROP_SEARCH_IN_COMMENTS = "search.metadata.search-in-comments"; //$NON-NLS-1$
+    private static final String PROP_SEARCH_IN_DEFINITIONS = "search.metadata.search-in-definitions"; //$NON-NLS-1$
 
     private Table typesTable;
     private Combo searchText;
     private DatabaseNavigatorTree dataSourceTree;
+    private Button searchInCommentsCheckbox;
+    private Button searchInDefinitionsCheckbox;
 
     private String nameMask;
     private boolean caseSensitive;
+    private boolean searchInComments;
+    private boolean searchInDefinitions;
     private int maxResults;
     private int matchTypeIndex;
     private Set<DBSObjectType> checkedTypes = new HashSet<>();
@@ -77,23 +83,23 @@ public class SearchMetadataPage extends AbstractSearchPage {
     private DBPProject currentProject;
 
     public SearchMetadataPage() {
-		super("Database objects search");
+        super("Database objects search");
         currentProject = NavigatorUtils.getSelectedProject();
     }
 
-	@Override
-	public void createControl(Composite parent) {
+    @Override
+    public void createControl(Composite parent) {
         super.createControl(parent);
 
         initializeDialogUnits(parent);
 
-        Composite searchGroup = new Composite(parent, SWT.NONE);
+        Composite searchGroup = UIUtils.createComposite(parent, 1);
         searchGroup.setLayoutData(new GridData(GridData.FILL_BOTH));
-        searchGroup.setLayout(new GridLayout(3, false));
         setControl(searchGroup);
-        UIUtils.createControlLabel(searchGroup, UISearchMessages.dialog_search_objects_label_object_name);
+
         searchText = new Combo(searchGroup, SWT.DROP_DOWN);
         searchText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+        UIUtils.addEmptyTextHint(searchText, combo -> UISearchMessages.dialog_search_objects_label_object_name);
         if (nameMask != null) {
             searchText.setText(nameMask);
         }
@@ -105,25 +111,16 @@ public class SearchMetadataPage extends AbstractSearchPage {
             updateEnablement();
         });
 
-        Composite optionsGroup = new SashForm(searchGroup, SWT.NONE);
-        GridLayout layout = new GridLayout(2, true);
-        layout.marginHeight = 0;
-        layout.marginWidth = 0;
-        optionsGroup.setLayout(layout);
-        GridData gd = new GridData(GridData.FILL_BOTH);
-        gd.horizontalSpan = 3;
-        optionsGroup.setLayoutData(gd);
+        Composite optionsGroup = new SashForm(searchGroup, 2);
+        optionsGroup.setLayoutData(new GridData(GridData.FILL_BOTH));
 
         {
             Group sourceGroup = UIUtils.createControlGroup(optionsGroup, UISearchMessages.dialog_search_objects_group_objects_source, 1, GridData.FILL_BOTH, 0);
-            gd = new GridData(GridData.FILL_BOTH);
-            //gd.heightHint = 300;
-            sourceGroup.setLayoutData(gd);
             DBPPlatform platform = DBWorkbench.getPlatform();
             final DBNProject projectNode = platform.getNavigatorModel().getRoot().getProjectNode(currentProject);
             DBNNode rootNode = projectNode == null ? platform.getNavigatorModel().getRoot() : projectNode.getDatabases();
             dataSourceTree = new DatabaseNavigatorTree(sourceGroup, rootNode, SWT.SINGLE);
-            gd = new GridData(GridData.FILL_BOTH);
+            GridData gd = new GridData(GridData.FILL_BOTH);
             gd.heightHint = 300;
             dataSourceTree.setLayoutData(gd);
 
@@ -185,14 +182,10 @@ public class SearchMetadataPage extends AbstractSearchPage {
 
         {
             Group settingsGroup = UIUtils.createControlGroup(optionsGroup, "Settings", 2, GridData.FILL_BOTH, 0);
-            gd = new GridData(GridData.FILL_BOTH);
-            gd.heightHint = 300;
-            settingsGroup.setLayoutData(gd);
-
 
             {
                 //new Label(searchGroup, SWT.NONE);
-                UIUtils.createControlLabel(settingsGroup, UISearchMessages.dialog_search_objects_label_name_match);
+                UIUtils.createControlLabel(settingsGroup, UISearchMessages.dialog_search_objects_label_match_type);
                 final Combo matchCombo = new Combo(settingsGroup, SWT.DROP_DOWN | SWT.READ_ONLY);
                 matchCombo.add(UISearchMessages.dialog_search_objects_combo_starts_with, SearchMetadataConstants.MATCH_INDEX_STARTS_WITH);
                 matchCombo.add(UISearchMessages.dialog_search_objects_combo_contains, SearchMetadataConstants.MATCH_INDEX_CONTAINS);
@@ -220,7 +213,7 @@ public class SearchMetadataPage extends AbstractSearchPage {
                 maxResultsSpinner.addModifyListener(e -> maxResults = maxResultsSpinner.getSelection());
                 maxResultsSpinner.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING));
 
-                final Button caseCheckbox = UIUtils.createLabelCheckbox(settingsGroup, UISearchMessages.dialog_search_objects_case_sensitive, caseSensitive);
+                Button caseCheckbox = UIUtils.createCheckbox(settingsGroup, UISearchMessages.dialog_search_objects_case_sensitive, null, caseSensitive, 2);
                 caseCheckbox.addSelectionListener(new SelectionAdapter() {
                     @Override
                     public void widgetSelected(SelectionEvent e)
@@ -228,8 +221,30 @@ public class SearchMetadataPage extends AbstractSearchPage {
                         caseSensitive = caseCheckbox.getSelection();
                     }
                 });
-                caseCheckbox.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 
+                searchInCommentsCheckbox = UIUtils.createCheckbox(settingsGroup, UISearchMessages.dialog_search_objects_search_in_comments, null, searchInComments, 2);
+                searchInCommentsCheckbox.addSelectionListener(new SelectionAdapter() {
+                    @Override
+                    public void widgetSelected(SelectionEvent e) {
+                        searchInComments = searchInCommentsCheckbox.getSelection();
+                    }
+                });
+                searchInCommentsCheckbox.setEnabled(false);
+
+                searchInDefinitionsCheckbox = UIUtils.createCheckbox(
+                    settingsGroup,
+                    UISearchMessages.dialog_search_objects_search_in_definitions,
+                    null,
+                    searchInDefinitions,
+                    2
+                );
+                searchInDefinitionsCheckbox.addSelectionListener(new SelectionAdapter() {
+                    @Override
+                    public void widgetSelected(SelectionEvent e) {
+                        searchInDefinitions = searchInDefinitionsCheckbox.getSelection();
+                    }
+                });
+                searchInDefinitionsCheckbox.setEnabled(false);
             }
 
             Label otLabel = UIUtils.createControlLabel(settingsGroup, UISearchMessages.dialog_search_objects_group_object_types);
@@ -250,6 +265,7 @@ public class SearchMetadataPage extends AbstractSearchPage {
                         }
                     }
                     updateEnablement();
+                    updateSearchOptionsCheckboxes();
                 }
             });
             typesTable.addMouseListener(new MouseAdapter() {
@@ -269,6 +285,33 @@ public class SearchMetadataPage extends AbstractSearchPage {
         }
 
         UIUtils.asyncExec(this::loadState);
+    }
+
+    private void updateSearchOptionsCheckboxes() {
+        DBSStructureAssistant structureAssistant = getSelectedStructureAssistant();
+        boolean enableSearchInCommentsCheckbox = false;
+        boolean enableSearchInDefinitionsCheckbox = false;
+        for (DBSObjectType objectType: checkedTypes) {
+            if (!enableSearchInCommentsCheckbox && structureAssistant.supportsSearchInCommentsFor(objectType)) {
+                enableSearchInCommentsCheckbox = true;
+            }
+            if (!enableSearchInDefinitionsCheckbox && structureAssistant.supportsSearchInDefinitionsFor(objectType)) {
+                enableSearchInDefinitionsCheckbox = true;
+            }
+            if (enableSearchInCommentsCheckbox && enableSearchInDefinitionsCheckbox) {
+                break;
+            }
+        }
+        searchInCommentsCheckbox.setEnabled(enableSearchInCommentsCheckbox);
+        if (!enableSearchInCommentsCheckbox) {
+            searchInCommentsCheckbox.setSelection(false);
+            searchInComments = false;
+        }
+        searchInDefinitionsCheckbox.setEnabled(enableSearchInDefinitionsCheckbox);
+        if (!enableSearchInDefinitionsCheckbox) {
+            searchInDefinitionsCheckbox.setSelection(false);
+            searchInDefinitions = false;
+        }
     }
 
     private void loadState() {
@@ -302,6 +345,7 @@ public class SearchMetadataPage extends AbstractSearchPage {
         updateEnablement();
     }
 
+    @Nullable
     private DBNNode getSelectedNode()
     {
         IStructuredSelection selection = (IStructuredSelection) dataSourceTree.getViewer().getSelection();
@@ -353,6 +397,7 @@ public class SearchMetadataPage extends AbstractSearchPage {
                     savedTypeNames.remove(objectType.getTypeName());
                 }
             }
+            updateSearchOptionsCheckboxes();
         }
         for (TableColumn column : typesTable.getColumns()) {
             column.pack();
@@ -361,12 +406,16 @@ public class SearchMetadataPage extends AbstractSearchPage {
     }
 
     @Override
-    public SearchMetadataQuery createQuery() throws DBException
-    {
-        DBNNode selectedNode = getSelectedNode();
-        DBSObjectContainer parentObject = null;
-        if (selectedNode instanceof DBSWrapper && ((DBSWrapper)selectedNode).getObject() instanceof DBSObjectContainer) {
-            parentObject = (DBSObjectContainer) ((DBSWrapper)selectedNode).getObject();
+    public SearchMetadataQuery createQuery() {
+        DBSObject parentObject = null;
+        for (DBNNode node = getSelectedNode(); node != null; node = node.getParentNode()) {
+            if (node instanceof DBSWrapper) {
+                DBSObject object = ((DBSWrapper) node).getObject();
+                if (object instanceof DBSStructContainer || object instanceof DBPDataSourceContainer) {
+                    parentObject = object;
+                    break;
+                }
+            }
         }
 
         DBPDataSource dataSource = getSelectedDataSource();
@@ -401,14 +450,18 @@ public class SearchMetadataPage extends AbstractSearchPage {
             }
         }
 
-        SearchMetadataParams params = new SearchMetadataParams();
+        DBSStructureAssistant.ObjectsSearchParams params = new DBSStructureAssistant.ObjectsSearchParams(
+                objectTypes.toArray(new DBSObjectType[0]),
+                objectNameMask
+        );
         params.setParentObject(parentObject);
-        params.setObjectTypes(objectTypes);
-        params.setObjectNameMask(objectNameMask);
         params.setCaseSensitive(caseSensitive);
+        params.setSearchInComments(searchInComments);
         params.setMaxResults(maxResults);
-        return SearchMetadataQuery.createQuery(dataSource, params);
+        params.setSearchInDefinitions(searchInDefinitions);
+        params.setGlobalSearch(true);
 
+        return new SearchMetadataQuery(dataSource, assistant, params);
     }
 
     @Override
@@ -416,6 +469,8 @@ public class SearchMetadataPage extends AbstractSearchPage {
     {
         nameMask = store.getString(PROP_MASK);
         caseSensitive = store.getBoolean(PROP_CASE_SENSITIVE);
+        searchInComments = store.getBoolean(PROP_SEARCH_IN_COMMENTS);
+        searchInDefinitions = store.getBoolean(PROP_SEARCH_IN_DEFINITIONS);
         maxResults = store.getInt(PROP_MAX_RESULT);
         matchTypeIndex = store.getInt(PROP_MATCH_INDEX);
         for (int i = 0; ;i++) {
@@ -442,6 +497,8 @@ public class SearchMetadataPage extends AbstractSearchPage {
     {
         store.setValue(PROP_MASK, nameMask);
         store.setValue(PROP_CASE_SENSITIVE, caseSensitive);
+        store.setValue(PROP_SEARCH_IN_COMMENTS, searchInComments);
+        store.setValue(PROP_SEARCH_IN_DEFINITIONS, searchInDefinitions);
         store.setValue(PROP_MAX_RESULT, maxResults);
         store.setValue(PROP_MATCH_INDEX, matchTypeIndex);
         saveTreeState(store, PROP_SOURCES, dataSourceTree);
@@ -497,5 +554,4 @@ public class SearchMetadataPage extends AbstractSearchPage {
         }
         store.setValue(propName, sourcesString.toString());
     }
-
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,32 +16,39 @@
  */
 package org.jkiss.dbeaver.ext.postgresql.edit;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreTable;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreTableBase;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreTableForeignKey;
 import org.jkiss.dbeaver.model.DBConstants;
-import org.jkiss.dbeaver.model.DBPScriptObject;
+import org.jkiss.dbeaver.model.DBPEvaluationContext;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
+import org.jkiss.dbeaver.model.edit.DBEObjectRenamer;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.impl.edit.DBECommandAbstract;
+import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.sql.edit.struct.SQLForeignKeyManager;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.model.struct.rdb.DBSForeignKeyModifyRule;
-import org.jkiss.utils.CommonUtils;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Postgre foreign key manager
  */
-public class PostgreForeignKeyManager extends SQLForeignKeyManager<PostgreTableForeignKey, PostgreTableBase> {
+public class PostgreForeignKeyManager extends SQLForeignKeyManager<PostgreTableForeignKey, PostgreTableBase> implements DBEObjectRenamer<PostgreTableForeignKey> {
+
+    @Override
+    public boolean canRenameObject(PostgreTableForeignKey object) {
+        return object.getDataSource().getServerType().supportsKeyAndIndexRename();
+    }
 
     @Nullable
     @Override
@@ -70,7 +77,7 @@ public class PostgreForeignKeyManager extends SQLForeignKeyManager<PostgreTableF
     @Override
     public StringBuilder getNestedDeclaration(DBRProgressMonitor monitor, PostgreTableBase owner, DBECommandAbstract<PostgreTableForeignKey> command, Map<String, Object> options) {
         PostgreTableForeignKey fk = command.getObject();
-        if (fk.isPersisted()) {
+        /*if (fk.isPersisted()) {
             try {
                 String constrDDL = fk.getObjectDefinitionText(
                     monitor,
@@ -81,8 +88,13 @@ public class PostgreForeignKeyManager extends SQLForeignKeyManager<PostgreTableF
             } catch (DBException e) {
                 log.warn("Can't extract FK DDL", e);
             }
-        }
+        }*/
         StringBuilder sql = super.getNestedDeclaration(monitor, owner, command, options);
+
+        if (fk.getMatchType().equals(PostgreTableForeignKey.MatchType.f)) {
+            //Foreign key match types: f = full, p = partial (not implemented yet), s = simple (u == s in old PG versions - default value)
+            sql.append(" MATCH FULL");
+        }
 
         if (fk.isDeferrable()) {
             sql.append(" DEFERRABLE");
@@ -108,4 +120,19 @@ public class PostgreForeignKeyManager extends SQLForeignKeyManager<PostgreTableF
         return "ALTER TABLE " + PATTERN_ITEM_TABLE + " DROP CONSTRAINT " + PATTERN_ITEM_CONSTRAINT; //$NON-NLS-1$ //$NON-NLS-2$
     }
 
+    @Override
+    public void renameObject(@NotNull DBECommandContext commandContext, @NotNull PostgreTableForeignKey object, @NotNull Map<String, Object> options, @NotNull String newName) throws DBException {
+        processObjectRename(commandContext, object, options, newName);
+    }
+
+    @Override
+    protected void addObjectRenameActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, List<DBEPersistAction> actions, ObjectRenameCommand command, Map<String, Object> options) {
+        PostgreTableForeignKey foreignKey = command.getObject();
+        actions.add(
+                new SQLDatabasePersistAction(
+                        "Rename constraint",
+                        "ALTER TABLE " + foreignKey.getTable().getFullyQualifiedName(DBPEvaluationContext.DDL) + //$NON-NLS-1$
+                                " RENAME CONSTRAINT " + DBUtils.getQuotedIdentifier(foreignKey) + " TO " + DBUtils.getQuotedIdentifier(foreignKey.getDataSource(), command.getNewName())) //$NON-NLS-1$
+        );
+    }
 }

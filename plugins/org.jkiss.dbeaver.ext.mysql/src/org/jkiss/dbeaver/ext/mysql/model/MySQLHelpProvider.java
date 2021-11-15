@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ import org.jkiss.dbeaver.model.sql.SQLHelpProvider;
 import org.jkiss.dbeaver.model.sql.SQLHelpTopic;
 import org.jkiss.utils.CommonUtils;
 
-import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -82,11 +81,10 @@ public class MySQLHelpProvider implements SQLHelpProvider
                         }
                     }
                 }
-            } catch (SQLException e) {
-                log.debug("Error reading help topics: " + e.getMessage());
             }
-        }
-        finally {
+        } catch (Exception e) {
+            log.error("Error reading MySQL help topics", e);
+        } finally {
             isLoaded = true;
         }
     }

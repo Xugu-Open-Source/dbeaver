@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBValueFormatting;
 import org.jkiss.dbeaver.model.data.DBDDataFormatter;
-import org.jkiss.dbeaver.model.data.DBDDataFormatterProfile;
 import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
+import org.jkiss.dbeaver.model.data.DBDFormatSettings;
 import org.jkiss.dbeaver.model.data.DBDValueHandlerConfigurable;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCSession;
@@ -44,14 +44,14 @@ public class SQLiteValueHandler extends JDBCAbstractValueHandler implements DBDV
 
     private static final Log log = Log.getLog(SQLiteValueHandler.class);
 
-    private final DBDDataFormatterProfile formatterProfile;
+    private final DBDFormatSettings formatSettings;
     private final DBSTypedObject type;
     private DBDDataFormatter numberFormatter;
     private DBDDataFormatter timestampFormatter;
 
-    public SQLiteValueHandler(DBSTypedObject type, DBDDataFormatterProfile formatterProfile)
+    public SQLiteValueHandler(DBSTypedObject type, DBDFormatSettings formatSettings)
     {
-        this.formatterProfile = formatterProfile;
+        this.formatSettings = formatSettings;
         this.type = type;
     }
 
@@ -84,11 +84,13 @@ public class SQLiteValueHandler extends JDBCAbstractValueHandler implements DBDV
     {
         if (value instanceof Number) {
             if (format == DBDDisplayFormat.NATIVE || format == DBDDisplayFormat.EDIT) {
-                return DBValueFormatting.convertNumberToNativeString((Number) value);
+                return DBValueFormatting.convertNumberToNativeString(
+                    (Number) value,
+                    formatSettings.isUseScientificNumericFormat());
             } else {
                 if (numberFormatter == null) {
                     try {
-                        numberFormatter = formatterProfile.createFormatter(DBDDataFormatter.TYPE_NAME_NUMBER, type);
+                        numberFormatter = formatSettings.getDataFormatterProfile().createFormatter(DBDDataFormatter.TYPE_NAME_NUMBER, type);
                     } catch (Exception e) {
                         log.error("Can't create numberFormatter for number value handler", e); //$NON-NLS-1$
                         numberFormatter = DefaultDataFormatter.INSTANCE;
@@ -100,7 +102,7 @@ public class SQLiteValueHandler extends JDBCAbstractValueHandler implements DBDV
 
             if (timestampFormatter == null) {
                 try {
-                    timestampFormatter = formatterProfile.createFormatter(DBDDataFormatter.TYPE_NAME_TIMESTAMP, type);
+                    timestampFormatter = formatSettings.getDataFormatterProfile().createFormatter(DBDDataFormatter.TYPE_NAME_TIMESTAMP, type);
                 } catch (Exception e) {
                     log.error("Can't create timestampFormatter for timestamp value handler", e); //$NON-NLS-1$
                     timestampFormatter = DefaultDataFormatter.INSTANCE;

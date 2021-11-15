@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,8 +30,10 @@ import org.jkiss.dbeaver.model.DBPRefreshableObject;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.data.*;
+import org.jkiss.dbeaver.model.edit.DBECommand;
+import org.jkiss.dbeaver.model.edit.DBECommandContext;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
-import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
+import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistActionComment;
 import org.jkiss.dbeaver.model.net.DBWForwarder;
 import org.jkiss.dbeaver.model.net.DBWHandlerConfiguration;
@@ -44,6 +46,7 @@ import org.jkiss.dbeaver.model.runtime.DBRRunnableParametrized;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLDialect;
 import org.jkiss.dbeaver.model.sql.SQLQuery;
+import org.jkiss.dbeaver.model.sql.SQLSelectItem;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.dbeaver.model.struct.rdb.DBSCatalog;
@@ -56,12 +59,10 @@ import org.jkiss.dbeaver.model.virtual.DBVUtils;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.jobs.InvalidateJob;
 import org.jkiss.dbeaver.runtime.net.GlobalProxyAuthenticator;
-import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.lang.reflect.InvocationTargetException;
 import java.net.Authenticator;
-import java.sql.Statement;
 import java.util.*;
 
 /**
@@ -249,31 +250,32 @@ public class DBExecUtils {
     }
 
     public static void executeScript(DBRProgressMonitor monitor, DBCExecutionContext executionContext, String jobName, List<DBEPersistAction> persistActions) {
-        boolean ignoreErrors = false;
-        monitor.beginTask(jobName, persistActions.size());
         try (DBCSession session = executionContext.openSession(monitor, DBCExecutionPurpose.UTIL, jobName)) {
+            executeScript(session, persistActions.toArray(new DBEPersistAction[0]));
+        }
+    }
+
+    public static void executeScript(DBCSession session, DBEPersistAction[] persistActions) {
+        DBRProgressMonitor monitor = session.getProgressMonitor();
+        boolean ignoreErrors = false;
+        monitor.beginTask(session.getTaskTitle(), persistActions.length);
+        try {
             for (DBEPersistAction action : persistActions) {
                 if (monitor.isCanceled()) {
                     break;
                 }
-                monitor.subTask(action.getTitle());
+                if (!CommonUtils.isEmpty(action.getTitle())) {
+                    monitor.subTask(action.getTitle());
+                }
                 try {
-                    if (action instanceof SQLDatabasePersistActionComment) {
-                        continue;
-                    }
-                    String script = action.getScript();
-                    if (!CommonUtils.isEmpty(script)) {
-                        try (final Statement statement = ((JDBCSession) session).createStatement()) {
-                            statement.execute(script);
-                        }
-                    }
+                    executePersistAction(session, action);
                 } catch (Exception e) {
                     log.debug("Error executing query", e);
                     if (ignoreErrors) {
                         continue;
                     }
                     boolean keepRunning = true;
-                    switch (DBWorkbench.getPlatformUI().showErrorStopRetryIgnore(jobName, e, true)) {
+                    switch (DBWorkbench.getPlatformUI().showErrorStopRetryIgnore(session.getTaskTitle(), e, true)) {
                         case STOP:
                             keepRunning = false;
                             break;
@@ -296,6 +298,28 @@ public class DBExecUtils {
             }
         } finally {
             monitor.done();
+        }
+    }
+
+    public static void executePersistAction(DBCSession session, DBEPersistAction action) throws DBCException {
+        if (action instanceof SQLDatabasePersistActionComment) {
+            return;
+        }
+        String script = action.getScript();
+        if (script == null) {
+            action.afterExecute(session, null);
+        } else {
+            DBCStatement dbStat = DBUtils.createStatement(session, script, false);
+            try {
+                action.beforeExecute(session);
+                dbStat.executeStatement();
+                action.afterExecute(session, null);
+            } catch (DBCException e) {
+                action.afterExecute(session, e);
+                throw e;
+            } finally {
+                dbStat.close();
+            }
         }
     }
 
@@ -371,8 +395,8 @@ public class DBExecUtils {
         boolean changeCatalog = (curCatalogName != null ? !CommonUtils.equalObjects(curCatalogName, newCatalogName) : newCatalog != null);
 
         if (newCatalog != null && newSchema != null && changeCatalog) {
-            contextDefaults.setDefaultCatalog(monitor, newCatalog, newSchema);
-        } else if (newSchema != null) {
+            contextDefaults.setDefaultCatalog(monitor, newCatalog, contextDefaults.supportsSchemaChange() ? newSchema : null);
+        } else if (newSchema != null && contextDefaults.supportsSchemaChange()) {
             contextDefaults.setDefaultSchema(monitor, newSchema);
         } else if (newCatalog != null && changeCatalog) {
             contextDefaults.setDefaultCatalog(monitor, newCatalog, null);
@@ -387,12 +411,19 @@ public class DBExecUtils {
                 new AbstractJob("Recover smart commit mode") {
                     @Override
                     protected IStatus run(DBRProgressMonitor monitor) {
+                        if (!executionContext.isConnected()) {
+                            return Status.OK_STATUS;
+                        }
                         try {
+                            monitor.beginTask("Switch to auto-commit mode", 1);
                             if (!transactionManager.isAutoCommit()) {
                                 transactionManager.setAutoCommit(monitor,true);
                             }
                         } catch (DBCException e) {
-                            return GeneralUtils.makeExceptionStatus(e);
+                            log.debug("Error recovering smart commit mode: " + e.getMessage());
+                        }
+                        finally {
+                            monitor.done();
                         }
                         return Status.OK_STATUS;
                     }
@@ -404,8 +435,11 @@ public class DBExecUtils {
     public static DBSEntityConstraint getBestIdentifier(@NotNull DBRProgressMonitor monitor, @NotNull DBSEntity table, DBDAttributeBinding[] bindings, boolean readMetaData)
         throws DBException
     {
+        if (table instanceof DBSDocumentContainer) {
+            return new DBSDocumentConstraint((DBSDocumentContainer) table);
+        }
         List<DBSEntityConstraint> identifiers = new ArrayList<>(2);
-        List<DBSEntityConstraint> nonIdentifyingConstraints = null;
+        //List<DBSEntityConstraint> nonIdentifyingConstraints = null;
 
         if (readMetaData) {
             if (table instanceof DBSTable && ((DBSTable) table).isView()) {
@@ -426,7 +460,7 @@ public class DBExecUtils {
                             }
                             // Then search for unique index
                             for (DBSTableIndex index : indexes) {
-                                if (DBUtils.isIdentifierIndex(monitor, index)) {
+                                if (DBUtils.isIdentifierIndex(monitor, index) && !identifiers.contains(index)) {
                                     identifiers.add(index);
                                     break;
                                 }
@@ -445,39 +479,15 @@ public class DBExecUtils {
                         for (DBSEntityConstraint constraint : constraints) {
                             if (DBUtils.isIdentifierConstraint(monitor, constraint)) {
                                 identifiers.add(constraint);
-                            } else {
+                            }/* else {
                                 if (nonIdentifyingConstraints == null) nonIdentifyingConstraints = new ArrayList<>();
                                 nonIdentifyingConstraints.add(constraint);
-                            }
+                            }*/
                         }
                     }
                 }
 
             }
-        }
-        if (CommonUtils.isEmpty(identifiers)) {
-            // Check for pseudo attrs (ROWID)
-            // Do this after natural identifiers search (see #3829)
-            for (DBDAttributeBinding column : bindings) {
-                DBDPseudoAttribute pseudoAttribute = column instanceof DBDAttributeBindingMeta ? ((DBDAttributeBindingMeta) column).getPseudoAttribute() : null;
-                if (pseudoAttribute != null && pseudoAttribute.getType() == DBDPseudoAttributeType.ROWID) {
-                    identifiers.add(new DBDPseudoReferrer(table, column));
-                    break;
-                }
-            }
-        }
-
-        if (CommonUtils.isEmpty(identifiers)) {
-            if (nonIdentifyingConstraints != null) {
-                identifiers.addAll(nonIdentifyingConstraints);
-            }
-        }
-
-        if (CommonUtils.isEmpty(identifiers)) {
-            // No physical identifiers or row ids
-            // Make new or use existing virtual identifier
-            DBVEntity virtualEntity = DBVUtils.getVirtualEntity(table, true);
-            identifiers.add(virtualEntity.getBestIdentifier());
         }
 
         if (!CommonUtils.isEmpty(identifiers)) {
@@ -499,10 +509,26 @@ public class DBExecUtils {
                     uniqueId = constraint;
                 }
             }
-            return uniqueId;
+            if (uniqueId != null) {
+                return uniqueId;
+            }
         }
 
-        return null;
+        {
+            // Check for pseudo attrs (ROWID)
+            // Do this after natural identifiers search (see #3829)
+            for (DBDAttributeBinding column : bindings) {
+                DBDPseudoAttribute pseudoAttribute = column instanceof DBDAttributeBindingMeta ? ((DBDAttributeBindingMeta) column).getPseudoAttribute() : null;
+                if (pseudoAttribute != null && pseudoAttribute.getType() == DBDPseudoAttributeType.ROWID) {
+                    return new DBDPseudoReferrer(table, column);
+                }
+            }
+        }
+
+        // No physical identifiers or row ids
+        // Make new or use existing virtual identifier
+        DBVEntity virtualEntity = DBVUtils.getVirtualEntity(table, true);
+        return virtualEntity.getBestIdentifier();
     }
 
     private static boolean isGoodReferrer(DBRProgressMonitor monitor, DBDAttributeBinding[] bindings, DBSEntityReferrer referrer) throws DBException
@@ -515,10 +541,15 @@ public class DBExecUtils {
             return referrer instanceof DBVEntityConstraint;
         }
         for (DBSEntityAttributeRef ref : references) {
+            boolean refMatches = false;
             for (DBDAttributeBinding binding : bindings) {
                 if (binding.matches(ref.getAttribute(), false)) {
-                    return true;
+                    refMatches = true;
+                    break;
                 }
+            }
+            if (!refMatches) {
+                return false;
             }
         }
         return true;
@@ -591,6 +622,7 @@ public class DBExecUtils {
         try {
             SQLQuery sqlQuery = null;
             DBSEntity entity = null;
+            int queryEntityMetaScore = -1;
             if (sourceEntity != null) {
                 entity = sourceEntity;
             } else if (resultSet != null) {
@@ -614,12 +646,15 @@ public class DBExecUtils {
                         if (entityMeta != null) {
                             entity = DBUtils.getEntityFromMetaData(monitor, session.getExecutionContext(), entityMeta);
                             if (entity != null) {
+                                queryEntityMetaScore = entityMeta.getCompleteScore();
                                 entityBindingMap.put(entityMeta, entity);
                             }
                         }
                     }
                 }
             }
+
+            boolean needsTableMetaForColumnResolution = dataSource.getInfo().needsTableMetaForColumnResolution();
 
             final Map<DBSEntity, DBDRowIdentifier> locatorMap = new IdentityHashMap<>();
 
@@ -635,66 +670,108 @@ public class DBExecUtils {
                 // To be editable we need this resultset contain set of columns from the same table
                 // which construct any unique key
                 DBSEntity attrEntity = null;
-                final DBCEntityMetaData attrEntityMeta = attrMeta.getEntityMetaData();
-                if (attrEntityMeta != null) {
-                    attrEntity = entityBindingMap.get(attrEntityMeta);
-                    if (attrEntity == null) {
-                        if (entity != null && entity instanceof DBSTable && ((DBSTable) entity).isView()) {
-                            // If this is a view then don't try to detect entity for each attribute
-                            // MySQL returns source table name instead of view name. That's crazy.
-                            attrEntity = entity;
-                        } else {
-                        	attrEntity = DBUtils.getEntityFromMetaData(monitor, session.getExecutionContext(), attrEntityMeta);
-                        	if (attrEntity == null && !triedOnce) {
-                                DBSObject selectedObject = DBUtils.getSelectedObject(session.getExecutionContext());
-                                if (selectedObject instanceof DBPRefreshableObject) {
-                                	((DBPRefreshableObject) selectedObject).refreshObject(monitor);
-                            		attrEntity = DBUtils.getEntityFromMetaData(monitor, session.getExecutionContext(), attrEntityMeta);
-                                }
-                            	triedOnce = true;
-                        	}
+                if (sourceEntity == null) {
+                    DBCEntityMetaData attrEntityMeta = attrMeta.getEntityMetaData();
+                    if (attrEntityMeta == null && sqlQuery != null) {
+                        SQLSelectItem selectItem = sqlQuery.getSelectItem(attrMeta.getOrdinalPosition());
+                        if (selectItem != null && selectItem.isPlainColumn()) {
+                            attrEntityMeta = selectItem.getEntityMetaData();
                         }
                     }
-                    if (attrEntity != null) {
-                        entityBindingMap.put(attrEntityMeta, attrEntity);
+                    if (attrEntityMeta != null) {
+                        attrEntity = entityBindingMap.get(attrEntityMeta);
+                        if (attrEntity == null) {
+                            if (entity != null &&
+                                (queryEntityMetaScore > attrEntityMeta.getCompleteScore() || DBUtils.isView(entity)))
+                            {
+                                // If query entity score is greater than database provided entity meta score then use base entity (from SQL query)
+
+                                // If this is a view then don't try to detect entity for each attribute
+                                // MySQL returns source table name instead of view name. That's crazy.
+                                attrEntity = entity;
+                            } else {
+                                attrEntity = DBUtils.getEntityFromMetaData(monitor, session.getExecutionContext(), attrEntityMeta);
+
+                                if (attrEntity == null) {
+                                    log.debug("Table '" + DBUtils.getSimpleQualifiedName(attrEntityMeta.getCatalogName(), attrEntityMeta.getSchemaName(), attrEntityMeta.getEntityName()) + "' not found in metadata catalog");
+                                }
+                            }
+                        }
+                        if (attrEntity != null) {
+                            entityBindingMap.put(attrEntityMeta, attrEntity);
+                        }
                     }
                 }
                 if (attrEntity == null) {
                     attrEntity = entity;
                 }
-                if (attrEntity == null) {
-                    if (attrEntityMeta != null) {
-                        log.debug("Table '" + DBUtils.getSimpleQualifiedName(attrEntityMeta.getCatalogName(), attrEntityMeta.getSchemaName(), attrEntityMeta.getEntityName()) + "' not found in metadata catalog");
-                    }
-                } else if (binding instanceof DBDAttributeBindingMeta){
+                if (attrEntity != null && binding instanceof DBDAttributeBindingMeta) {
                     DBDAttributeBindingMeta bindingMeta = (DBDAttributeBindingMeta) binding;
-                    DBDPseudoAttribute pseudoAttribute = DBUtils.getPseudoAttribute(attrEntity, attrMeta.getName());
+
+                    // Table column can be found from results metadata or from SQL query parser
+                    // If datasource supports table names in result metadata then table name must present in results metadata.
+                    // Otherwise it is an expression.
+
+                    // It is a real table columns if:
+                    //  - We use some explicit entity (e.g. table data editor)
+                    //  - Table metadata was specified for column
+                    //  - Database doesn't support column name collisions (default)
+                    boolean updateColumnMeta = sourceEntity != null ||
+                        bindingMeta.getMetaAttribute().getEntityMetaData() != null ||
+                        !needsTableMetaForColumnResolution;
+
+                    // Fix of #11194. If column name and alias are equals we could try to get real column name
+                    // from parsed query because driver doesn't return it.
+                    String columnName = attrMeta.getName();
+                    if (updateColumnMeta &&
+                        CommonUtils.equalObjects(columnName, attrMeta.getLabel()) &&
+                        sqlQuery != null &&
+                        attrMeta.getOrdinalPosition() < sqlQuery.getSelectItemCount())
+                    {
+                        SQLSelectItem selectItem = sqlQuery.getSelectItem(attrMeta.getOrdinalPosition());
+                        if (selectItem.isPlainColumn()) {
+                            if (DBUtils.isQuotedIdentifier(dataSource, columnName)) {
+                                columnName = DBUtils.getUnQuotedIdentifier(dataSource, selectItem.getName());
+                            } else {
+                                // #12008
+                                columnName = DBObjectNameCaseTransformer.transformName(dataSource, columnName);
+                            }
+                        }
+                    }
+
+                    // Test pseudo attributes
+                    DBDPseudoAttribute pseudoAttribute = DBUtils.getPseudoAttribute(attrEntity, columnName);
                     if (pseudoAttribute != null) {
                         bindingMeta.setPseudoAttribute(pseudoAttribute);
                     }
 
-                    DBSEntityAttribute tableColumn;
+                    DBSEntityAttribute tableColumn = null;
                     if (bindingMeta.getPseudoAttribute() != null) {
                         tableColumn = bindingMeta.getPseudoAttribute().createFakeAttribute(attrEntity, attrMeta);
-                    } else {
-                        tableColumn = attrEntity.getAttribute(monitor, attrMeta.getName());
+                    } else if (columnName != null) {
+                        tableColumn = attrEntity.getAttribute(monitor, columnName);
                     }
 
-                    if (tableColumn != null &&
-                        bindingMeta.setEntityAttribute(
-                            tableColumn,
-                            ((sqlQuery == null || tableColumn.getTypeID() != attrMeta.getTypeID()) && rows != null)))
-                    {
-                        // We have new type and new value handler.
-                        // We have to fix already fetched values.
-                        // E.g. we fetched strings and found out that we should handle them as LOBs or enums.
-                        try {
-                            int pos = attrMeta.getOrdinalPosition();
-                            for (Object[] row : rows) {
-                                row[pos] = binding.getValueHandler().getValueFromObject(session, tableColumn, row[pos], false, false);
+                    if (tableColumn != null) {
+                        boolean updateColumnHandler = updateColumnMeta &&
+                            (sqlQuery == null || !DBDAttributeBindingMeta.haveEqualsTypes(tableColumn, attrMeta)) &&
+                            rows != null;
+                        if (!updateColumnHandler && bindingMeta.getDataKind() != tableColumn.getDataKind()) {
+                            // Different data kind. Probably it is an alias which conflicts with column name
+                            // Do not update entity attribute.
+                            // It is a silly workaround for PG-like databases
+                        } else if (bindingMeta.setEntityAttribute(tableColumn, updateColumnHandler) && rows != null) {
+                            // We have new type and new value handler.
+                            // We have to fix already fetched values.
+                            // E.g. we fetched strings and found out that we should handle them as LOBs or enums.
+                            try {
+                                int pos = attrMeta.getOrdinalPosition();
+                                for (Object[] row : rows) {
+                                    row[pos] = binding.getValueHandler().getValueFromObject(session, tableColumn, row[pos], false, false);
+                                }
+                            } catch (DBCException e) {
+                                log.warn("Error resolving attribute '" + binding.getName() + "' values", e);
                             }
-                        } catch (DBCException e) {
-                            log.warn("Error resolving attribute '" + binding.getName() + "' values", e);
                         }
                     }
                 }
@@ -760,6 +837,53 @@ public class DBExecUtils {
         finally {
             monitor.done();
         }
+    }
+
+    public static boolean isAttributeReadOnly(@NotNull DBDAttributeBinding attribute) {
+        if (attribute == null || attribute.getMetaAttribute() == null || attribute.getMetaAttribute().isReadOnly()) {
+            return true;
+        }
+        DBDRowIdentifier rowIdentifier = attribute.getRowIdentifier();
+        if (rowIdentifier == null || !(rowIdentifier.getEntity() instanceof DBSDataManipulator)) {
+            return true;
+        }
+        DBSDataManipulator dataContainer = (DBSDataManipulator) rowIdentifier.getEntity();
+        return (dataContainer.getSupportedFeatures() & DBSDataManipulator.DATA_UPDATE) == 0;
+    }
+
+    public static String getAttributeReadOnlyStatus(@NotNull DBDAttributeBinding attribute) {
+        if (attribute == null || attribute.getMetaAttribute() == null) {
+            return "Null meta attribute";
+        }
+        if (attribute.getMetaAttribute().isReadOnly()) {
+            return "Attribute is read-only";
+        }
+        DBDRowIdentifier rowIdentifier = attribute.getRowIdentifier();
+        if (rowIdentifier == null) {
+            String status = attribute.getRowIdentifierStatus();
+            return status != null ? status : "No row identifier found";
+        }
+        DBSEntity dataContainer = rowIdentifier.getEntity();
+        if (!(dataContainer instanceof DBSDataManipulator)) {
+            return "Underlying entity doesn't support data modification";
+        }
+        if ((((DBSDataManipulator) dataContainer).getSupportedFeatures() & DBSDataManipulator.DATA_UPDATE) == 0) {
+            return "Underlying entity doesn't support data update";
+        }
+        return null;
+    }
+
+    public static List<DBEPersistAction> getActionsListFromCommandContext(@NotNull DBRProgressMonitor monitor, DBECommandContext commandContext, DBCExecutionContext executionContext, Map<String, Object> options, @Nullable List<DBEPersistAction> actions) throws DBException {
+        if (actions == null) {
+            actions = new ArrayList<>();
+        }
+        for (DBECommand cmd : commandContext.getFinalCommands()) {
+            DBEPersistAction[] persistActions = cmd.getPersistActions(monitor, executionContext, options);
+            if (persistActions != null) {
+                Collections.addAll(actions, persistActions);
+            }
+        }
+        return actions;
     }
 
 }

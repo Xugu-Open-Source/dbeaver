@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,11 @@ package org.jkiss.dbeaver.ui.dialogs.connection;
 
 import org.eclipse.jface.dialogs.DialogPage;
 import org.eclipse.jface.resource.ImageDescriptor;
+import org.eclipse.jface.resource.ResourceLocator;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.*;
@@ -50,6 +52,8 @@ public abstract class ConnectionPageAbstract extends DialogPage implements IData
     protected Button savePasswordCheck;
     protected ToolBar userManagementToolbar;
     private VariablesHintLabel variablesHintLabel;
+
+    private ImageDescriptor curImageDescriptor;
 
     public IDataSourceConnectionEditorSite getSite() {
         return site;
@@ -184,8 +188,9 @@ public abstract class ConnectionPageAbstract extends DialogPage implements IData
 
     @Override
     public void setImageDescriptor(ImageDescriptor desc) {
-        /*if (getImage() == null) */{
+        if (curImageDescriptor != desc) {
             super.setImageDescriptor(desc);
+            curImageDescriptor = desc;
         }
     }
 
@@ -272,6 +277,12 @@ public abstract class ConnectionPageAbstract extends DialogPage implements IData
 //        if (serviceSecurity.validatePassword(site.getProject().getSecureStorage(), "Enter project password", "Enter project master password to unlock connection password view")) {
 //            passwordText.setEchoChar('\0');
 //        }
+    }
+
+
+    protected Image createImage(String imageFilePath) {
+        ImageDescriptor imageDescriptor = ResourceLocator.imageDescriptorFromBundle(getClass(), imageFilePath).orElse(null);
+        return imageDescriptor == null ? null : imageDescriptor.createImage();
     }
 
 }

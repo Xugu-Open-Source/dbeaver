@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.TreeContentProvider;
 import org.jkiss.dbeaver.ui.controls.resultset.IResultSetPanel;
 import org.jkiss.dbeaver.ui.controls.resultset.IResultSetPresentation;
+import org.jkiss.dbeaver.ui.controls.resultset.panel.ResultSetPanelRefresher;
 import org.jkiss.dbeaver.ui.navigator.itemlist.DatabaseObjectListControl;
 import org.jkiss.utils.CommonUtils;
 
@@ -100,7 +101,7 @@ public class MetaDataPanel implements IResultSetPanel {
             attributeList.getControl().addDisposeListener(e ->
                 ((ISelectionProvider) presentation).removeSelectionChangedListener(listener));
         }
-
+        ResultSetPanelRefresher.installOn(this, presentation);
         return this.attributeList;
     }
 
@@ -129,6 +130,11 @@ public class MetaDataPanel implements IResultSetPanel {
     @Override
     public void deactivatePanel() {
 
+    }
+
+    @Override
+    public void setFocus() {
+        attributeList.setFocus();
     }
 
     @Override
@@ -233,7 +239,7 @@ public class MetaDataPanel implements IResultSetPanel {
         }
 
         @Override
-        protected LoadingJob<Collection<DBDAttributeBinding>> createLoadService() {
+        protected LoadingJob<Collection<DBDAttributeBinding>> createLoadService(boolean forUpdate) {
             return LoadingJob.createService(
                 new LoadAttributesService(),
                 new ObjectsLoadVisualizer()

@@ -20,6 +20,7 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.ext.xugu.Constants;
 import org.jkiss.dbeaver.model.data.DBDDataFormatter;
 import org.jkiss.dbeaver.model.data.DBDDataFormatterProfile;
+import org.jkiss.dbeaver.model.data.DBDFormatSettings;
 import org.jkiss.dbeaver.model.impl.jdbc.data.handlers.JDBCTemporalAccessorValueHandler;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 
@@ -35,9 +36,10 @@ public class TemporalAccessorValueHandler extends JDBCTemporalAccessorValueHandl
 	private static final DateTimeFormatter DEFAULT_DATE_FORMAT = DateTimeFormatter.ofPattern("'DATE '''yyyy-MM-dd''");
 	private static final DateTimeFormatter DEFAULT_TIME_FORMAT = DateTimeFormatter.ofPattern("'TIME '''HH:mm:ss.SSS''");
 
-	public TemporalAccessorValueHandler(DBDDataFormatterProfile formatterProfile) {
-		super(formatterProfile);
-	}
+	public TemporalAccessorValueHandler(DBDFormatSettings formatSettings)
+    {
+        super(formatSettings);
+    }
 
 	@Nullable
 	@Override

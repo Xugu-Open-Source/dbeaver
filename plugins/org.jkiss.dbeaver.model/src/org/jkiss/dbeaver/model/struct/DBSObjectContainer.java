@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,14 +67,16 @@ public interface DBSObjectContainer extends DBSObject
     DBSObject getChild(@NotNull DBRProgressMonitor monitor, @NotNull String childName) throws DBException;
 
     /**
-     * Gets type of child elements.
+     * Gets type of primary child elements.
+     * Usually it is some non-abstract table implementation.
      *
-     * @param monitor progress monitor
+     * @param monitor progress monitor. May be null. In that case implementor mustn't do any expensive operations
      * @return type of child objects
      * @throws org.jkiss.dbeaver.DBException on error
+     * @see DBSEntityContainer
      */
     @NotNull
-    Class<? extends DBSObject> getChildType(@NotNull DBRProgressMonitor monitor) throws DBException;
+    Class<? extends DBSObject> getPrimaryChildType(@Nullable DBRProgressMonitor monitor) throws DBException;
 
     /**
      * Caches all underlying structure contents.

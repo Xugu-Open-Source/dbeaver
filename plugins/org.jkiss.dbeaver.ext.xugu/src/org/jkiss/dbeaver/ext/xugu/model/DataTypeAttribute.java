@@ -128,4 +128,9 @@ public class DataTypeAttribute extends BaseDataTypeMember implements DBSEntityAt
 	public String getDefaultValue() {
 		return null;
 	}
+
+	@Override
+	public long getTypeModifiers() {
+		return 0;
+	}
 }

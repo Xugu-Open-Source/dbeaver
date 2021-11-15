@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ public class ComplexTypeAttributeTransformer implements DBDAttributeTransformer 
     static void createNestedTypeBindings(DBCSession session, DBDAttributeBinding attribute, List<Object[]> rows, DBSEntity dataType) throws DBException {
         List<DBDAttributeBinding> nestedBindings = new ArrayList<>();
         for (DBSEntityAttribute nestedAttr : CommonUtils.safeCollection(dataType.getAttributes(session.getProgressMonitor()))) {
-            DBDAttributeBindingType nestedBinding = new DBDAttributeBindingType(attribute, nestedAttr);
+            DBDAttributeBindingType nestedBinding = new DBDAttributeBindingType(attribute, nestedAttr, nestedBindings.size());
             nestedBinding.lateBinding(session, rows);
             nestedBindings.add(nestedBinding);
         }

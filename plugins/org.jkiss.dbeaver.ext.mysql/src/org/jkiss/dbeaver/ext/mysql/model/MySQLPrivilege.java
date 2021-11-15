@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
  */
 package org.jkiss.dbeaver.ext.mysql.model;
 
-import org.jkiss.dbeaver.Log;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.access.DBAPrivilege;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSource;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
@@ -52,11 +52,11 @@ public class MySQLPrivilege implements DBAPrivilege
         MISC
     }
 
-    private MySQLDataSource dataSource;
-    private String name;
-    private String context;
-    private String comment;
-    private Kind kind;
+    private final MySQLDataSource dataSource;
+    private final String name;
+    private final String context;
+    private final String comment;
+    private final Kind kind;
     
     public MySQLPrivilege(MySQLDataSource dataSource, ResultSet resultSet) {
         this.dataSource = dataSource;

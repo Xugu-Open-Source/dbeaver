@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,16 @@
  */
 package org.jkiss.dbeaver.tools.transfer.ui.pages.database;
 
+import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.layout.GridData;
-import org.eclipse.swt.layout.GridLayout;
-import org.eclipse.swt.widgets.*;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Table;
+import org.eclipse.swt.widgets.TableItem;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
@@ -29,21 +33,18 @@ import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
 import org.jkiss.dbeaver.model.navigator.DBNModel;
 import org.jkiss.dbeaver.model.navigator.DBNNode;
 import org.jkiss.dbeaver.model.runtime.DefaultProgressMonitor;
-import org.jkiss.dbeaver.model.struct.DBSDataContainer;
-import org.jkiss.dbeaver.model.struct.DBSDataManipulator;
-import org.jkiss.dbeaver.model.struct.DBSObject;
-import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
+import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.tools.transfer.DataTransferPipe;
 import org.jkiss.dbeaver.tools.transfer.DataTransferSettings;
 import org.jkiss.dbeaver.tools.transfer.database.DatabaseTransferConsumer;
 import org.jkiss.dbeaver.tools.transfer.database.DatabaseTransferProducer;
 import org.jkiss.dbeaver.tools.transfer.internal.DTMessages;
-import org.jkiss.dbeaver.tools.transfer.ui.wizard.DataTransferWizard;
+import org.jkiss.dbeaver.tools.transfer.ui.internal.DTUIMessages;
+import org.jkiss.dbeaver.tools.transfer.ui.pages.DataTransferPageNodeSettings;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.ui.UIIcon;
 import org.jkiss.dbeaver.ui.UIUtils;
-import org.jkiss.dbeaver.ui.dialogs.ActiveWizardPage;
 import org.jkiss.utils.CommonUtils;
 
 import java.lang.reflect.InvocationTargetException;
@@ -51,15 +52,15 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-public class DatabaseProducerPageInputObjects extends ActiveWizardPage<DataTransferWizard> {
+public class DatabaseProducerPageInputObjects extends DataTransferPageNodeSettings {
 
     private Table mappingTable;
     private DBNDatabaseNode lastSelection;
 
     public DatabaseProducerPageInputObjects() {
-        super("Input objects");
-        setTitle("Select input objects");
-        setDescription("Choose database objects to import");
+        super(DTUIMessages.database_producer_page_input_objects_name);
+        setTitle(DTUIMessages.database_producer_page_input_objects_title);
+        setDescription(DTUIMessages.database_producer_page_input_objects_description);
         setPageComplete(false);
     }
 
@@ -67,22 +68,22 @@ public class DatabaseProducerPageInputObjects extends ActiveWizardPage<DataTrans
     public void createControl(Composite parent) {
         initializeDialogUnits(parent);
 
-        Composite composite = new Composite(parent, SWT.NULL);
-        composite.setLayout(new GridLayout());
-        composite.setLayoutData(new GridData(GridData.FILL_BOTH));
+        Composite composite = UIUtils.createComposite(parent, 1);
 
         DataTransferSettings settings = getWizard().getSettings();
 
         {
-            Group tablesGroup = UIUtils.createControlGroup(composite, DTMessages.data_transfer_wizard_mappings_name, 3, GridData.FILL_BOTH, 0);
+            Composite tablesGroup = UIUtils.createComposite(composite, 1);
+            tablesGroup.setLayoutData(new GridData(GridData.FILL_BOTH));
+            UIUtils.createControlLabel(tablesGroup, DTMessages.data_transfer_wizard_mappings_name);
 
             mappingTable = new Table(tablesGroup, SWT.BORDER | SWT.SINGLE | SWT.FULL_SELECTION);
             mappingTable.setLayoutData(new GridData(GridData.FILL_BOTH));
             mappingTable.setHeaderVisible(true);
             mappingTable.setLinesVisible(true);
 
-            UIUtils.createTableColumn(mappingTable, SWT.LEFT, DTMessages.data_transfer_wizard_final_column_source);
-            UIUtils.createTableColumn(mappingTable, SWT.LEFT, DTMessages.data_transfer_wizard_final_column_target);
+            UIUtils.createTableColumn(mappingTable, SWT.LEFT, DTUIMessages.data_transfer_wizard_final_column_source);
+            UIUtils.createTableColumn(mappingTable, SWT.LEFT, DTUIMessages.data_transfer_wizard_final_column_target);
 
             mappingTable.addSelectionListener(new SelectionAdapter() {
                 @Override
@@ -126,6 +127,7 @@ public class DatabaseProducerPageInputObjects extends ActiveWizardPage<DataTrans
     private void autoAssignMappings() {
         DBSObjectContainer objectContainer = chooseEntityContainer();
         if (objectContainer == null) {
+            setMessage(DTUIMessages.database_producer_page_input_objects_error_message_auto_assign_failed, WARNING);
             return;
         }
 
@@ -142,17 +144,21 @@ public class DatabaseProducerPageInputObjects extends ActiveWizardPage<DataTrans
                 }
             });
         } catch (InvocationTargetException e) {
-            DBWorkbench.getPlatformUI().showError("Assign error", "Error reading container objects", e);
+            DBWorkbench.getPlatformUI().showError(DTUIMessages.database_producer_page_input_objects_title_assign_error,
+                    DTUIMessages.database_producer_page_input_objects_message_error_reading_container_objects, e);
         } catch (InterruptedException e) {
             // ignore
         }
-        if (!CommonUtils.isEmpty(containerObjects)) {
+        if (CommonUtils.isEmpty(containerObjects)) {
+            setMessage(DTUIMessages.database_producer_page_input_objects_error_message_auto_assign_failed, WARNING);
+        } else {
             autoAssignMappings(containerObjects);
         }
     }
 
     private void autoAssignMappings(List<DBSObject> containerObjects) {
         boolean chooseConsumer = getWizard().getSettings().isConsumerOptional();
+        boolean success = false;
 
         for (TableItem item : mappingTable.getItems()) {
             DataTransferPipe pipe = (DataTransferPipe) item.getData();
@@ -165,6 +171,7 @@ public class DatabaseProducerPageInputObjects extends ActiveWizardPage<DataTrans
 
                 DBSObject object = DBUtils.findObject(containerObjects, objectToMap.getName());
                 if (object != null) {
+                    success = true;
                     if (chooseConsumer) {
                         if (object instanceof DBSDataManipulator) {
                             pipe.setConsumer(new DatabaseTransferConsumer((DBSDataManipulator) object));
@@ -179,22 +186,26 @@ public class DatabaseProducerPageInputObjects extends ActiveWizardPage<DataTrans
 
             }
         }
+        if (!success) {
+            setMessage(DTUIMessages.database_producer_page_input_objects_error_message_auto_assign_failed, WARNING);
+        }
         updatePageCompletion();
     }
 
     private void updateItemData(TableItem item, DataTransferPipe pipe) {
+        setErrorMessage(null);
         DataTransferSettings settings = getWizard().getSettings();
 
         if (pipe.getProducer() == null || pipe.getProducer().getDatabaseObject() == null) {
             item.setImage(0, null);
-            item.setText(0, "<none>");
+            item.setText(0, DTUIMessages.database_producer_page_input_objects_item_text_none);
         } else {
             item.setImage(0, DBeaverIcons.getImage(settings.getProducer().getIcon()));
             item.setText(0, DBUtils.getObjectFullName(pipe.getProducer().getDatabaseObject(), DBPEvaluationContext.DML));
         }
         if (pipe.getConsumer() == null || pipe.getConsumer().getObjectName() == null) {
             item.setImage(1, null);
-            item.setText(1, "<none>");
+            item.setText(1, DTUIMessages.database_producer_page_input_objects_item_text_none);
         } else {
             item.setImage(1, DBeaverIcons.getImage(settings.getConsumer().getIcon()));
             item.setText(1, pipe.getConsumer().getObjectName());
@@ -228,8 +239,8 @@ public class DatabaseProducerPageInputObjects extends ActiveWizardPage<DataTrans
         return true;
     }
 
-    protected DBSObjectContainer chooseEntityContainer()
-    {
+    @Nullable
+    private DBSObjectContainer chooseEntityContainer() {
         DataTransferSettings settings = getWizard().getSettings();
 
         final DBNModel navigatorModel = DBWorkbench.getPlatform().getNavigatorModel();
@@ -238,17 +249,21 @@ public class DatabaseProducerPageInputObjects extends ActiveWizardPage<DataTrans
         boolean chooseConsumer = settings.isConsumerOptional();
         DBNNode node = DBWorkbench.getPlatformUI().selectObject(
             UIUtils.getActiveWorkbenchShell(),
-            "Select table container",
+            DTUIMessages.database_producer_page_input_objects_node_select_table,
             rootNode,
             lastSelection,
             new Class[] {DBSObjectContainer.class},
             new Class[] {DBSObjectContainer.class},
             null);
-        if (node instanceof DBNDatabaseNode) {
-            lastSelection = (DBNDatabaseNode) node;
-            return (DBSObjectContainer)((DBNDatabaseNode) node).getObject();
+        if (!(node instanceof DBNDatabaseNode)) {
+            return null;
         }
-        return null;
+        lastSelection = (DBNDatabaseNode) node;
+        DBSObject object = lastSelection.getObject();
+        if (!(object instanceof DBSObjectContainer)) {
+            object = DBUtils.getAdapter(DBSObjectContainer.class, ((DBSWrapper) node).getObject());
+        }
+        return (DBSObjectContainer) object;
     }
 
     protected boolean chooseEntity(DataTransferPipe pipe)
@@ -262,8 +277,8 @@ public class DatabaseProducerPageInputObjects extends ActiveWizardPage<DataTrans
         DBNNode node = DBWorkbench.getPlatformUI().selectObject(
             UIUtils.getActiveWorkbenchShell(),
             chooseConsumer ?
-                "Select target entity for '" + pipe.getProducer().getDatabaseObject().getName()  + "'" :
-                "Select source container for '" + pipe.getConsumer().getObjectName() + "'",
+                NLS.bind(DTUIMessages.database_producer_page_input_objects_node_select_target, pipe.getProducer().getDatabaseObject().getName()):
+                NLS.bind(DTUIMessages.database_producer_page_input_objects_node_select_source, pipe.getConsumer().getObjectName()),
             rootNode,
             lastSelection,
             new Class[] {DBSObjectContainer.class, DBSDataContainer.class},
@@ -284,6 +299,11 @@ public class DatabaseProducerPageInputObjects extends ActiveWizardPage<DataTrans
             return true;
         }
         return false;
+    }
+
+    @Override
+    public boolean isPageApplicable() {
+        return isProducerOfType(DatabaseTransferProducer.class);
     }
 
 }

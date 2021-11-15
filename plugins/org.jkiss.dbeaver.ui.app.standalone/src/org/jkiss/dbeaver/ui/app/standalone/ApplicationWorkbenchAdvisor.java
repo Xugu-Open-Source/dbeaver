@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,19 +16,21 @@
  */
 package org.jkiss.dbeaver.ui.app.standalone;
 
-import org.eclipse.core.runtime.FileLocator;
-import org.eclipse.core.runtime.Path;
-import org.eclipse.core.runtime.Platform;
+import org.eclipse.core.resources.ResourcesPlugin;
+import org.eclipse.core.runtime.IAdaptable;
+import org.eclipse.core.runtime.preferences.DefaultScope;
 import org.eclipse.jface.dialogs.MessageDialogWithToggle;
+import org.eclipse.jface.dialogs.TrayDialog;
+import org.eclipse.jface.preference.IPreferenceNode;
 import org.eclipse.jface.preference.PreferenceManager;
-import org.eclipse.jface.resource.ImageDescriptor;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.*;
 import org.eclipse.ui.application.IWorkbenchConfigurer;
 import org.eclipse.ui.application.IWorkbenchWindowConfigurer;
-import org.eclipse.ui.application.WorkbenchAdvisor;
 import org.eclipse.ui.application.WorkbenchWindowAdvisor;
-import org.eclipse.ui.ide.IDE;
-import org.eclipse.ui.internal.ide.IDEWorkbenchPlugin;
+import org.eclipse.ui.internal.SaveableHelper;
+import org.eclipse.ui.internal.ide.application.DelayedEventsProcessor;
+import org.eclipse.ui.internal.ide.application.IDEWorkbenchAdvisor;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBeaverPreferences;
 import org.jkiss.dbeaver.Log;
@@ -37,19 +39,23 @@ import org.jkiss.dbeaver.core.DBeaverActivator;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.registry.DataSourceRegistry;
 import org.jkiss.dbeaver.ui.actions.datasource.DataSourceHandler;
+import org.jkiss.dbeaver.ui.app.standalone.internal.CoreApplicationActivator;
 import org.jkiss.dbeaver.ui.app.standalone.update.DBeaverVersionChecker;
 import org.jkiss.dbeaver.ui.dialogs.ConfirmationDialog;
+import org.jkiss.dbeaver.ui.editors.EditorUtils;
 import org.jkiss.dbeaver.ui.editors.content.ContentEditorInput;
 import org.jkiss.dbeaver.ui.perspective.DBeaverPerspective;
-import org.osgi.framework.Bundle;
+import org.jkiss.dbeaver.ui.preferences.PrefPageDatabaseEditors;
+import org.jkiss.dbeaver.ui.preferences.PrefPageDatabaseUserInterface;
 
-import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * This workbench advisor creates the window advisor, and specifies
  * the perspective id for the initial window.
  */
-public class ApplicationWorkbenchAdvisor extends WorkbenchAdvisor {
+public class ApplicationWorkbenchAdvisor extends IDEWorkbenchAdvisor {
     private static final Log log = Log.getLog(ApplicationWorkbenchAdvisor.class);
 
     private static final String PERSPECTIVE_ID = DBeaverPerspective.PERSPECTIVE_ID;
@@ -57,7 +63,7 @@ public class ApplicationWorkbenchAdvisor extends WorkbenchAdvisor {
 
     protected static final String WORKBENCH_PREF_PAGE_ID = "org.eclipse.ui.preferencePages.Workbench";
     protected static final String APPEARANCE_PREF_PAGE_ID = "org.eclipse.ui.preferencePages.Views";
-    //protected static final String MYLYN_PREF_PAGE_ID = "org.eclipse.mylyn.preferencePages.Mylyn";
+    private static final String EDITORS_PREF_PAGE_ID = "org.eclipse.ui.preferencePages.Editors";
 
     private static final String[] EXCLUDE_PREF_PAGES = {
         WORKBENCH_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.Globalization",
@@ -65,21 +71,47 @@ public class ApplicationWorkbenchAdvisor extends WorkbenchAdvisor {
         //"org.eclipse.ui.preferencePages.FileEditors",
         WORKBENCH_PREF_PAGE_ID + "/" + APPEARANCE_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.Decorators",
         //WORKBENCH_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.Workspace",
-        WORKBENCH_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.ContentTypes",
-        WORKBENCH_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.Startup",
+        //WORKBENCH_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.ContentTypes",
+        //WORKBENCH_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.Startup",
         WORKBENCH_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.General.LinkHandlers",
-
-        // Disable Install/Update
-        //"org.eclipse.equinox.internal.p2.ui.sdk.ProvisioningPreferencePage",
 
         // Team preferences - not needed in CE
         //"org.eclipse.team.ui.TeamPreferences",
     };
-    //private DBPPreferenceListener settingsChangeListener;
+
+    // Move to UI
+    private static final String[] UI_PREF_PAGES = {
+            WORKBENCH_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.Views",
+            WORKBENCH_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.Keys",
+            WORKBENCH_PREF_PAGE_ID + "/org.eclipse.ui.browser.preferencePage",
+            WORKBENCH_PREF_PAGE_ID + "/org.eclipse.search.preferences.SearchPreferencePage",
+            WORKBENCH_PREF_PAGE_ID + "/org.eclipse.text.quicksearch.PreferencesPage",
+            WORKBENCH_PREF_PAGE_ID + "/" + EDITORS_PREF_PAGE_ID,
+            WORKBENCH_PREF_PAGE_ID + "/" + EDITORS_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.AutoSave",
+            WORKBENCH_PREF_PAGE_ID + "/" + EDITORS_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.FileEditors" //"File Associations"
+    };
+
+    // Move to Editors
+    private static final String[] EDITORS_PREF_PAGES = {
+            WORKBENCH_PREF_PAGE_ID + "/" + EDITORS_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.GeneralTextEditor"
+    };
+
+    // Move to General
+    private static final String[] GENERAL_PREF_PAGES = {
+        "org.eclipse.equinox.internal.p2.ui.sdk.ProvisioningPreferencePage",    // Install-Update
+        "org.eclipse.debug.ui.DebugPreferencePage"                              // Debugger
+    };
+
+    //processor must be created before we start event loop
+    private final DelayedEventsProcessor processor;
+
+    protected ApplicationWorkbenchAdvisor() {
+        this.processor = new DelayedEventsProcessor(Display.getCurrent());
+    }
 
     @Override
     public WorkbenchWindowAdvisor createWorkbenchWindowAdvisor(IWorkbenchWindowConfigurer configurer) {
-        return new ApplicationWorkbenchWindowAdvisor(configurer);
+        return new ApplicationWorkbenchWindowAdvisor(this, configurer);
     }
 
     @Override
@@ -90,15 +122,12 @@ public class ApplicationWorkbenchAdvisor extends WorkbenchAdvisor {
     @Override
     public void initialize(IWorkbenchConfigurer configurer) {
         super.initialize(configurer);
-        // make sure we always save and restore workspace state
-        configurer.setSaveAndRestore(true);
 
-        // register workspace IDE adapters
-        IDE.registerAdapters();
+        // Initialize app preferences
+        DefaultScope.INSTANCE.getNode(CoreApplicationActivator.getDefault().getBundle().getSymbolicName());
 
-        declareWorkbenchImages(configurer);
-
-        //TrayDialog.setDialogHelpAvailable(true);
+        // Don't show Help button in JFace dialogs
+        TrayDialog.setDialogHelpAvailable(false);
 
 /*
         // Set default resource encoding to UTF-8
@@ -108,25 +137,6 @@ public class ApplicationWorkbenchAdvisor extends WorkbenchAdvisor {
         }
         ResourcesPlugin.getPlugin().getPluginPreferences().setValue(ResourcesPlugin.PREF_ENCODING, defEncoding);
 */
-    }
-
-    /**
-     * This is a bit hacky. Copied from IDEWorkbenchAdvisor.
-     * Adds standard Eclipse icons mappings
-     */
-    private void declareWorkbenchImages(IWorkbenchConfigurer configurer) {
-
-        Bundle ideBundle = Platform.getBundle(IDEWorkbenchPlugin.IDE_WORKBENCH);
-        final String ICONS_PATH = "$nl$/icons/full/";//$NON-NLS-1$
-        final String PATH_OBJECT = ICONS_PATH + "obj16/"; // Model object //$NON-NLS-1$
-        declareWorkbenchImage(configurer, ideBundle, IDE.SharedImages.IMG_OBJ_PROJECT,
-            PATH_OBJECT + "prj_obj.png", true); //$NON-NLS-1$
-    }
-
-    private void declareWorkbenchImage(IWorkbenchConfigurer configurer, Bundle ideBundle, String symbolicName, String path, boolean shared) {
-        URL url = FileLocator.find(ideBundle, new Path(path), null);
-        ImageDescriptor desc = ImageDescriptor.createFromURL(url);
-        configurer.declareImage(symbolicName, desc, shared);
     }
 
     @Override
@@ -141,21 +151,11 @@ public class ApplicationWorkbenchAdvisor extends WorkbenchAdvisor {
         filterPreferencePages();
 
         startVersionChecker();
+    }
 
-/*
-        settingsChangeListener = event -> {
-            if (isPropertyChangeRequiresRestart(event.getProperty())) {
-                if (UIUtils.confirmAction(null,
-                    "System preference change",
-                    "System setting '" + event.getProperty() + "' has been changed. You will need to restart workbench to complete the change. Restart now?"))
-                {
-                    PlatformUI.getWorkbench().restart();
-                }
-            }
-        };
-        DBWorkbench.getPlatform().getPreferenceStore().addPropertyChangeListener(settingsChangeListener);
-*/
-
+    @Override
+    public IAdaptable getDefaultPageInput() {
+        return ResourcesPlugin.getWorkspace().getRoot();
     }
 
     protected boolean isPropertyChangeRequiresRestart(String property) {
@@ -172,11 +172,23 @@ public class ApplicationWorkbenchAdvisor extends WorkbenchAdvisor {
         for (String epp : getExcludedPreferencePageIds()) {
             pm.remove(epp);
         }
+        patchPreferencePages(pm, EDITORS_PREF_PAGES, PrefPageDatabaseEditors.PAGE_ID);
+        patchPreferencePages(pm, UI_PREF_PAGES, PrefPageDatabaseUserInterface.PAGE_ID);
+        patchPreferencePages(pm, GENERAL_PREF_PAGES, WORKBENCH_PREF_PAGE_ID);
     }
 
     @NotNull
     protected String[] getExcludedPreferencePageIds() {
         return EXCLUDE_PREF_PAGES;
+    }
+
+    protected void patchPreferencePages(PreferenceManager pm, String[] preferencePages, String preferencePageId) {
+        for (String pageId : preferencePages)  {
+            IPreferenceNode uiPage = pm.remove(pageId);
+            if (uiPage != null) {
+                pm.addTo(preferencePageId, uiPage);
+            }
+        }
     }
 
     private void startVersionChecker() {
@@ -216,10 +228,32 @@ public class ApplicationWorkbenchAdvisor extends WorkbenchAdvisor {
                 // So we need to close em first
                 IWorkbenchPage workbenchPage = window.getActivePage();
                 IEditorReference[] editors = workbenchPage.getEditorReferences();
+                List<IEditorPart> editorsToRevert = new ArrayList<>();
                 for (IEditorReference editor : editors) {
                     IEditorPart editorPart = editor.getEditor(false);
                     if (editorPart != null && editorPart.getEditorInput() instanceof ContentEditorInput) {
                         workbenchPage.closeEditor(editorPart, false);
+                    }
+                }
+                // We also save all saveable parts here. Because we need to do this before transaction finializer hook.
+                // Standard workbench finalizer works in the very end when it is too late
+                // (all connections are closed at that moment)
+                for (IEditorReference editor : editors) {
+                    IEditorPart editorPart = editor.getEditor(false);
+                    if (editorPart instanceof ISaveablePart2) {
+                        if (!SaveableHelper.savePart(editorPart, editorPart, window, true)) {
+                            return false;
+                        }
+                        editorsToRevert.add(editorPart);
+                    }
+                }
+
+                // Revert all open editors to  avoid double confirmation
+                for (IEditorPart editorPart : editorsToRevert) {
+                    try {
+                        EditorUtils.revertEditorChanges(editorPart);
+                    } catch (Exception e) {
+                        log.debug(e);
                     }
                 }
             }
@@ -244,4 +278,11 @@ public class ApplicationWorkbenchAdvisor extends WorkbenchAdvisor {
         super.eventLoopException(exception);
         log.error("Event loop exception", exception);
     }
+
+    @Override
+    public void eventLoopIdle(Display display) {
+        processor.catchUp(display);
+        super.eventLoopIdle(display);
+    }
+
 }

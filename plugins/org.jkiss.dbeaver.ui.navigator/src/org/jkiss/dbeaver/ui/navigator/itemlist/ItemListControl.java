@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,8 +25,13 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.ui.IWorkbenchCommandConstants;
 import org.eclipse.ui.IWorkbenchPartSite;
 import org.eclipse.ui.IWorkbenchSite;
+import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.MultiPageEditorPart;
 import org.eclipse.ui.part.MultiPageEditorSite;
+import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.DBPObjectStatisticsCollector;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.edit.DBEObjectReorderer;
 import org.jkiss.dbeaver.model.navigator.DBNDatabaseFolder;
 import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
@@ -35,6 +40,7 @@ import org.jkiss.dbeaver.model.navigator.DBNUtils;
 import org.jkiss.dbeaver.model.navigator.meta.DBXTreeNode;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.load.DatabaseLoadService;
+import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSWrapper;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.properties.ObjectPropertyDescriptor;
@@ -46,23 +52,31 @@ import org.jkiss.dbeaver.ui.internal.UINavigatorMessages;
 import org.jkiss.dbeaver.ui.navigator.NavigatorCommands;
 import org.jkiss.dbeaver.ui.navigator.actions.NavigatorHandlerFilterConfig;
 import org.jkiss.dbeaver.ui.navigator.actions.NavigatorHandlerObjectCreateNew;
+import org.jkiss.dbeaver.ui.properties.PropertyEditorUtils;
 import org.jkiss.utils.ArrayUtils;
+import org.jkiss.utils.CommonUtils;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 
 /**
  * ItemListControl
  */
 public class ItemListControl extends NodeListControl
 {
-    private ISearchExecutor searcher;
-    private Color searchHighlightColor;
+    private static final Log log = Log.getLog(ItemListControl.class);
+
+    // FIXME: copied from editors.data constants. Need to move it in general colors configuration
+    private static final String COLOR_NEW = "org.jkiss.dbeaver.sql.resultset.color.cell.new.background";
+    private static final String COLOR_MODIFIED = "org.jkiss.dbeaver.sql.resultset.color.cell.modified.background";
+
+    private final ISearchExecutor searcher;
+    private final Color searchHighlightColor;
     //private Color disabledCellColor;
-    private Font normalFont;
-    private Font boldFont;
+    private final Font normalFont;
+    private final Font boldFont;
+
+    private final Map<DBNNode, Map<String, Object>> changedProperties = new HashMap<>();
 
     public ItemListControl(
         Composite parent,
@@ -99,9 +113,9 @@ public class ItemListControl extends NodeListControl
         }
         addColumnConfigAction(contributionManager);
         IWorkbenchSite workbenchSite = getWorkbenchSite();
-        if (workbenchSite != null) {
-            contributionManager.add(ActionUtils.makeCommandContribution(workbenchSite, IWorkbenchCommandConstants.FILE_REFRESH));
-        }
+//        if (workbenchSite != null) {
+//            contributionManager.add(ActionUtils.makeCommandContribution(workbenchSite, IWorkbenchCommandConstants.FILE_REFRESH));
+//        }
 
         // Object operations
 
@@ -202,17 +216,25 @@ public class ItemListControl extends NodeListControl
     }
 
     @Override
+    protected void setListData(Collection<DBNNode> items, boolean append, boolean forUpdate) {
+        if (!append && !forUpdate) {
+            changedProperties.clear();
+        }
+        super.setListData(items, append, forUpdate);
+    }
+
+    @Override
     protected ISearchExecutor getSearchRunner()
     {
         return searcher;
     }
 
     @Override
-    protected LoadingJob<Collection<DBNNode>> createLoadService()
+    protected LoadingJob<Collection<DBNNode>> createLoadService(boolean forUpdate)
     {
         return LoadingJob.createService(
             new ItemLoadService(getNodeMeta()),
-            new ObjectsLoadVisualizer());
+            new ObjectsLoadVisualizer(forUpdate));
     }
 
     @Override
@@ -231,7 +253,7 @@ public class ItemListControl extends NodeListControl
 
         private DBXTreeNode metaNode;
 
-        protected ItemLoadService(DBXTreeNode metaNode)
+        ItemLoadService(DBXTreeNode metaNode)
         {
             super("Loading items", getRootNode() instanceof DBSWrapper ? (DBSWrapper)getRootNode() : null);
             this.metaNode = metaNode;
@@ -243,10 +265,44 @@ public class ItemListControl extends NodeListControl
         {
             try {
                 List<DBNNode> items = new ArrayList<>();
-                DBNNode[] children = DBNUtils.getNodeChildrenFiltered(monitor, getRootNode(), false);
+                DBNNode parentNode = getRootNode();
+                DBNNode[] children = DBNUtils.getNodeChildrenFiltered(monitor, parentNode, false);
                 if (ArrayUtils.isEmpty(children)) {
                     return items;
                 }
+
+                DBPDataSourceContainer ds = getDataSourceContainer();
+                // If we in folder-less mode then filter children by meta
+                if (ds != null && ds.getNavigatorSettings().isHideFolders()) {
+                    List<DBNNode> filteredChildrenList = new ArrayList<>();
+                    for (DBNNode child : children) {
+                        if (child instanceof DBNDatabaseNode) {
+                            DBXTreeNode meta = ((DBNDatabaseNode) child).getMeta();
+                            if (meta.getParent() == metaNode || meta == metaNode) {
+                                filteredChildrenList.add(child);
+                            }
+                        }
+                    }
+                    children = filteredChildrenList.toArray(new DBNNode[0]);
+                }
+
+                // Cache statistics
+                while (parentNode instanceof DBNDatabaseFolder) {
+                    parentNode = parentNode.getParentNode();
+                }
+                if (parentNode instanceof DBNDatabaseNode) {
+                    DBSObject parentObject = DBUtils.getPublicObject(((DBNDatabaseNode) parentNode).getObject());
+                    if (parentObject instanceof DBPObjectStatisticsCollector) {
+                        try {
+                            if (!((DBPObjectStatisticsCollector) parentObject).isStatisticsCollected()) {
+                                ((DBPObjectStatisticsCollector) parentObject).collectObjectStatistics(monitor, false, false);
+                            }
+                        } catch (Exception e) {
+                            log.error("Error reading statistics of '" + parentObject.getName() + "'", e);
+                        }
+                    }
+                }
+                // Filter children
                 for (DBNNode item : children) {
                     if (monitor.isCanceled()) {
                         break;
@@ -289,7 +345,7 @@ public class ItemListControl extends NodeListControl
             final ObjectPropertyDescriptor property = objectColumn.getProperty(getObjectValue(object));
             if (property != null && property.isEditable(getObjectValue(object))) {
                 setFocusCell(object, objectColumn);
-                return UIUtils.createPropertyEditor(getWorkbenchSite(), getControl(), property.getSource(), property, SWT.NONE);
+                return PropertyEditorUtils.createPropertyEditor(getWorkbenchSite(), getControl(), property.getSource(), property, SWT.NONE);
             }
             return null;
         }
@@ -309,9 +365,10 @@ public class ItemListControl extends NodeListControl
         protected Object getValue(Object element)
         {
             DBNNode object = (DBNNode) element;
-            final ObjectPropertyDescriptor property = objectColumn.getProperty(getObjectValue(object));
+            Object objectValue = getObjectValue(object);
+            final ObjectPropertyDescriptor property = objectColumn.getProperty(objectValue);
             if (property != null) {
-                return getListPropertySource().getPropertyValue(null, getObjectValue(object), property, true);
+                return getListPropertySource().getPropertyValue(null, objectValue, property, true);
             }
             return null;
         }
@@ -320,14 +377,29 @@ public class ItemListControl extends NodeListControl
         protected void setValue(Object element, Object value)
         {
             DBNNode object = (DBNNode) element;
-            final ObjectPropertyDescriptor property = objectColumn.getProperty(getObjectValue(object));
+            Object objectValue = getObjectValue(object);
+            final ObjectPropertyDescriptor property = objectColumn.getProperty(objectValue);
             try {
                 if (property != null) {
-                    getListPropertySource().setPropertyValue(null, getObjectValue(object), property, value);
+                    Object oldValue = getListPropertySource().getPropertyValue(null, objectValue, property, false);
+                    getListPropertySource().setPropertyValue(null, objectValue, property, UIUtils.normalizePropertyValue(value));
+                    Object newValue = getListPropertySource().getPropertyValue(null, objectValue, property, false);
                     if (value instanceof Boolean) {
                         // Redraw control to let it repaint checkbox
                         getItemsViewer().getControl().redraw();
                     }
+                    if (!CommonUtils.equalObjects(oldValue, newValue)) {
+                        Map<String, Object> propMap = changedProperties.computeIfAbsent(object, dbnNode -> new HashMap<>());
+                        Object savedValue = propMap.get(property.getId());
+                        if (CommonUtils.equalObjects(savedValue, newValue)) {
+                            // Reset to original value
+                            propMap.remove(property.getId());
+                        } else if (!propMap.containsKey(property.getId())) {
+                            // Save change
+                            propMap.put(property.getId(), oldValue);
+                        }
+                    }
+                    getItemsViewer().update(object, null);
                 }
             } catch (Exception e) {
                 DBWorkbench.getPlatformUI().showError("Error setting property value", "Error setting property '" + property.getId() + "' value", e);
@@ -363,16 +435,33 @@ public class ItemListControl extends NodeListControl
             if (node.isDisposed()) {
                 return null;
             }
+
+            if (isNewObject(node)) {
+                if (!isNewObject(getRootNode())) {
+                    return PlatformUI.getWorkbench().getThemeManager().getCurrentTheme().getColorRegistry().get(COLOR_NEW);
+                }
+            } else {
+                Map<String, Object> propMap = changedProperties.get(node);
+                if (propMap != null) {
+                    final Object objectValue = getObjectValue(node);
+                    final ObjectPropertyDescriptor prop = objectColumn.getProperty(objectValue);
+                    if (prop != null && propMap.containsKey(prop.getId())) {
+                        return PlatformUI.getWorkbench().getThemeManager().getCurrentTheme().getColorRegistry().get(COLOR_MODIFIED);
+                    }
+                }
+            }
 //            if (searcher instanceof SearcherHighligther && ((SearcherHighligther) searcher).hasObject(node)) {
 //                return searchHighlightColor;
 //            }
+/*
             if (isNewObject(node)) {
                 final Object objectValue = getObjectValue(node);
-                final ObjectPropertyDescriptor prop = objectColumn.getProperty(getObjectValue(node));
+                final ObjectPropertyDescriptor prop = objectColumn.getProperty(objectValue);
                 if (prop != null && !prop.isEditable(objectValue)) {
                     return null;//disabledCellColor;
                 }
             }
+*/
             return null;
         }
     }

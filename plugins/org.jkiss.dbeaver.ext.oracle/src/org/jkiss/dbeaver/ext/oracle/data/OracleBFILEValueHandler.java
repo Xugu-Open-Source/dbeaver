@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,9 +45,9 @@ public class OracleBFILEValueHandler extends JDBCContentValueHandler {
         }
 
         if (object == null) {
-            return new OracleContentBFILE(session.getDataSource(), null);
+            return new OracleContentBFILE(session.getExecutionContext(), null);
         } else {
-            return new OracleContentBFILE(session.getDataSource(), object);
+            return new OracleContentBFILE(session.getExecutionContext(), object);
         }
     }
 
@@ -55,7 +55,7 @@ public class OracleBFILEValueHandler extends JDBCContentValueHandler {
     public DBDContent getValueFromObject(@NotNull DBCSession session, @NotNull DBSTypedObject type, Object object, boolean copy, boolean validateValue) throws DBCException
     {
         if (object == null) {
-            return new OracleContentBFILE(session.getDataSource(), null);
+            return new OracleContentBFILE(session.getExecutionContext(), null);
         } else if (object instanceof OracleContentBFILE) {
             return copy ? (OracleContentBFILE)((OracleContentBFILE) object).cloneValue(session.getProgressMonitor()) : (OracleContentBFILE) object;
         }

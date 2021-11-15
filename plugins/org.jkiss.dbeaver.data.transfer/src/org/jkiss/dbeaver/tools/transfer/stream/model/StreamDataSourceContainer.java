@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.eclipse.equinox.security.storage.ISecurePreferences;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.app.DBPDataSourceRegistry;
 import org.jkiss.dbeaver.model.app.DBPPlatform;
@@ -59,13 +60,11 @@ class StreamDataSourceContainer implements DBPDataSourceContainer {
     private File inputFile;
     private String name;
     private final DBPExclusiveResource exclusiveLock = new SimpleExclusiveLock();
-
-    StreamDataSourceContainer(File inputFile) {
-        this.inputFile = inputFile;
-    }
+    private final DBVModel virtualModel;
 
     StreamDataSourceContainer(String name) {
         this.name = name;
+        this.virtualModel = new DBVModel(this);
     }
 
     @NotNull
@@ -84,6 +83,12 @@ class StreamDataSourceContainer implements DBPDataSourceContainer {
     @Override
     public DBPDataSourceConfigurationStorage getConfigurationStorage() {
         throw new IllegalStateException("Stream datasource doesn't have config storage");
+    }
+
+    @NotNull
+    @Override
+    public DBPDataSourceOrigin getOrigin() {
+        throw new IllegalStateException("Stream datasource doesn't have origin");
     }
 
     @NotNull
@@ -113,6 +118,21 @@ class StreamDataSourceContainer implements DBPDataSourceContainer {
     @Override
     public boolean isProvided() {
         return true;
+    }
+
+    @Override
+    public boolean isManageable() {
+        return false;
+    }
+
+    @Override
+    public boolean isExternallyProvided() {
+        return false;
+    }
+
+    @Override
+    public boolean isTemplate() {
+        return false;
     }
 
     @Override
@@ -150,6 +170,11 @@ class StreamDataSourceContainer implements DBPDataSourceContainer {
 
     }
 
+    @Override
+    public boolean isAutoCloseTransactions() {
+        return false;
+    }
+
     @Nullable
     @Override
     public DBPTransactionIsolation getActiveTransactionsIsolation() {
@@ -180,7 +205,7 @@ class StreamDataSourceContainer implements DBPDataSourceContainer {
 
     @Override
     public DBVModel getVirtualModel() {
-        return null;
+        return virtualModel;
     }
 
     @Override
@@ -350,12 +375,22 @@ class StreamDataSourceContainer implements DBPDataSourceContainer {
 
     @Override
     public DBDDataFormatterProfile getDataFormatterProfile() {
-        return null;
+        return DBWorkbench.getPlatform().getDataFormatterRegistry().getGlobalProfile();
     }
 
     @Override
-    public void setDataFormatterProfile(DBDDataFormatterProfile formatterProfile) {
+    public boolean isUseNativeDateTimeFormat() {
+        return ModelPreferences.getPreferences().getBoolean(ModelPreferences.RESULT_NATIVE_DATETIME_FORMAT);
+    }
 
+    @Override
+    public boolean isUseNativeNumericFormat() {
+        return ModelPreferences.getPreferences().getBoolean(ModelPreferences.RESULT_NATIVE_NUMERIC_FORMAT);
+    }
+
+    @Override
+    public boolean isUseScientificNumericFormat() {
+        return ModelPreferences.getPreferences().getBoolean(ModelPreferences.RESULT_SCIENTIFIC_NUMERIC_FORMAT);
     }
 
     @NotNull
@@ -364,4 +399,8 @@ class StreamDataSourceContainer implements DBPDataSourceContainer {
         return DefaultValueHandler.INSTANCE;
     }
 
+    @Override
+    public boolean isHidden() {
+        return true;
+    }
 }

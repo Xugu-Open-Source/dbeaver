@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.model.DBConstants;
-import org.jkiss.dbeaver.model.DBPDataKind;
-import org.jkiss.dbeaver.model.DBPDataTypeProvider;
-import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.data.*;
 import org.jkiss.dbeaver.model.exec.*;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
@@ -118,22 +115,26 @@ public class JDBCCollection extends AbstractDatabaseList implements DBDValueClon
         if (isNull()) {
             return SQLConstants.NULL_VALUE;
         }
-        if (contents.length == 0) {
-            return "";
-        } else if (contents.length == 1) {
-            return valueHandler.getValueDisplayString(type, contents[0], format);
-        } else {
-            StringBuilder str = new StringBuilder(contents.length * 32);
-            str.append("[");
-            for (int i = 0; i < contents.length; i++) {
-                Object item = contents[i];
-                if (i > 0) str.append(','); //$NON-NLS-1$
-                String itemString = valueHandler.getValueDisplayString(type, item, format);
-                SQLUtils.appendValue(str, type, itemString);
-            }
-            str.append("]");
-            return str.toString();
+        // This probably was used for pretty-printing, we can't be sure now.
+        // In any way, this makes interpreting empty and one-length arrays
+        // hard by eye, and some databases complain about malformed format.
+        //
+        // if (contents.length == 0) {
+        //     return "";
+        // } else if (contents.length == 1) {
+        //     return valueHandler.getValueDisplayString(type, contents[0], format);
+        // } else {
+        StringBuilder str = new StringBuilder(contents.length * 32);
+        str.append("[");
+        for (int i = 0; i < contents.length; i++) {
+            Object item = contents[i];
+            if (i > 0) str.append(','); //$NON-NLS-1$
+            String itemString = valueHandler.getValueDisplayString(type, item, format);
+            SQLUtils.appendValue(str, type, itemString);
         }
+        // }
+        str.append("]");
+        return str.toString();
     }
 
     @Override
@@ -173,7 +174,8 @@ public class JDBCCollection extends AbstractDatabaseList implements DBDValueClon
         final DBSDataType dataType = getComponentType();
         try (DBCSession session = DBUtils.openUtilSession(new VoidProgressMonitor(), dataType, "Create JDBC array")) {
             if (session instanceof Connection) {
-                return ((Connection) session).createArrayOf(dataType.getTypeName(), attrs);
+                String typeName = DBUtils.getObjectFullName(dataType, DBPEvaluationContext.DML);
+                return ((Connection) session).createArrayOf(typeName, attrs);
             } else {
                 return new JDBCArrayImpl(dataType.getTypeName(), dataType.getTypeID(), attrs);
             }
@@ -240,7 +242,7 @@ public class JDBCCollection extends AbstractDatabaseList implements DBDValueClon
                     // Null array of unknown type. Just make NULL read-only array
                     String defDataTypeName = dataSource.getDefaultDataTypeName(DBPDataKind.OBJECT);
                     DBSDataType defDataType = dataSource.getLocalDataType(defDataTypeName);
-                    DBDValueHandler defValueHandler = dataSource.getDefaultValueHandler();
+                    DBDValueHandler defValueHandler = session.getDefaultValueHandler();
                     return new JDBCCollection(defDataType, defValueHandler, null);
                 }
                 try {

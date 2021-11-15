@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,7 @@
  */
 package org.jkiss.dbeaver.ui.app.standalone;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Options;
+import org.apache.commons.cli.*;
 import org.eclipse.core.runtime.IConfigurationElement;
 import org.eclipse.core.runtime.IExtensionRegistry;
 import org.eclipse.core.runtime.Platform;
@@ -93,7 +90,7 @@ public class DBeaverCommandLine
         String description;
         boolean hasArg;
         boolean exitAfterExecute;
-        boolean reuseWorkspace;
+        boolean exclusiveMode;
         CommandLineParameterHandler handler;
 
         public ParameterDescriptor(IConfigurationElement config) throws Exception {
@@ -102,14 +99,14 @@ public class DBeaverCommandLine
             this.description = config.getAttribute("description");
             this.hasArg = CommonUtils.toBoolean(config.getAttribute("hasArg"));
             this.exitAfterExecute = CommonUtils.toBoolean(config.getAttribute("exitAfterExecute"));
-            this.reuseWorkspace = CommonUtils.toBoolean(config.getAttribute("reuseWorkspace"));
+            this.exclusiveMode = CommonUtils.toBoolean(config.getAttribute("exclusiveMode"));
             Bundle cBundle = Platform.getBundle(config.getContributor().getName());
             Class<?> implClass = cBundle.loadClass(config.getAttribute("handler"));
             handler = (CommandLineParameterHandler) implClass.newInstance();
         }
     }
 
-    private static Map<String, ParameterDescriptor> customParameters = new LinkedHashMap<>();
+    private static final Map<String, ParameterDescriptor> customParameters = new LinkedHashMap<>();
 
     static {
         IExtensionRegistry er = Platform.getExtensionRegistry();
@@ -143,35 +140,31 @@ public class DBeaverCommandLine
     /**
      * @return true if called should exit after CLI processing
      */
-    static boolean executeCommandLineCommands(@NotNull CommandLine commandLine, @Nullable IInstanceController controller, boolean uiActivated) throws Exception {
-        if (commandLine == null) {
+    static boolean executeCommandLineCommands(@Nullable CommandLine commandLine, @Nullable IInstanceController controller, boolean uiActivated) throws Exception {
+        if (commandLine == null || (ArrayUtils.isEmpty(commandLine.getArgs()) && ArrayUtils.isEmpty(commandLine.getOptions()))) {
             return false;
         }
 
         if (commandLine.hasOption(PARAM_REUSE_WORKSPACE)) {
             if (DBeaverApplication.instance != null) {
-                DBeaverApplication.instance.reuseWorkspace = true;
-            }
-        }
-
-        // Reuse workspace if custom parameters are specified
-        for (ParameterDescriptor param : customParameters.values()) {
-            if (param.reuseWorkspace && commandLine.hasOption(param.name)) {
-                if (DBeaverApplication.instance != null) {
-                    DBeaverApplication.instance.reuseWorkspace = true;
-                }
-                break;
+                DBeaverApplication.instance.setReuseWorkspace(true);
             }
         }
 
         if (controller == null) {
+            log.debug("Can't process commands because no running instance is present");
             return false;
         }
+
         boolean exitAfterExecute = false;
         if (!uiActivated) {
             // These command can't be executed locally
             if (commandLine.hasOption(PARAM_STOP)) {
-                controller.quit();
+                try {
+                    controller.quit();
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
                 return true;
             }
             if (commandLine.hasOption(PARAM_THREAD_DUMP)) {
@@ -240,21 +233,26 @@ public class DBeaverCommandLine
             HelpFormatter helpFormatter = new HelpFormatter();
             helpFormatter.setWidth(120);
             helpFormatter.setOptionComparator((o1, o2) -> 0);
-            helpFormatter.printHelp("dbeaver", GeneralUtils.getProductTitle(), ALL_OPTIONS, "(C) 2020 DBeaver Corp", true);
+            helpFormatter.printHelp("dbeaver", GeneralUtils.getProductTitle(), ALL_OPTIONS, "(C) 2020-2021 DBeaver Corp", true);
             return true;
         }
+
+        // Reuse workspace if custom parameters are specified
+        for (ParameterDescriptor param : customParameters.values()) {
+            if (param.exclusiveMode && (commandLine.hasOption(param.name) || commandLine.hasOption(param.longName))) {
+                if (DBeaverApplication.instance != null) {
+                    DBeaverApplication.instance.setExclusiveMode(true);
+                }
+                break;
+            }
+        }
+
         if (commandLine.hasOption(PARAM_NEW_INSTANCE)) {
             // Do not try to execute commands in running instance
             return false;
         }
 
-        IInstanceController controller = null;
-        try {
-            controller = InstanceClient.createClient(instanceLoc);
-        } catch (Exception e) {
-            // its ok
-            log.debug("Error detecting DBeaver running instance: " + e.getMessage());
-        }
+        final IInstanceController controller = InstanceClient.createClient(instanceLoc);
         try {
             return executeCommandLineCommands(commandLine, controller, false);
         } catch (RemoteException e) {
@@ -270,21 +268,36 @@ public class DBeaverCommandLine
             return false;
         }
         boolean exit = false;
-        for (ParameterDescriptor param : customParameters.values()) {
-            if (commandLine.hasOption(param.name)) {
-                try {
+        for (Option cliOption : commandLine.getOptions()) {
+            ParameterDescriptor param = customParameters.get(cliOption.getOpt());
+            if (param == null) {
+                param = customParameters.get(cliOption.getLongOpt());
+            }
+            if (param == null) {
+                //log.error("Wrong command line parameter " + cliOption);
+                continue;
+            }
+            try {
+                if (param.hasArg) {
+                    for (String optValue : commandLine.getOptionValues(param.name)) {
+                        param.handler.handleParameter(
+                            param.name,
+                            optValue);
+                    }
+                } else {
                     param.handler.handleParameter(
                         param.name,
-                        param.hasArg ? commandLine.getOptionValue(param.name) : null);
-                } catch (Exception e) {
-                    log.error("Error evaluating parameter '" + param.name + "'", e);
+                        null);
                 }
-                if (param.exitAfterExecute) {
-                    exit = true;
-                }
+            } catch (Exception e) {
+                log.error("Error evaluating parameter '" + param.name + "'", e);
+            }
+            if (param.exitAfterExecute) {
+                exit = true;
             }
         }
 
         return exit;
     }
+
 }

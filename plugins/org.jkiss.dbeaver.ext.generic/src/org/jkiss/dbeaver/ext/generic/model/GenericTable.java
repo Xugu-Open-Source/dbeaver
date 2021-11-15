@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package org.jkiss.dbeaver.ext.generic.model;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.ext.generic.model.meta.GenericMetaModel;
 import org.jkiss.dbeaver.model.DBPScriptObject;
 import org.jkiss.dbeaver.model.DBPScriptObjectExt2;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
@@ -67,10 +66,14 @@ public class GenericTable extends GenericTableBase implements DBPScriptObjectExt
             return DBStructUtils.generateTableDDL(monitor, this, options, false);
         }
 
-        if (ddl == null) {
+        if (ddl == null || !isCacheDDL()) {
             ddl = getDataSource().getMetaModel().getTableDDL(monitor, this, options);
         }
         return ddl;
+    }
+
+    protected boolean isCacheDDL() {
+        return true;
     }
 
     @Override

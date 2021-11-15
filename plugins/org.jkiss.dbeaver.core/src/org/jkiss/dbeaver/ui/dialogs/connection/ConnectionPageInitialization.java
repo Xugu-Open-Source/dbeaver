@@ -1,22 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-/*
- * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,7 +39,6 @@ import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContextDefaults;
 import org.jkiss.dbeaver.model.exec.DBCSession;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
-import org.jkiss.dbeaver.model.runtime.DefaultProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
 import org.jkiss.dbeaver.model.struct.rdb.DBSCatalog;
@@ -146,8 +129,8 @@ class ConnectionPageInitialization extends ConnectionWizardPage implements IData
 
     private void loadDatabaseSettings(DBPDataSource dataSource) {
         try {
-            getContainer().run(true, true, monitor -> {
-                loadDatabaseSettings(new DefaultProgressMonitor(monitor), dataSource);
+            getWizard().getRunnableContext().run(true, true, monitor -> {
+                loadDatabaseSettings(monitor, dataSource);
             });
         } catch (InvocationTargetException e) {
             DBWorkbench.getPlatformUI().showError("Database info reading", "Error reading information from database", e.getTargetException());
@@ -179,10 +162,13 @@ class ConnectionPageInitialization extends ConnectionWizardPage implements IData
                 }
             }
 
+            isolationLevel.removeAll();
+            supportedLevels.clear();
             for (DBPTransactionIsolation level : txnLevels) {
                 if (!level.isEnabled()) {
                     continue;
                 }
+
                 isolationLevel.add(level.getTitle());
                 supportedLevels.add(level);
 
@@ -329,11 +315,13 @@ class ConnectionPageInitialization extends ConnectionWizardPage implements IData
         }
         dataSource.setDefaultAutoCommit(autocommit.getSelection());
         if (txnOptionsLoaded) {
-            int levelIndex = isolationLevel.getSelectionIndex();
-            if (levelIndex <= 0) {
+            if (CommonUtils.isEmpty(isolationLevel.getText())) {
                 dataSource.setDefaultTransactionsIsolation(null);
             } else {
-                dataSource.setDefaultTransactionsIsolation(supportedLevels.get(levelIndex - 1));
+                int levelIndex = isolationLevel.getSelectionIndex();
+                if (levelIndex >= 0) {
+                    dataSource.setDefaultTransactionsIsolation(supportedLevels.get(levelIndex));
+                }
             }
         }
         final DBPConnectionConfiguration confConfig = dataSource.getConnectionConfiguration();

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.mssql.SQLServerUtils;
-import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
@@ -30,51 +30,37 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectCache;
 import org.jkiss.dbeaver.model.meta.Association;
+import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntityAssociation;
-import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBStructUtils;
-import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
-import org.jkiss.utils.CommonUtils;
+import org.jkiss.dbeaver.model.struct.rdb.DBSCheckConstraintContainer;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.*;
 
 /**
  * SQLServerTable
  */
 public class SQLServerTable extends SQLServerTableBase
-{
+        implements DBPObjectStatistics, DBSCheckConstraintContainer, DBPReferentialIntegrityController {
     private static final Log log = Log.getLog(SQLServerTable.class);
 
+    private static final String DISABLE_REFERENTIAL_INTEGRITY_STATEMENT = "ALTER TABLE ? NOCHECK CONSTRAINT ALL";
+    private static final String ENABLE_REFERENTIAL_INTEGRITY_STATEMENT = "ALTER TABLE ? WITH CHECK CHECK CONSTRAINT ALL";
+
     private CheckConstraintCache checkConstraintCache = new CheckConstraintCache();
-    private String ddl;
-    private volatile transient List<SQLServerTableForeignKey> references;
 
-    public SQLServerTable(SQLServerSchema schema)
-    {
+    private transient volatile List<SQLServerTableForeignKey> references;
+
+    private transient volatile long totalBytes = -1;
+    private transient volatile long usedBytes = -1;
+
+    public SQLServerTable(SQLServerSchema schema) {
         super(schema);
-    }
-
-    // Copy constructor
-    public SQLServerTable(DBRProgressMonitor monitor, SQLServerSchema schema, SQLServerTable source) throws DBException {
-        super(monitor, schema, source);
-
-        DBSObjectCache<SQLServerTableBase, SQLServerTableColumn> colCache = getContainer().getTableCache().getChildrenCache(this);
-        // Copy columns
-        for (DBSEntityAttribute srcColumn : CommonUtils.safeCollection(source.getAttributes(monitor))) {
-            if (DBUtils.isHiddenObject(srcColumn)) {
-                continue;
-            }
-            SQLServerTableColumn column = new SQLServerTableColumn(monitor, this, srcColumn);
-            colCache.cacheObject(column);
-        }
     }
 
     public SQLServerTable(
@@ -88,6 +74,25 @@ public class SQLServerTable extends SQLServerTableBase
     public boolean isView()
     {
         return false;
+    }
+
+    @Property(category = DBConstants.CAT_STATISTICS, viewable = false, expensive = true, order = 30)
+    @Override
+    public Long getRowCount(DBRProgressMonitor monitor) throws DBCException {
+        readTableStats(monitor);
+        return super.getRowCount(monitor);
+    }
+
+    @Property(viewable = true, category = DBConstants.CAT_STATISTICS, order = 31)
+    public long getTotalBytes(DBRProgressMonitor monitor) throws DBCException {
+        readTableStats(monitor);
+        return totalBytes;
+    }
+
+    @Property(viewable = true, category = DBConstants.CAT_STATISTICS, order = 32)
+    public long getUsedBytes(DBRProgressMonitor monitor) throws DBCException {
+        readTableStats(monitor);
+        return usedBytes;
     }
 
     @Nullable
@@ -170,32 +175,110 @@ public class SQLServerTable extends SQLServerTableBase
 
     @Override
     public boolean supportsObjectDefinitionOption(String option) {
-        return OPTION_DDL_ONLY_FOREIGN_KEYS.equals(option) || OPTION_DDL_SKIP_FOREIGN_KEYS.equals(option);
-    }
-
-    @Association
-    public Collection<SQLServerTableTrigger> getTriggers(DBRProgressMonitor monitor) throws DBException {
-        Collection<SQLServerTableTrigger> allTriggers = getSchema().getTriggerCache().getAllObjects(monitor, getSchema());
-        return allTriggers
-            .stream()
-            .filter(p -> p.getTable() == this)
-            .collect(Collectors.toList());
+        return OPTION_DDL_ONLY_FOREIGN_KEYS.equals(option)
+            || OPTION_DDL_SKIP_FOREIGN_KEYS.equals(option)
+            || OPTION_INCLUDE_NESTED_OBJECTS.equals(option);
     }
 
     @Override
     public DBSObject refreshObject(@NotNull DBRProgressMonitor monitor) throws DBException {
         references = null;
+        totalBytes = -1;
+        usedBytes = -1;
+        getSchema().resetTableStatistics();
+
         getContainer().getIndexCache().clearObjectCache(this);
         getContainer().getUniqueConstraintCache().clearObjectCache(this);
         getContainer().getForeignKeyCache().clearObjectCache(this);
-        getContainer().getTriggerCache().clearChildrenOf(this);
 
-        return getContainer().getTableCache().refreshObject(monitor, getContainer(), this);
+        return super.refreshObject(monitor);
+    }
+
+    @Override
+    boolean supportsTriggers() {
+        return true;
     }
 
     @Override
     public void setObjectDefinitionText(String source) {
         // Nope
+    }
+
+    @Override
+    public boolean hasStatistics() {
+        return totalBytes != -1;
+    }
+
+    @Override
+    public long getStatObjectSize() {
+        return totalBytes;
+    }
+
+    @Nullable
+    @Override
+    public DBPPropertySource getStatProperties() {
+        return null;
+    }
+
+    private void readTableStats(DBRProgressMonitor monitor) throws DBCException {
+        if (hasStatistics()) {
+            return;
+        }
+        try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load table statistics")) {
+            try (JDBCPreparedStatement dbStat = SQLServerUtils.prepareTableStatisticLoadStatement(
+                session,
+                getDataSource(),
+                getDatabase(),
+                getSchema().getObjectId(),
+                this,
+                true)) {
+                try (JDBCResultSet dbResult = dbStat.executeQuery()) {
+                    if (dbResult.next()) {
+                        fetchTableStats(dbResult);
+                    } else {
+                        setDefaultTableStats();
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            throw new DBCException("Error reading table statistics", e);
+        }
+    }
+
+    void fetchTableStats(JDBCResultSet dbResult) throws SQLException {
+        rowCount = dbResult.getLong("rows");
+        totalBytes = dbResult.getLong("totalSize") * 1024;
+        usedBytes = dbResult.getLong("usedSize") * 1024;
+    }
+
+    void setDefaultTableStats() {
+        totalBytes = 0;
+        usedBytes = 0;
+    }
+
+    @Override
+    public boolean supportsChangingReferentialIntegrity(@NotNull DBRProgressMonitor monitor) {
+        return true;
+    }
+
+    @Override
+    public void enableReferentialIntegrity(@NotNull DBRProgressMonitor monitor, boolean enable) throws DBException {
+        String sql = getChangeReferentialIntegrityStatement(monitor, enable);
+        sql = sql.replace("?", getFullyQualifiedName(DBPEvaluationContext.DDL));
+        try {
+            DBUtils.executeInMetaSession(monitor, this, "Changing referential integrity", sql);
+        } catch (SQLException e) {
+            throw new DBException("Unable to change referential integrity", e);
+        }
+    }
+
+    @NotNull
+    @Override
+    public String getChangeReferentialIntegrityStatement(@NotNull DBRProgressMonitor monitor, boolean enable) throws DBException {
+        if (enable) {
+            return ENABLE_REFERENTIAL_INTEGRITY_STATEMENT;
+        }
+        return DISABLE_REFERENTIAL_INTEGRITY_STATEMENT;
     }
 
     /**
@@ -216,5 +299,4 @@ public class SQLServerTable extends SQLServerTableBase
             return new SQLServerTableCheckConstraint(table, resultSet);
         }
     }
-
 }

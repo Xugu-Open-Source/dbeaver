@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.*;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.ui.*;
@@ -48,7 +49,6 @@ import java.util.List;
  * Tree/table viewer column controller
  */
 public class ViewerColumnController<COLUMN, ELEMENT> {
-
     private static final Log log = Log.getLog(ViewerColumnController.class);
 
     private static final String DATA_KEY = ViewerColumnController.class.getSimpleName();
@@ -63,6 +63,7 @@ public class ViewerColumnController<COLUMN, ELEMENT> {
     private DBIcon defaultIcon;
     private boolean forceAutoSize;
 
+    private transient ObjectViewerRenderer cellRenderer;
     private transient Listener menuListener;
 
     public static ViewerColumnController getFromControl(Control control)
@@ -81,7 +82,7 @@ public class ViewerColumnController<COLUMN, ELEMENT> {
             menuListener = event -> {
                 Point pt = control.getDisplay().map(null, control, new Point(event.x, event.y));
                 Rectangle clientArea = ((Composite) control).getClientArea();
-                if (RuntimeUtils.isPlatformMacOS()) {
+                if (RuntimeUtils.isMacOS()) {
                     clickOnHeader = pt.y < 0;
                 } else {
                     if (control instanceof Tree) {
@@ -93,6 +94,21 @@ public class ViewerColumnController<COLUMN, ELEMENT> {
             };
             control.addListener(SWT.MenuDetect, menuListener);
         }
+
+        cellRenderer = new ObjectViewerRenderer(viewer, false) {
+            @Nullable
+            @Override
+            public Object getCellValue(Object element, int columnIndex) {
+                List<ColumnInfo> visibleColumns = getVisibleColumns();
+                if (!visibleColumns.isEmpty()) {
+                    ColumnInfo columnInfo = getVisibleColumns().get(columnIndex);
+                    if (columnInfo.labelProvider instanceof ColumnBooleanLabelProvider) {
+                        return ((ColumnBooleanLabelProvider) columnInfo.labelProvider).getValueProvider().getValue(element);
+                    }
+                }
+                return null;
+            }
+        };
     }
 
     public void dispose() {
@@ -133,7 +149,14 @@ public class ViewerColumnController<COLUMN, ELEMENT> {
         });
     }
 
-    public void addColumn(String name, String description, int style, boolean defaultVisible, boolean required, IColumnTextProvider<ELEMENT> labelProvider, EditingSupport editingSupport)
+    public void addColumn(
+        String name,
+        String description,
+        int style,
+        boolean defaultVisible,
+        boolean required,
+        IColumnTextProvider<ELEMENT> labelProvider,
+        EditingSupport editingSupport)
     {
         addColumn(name, description, style, defaultVisible, required, false, null, new ColumnLabelProvider() {
             @Override
@@ -153,12 +176,33 @@ public class ViewerColumnController<COLUMN, ELEMENT> {
         }, editingSupport);
     }
 
+    public void addBooleanColumn(
+        String name,
+        String description,
+        int style,
+        boolean defaultVisible,
+        boolean required,
+        IColumnValueProvider<ELEMENT, Boolean> valueProvider,
+        EditingSupport editingSupport)
+    {
+        addColumn(name, description, style, defaultVisible, required, false, null, new ColumnBooleanLabelProvider<>(valueProvider), editingSupport);
+    }
+
     public void addColumn(String name, String description, int style, boolean defaultVisible, boolean required, CellLabelProvider labelProvider)
     {
         addColumn(name, description, style, defaultVisible, required, false, null, labelProvider, null);
     }
 
-    public void addColumn(String name, String description, int style, boolean defaultVisible, boolean required, boolean isNumeric, Object userData, CellLabelProvider labelProvider, EditingSupport editingSupport)
+    public void addColumn(
+        String name,
+        String description,
+        int style,
+        boolean defaultVisible,
+        boolean required,
+        boolean numeric,
+        Object userData,
+        CellLabelProvider labelProvider,
+        EditingSupport editingSupport)
     {
         columns.add(
             new ColumnInfo(
@@ -167,7 +211,7 @@ public class ViewerColumnController<COLUMN, ELEMENT> {
                 style,
                 defaultVisible,
                 required,
-                isNumeric,
+                numeric,
                 userData,
                 labelProvider,
                 editingSupport,
@@ -312,7 +356,7 @@ public class ViewerColumnController<COLUMN, ELEMENT> {
 
     private void createVisibleColumns()
     {
-        boolean hasLazyColumns = false;
+        boolean hasCustomDraw = false;
         List<ColumnInfo> visibleColumns = getVisibleColumns();
         for (int i = 0; i < visibleColumns.size(); i++) {
             final ColumnInfo columnInfo = visibleColumns.get(i);
@@ -385,33 +429,41 @@ public class ViewerColumnController<COLUMN, ELEMENT> {
             viewerColumn.setLabelProvider(columnInfo.labelProvider);
             viewerColumn.setEditingSupport(columnInfo.editingSupport);
             colItem.setData(columnInfo);
-            if (columnInfo.labelProvider instanceof ILazyLabelProvider) {
-                hasLazyColumns = true;
+            if (columnInfo.labelProvider instanceof ILazyLabelProvider || columnInfo.labelProvider instanceof ColumnBooleanLabelProvider) {
+                hasCustomDraw = true;
             } else if (columnInfo.labelProvider instanceof ILabelProvider) {
                 columnInfo.sortListener = new SortListener(viewer, columnInfo);
                 columnInfo.column.addListener(SWT.Selection, columnInfo.sortListener);
             }
         }
-        if (hasLazyColumns) {
+        if (hasCustomDraw) {
             viewer.getControl().addListener(SWT.PaintItem, event -> {
+                ColumnInfo columnInfo;
                 if (viewer instanceof TreeViewer) {
                     TreeColumn column = ((TreeViewer) viewer).getTree().getColumn(event.index);
-                    if (((ColumnInfo) column.getData()).labelProvider instanceof ILazyLabelProvider &&
+                    columnInfo = (ColumnInfo) column.getData();
+                    if (columnInfo.labelProvider instanceof ILazyLabelProvider &&
                         CommonUtils.isEmpty(((TreeItem) event.item).getText(event.index))) {
-                        final String lazyText = ((ILazyLabelProvider) ((ColumnInfo) column.getData()).labelProvider).getLazyText(event.item.getData());
+                        final String lazyText = ((ILazyLabelProvider) columnInfo.labelProvider).getLazyText(event.item.getData());
                         if (!CommonUtils.isEmpty(lazyText)) {
                             ((TreeItem) event.item).setText(event.index, lazyText);
                         }
                     }
                 } else {
                     TableColumn column = ((TableViewer) viewer).getTable().getColumn(event.index);
-                    if (((ColumnInfo) column.getData()).labelProvider instanceof ILazyLabelProvider &&
+                    columnInfo = (ColumnInfo) column.getData();
+                    if (columnInfo.labelProvider instanceof ILazyLabelProvider &&
                         CommonUtils.isEmpty(((TableItem) event.item).getText(event.index))) {
-                        final String lazyText = ((ILazyLabelProvider) ((ColumnInfo) column.getData()).labelProvider).getLazyText(event.item.getData());
+                        final String lazyText = ((ILazyLabelProvider) columnInfo.labelProvider).getLazyText(event.item.getData());
                         if (!CommonUtils.isEmpty(lazyText)) {
                             ((TableItem) event.item).setText(event.index, lazyText);
                         }
                     }
+                }
+                if (columnInfo.labelProvider instanceof ColumnBooleanLabelProvider<?, ?>) {
+                    Object element = event.item.getData();
+                    Object cellValue = ((ColumnBooleanLabelProvider) columnInfo.labelProvider).getValueProvider().getValue(element);
+                    cellRenderer.paintCell(event, element, cellValue, event.item, Boolean.class, event.index, true, (event.detail & SWT.SELECTED) == SWT.SELECTED);
                 }
             });
         }
@@ -758,5 +810,4 @@ public class ViewerColumnController<COLUMN, ELEMENT> {
             });
         }
     }
-
 }

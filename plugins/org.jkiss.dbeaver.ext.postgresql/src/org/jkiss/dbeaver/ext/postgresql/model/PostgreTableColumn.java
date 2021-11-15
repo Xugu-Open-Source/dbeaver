@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,15 @@
  */
 package org.jkiss.dbeaver.ext.postgresql.model;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.postgresql.PostgreUtils;
-import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.ext.postgresql.model.data.type.PostgreGeometryTypeHandler;
 import org.jkiss.dbeaver.model.exec.DBCException;
-import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
-import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
+import org.jkiss.dbeaver.model.gis.DBGeometryDimension;
 import org.jkiss.dbeaver.model.gis.GisAttribute;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCColumnKeyType;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
@@ -32,7 +32,6 @@ import org.jkiss.dbeaver.model.struct.DBSEntityConstraintType;
 import org.jkiss.dbeaver.model.struct.DBStructUtils;
 import org.jkiss.utils.CommonUtils;
 
-import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -47,14 +46,6 @@ public class PostgreTableColumn extends PostgreAttribute<PostgreTableBase> imple
         super(monitor, table, source);
     }
 
-    private static class GeometryInfo {
-        private String type;
-        private int srid = -1;
-        public int dimension;
-    }
-
-    private GeometryInfo geometryInfo;
-
     public PostgreTableColumn(PostgreTableBase table) {
         super(table);
     }
@@ -63,6 +54,7 @@ public class PostgreTableColumn extends PostgreAttribute<PostgreTableBase> imple
         super(monitor, table, dbResult);
     }
 
+    @NotNull
     @Override
     public PostgreSchema getSchema() {
         return getTable().getSchema();
@@ -85,55 +77,19 @@ public class PostgreTableColumn extends PostgreAttribute<PostgreTableBase> imple
 
     @Override
     public int getAttributeGeometrySRID(DBRProgressMonitor monitor) throws DBCException {
-        if (geometryInfo == null) {
-            readGeometryInfo(monitor);
-        }
-        if (geometryInfo != null) {
-            return geometryInfo.srid;
-        } else {
-            return -1;
-        }
+        return PostgreGeometryTypeHandler.getGeometrySRID(getTypeMod());
     }
 
+    @NotNull
+    @Override
+    public DBGeometryDimension getAttributeGeometryDimension(DBRProgressMonitor monitor) throws DBCException {
+        return PostgreGeometryTypeHandler.getGeometryDimension(getTypeMod());
+    }
+
+    @Nullable
     @Override
     public String getAttributeGeometryType(DBRProgressMonitor monitor) throws DBCException {
-        if (geometryInfo == null) {
-            readGeometryInfo(monitor);
-        }
-        if (geometryInfo != null) {
-            return geometryInfo.type;
-        } else {
-            return null;
-        }
-    }
-
-    private void readGeometryInfo(DBRProgressMonitor monitor) throws DBCException {
-        if (geometryInfo != null) {
-            return;
-        }
-
-        GeometryInfo gi = new GeometryInfo();
-        try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load table inheritance info")) {
-            try (JDBCPreparedStatement dbStat = session.prepareStatement(
-                "SELECT srid, type,coord_dimension FROM geometry_columns " +
-                "WHERE f_table_schema=? AND f_table_name=? AND f_geometry_column=?"))
-            {
-                dbStat.setString(1, getSchema().getName());
-                dbStat.setString(2, getTable().getName());
-                dbStat.setString(3, getName());
-                try (JDBCResultSet dbResult = dbStat.executeQuery()) {
-                    if (dbResult.next()) {
-                        gi.srid = dbResult.getInt(1);
-                        gi.type = dbResult.getString(2);
-                        gi.dimension = dbResult.getInt(3);
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            throw new DBCException("Error reading geometry info", e);
-        }
-
-        geometryInfo = gi;
+        return PostgreGeometryTypeHandler.getGeometryType(getTypeMod());
     }
 
     @Override

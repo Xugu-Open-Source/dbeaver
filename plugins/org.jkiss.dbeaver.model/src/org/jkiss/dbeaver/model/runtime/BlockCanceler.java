@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,9 @@ public class BlockCanceler
         try {
             block.cancelBlock(monitor, blockActiveThread);
         } catch (Throwable e) {
+            if (e instanceof RuntimeException) {
+                throw e;
+            }
             throw new DBException("Cancel error", e);
         } finally {
             thread.setName(threadOldName);

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,5 +33,8 @@ public class OracleMessages extends NLS {
 
 	public static String dialog_connection_sid;
 	public static String dialog_connection_service;
-
+	public static String edit_oracle_dependencies_dependency_name;
+	public static String edit_oracle_dependencies_dependency_description;
+	public static String edit_oracle_dependencies_dependent_name;
+	public static String edit_oracle_dependencies_dependent_description;
 }

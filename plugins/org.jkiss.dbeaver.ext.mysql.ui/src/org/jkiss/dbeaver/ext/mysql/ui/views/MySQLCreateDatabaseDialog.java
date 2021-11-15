@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.jkiss.dbeaver.ext.mysql.ui.views;
 
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Shell;
@@ -25,6 +26,7 @@ import org.eclipse.swt.widgets.Text;
 import org.jkiss.dbeaver.ext.mysql.model.MySQLCatalog;
 import org.jkiss.dbeaver.ext.mysql.model.MySQLCharset;
 import org.jkiss.dbeaver.ext.mysql.model.MySQLCollation;
+import org.jkiss.dbeaver.ext.mysql.ui.internal.MySQLUIMessages;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.dialogs.BaseDialog;
 
@@ -40,7 +42,7 @@ public class MySQLCreateDatabaseDialog extends BaseDialog
     private MySQLCollation collation;
 
     public MySQLCreateDatabaseDialog(Shell parentShell, MySQLCatalog database) {
-        super(parentShell, "Create database", null);
+        super(parentShell, MySQLUIMessages.dialog_create_database_title, null);
         this.database = database;
     }
 
@@ -49,14 +51,16 @@ public class MySQLCreateDatabaseDialog extends BaseDialog
         final Composite composite = super.createDialogArea(parent);
 
         final Composite group = UIUtils.createComposite(composite, 2);
+        GridData gd = new GridData(GridData.FILL_HORIZONTAL);
+        group.setLayoutData(gd);
 
-        final Text nameText = UIUtils.createLabelText(group, "Database name", "");
+        final Text nameText = UIUtils.createLabelText(group, MySQLUIMessages.dialog_create_database_database_name, "");
         nameText.addModifyListener(e -> {
-            name = nameText.getText();
+            name = nameText.getText().trim();
             getButton(IDialogConstants.OK_ID).setEnabled(!name.isEmpty());
         });
 
-        final Combo charsetCombo = UIUtils.createLabelCombo(group, "Charset", SWT.BORDER | SWT.DROP_DOWN);
+        final Combo charsetCombo = UIUtils.createLabelCombo(group, MySQLUIMessages.dialog_create_database_charset, SWT.BORDER | SWT.DROP_DOWN);
         for (MySQLCharset cs : database.getDataSource().getCharsets()) {
             charsetCombo.add(cs.getName());
         }
@@ -70,7 +74,7 @@ public class MySQLCreateDatabaseDialog extends BaseDialog
         }
         charsetCombo.setText(charset.getName());
 
-        final Combo collationCombo = UIUtils.createLabelCombo(group, "Collation", SWT.BORDER | SWT.DROP_DOWN);
+        final Combo collationCombo = UIUtils.createLabelCombo(group, MySQLUIMessages.dialog_create_database_collation, SWT.BORDER | SWT.DROP_DOWN);
         for (MySQLCollation col : charset.getCollations()) {
             collationCombo.add(col.getName());
         }
@@ -82,15 +86,17 @@ public class MySQLCreateDatabaseDialog extends BaseDialog
             assert charset != null;
 
             collationCombo.removeAll();
-            for (MySQLCollation col : charset.getCollations()) {
-                collationCombo.add(col.getName());
+            if (charset != null) {
+                for (MySQLCollation col : charset.getCollations()) {
+                    collationCombo.add(col.getName());
+                }
+                collation = charset.getDefaultCollation();
             }
-            collation = charset.getDefaultCollation();
             if (collation != null) {
                 UIUtils.setComboSelection(collationCombo, collation.getName());
             }
         });
-        collationCombo.addModifyListener(e -> collation = charset.getCollation(collationCombo.getText()));
+        collationCombo.addModifyListener(e -> collation = charset == null ? null : charset.getCollation(collationCombo.getText()));
 
         return composite;
     }

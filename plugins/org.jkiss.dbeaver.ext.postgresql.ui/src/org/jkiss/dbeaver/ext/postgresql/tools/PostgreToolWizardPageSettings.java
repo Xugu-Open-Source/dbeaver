@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,13 +31,13 @@ import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.runtime.encode.EncryptionException;
 import org.jkiss.dbeaver.runtime.encode.SecuredPasswordEncrypter;
-import org.jkiss.dbeaver.tasks.ui.nativetool.AbstractToolWizard;
-import org.jkiss.dbeaver.tasks.ui.nativetool.AbstractToolWizardPage;
+import org.jkiss.dbeaver.tasks.ui.nativetool.AbstractNativeToolWizard;
+import org.jkiss.dbeaver.tasks.ui.nativetool.AbstractNativeToolWizardPage;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.dialogs.BaseAuthDialog;
 
 
-public abstract class PostgreToolWizardPageSettings<WIZARD extends AbstractToolWizard> extends AbstractToolWizardPage<WIZARD>
+public abstract class PostgreToolWizardPageSettings<WIZARD extends AbstractNativeToolWizard> extends AbstractNativeToolWizardPage<WIZARD>
 {
 
     public PostgreToolWizardPageSettings(WIZARD wizard, String title)
@@ -84,6 +84,8 @@ public abstract class PostgreToolWizardPageSettings<WIZARD extends AbstractToolW
                     authDialog.setUserName(wizard.getSettings().getToolUserName());
                     authDialog.setUserPassword(wizard.getSettings().getToolUserPassword());
                     authDialog.setSavePassword(savePassword);
+                    authDialog.setSavePasswordText(PostgreMessages.wizard_backup_page_setting_authentication_save_password);
+                    authDialog.setSavePasswordToolTipText(PostgreMessages.wizard_backup_page_setting_authentication_save_password_tip);
                     if (authDialog.open() == IDialogConstants.OK_ID) {
                         wizard.getSettings().setToolUserName(authDialog.getUserName());
                         wizard.getSettings().setToolUserPassword(authDialog.getUserPassword());

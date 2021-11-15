@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.part.MultiPageEditorPart;
 import org.eclipse.ui.part.MultiPageEditorSite;
+import org.jkiss.dbeaver.model.DBPEvent;
 import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
 import org.jkiss.dbeaver.model.navigator.DBNEvent;
 import org.jkiss.dbeaver.model.navigator.DBNNode;
@@ -35,9 +36,11 @@ import org.jkiss.dbeaver.ui.IRefreshablePart;
 import org.jkiss.dbeaver.ui.ISearchContextProvider;
 import org.jkiss.dbeaver.ui.controls.ProgressPageControl;
 import org.jkiss.dbeaver.ui.controls.folders.TabbedFolderPage;
-import org.jkiss.dbeaver.ui.navigator.itemlist.ItemListControl;
 import org.jkiss.dbeaver.ui.editors.IDatabaseEditor;
 import org.jkiss.dbeaver.ui.navigator.INavigatorModelView;
+import org.jkiss.dbeaver.ui.navigator.itemlist.ItemListControl;
+
+import java.util.Collection;
 
 /**
  * EntityNodeEditor
@@ -45,9 +48,9 @@ import org.jkiss.dbeaver.ui.navigator.INavigatorModelView;
 class TabbedFolderPageNode extends TabbedFolderPage implements ISearchContextProvider, IRefreshablePart, INavigatorModelView, IAdaptable
 {
 
-    private IDatabaseEditor mainEditor;
-    private DBNNode node;
-    private DBXTreeNode metaNode;
+    private final IDatabaseEditor mainEditor;
+    private final DBNNode node;
+    private final DBXTreeNode metaNode;
     private ItemListControl itemControl;
     private boolean activated;
 
@@ -150,10 +153,10 @@ class TabbedFolderPageNode extends TabbedFolderPage implements ISearchContextPro
     }
 
     @Override
-    public void refreshPart(Object source, boolean force)
+    public RefreshResult refreshPart(Object source, boolean force)
     {
         if (!activated || itemControl == null || itemControl.isDisposed()) {
-            return;
+            return RefreshResult.IGNORED;
         }
         // Check - do we need to load new content in editor
         // If this is DBM event then check node change type
@@ -162,15 +165,44 @@ class TabbedFolderPageNode extends TabbedFolderPage implements ISearchContextPro
         // Without this check editor will try to reload it's content and thus will reopen just closed connection
         // (by calling getChildren() on DBNNode)
         boolean loadNewData = true;
-        if (source instanceof DBNEvent) {
-            DBNEvent.NodeChange nodeChange = ((DBNEvent) source).getNodeChange();
-            if (nodeChange == DBNEvent.NodeChange.UNLOAD) {
+        if (!force && source instanceof DBNEvent) {
+            DBNEvent event = (DBNEvent) source;
+            DBNEvent.NodeChange nodeChange = event.getNodeChange();
+
+            if (event.getAction() == DBNEvent.Action.UPDATE && nodeChange == DBNEvent.NodeChange.REFRESH) {
+                // Do not refresh if refreshed object is not in the list
+                loadNewData = isRefreshingEvent(event);
+            } else if (nodeChange == DBNEvent.NodeChange.UNLOAD) {
                 loadNewData = false;
             }
         }
         if (loadNewData) {
             itemControl.loadData(false);
+            return RefreshResult.REFRESHED;
         }
+
+        return RefreshResult.IGNORED;
+    }
+
+    private boolean isRefreshingEvent(DBNEvent event) {
+        if (event.getSource() == DBNEvent.UPDATE_ON_SAVE) {
+            return true;
+        }
+        if (!(event.getSource() instanceof DBPEvent)) {
+            return false;
+        }
+
+        DBPEvent dbEvent = (DBPEvent)event.getSource();
+        if (dbEvent.getData() == DBPEvent.REORDER) {
+            DBNNode rootNode = getRootNode();
+            // Reorder of child elements
+            return rootNode instanceof DBNDatabaseNode &&
+                dbEvent.getObject() == ((DBNDatabaseNode) rootNode).getValueObject();
+        }
+        Object itemsInput = itemControl.getItemsViewer().getInput();
+
+        return itemsInput instanceof Collection &&
+            ((Collection) itemsInput).contains(dbEvent.getObject());
     }
 
     @Override

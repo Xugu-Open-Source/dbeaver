@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ public class MySQLUser implements DBAUser, DBARole, DBPRefreshableObject, DBPSav
 {
     private static final Log log = Log.getLog(MySQLUser.class);
 
-    private MySQLDataSource dataSource;
+    private final MySQLDataSource dataSource;
     private String userName;
     private String host;
     private String passwordHash;
@@ -86,7 +86,7 @@ public class MySQLUser implements DBAUser, DBARole, DBPRefreshableObject, DBPSav
             this.maxUserConnections = JDBCUtils.safeGetInt(resultSet, "max_user_connections");
         } else {
             this.persisted = false;
-            this.userName = "user";
+            this.userName = "";
             this.host = "%";
         }
     }
@@ -233,6 +233,7 @@ public class MySQLUser implements DBAUser, DBARole, DBPRefreshableObject, DBPSav
         }
     }
 
+    @Property(viewable = true, order = 20)
     public String getSslType() {
         return sslType;
     }
@@ -241,6 +242,7 @@ public class MySQLUser implements DBAUser, DBARole, DBPRefreshableObject, DBPSav
         this.sslType = sslType;
     }
 
+    @Property(viewable = true, order = 21)
     public byte[] getSslCipher() {
         return sslCipher;
     }
@@ -265,6 +267,7 @@ public class MySQLUser implements DBAUser, DBARole, DBPRefreshableObject, DBPSav
         this.x509Subject = x509Subject;
     }
 
+    @Property(viewable = true, order = 22)
     public int getMaxQuestions() {
         return maxQuestions;
     }
@@ -273,6 +276,7 @@ public class MySQLUser implements DBAUser, DBARole, DBPRefreshableObject, DBPSav
         this.maxQuestions = maxQuestions;
     }
 
+    @Property(viewable = true, order = 23)
     public int getMaxUpdates() {
         return maxUpdates;
     }
@@ -281,6 +285,7 @@ public class MySQLUser implements DBAUser, DBARole, DBPRefreshableObject, DBPSav
         this.maxUpdates = maxUpdates;
     }
 
+    @Property(viewable = true, order = 24)
     public int getMaxConnections() {
         return maxConnections;
     }
@@ -289,6 +294,7 @@ public class MySQLUser implements DBAUser, DBARole, DBPRefreshableObject, DBPSav
         this.maxConnections = maxConnections;
     }
 
+    @Property(viewable = true, order = 25)
     public int getMaxUserConnections() {
         return maxUserConnections;
     }

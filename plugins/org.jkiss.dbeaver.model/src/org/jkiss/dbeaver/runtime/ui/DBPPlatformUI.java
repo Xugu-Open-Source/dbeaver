@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,6 +57,7 @@ public interface DBPPlatformUI {
     UserResponse showError(@NotNull final String title, @Nullable final String message, @NotNull final Throwable e);
     UserResponse showError(@NotNull final String title, @Nullable final String message);
     void showMessageBox(@NotNull final String title, @Nullable final String message, boolean error);
+    void showWarningMessageBox(@NotNull final String title, @Nullable final String message);
     boolean confirmAction(String title, String message);
 
     UserResponse showErrorStopRetryIgnore(String task, Throwable error, boolean queue);
@@ -72,10 +73,12 @@ public interface DBPPlatformUI {
      */
     DBPAuthInfo promptUserCredentials(String prompt, String userName, String userPassword, boolean passwordOnly, boolean showSavePassword);
 
+    DBPAuthInfo promptUserCredentials(String prompt, String userNameLabel, String userName, String passwordLabel, String userPassword, boolean passwordOnly, boolean showSavePassword);
+
     /**
      * Asks for password change. Returns null if user canceled this action.
      */
-    DBAPasswordChangeInfo promptUserPasswordChange(String prompt, @Nullable String userName, @Nullable String oldPassword);
+    DBAPasswordChangeInfo promptUserPasswordChange(String prompt, @Nullable String userName, @Nullable String oldPassword, boolean userEditable, boolean oldPasswordVisible);
 
     /**
      * Ask user to accept license agreement
@@ -117,6 +120,8 @@ public interface DBPPlatformUI {
 
     void executeShellProgram(String shellCommand);
 
-    void readAndDispatchEvents();
+    void showInSystemExplorer(@NotNull String path);
+
+    boolean readAndDispatchEvents();
 
 }

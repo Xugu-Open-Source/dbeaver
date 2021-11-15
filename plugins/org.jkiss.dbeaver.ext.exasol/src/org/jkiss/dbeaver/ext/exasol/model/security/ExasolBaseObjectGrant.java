@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2016-2016 Karl Griesser (fullref@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.jkiss.dbeaver.ext.exasol.tools.ExasolUtils;
 import org.jkiss.dbeaver.model.access.DBAPrivilege;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.utils.CommonUtils;
 
@@ -179,7 +180,7 @@ public class ExasolBaseObjectGrant implements DBAPrivilege  {
     @Property(hidden = true)
 	public String getName()
 	{
-		return exasolGrantee;
+		return exasolGrantee+"|"+type+"|"+schema+"|"+name;
 	}
 	
 	@Override
@@ -194,7 +195,7 @@ public class ExasolBaseObjectGrant implements DBAPrivilege  {
 	}
 	
 	@Override
-    @Property(hidden = true, multiline = true)
+    @Property(hidden = true, length = PropertyLength.MULTILINE)
 	public String getDescription()
 	{
 		// No Description available

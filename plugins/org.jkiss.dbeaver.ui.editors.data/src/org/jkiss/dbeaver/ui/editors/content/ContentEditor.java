@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.*;
-import org.eclipse.ui.part.MultiPageEditorSite;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
@@ -50,8 +49,6 @@ import org.jkiss.dbeaver.ui.data.registry.StreamValueManagerDescriptor;
 import org.jkiss.dbeaver.ui.data.registry.ValueManagerRegistry;
 import org.jkiss.dbeaver.ui.dialogs.DialogUtils;
 import org.jkiss.dbeaver.ui.editors.MultiPageAbstractEditor;
-import org.jkiss.dbeaver.ui.editors.entity.EntityEditor;
-import org.jkiss.dbeaver.ui.editors.entity.IEntityDataEditor;
 
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
@@ -149,6 +146,7 @@ public class ContentEditor extends MultiPageAbstractEditor implements IValueEdit
                         valueController.getValueType().getDataKind() == DBPDataKind.CONTENT ||
                         valueController.getValueType().getDataKind() == DBPDataKind.BINARY)
                     {
+                        monitor.beginTask("Initialize stream value manager", 1);
                         DBDContent content = (DBDContent) value;
                         Map<StreamValueManagerDescriptor, IStreamValueManager.MatchType> streamManagers =
                             ValueManagerRegistry.getInstance().getApplicableStreamManagers(monitor, valueController.getValueType(), content);
@@ -184,6 +182,7 @@ public class ContentEditor extends MultiPageAbstractEditor implements IValueEdit
                                 log.error(e);
                             }
                         }
+                        monitor.done();
                     }
                     editorParts = parts.toArray(new IEditorPart[0]);
                 }
@@ -259,6 +258,7 @@ public class ContentEditor extends MultiPageAbstractEditor implements IValueEdit
                 editorInput.updateContentFromFile(new DefaultProgressMonitor(monitor), editorInput.getValue());
                 editorInput.getValueController().updateValue(editorInput.getValue(), true);
 
+/*
                 // Activate owner editor and focus on cell corresponding to this content editor
                 IWorkbenchPartSite parentEditorSite = editorInput.getValueController().getValueSite();
                 IWorkbenchPart parentEditor;
@@ -270,10 +270,11 @@ public class ContentEditor extends MultiPageAbstractEditor implements IValueEdit
                 } else {
                     parentEditor = parentEditorSite.getPart();
                 }
-                parentEditorSite.getWorkbenchWindow().getActivePage().activate(parentEditor);
+                UIUtils.asyncExec(() -> parentEditorSite.getWorkbenchWindow().getActivePage().activate(parentEditor));
+*/
 
                 // Close editor
-                closeValueEditor();
+                UIUtils.asyncExec(this::closeValueEditor);
             } catch (Exception e) {
                 DBWorkbench.getPlatformUI().showError(
                         "Can't save content",
@@ -555,9 +556,10 @@ public class ContentEditor extends MultiPageAbstractEditor implements IValueEdit
     }
 
     @Override
-    public void refreshPart(Object source, boolean force) {
+    public RefreshResult refreshPart(Object source, boolean force) {
         getEditorInput().refreshContentParts(source);
         fireContentChanged();
+        return RefreshResult.REFRESHED;
     }
 
     public void fireContentChanged() {

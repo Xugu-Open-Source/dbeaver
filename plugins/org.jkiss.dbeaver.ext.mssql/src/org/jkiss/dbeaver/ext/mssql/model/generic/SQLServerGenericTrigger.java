@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,8 @@
  */
 package org.jkiss.dbeaver.ext.mssql.model.generic;
 
-import org.jkiss.dbeaver.ext.generic.model.GenericStructContainer;
-import org.jkiss.dbeaver.ext.generic.model.GenericTable;
 import org.jkiss.dbeaver.ext.generic.model.GenericTableBase;
-import org.jkiss.dbeaver.ext.generic.model.GenericTrigger;
+import org.jkiss.dbeaver.ext.generic.model.GenericTableTrigger;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPQualifiedObject;
 import org.jkiss.dbeaver.model.DBUtils;
@@ -27,10 +25,10 @@ import org.jkiss.dbeaver.model.DBUtils;
 /**
 * SQL server trigger
 */
-public class SQLServerGenericTrigger extends GenericTrigger implements DBPQualifiedObject {
+public class SQLServerGenericTrigger extends GenericTableTrigger implements DBPQualifiedObject {
 
-    public SQLServerGenericTrigger(GenericStructContainer container, GenericTableBase table, String name, String description) {
-        super(container, table, name, description);
+    public SQLServerGenericTrigger(GenericTableBase container, String name, String description) {
+        super(container, name, description);
     }
 
     @Override

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,11 +22,14 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.DBPDataSourcePermission;
+import org.jkiss.dbeaver.model.DBPHiddenObject;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContextDefaults;
+import org.jkiss.dbeaver.model.navigator.meta.DBXTreeFolder;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSFolder;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSWrapper;
@@ -56,7 +59,12 @@ public class DBNUtils {
     public static DBNDatabaseNode getChildFolder(DBRProgressMonitor monitor, DBNDatabaseNode node, Class<?> folderType) {
         try {
             for (DBNDatabaseNode childNode : node.getChildren(monitor)) {
-                if (childNode instanceof DBNDatabaseFolder && folderType.getName().equals(((DBNDatabaseFolder) childNode).getMeta().getType())) {
+                if (!(childNode instanceof DBNDatabaseFolder)) {
+                    continue;
+                }
+                final DBXTreeFolder meta = ((DBNDatabaseFolder) childNode).getMeta();
+                final Class<?> objectClass = meta.getSource().getObjectClass(meta.getType());
+                if (objectClass != null && folderType.isAssignableFrom(objectClass)) {
                     return childNode;
                 }
             }
@@ -79,26 +87,26 @@ public class DBNUtils {
         if (ArrayUtils.isEmpty(children)) {
             return children;
         }
-        List<DBNNode> filtered = null;
+        DBNNode[] result;
         if (forTree) {
+            List<DBNNode> filtered = new ArrayList<>();
             for (int i = 0; i < children.length; i++) {
                 DBNNode node = children[i];
+                if (node instanceof DBPHiddenObject && ((DBPHiddenObject) node).isHidden()) {
+                    continue;
+                }
                 if (node instanceof DBNDatabaseNode) {
                     DBNDatabaseNode dbNode = (DBNDatabaseNode) node;
                     if (dbNode.getMeta() != null && !dbNode.getMeta().isNavigable()) {
-                        if (filtered == null) {
-                            filtered = new ArrayList<>(children.length);
-                            for (int k = 0; k < i; k++) {
-                                filtered.add(children[k]);
-                            }
-                        }
+                        continue;
                     }
-                } else if (filtered != null) {
-                    filtered.add(node);
                 }
+                filtered.add(node);
             }
+            result = filtered.toArray(new DBNNode[0]);
+        } else {
+            result = children;
         }
-        DBNNode[] result = filtered == null ? children : filtered.toArray(new DBNNode[0]);
         sortNodes(result);
         return result;
     }
@@ -109,15 +117,23 @@ public class DBNUtils {
 
         // Sort children is we have this feature on in preferences
         // and if children are not folders
-        if (children.length > 0 && prefStore.getBoolean(ModelPreferences.NAVIGATOR_SORT_ALPHABETICALLY)) {
-            if (!(children[0] instanceof DBNContainer)) {
-                Arrays.sort(children, NodeNameComparator.INSTANCE);
+        if (children.length > 0) {
+            if (prefStore.getBoolean(ModelPreferences.NAVIGATOR_SORT_ALPHABETICALLY) || isMergedEntity(children[0])) {
+                if (!(children[0] instanceof DBNContainer)) {
+                    Arrays.sort(children, NodeNameComparator.INSTANCE);
+                }
             }
         }
 
         if (children.length > 0 && prefStore.getBoolean(ModelPreferences.NAVIGATOR_SORT_FOLDERS_FIRST)) {
             Arrays.sort(children, NodeFolderComparator.INSTANCE);
         }
+    }
+
+    private static boolean isMergedEntity(DBNNode node) {
+        return node instanceof DBNDatabaseNode &&
+            ((DBNDatabaseNode) node).getObject() instanceof DBSEntity &&
+            ((DBNDatabaseNode) node).getObject().getDataSource().getContainer().getNavigatorSettings().isMergeEntities();
     }
 
     public static boolean isDefaultElement(Object element)

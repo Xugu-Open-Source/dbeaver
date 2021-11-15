@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2016-2016 Karl Griesser (fullref@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import org.jkiss.dbeaver.model.DBPNamedObject2;
 import org.jkiss.dbeaver.model.access.DBARole;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 
 import java.sql.ResultSet;
@@ -64,7 +65,7 @@ public class ExasolRole extends ExasolGrantee  implements DBARole, DBPNamedObjec
         return name;
     }
 
-    @Property(viewable = true, updatable=true, editable=true, multiline = true, order = 10)
+    @Property(viewable = true, updatable=true, editable=true, length = PropertyLength.MULTILINE, order = 10)
     public String getDescription() {
         return description;
     }
@@ -97,6 +98,7 @@ public class ExasolRole extends ExasolGrantee  implements DBARole, DBPNamedObjec
 		this.name = newName;
 	}
 	
+		
 
 }
 

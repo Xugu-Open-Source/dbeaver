@@ -16,34 +16,25 @@
  */
 package org.jkiss.dbeaver.tools.transfer.stream.importer;
 
-import au.com.bytecode.opencsv.CSVReader;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.exec.DBCExecutionPurpose;
 import org.jkiss.dbeaver.model.exec.DBCSession;
 import org.jkiss.dbeaver.model.exec.DBCStatement;
 import org.jkiss.dbeaver.model.exec.DBCStatementType;
-import org.jkiss.dbeaver.model.impl.local.LocalStatement;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.tools.transfer.IDataTransferConsumer;
 import org.jkiss.dbeaver.tools.transfer.stream.*;
-import org.jkiss.dbeaver.tools.transfer.stream.importer.DataImporterCSV.HeaderPosition;
-import org.jkiss.dbeaver.tools.transfer.stream.model.StreamDataSource;
-import org.jkiss.dbeaver.tools.transfer.stream.model.StreamExecutionContext;
-import org.jkiss.dbeaver.tools.transfer.stream.model.StreamTransferSession;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.IOUtils;
 
 import java.io.*;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
 
 /**
  * CSV importer
@@ -58,20 +49,21 @@ public class DataImporterSQL extends StreamImporterAbstract {
     }
 
 	@Override
-	public List<StreamDataImporterColumnInfo> readColumnsInfo(InputStream inputStream) throws DBException {
+	public List<StreamDataImporterColumnInfo> readColumnsInfo(StreamEntityMapping entityMapping,
+			InputStream inputStream) throws DBException {
 		return Collections.emptyList();
 	}
 
-    private InputStreamReader openStreamReader(InputStream inputStream, Map<Object, Object> processorProperties) throws UnsupportedEncodingException {
+    private InputStreamReader openStreamReader(InputStream inputStream, Map<String, Object> processorProperties) throws UnsupportedEncodingException {
         String encoding = CommonUtils.toString(processorProperties.get(PROP_ENCODING), GeneralUtils.UTF8_ENCODING);
         return new InputStreamReader(inputStream, encoding);
     }
 
 	@Override
-	public void runImport(DBRProgressMonitor monitor, InputStream inputStream, IDataTransferConsumer consumer)
-			throws DBException {
+	public void runImport(DBRProgressMonitor monitor, DBPDataSource streamDataSource, InputStream inputStream,
+			IDataTransferConsumer consumer) throws DBException {
 		IStreamDataImporterSite site = getSite();
-        Map<Object, Object> properties = site.getProcessorProperties();
+        Map<String, Object> properties = site.getProcessorProperties();
 
         try (DBCSession session = consumer.getDatabaseObject()
         		.getDataSource()

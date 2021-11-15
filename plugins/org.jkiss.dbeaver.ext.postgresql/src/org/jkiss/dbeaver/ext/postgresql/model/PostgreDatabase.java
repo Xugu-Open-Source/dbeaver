@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.jkiss.dbeaver.ext.postgresql.PostgreConstants;
 import org.jkiss.dbeaver.ext.postgresql.PostgreUtils;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.exec.DBCException;
+import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.exec.DBCExecutionPurpose;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
@@ -34,20 +35,18 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCRemoteInstance;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectCache;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectLookupCache;
-import org.jkiss.dbeaver.model.meta.Association;
-import org.jkiss.dbeaver.model.meta.IPropertyValueListProvider;
-import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.*;
+import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.dbeaver.model.struct.rdb.DBSCatalog;
+import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.LongKeyMap;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 /**
  * PostgreDatabase
@@ -60,7 +59,10 @@ public class PostgreDatabase extends JDBCRemoteInstance
         DBPNamedObject2,
         PostgreObject,
         DBPDataTypeProvider,
-        DBSInstanceLazy {
+        DBSInstanceLazy,
+        DBPObjectStatistics,
+        DBPObjectWithLazyDescription
+{
 
     private static final Log log = Log.getLog(PostgreDatabase.class);
 
@@ -80,8 +82,10 @@ public class PostgreDatabase extends JDBCRemoteInstance
     private int connectionLimit;
     private long tablespaceId;
     private String description;
+    private long dbTotalSize = -1;
+    private Boolean supportTypColumn;
 
-    public final RoleCache roleCache = new RoleCache();
+    public final PostgreDatabaseJDBCObjectCache<? extends PostgreRole> roleCache = createRoleCache();
     public final AccessMethodCache accessMethodCache = new AccessMethodCache();
     public final ForeignDataWrapperCache foreignDataWrapperCache = new ForeignDataWrapperCache();
     public final ForeignServerCache foreignServerCache = new ForeignServerCache();
@@ -95,11 +99,59 @@ public class PostgreDatabase extends JDBCRemoteInstance
 
     public JDBCObjectLookupCache<PostgreDatabase, PostgreSchema> schemaCache;
 
-    public PostgreDatabase(DBRProgressMonitor monitor, PostgreDataSource dataSource, ResultSet dbResult)
+    protected PostgreDatabase(DBRProgressMonitor monitor, PostgreDataSource dataSource, ResultSet dbResult)
         throws DBException {
         super(monitor, dataSource, false);
         this.initCaches();
         this.loadInfo(dbResult);
+    }
+
+    protected PostgreDatabase(DBRProgressMonitor monitor, PostgreDataSource dataSource, String databaseName)
+        throws DBException {
+        super(monitor, dataSource, false);
+        // We need to set name first
+        this.name = databaseName;
+        this.initCaches();
+        checkInstanceConnection(monitor, false);
+
+        try {
+            readDatabaseInfo(monitor);
+        } catch (DBCException e) {
+            // On some multi-tenant servers pg_database is not public so error may gappen here
+            log.debug("Error reading database info", e);
+        }
+    }
+
+    protected PostgreDatabase(DBRProgressMonitor monitor, PostgreDataSource dataSource, String name, PostgreRole owner, String templateName, PostgreTablespace tablespace, PostgreCharset encoding) throws DBException {
+        super(monitor, dataSource, false);
+        this.name = name;
+        this.initialOwner = owner;
+        this.initialTablespace = tablespace;
+        this.initialEncoding = encoding;
+
+        this.ownerId = owner == null ? 0 : owner.getObjectId();
+        this.templateName = templateName;
+        this.tablespaceId = tablespace == null ? 0 : tablespace.getObjectId();
+        this.encodingId = encoding == null ? 0 : encoding.getObjectId();
+        this.initCaches();
+    }
+
+    @ForTest
+    PostgreDatabase(PostgreDataSource dataSource, String databaseName) {
+        super(dataSource);
+        this.name = databaseName;
+        this.initCaches();
+        PostgreSchema sysSchema = new PostgreSchema(this, PostgreConstants.CATALOG_SCHEMA_NAME);
+        sysSchema.getDataTypeCache().loadDefaultTypes(sysSchema);
+        schemaCache.cacheObject(sysSchema);
+    }
+
+    /**
+     * Shared database doesn't need separate JDBC connection.
+     * It reuses default database connection and its' object can be accessed with cross-database queries.
+     */
+    public boolean isSharedDatabase() {
+        return false;
     }
 
     @NotNull
@@ -117,40 +169,9 @@ public class PostgreDatabase extends JDBCRemoteInstance
 */
     }
 
-    public PostgreDatabase(DBRProgressMonitor monitor, PostgreDataSource dataSource, String databaseName)
-        throws DBException {
-        super(monitor, dataSource, false);
-        // We need to set name first
-        this.name = databaseName;
-        this.initCaches();
-        checkInstanceConnection(monitor);
-
-        try {
-            readDatabaseInfo(monitor);
-        } catch (DBCException e) {
-            // On some multi-tenant servers pg_database is not public so error may gappen here
-            log.debug("Error reading database info", e);
-        }
-    }
-
-    public PostgreDatabase(DBRProgressMonitor monitor, PostgreDataSource dataSource, String name, PostgreRole owner, String templateName, PostgreTablespace tablespace, PostgreCharset encoding) throws DBException {
-        super(monitor, dataSource, false);
-        this.name = name;
-        this.initialOwner = owner;
-        this.initialTablespace = tablespace;
-        this.initialEncoding = encoding;
-
-        this.ownerId = owner == null ? 0 : owner.getObjectId();
-        this.templateName = templateName;
-        this.tablespaceId = tablespace == null ? 0 : tablespace.getObjectId();
-        this.encodingId = encoding == null ? 0 : encoding.getObjectId();
-        this.initCaches();
-    }
-
     private void readDatabaseInfo(DBRProgressMonitor monitor) throws DBCException {
         try (JDBCSession session = getMetaContext().openSession(monitor, DBCExecutionPurpose.META, "Load database info")) {
-            try (JDBCPreparedStatement dbStat = session.prepareStatement("SELECT db.oid,db.*" +
-                "\nFROM pg_catalog.pg_database db WHERE datname=?")) {
+            try (JDBCPreparedStatement dbStat = session.prepareStatement("SELECT db.oid,db.* FROM pg_catalog.pg_database db WHERE datname=?")) {
                 dbStat.setString(1, name);
                 try (JDBCResultSet dbResult = dbStat.executeQuery()) {
                     if (dbResult.nextRow()) {
@@ -189,18 +210,28 @@ public class PostgreDatabase extends JDBCRemoteInstance
 
     @Override
     public void checkInstanceConnection(@NotNull DBRProgressMonitor monitor) throws DBException {
-        if (executionContext == null) {
+        if (!isSharedDatabase() && executionContext == null) {
+            checkInstanceConnection(monitor, true);
+        }
+    }
+
+    // We mustn't cache metadata when checkInstanceConnection called during datasource instantiation
+    // Because datasource is not fully initialized yet
+    void checkInstanceConnection(@NotNull DBRProgressMonitor monitor, boolean cacheMetadata) throws DBException {
+        if (!isSharedDatabase() && executionContext == null) {
             initializeMainContext(monitor);
             initializeMetaContext(monitor);
+            if (cacheMetadata)
+                cacheDataTypes(monitor, true);
         }
     }
 
     @Override
     public boolean isInstanceConnected() {
-        return metaContext != null || executionContext != null;
+        return metaContext != null || executionContext != null || sharedInstance != null;
     }
 
-    private void loadInfo(ResultSet dbResult) {
+    protected void loadInfo(ResultSet dbResult) {
         this.oid = JDBCUtils.safeGetLong(dbResult, "oid");
         this.name = JDBCUtils.safeGetString(dbResult, "datname");
         this.ownerId = JDBCUtils.safeGetLong(dbResult, "datdba");
@@ -211,7 +242,9 @@ public class PostgreDatabase extends JDBCRemoteInstance
         }
         this.isTemplate = JDBCUtils.safeGetBoolean(dbResult, "datistemplate");
         this.allowConnect = JDBCUtils.safeGetBoolean(dbResult, "datallowconn");
-        this.connectionLimit = JDBCUtils.safeGetInt(dbResult, "datconnlimit");
+        if (dataSource.isServerVersionAtLeast(8, 1)) {
+            this.connectionLimit = JDBCUtils.safeGetInt(dbResult, "datconnlimit");
+        }
         this.tablespaceId = JDBCUtils.safeGetLong(dbResult, "dattablespace");
     }
 
@@ -241,7 +274,7 @@ public class PostgreDatabase extends JDBCRemoteInstance
     @Nullable
     @Override
     public String getDescription() {
-        return null;
+        return description;
     }
 
     @NotNull
@@ -256,7 +289,16 @@ public class PostgreDatabase extends JDBCRemoteInstance
         return JDBCExecutionContext.TYPE_METADATA + " <" + getName() + ">";
     }
 
-    @Property(viewable = true, multiline = true, order = 100)
+    @NotNull
+    @Override
+    public PostgreExecutionContext openIsolatedContext(@NotNull DBRProgressMonitor monitor, @NotNull String purpose, @Nullable DBCExecutionContext initFrom) throws DBException {
+        PostgreExecutionContext ec = (PostgreExecutionContext) super.openIsolatedContext(monitor, purpose, initFrom);
+        ec.setIsolatedContext(true);
+        return ec;
+    }
+
+    @Override
+    @Property(viewable = true, editable = true, updatable = true, length = PropertyLength.MULTILINE, order = 100)
     public String getDescription(DBRProgressMonitor monitor) {
         if (!getDataSource().getServerType().supportsDatabaseDescription()) {
             return null;
@@ -269,7 +311,7 @@ public class PostgreDatabase extends JDBCRemoteInstance
         try (JDBCSession session = DBUtils.openUtilSession(monitor, getDataSource(), "Read database description")) {
             description = JDBCUtils.queryString(session, "select description from pg_shdescription "
                     + "join pg_database on objoid = pg_database.oid where datname = ?", getName());
-        } catch (SQLException e) {
+        } catch (Exception e) {
             log.debug("Error reading database description ", e);
         }
         if (description == null) {
@@ -277,6 +319,10 @@ public class PostgreDatabase extends JDBCRemoteInstance
         }
         
         return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     @Override
@@ -381,7 +427,10 @@ public class PostgreDatabase extends JDBCRemoteInstance
     // Infos
 
     @Association
-    public Collection<PostgreRole> getAuthIds(DBRProgressMonitor monitor) throws DBException {
+    public Collection<? extends PostgreRole> getAuthIds(DBRProgressMonitor monitor) throws DBException {
+        if (!getDataSource().supportsRoles()) {
+            return Collections.emptyList();
+        }
         checkInstanceConnection(monitor);
         return roleCache.getAllObjects(monitor, this);
     }
@@ -408,6 +457,12 @@ public class PostgreDatabase extends JDBCRemoteInstance
     public Collection<PostgreLanguage> getLanguages(DBRProgressMonitor monitor) throws DBException {
         checkInstanceConnection(monitor);
         return languageCache.getAllObjects(monitor, this);
+    }
+
+    @Association
+    public Collection<PostgreSetting> getSettings(DBRProgressMonitor monitor) throws DBException {
+        checkInstanceConnection(monitor);
+        return getDataSource().getSettingCache().getAllObjects(monitor, getDataSource());
     }
 
     @Association
@@ -452,21 +507,27 @@ public class PostgreDatabase extends JDBCRemoteInstance
     ///////////////////////////////////////////////
     // Data types
 
+
+
+    @NotNull
     @Override
-    public DBPDataKind resolveDataKind(String typeName, int typeID) {
+    public DBPDataKind resolveDataKind(@NotNull String typeName, int typeID) {
         return dataSource.resolveDataKind(typeName, typeID);
     }
 
     @Override
-    public DBSDataType resolveDataType(DBRProgressMonitor monitor, String typeFullName) throws DBException {
+    public DBSDataType resolveDataType(@NotNull DBRProgressMonitor monitor, @NotNull String typeFullName) throws DBException {
         return dataSource.resolveDataType(monitor, typeFullName);
     }
 
     @Override
     public Collection<PostgreDataType> getLocalDataTypes() {
+        if (!CommonUtils.isEmpty(dataTypeCache)) {
+            return dataTypeCache.values();
+        }
         final PostgreSchema schema = getCatalogSchema();
         if (schema != null) {
-            return schema.dataTypeCache.getCachedObjects();
+            return schema.getDataTypeCache().getCachedObjects();
         }
         return null;
     }
@@ -549,12 +610,79 @@ public class PostgreDatabase extends JDBCRemoteInstance
         if (dataTypeCache.isEmpty() || forceRefresh) {
             dataTypeCache.clear();
             // Cache data types
-            for (final PostgreSchema pgSchema : getSchemas(monitor)) {
-                if (PostgreConstants.CATALOG_SCHEMA_NAME.equals(pgSchema.getName())) {
-                    pgSchema.getDataTypes(monitor);
+
+            PostgreDataSource postgreDataSource = getDataSource();
+            boolean readAllTypes = postgreDataSource.supportReadingAllDataTypes();
+
+            try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Read data types")) {
+                StringBuilder sql = new StringBuilder(256);
+                boolean supportsSysTypColumn = supportsSysTypCategoryColumn(session); // Do not read all array and table types, unless the user has decided otherwise
+                sql.append("SELECT t.oid,t.*,c.relkind,").append(PostgreDataTypeCache.getBaseTypeNameClause(postgreDataSource)).append(", d.description" +
+                        "\nFROM pg_catalog.pg_type t");
+                if (!readAllTypes && supportsSysTypColumn) {
+                    sql.append("\nLEFT OUTER JOIN pg_catalog.pg_type et ON et.oid=t.typelem "); // If typelem is not 0 then it identifies another row in pg_type
                 }
+                sql.append("\nLEFT OUTER JOIN pg_catalog.pg_class c ON c.oid=t.typrelid" +
+                        "\nLEFT OUTER JOIN pg_catalog.pg_description d ON t.oid=d.objoid" +
+                        "\nWHERE t.typname IS NOT NULL");
+                if (!readAllTypes) {
+                    sql.append("\nAND (c.relkind IS NULL OR c.relkind = 'c')");
+                    if (supportsSysTypColumn) {
+                        sql.append(" AND (et.typcategory IS NULL OR et.typcategory <> 'C')");
+                    }
+                }
+
+                try (JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString())) {
+                    try (JDBCResultSet dbResult = dbStat.executeQuery()) {
+                        Set<PostgreSchema> schemaList = new HashSet<>();
+                        while (dbResult.next()) {
+                            PostgreDataType dataType = PostgreDataType.readDataType(session, this, dbResult, !readAllTypes);
+                            if (dataType != null) {
+                                PostgreSchema schema = dataType.getParentObject();
+                                schemaList.add(schema);
+                                schema.getDataTypeCache().cacheObject(dataType);
+                                dataTypeCache.put(dataType.getObjectId(), dataType);
+                            }
+                        }
+                        if (!schemaList.isEmpty()) {
+                            for (PostgreSchema schema : schemaList) {
+                                schema.getDataTypeCache().setFullCache(true);
+                            }
+                        }
+                        PostgreSchema catalogSchema = getCatalogSchema();
+                        if (catalogSchema != null) {
+                            catalogSchema.getDataTypeCache().mapAliases(catalogSchema);
+                        }
+                    }
+                }
+            } catch (SQLException e) {
+                throw new DBException(e, postgreDataSource);
             }
         }
+    }
+
+    // Column "typcategory" appeared only in PG version 8.4 and before we relied on DB version to verify the conditions, but it was not the most universal solution.
+    // So make a separate request to the database for checking.
+    boolean supportsSysTypCategoryColumn(JDBCSession session) {
+        if (supportTypColumn == null) {
+            if (!dataSource.isServerVersionAtLeast(10, 0)) {
+                try {
+                    String resultSet = JDBCUtils.queryString(session, "SELECT 1 FROM pg_catalog.pg_attribute s\n" +
+                        "JOIN pg_catalog.pg_class p ON s.attrelid = p.oid\n" +
+                        "JOIN pg_catalog.pg_namespace n ON p.relnamespace = n.oid\n" +
+                        "WHERE p.relname = 'pg_type'\n" +
+                        "AND n.nspname = 'pg_catalog'\n" +
+                        "AND s.attname = 'typcategory'");
+                    supportTypColumn = resultSet != null;
+                } catch (SQLException e) {
+                    log.debug("Error reading system information from pg_attribute", e);
+                    supportTypColumn = false;
+                }
+            } else {
+                supportTypColumn = true;
+            }
+        }
+        return supportTypColumn;
     }
 
     public PostgreSchema getSchema(DBRProgressMonitor monitor, String name) throws DBException {
@@ -592,8 +720,9 @@ public class PostgreDatabase extends JDBCRemoteInstance
         return getSchema(monitor, childName);
     }
 
+    @NotNull
     @Override
-    public Class<? extends DBSObject> getChildType(@NotNull DBRProgressMonitor monitor) throws DBException {
+    public Class<? extends DBSObject> getPrimaryChildType(@Nullable DBRProgressMonitor monitor) throws DBException {
         return PostgreSchema.class;
     }
 
@@ -605,7 +734,7 @@ public class PostgreDatabase extends JDBCRemoteInstance
     @NotNull
     @Override
     public DBSObjectState getObjectState() {
-        if (this == dataSource.getDefaultInstance()) {
+        if (this == dataSource.getDefaultInstance() || this.isSharedDatabase()) {
             return DBSObjectState.NORMAL;
         } else {
             return PostgreConstants.STATE_UNAVAILABLE;
@@ -619,7 +748,7 @@ public class PostgreDatabase extends JDBCRemoteInstance
 
     @Override
     public DBSObject refreshObject(@NotNull DBRProgressMonitor monitor) throws DBException {
-        if (metaContext == null && executionContext == null) {
+        if (sharedInstance == null && metaContext == null && executionContext == null) {
             // Nothing to refresh
             return this;
         }
@@ -642,7 +771,7 @@ public class PostgreDatabase extends JDBCRemoteInstance
         return this;
     }
 
-    public Collection<PostgreRole> getUsers(DBRProgressMonitor monitor) throws DBException {
+    public Collection<? extends PostgreRole> getUsers(DBRProgressMonitor monitor) throws DBException {
         if (!getDataSource().getServerType().supportsRoles()) {
             return Collections.emptyList();
         }
@@ -685,7 +814,7 @@ public class PostgreDatabase extends JDBCRemoteInstance
             return dataType;
         }
         for (PostgreSchema schema : schemaCache.getCachedObjects()) {
-            dataType = schema.dataTypeCache.getDataType(typeId);
+            dataType = schema.getDataTypeCache().getDataType(typeId);
             if (dataType != null) {
                 dataTypeCache.put(typeId, dataType);
                 return dataType;
@@ -694,7 +823,8 @@ public class PostgreDatabase extends JDBCRemoteInstance
         // Type not found. Let's resolve it
         try {
             dataType = PostgreDataTypeCache.resolveDataType(monitor, this, typeId);
-            dataType.getParentObject().dataTypeCache.cacheObject(dataType);
+            dataType.getParentObject().getDataTypeCache().cacheObject(dataType);
+            dataTypeCache.put(dataType.getObjectId(), dataType);
             return dataType;
         } catch (Exception e) {
             log.debug("Can't resolve data type " + typeId, e);
@@ -711,7 +841,7 @@ public class PostgreDatabase extends JDBCRemoteInstance
             // First check system catalog
             final PostgreSchema schema = getCatalogSchema();
             if (schema != null) {
-                final PostgreDataType dataType = schema.dataTypeCache.getCachedObject(typeName);
+                final PostgreDataType dataType = schema.getDataTypeCache().getCachedObject(typeName);
                 if (dataType != null) {
                     return dataType;
                 }
@@ -719,11 +849,12 @@ public class PostgreDatabase extends JDBCRemoteInstance
         }
 
         // Check schemas in search path
-        List<String> searchPath = getMetaContext().getSearchPath();
+        PostgreExecutionContext metaContext = getMetaContext();
+        List<String> searchPath = metaContext == null ? Collections.singletonList(PostgreConstants.CATALOG_SCHEMA_NAME) : metaContext.getSearchPath();
         for (String schemaName : searchPath) {
             final PostgreSchema schema = schemaCache.getCachedObject(schemaName);
             if (schema != null) {
-                final PostgreDataType dataType = schema.dataTypeCache.getCachedObject(typeName);
+                final PostgreDataType dataType = schema.getDataTypeCache().getCachedObject(typeName);
                 if (dataType != null) {
                     return dataType;
                 }
@@ -734,7 +865,7 @@ public class PostgreDatabase extends JDBCRemoteInstance
             if (searchPath.contains(schema.getName())) {
                 continue;
             }
-            final PostgreDataType dataType = schema.dataTypeCache.getCachedObject(typeName);
+            final PostgreDataType dataType = schema.getDataTypeCache().getCachedObject(typeName);
             if (dataType != null) {
                 return dataType;
             }
@@ -747,12 +878,36 @@ public class PostgreDatabase extends JDBCRemoteInstance
         // Type not found. Let's resolve it
         try {
             PostgreDataType dataType = PostgreDataTypeCache.resolveDataType(monitor, this, typeName);
-            dataType.getParentObject().dataTypeCache.cacheObject(dataType);
+            dataType.getParentObject().getDataTypeCache().cacheObject(dataType);
+            dataTypeCache.put(dataType.getObjectId(), dataType);
             return dataType;
         } catch (Exception e) {
             log.debug("Can't resolve data type '" + typeName + "' in database '" + getName() + "'");
             return null;
         }
+    }
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    // Stats
+
+    @Override
+    public boolean hasStatistics() {
+        return true;
+    }
+
+    @Override
+    public long getStatObjectSize() {
+        return dbTotalSize;
+    }
+
+    public void setDbTotalSize(long dbTotalSize) {
+        this.dbTotalSize = dbTotalSize;
+    }
+
+    @Nullable
+    @Override
+    public DBPPropertySource getStatProperties() {
+        return null;
     }
 
     @Override
@@ -763,14 +918,30 @@ public class PostgreDatabase extends JDBCRemoteInstance
     /////////////////////////////////////////////////////////////////////////////////////
     // Caches
 
-    class RoleCache extends JDBCObjectCache<PostgreDatabase, PostgreRole> {
+    @NotNull
+    protected PostgreDatabaseJDBCObjectCache<? extends PostgreRole> createRoleCache() {
+        return new RoleCache();
+    }
+
+    protected static abstract class PostgreDatabaseJDBCObjectCache<OBJECT extends DBSObject> extends JDBCObjectCache<PostgreDatabase, OBJECT> {
+        boolean handlePermissionDeniedError(Exception e) {
+            if (e instanceof DBException && PostgreConstants.EC_PERMISSION_DENIED.equals(((DBException) e).getDatabaseState())) {
+                log.warn(e);
+                setCache(Collections.emptyList());
+                return true;
+            }
+            return false;
+        }
+    }
+
+    static class RoleCache extends PostgreDatabaseJDBCObjectCache<PostgreRole> {
         @NotNull
         @Override
         protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull PostgreDatabase owner)
             throws SQLException {
             return session.prepareStatement(
                 "SELECT a.oid,a.* FROM pg_catalog.pg_roles a " +
-                    "\nORDER BY a.oid"
+                    "\nORDER BY a.rolname"
             );
         }
 
@@ -784,17 +955,11 @@ public class PostgreDatabase extends JDBCRemoteInstance
         protected boolean handleCacheReadError(Exception error) {
             // #271, #501: in some databases (AWS?) pg_authid is not accessible
             // FIXME: maybe some better workaround?
-            if (error instanceof DBException && PostgreConstants.EC_PERMISSION_DENIED.equals(((DBException) error).getDatabaseState())) {
-                log.warn(error);
-                setCache(Collections.emptyList());
-                return true;
-            }
-            return false;
+            return handlePermissionDeniedError(error);
         }
     }
 
-    class AccessMethodCache extends JDBCObjectCache<PostgreDatabase, PostgreAccessMethod> {
-
+    static class AccessMethodCache extends PostgreDatabaseJDBCObjectCache<PostgreAccessMethod> {
         @NotNull
         @Override
         protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull PostgreDatabase owner)
@@ -812,8 +977,7 @@ public class PostgreDatabase extends JDBCRemoteInstance
         }
     }
 
-    class EncodingCache extends JDBCObjectCache<PostgreDatabase, PostgreCharset> {
-
+    static class EncodingCache extends PostgreDatabaseJDBCObjectCache<PostgreCharset> {
         @NotNull
         @Override
         protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull PostgreDatabase owner)
@@ -833,8 +997,7 @@ public class PostgreDatabase extends JDBCRemoteInstance
         }
     }
 
-    class CollationCache extends JDBCObjectCache<PostgreDatabase, PostgreCollation> {
-
+    static class CollationCache extends PostgreDatabaseJDBCObjectCache<PostgreCollation> {
         @NotNull
         @Override
         protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull PostgreDatabase owner)
@@ -853,8 +1016,7 @@ public class PostgreDatabase extends JDBCRemoteInstance
         }
     }
 
-    class LanguageCache extends JDBCObjectCache<PostgreDatabase, PostgreLanguage> {
-
+    static class LanguageCache extends PostgreDatabaseJDBCObjectCache<PostgreLanguage> {
         @NotNull
         @Override
         protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull PostgreDatabase owner)
@@ -872,8 +1034,7 @@ public class PostgreDatabase extends JDBCRemoteInstance
         }
     }
 
-    class ForeignDataWrapperCache extends JDBCObjectCache<PostgreDatabase, PostgreForeignDataWrapper> {
-
+    static class ForeignDataWrapperCache extends PostgreDatabaseJDBCObjectCache<PostgreForeignDataWrapper> {
         @NotNull
         @Override
         protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull PostgreDatabase owner)
@@ -893,8 +1054,7 @@ public class PostgreDatabase extends JDBCRemoteInstance
         }
     }
 
-    class ForeignServerCache extends JDBCObjectCache<PostgreDatabase, PostgreForeignServer> {
-
+    static class ForeignServerCache extends PostgreDatabaseJDBCObjectCache<PostgreForeignServer> {
         @NotNull
         @Override
         protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull PostgreDatabase owner)
@@ -912,8 +1072,7 @@ public class PostgreDatabase extends JDBCRemoteInstance
         }
     }
 
-    class TablespaceCache extends JDBCObjectCache<PostgreDatabase, PostgreTablespace> {
-
+    static class TablespaceCache extends PostgreDatabaseJDBCObjectCache<PostgreTablespace> {
         @NotNull
         @Override
         protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull PostgreDatabase owner)
@@ -931,10 +1090,14 @@ public class PostgreDatabase extends JDBCRemoteInstance
             throws SQLException, DBException {
             return new PostgreTablespace(owner, dbResult);
         }
+
+        @Override
+        protected boolean handleCacheReadError(Exception error) {
+            return handlePermissionDeniedError(error);
+        }
     }
-    
- class AvailableExtensionCache extends JDBCObjectCache<PostgreDatabase, PostgreAvailableExtension> {
-        
+
+    static class AvailableExtensionCache extends PostgreDatabaseJDBCObjectCache<PostgreAvailableExtension> {
         @NotNull
         @Override
         protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull PostgreDatabase owner)
@@ -951,8 +1114,7 @@ public class PostgreDatabase extends JDBCRemoteInstance
         }
     }
     
-    class ExtensionCache extends JDBCObjectCache<PostgreDatabase, PostgreExtension> {
-
+    static class ExtensionCache extends PostgreDatabaseJDBCObjectCache<PostgreExtension> {
         @NotNull
         @Override
         protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull PostgreDatabase owner)
@@ -961,13 +1123,11 @@ public class PostgreDatabase extends JDBCRemoteInstance
             return session.prepareStatement(
                   "SELECT \n" +
                   " e.oid,\n" +
-                  " a.rolname oname,\n" +
                   " cfg.tbls,\n" +
                   "  n.nspname as schema_name,\n" +
                   " e.* \n" +
                   "FROM \n" +
                   " pg_catalog.pg_extension e \n" +
-                  " join pg_authid a on a.oid = e.extowner\n" +
                   " join pg_namespace n on n.oid =e.extnamespace\n" +
                   " left join  (\n" +
                   "         select\n" +
@@ -1063,7 +1223,7 @@ public class PostgreDatabase extends JDBCRemoteInstance
         public Object[] getPossibleValues(PostgreDatabase object)
         {
             try {
-                Collection<PostgreRole> roles = object.getAuthIds(new VoidProgressMonitor());
+                Collection<? extends PostgreRole> roles = object.getAuthIds(new VoidProgressMonitor());
                 return roles.toArray(new Object[0]);
             } catch (DBException e) {
                 log.error(e);
@@ -1091,5 +1251,4 @@ public class PostgreDatabase extends JDBCRemoteInstance
             }
         }
     }
-
 }

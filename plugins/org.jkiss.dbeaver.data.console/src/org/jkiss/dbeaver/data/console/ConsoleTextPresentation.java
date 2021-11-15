@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.StyleRange;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.custom.StyledTextPrintOptions;
+import org.eclipse.swt.dnd.TextTransfer;
+import org.eclipse.swt.dnd.Transfer;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.graphics.Color;
@@ -39,7 +41,6 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.ScrollBar;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.themes.ITheme;
-import org.eclipse.ui.themes.IThemeManager;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBConstants;
@@ -59,6 +60,7 @@ import org.jkiss.utils.CommonUtils;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Empty presentation.
@@ -123,7 +125,7 @@ public class ConsoleTextPresentation extends AbstractPresentation implements IAd
         findReplaceTarget = new StyledTextFindReplaceTarget(text);
         TextEditorUtils.enableHostEditorKeyBindingsSupport(controller.getSite(), text);
 
-        applyThemeSettings();
+        applyCurrentThemeSettings();
 
         registerContextMenu();
         activateTextKeyBindings(controller, text);
@@ -140,11 +142,9 @@ public class ConsoleTextPresentation extends AbstractPresentation implements IAd
     }
 
     @Override
-    protected void applyThemeSettings() {
-        IThemeManager themeManager = controller.getSite().getWorkbenchWindow().getWorkbench().getThemeManager();
-        curLineColor = themeManager.getCurrentTheme().getColorRegistry().get(ThemeConstants.COLOR_SQL_RESULT_CELL_ODD_BACK);
+    protected void applyThemeSettings(ITheme currentTheme) {
+        curLineColor = currentTheme.getColorRegistry().get(ThemeConstants.COLOR_SQL_RESULT_CELL_ODD_BACK);
 
-        ITheme currentTheme = themeManager.getCurrentTheme();
         Font rsFont = currentTheme.getFontRegistry().get(ThemeConstants.FONT_SQL_RESULT_SET);
         if (rsFont != null) {
             int fontHeight = rsFont.getFontData()[0].getHeight();
@@ -585,10 +585,12 @@ public class ConsoleTextPresentation extends AbstractPresentation implements IAd
         return curAttribute;
     }
 
-    @Nullable
+    @NotNull
     @Override
-    public String copySelectionToString(ResultSetCopySettings settings) {
-        return text.getSelectionText();
+    public Map<Transfer, Object> copySelection(ResultSetCopySettings settings) {
+        return Collections.singletonMap(
+            TextTransfer.getInstance(),
+            text.getSelectionText());
     }
 
     private static PrinterData fgPrinterData= null;

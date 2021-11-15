@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,21 +16,26 @@
  */
 package org.jkiss.dbeaver.model.impl.jdbc;
 
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
 import org.jkiss.utils.CommonUtils;
+import org.jkiss.utils.Pair;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * JDBCUtils
  */
 public class JDBCURL {
 
+    private static final Log log = Log.getLog(JDBCURL.class);
 
     private static final char URL_GROUP_START = '{'; //$NON-NLS-1$
     private static final char URL_GROUP_END = '}'; //$NON-NLS-1$
@@ -38,8 +43,21 @@ public class JDBCURL {
     private static final char URL_OPTIONAL_END = ']'; //$NON-NLS-1$
 
     public static String generateUrlByTemplate(DBPDriver driver, DBPConnectionConfiguration connectionInfo) {
+        String urlTemplate = driver.getSampleURL();
+        return JDBCURL.generateUrlByTemplate(urlTemplate, connectionInfo);
+    }
+
+    public static String generateUrlByTemplate(String urlTemplate, DBPConnectionConfiguration connectionInfo) {
+        if (!CommonUtils.isEmpty(connectionInfo.getUrl()) &&
+            CommonUtils.isEmpty(connectionInfo.getHostPort()) &&
+            CommonUtils.isEmpty(connectionInfo.getHostName()) &&
+            CommonUtils.isEmpty(connectionInfo.getServerName()) &&
+            CommonUtils.isEmpty(connectionInfo.getDatabaseName()))
+        {
+            // No parameters, just URL - so URL it is
+            return connectionInfo.getUrl();
+        }
         try {
-            String urlTemplate = driver.getSampleURL();
             if (CommonUtils.isEmptyTrimmed(urlTemplate)) {
                 return connectionInfo.getUrl();
             }
@@ -159,4 +177,77 @@ public class JDBCURL {
         return metaURL;
     }
 
+    @NotNull
+    public static Pattern getPattern(@NotNull String sampleUrl) {
+        String pattern = sampleUrl;
+        pattern = CommonUtils.replaceAll(pattern, "\\[(.*?)]", m -> "\\\\E(?:\\\\Q" + m.group(1) + "\\\\E)?\\\\Q");
+        pattern = CommonUtils.replaceAll(pattern, "\\{(.*?)}", m -> "\\\\E(\\?<\\\\Q" + m.group(1) + "\\\\E>" + getPropertyRegex(m.group(1)) + ")\\\\Q");
+        pattern = "^\\Q" + pattern + "\\E$";
+        return Pattern.compile(pattern);
+    }
+
+    @Nullable
+    public static DBPConnectionConfiguration extractConfigurationFromUrl(@NotNull String sampleUrl, @NotNull String targetUrl) {
+        final Matcher matcher = getPattern(sampleUrl).matcher(targetUrl);
+        if (!matcher.find()) {
+            return null;
+        }
+        final Map<String, String> properties = getProperties(sampleUrl).stream()
+            .map(x -> new Pair<>(x, matcher.group(x)))
+            .filter(x -> CommonUtils.isNotEmpty(x.getSecond()))
+            .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+        if (properties.isEmpty()) {
+            return null;
+        }
+        final DBPConnectionConfiguration configuration = new DBPConnectionConfiguration();
+        for (Map.Entry<String, String> entry : properties.entrySet()) {
+            switch (entry.getKey()) {
+                case JDBCConstants.PROP_HOST:
+                    configuration.setHostName(entry.getValue());
+                    break;
+                case JDBCConstants.PROP_PORT:
+                    configuration.setHostPort(entry.getValue());
+                    break;
+                case JDBCConstants.PROP_DATABASE:
+                case JDBCConstants.PROP_FOLDER:
+                case JDBCConstants.PROP_FILE:
+                    configuration.setDatabaseName(entry.getValue());
+                    break;
+                case JDBCConstants.PROP_SERVER:
+                    configuration.setServerName(entry.getValue());
+                    break;
+                case JDBCConstants.PROP_USER:
+                    configuration.setUserName(entry.getValue());
+                    break;
+                case JDBCConstants.PROP_PASSWORD:
+                    configuration.setUserPassword(entry.getValue());
+                    break;
+                default:
+                    log.debug("Unknown property: " + entry.getKey());
+                    break;
+            }
+        }
+        return configuration;
+    }
+
+    @NotNull
+    private static String getPropertyRegex(@NotNull String property) {
+        switch (property) {
+            case JDBCConstants.PROP_FOLDER:
+            case JDBCConstants.PROP_FILE:
+                return ".+?";
+            default:
+                return "[\\\\w\\\\-_.~]+";
+        }
+    }
+
+    @NotNull
+    private static List<String> getProperties(@NotNull String sampleUrl) {
+        final Matcher matcher = Pattern.compile("\\{(.*?)}").matcher(sampleUrl);
+        final List<String> properties = new ArrayList<>();
+        while (matcher.find()) {
+            properties.add(matcher.group(1));
+        }
+        return properties;
+    }
 }

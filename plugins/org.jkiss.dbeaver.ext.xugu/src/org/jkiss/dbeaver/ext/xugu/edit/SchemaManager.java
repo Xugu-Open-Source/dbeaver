@@ -172,8 +172,9 @@ public class SchemaManager extends SQLObjectEditor<Schema, DataSource> implement
 	}
 
 	@Override
-	public void renameObject(DBECommandContext commandContext, Schema object, String newName) throws DBException {
-		processObjectRename(commandContext, object, newName);
+	public void renameObject(DBECommandContext commandContext, Schema object, Map<String, Object> options,
+			String newName) throws DBException {
+		processObjectRename(commandContext, object, options, newName);
 		// 在执行完重命名后，修改对象名称（用于前台数据刷新）
 		object.setName(newName);
 	}

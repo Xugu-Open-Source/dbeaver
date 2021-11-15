@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,16 @@
 
 package org.jkiss.dbeaver.ui.app.standalone.rpc;
 
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.net.InetAddress;
 import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
 import java.util.Properties;
 
 /**
@@ -32,7 +36,13 @@ public class InstanceClient {
 
     private static final Log log = Log.getLog(InstanceClient.class);
 
-    public static IInstanceController createClient(String location) {
+    @Nullable
+    public static IInstanceController createClient(@NotNull String location) {
+        return createClient(location, false);
+    }
+
+    @Nullable
+    public static IInstanceController createClient(@NotNull String location, boolean quiet) {
         try {
             File rmiFile = new File(location, ".metadata/" + IInstanceController.RMI_PROP_FILE);
             if (!rmiFile.exists()) {
@@ -43,9 +53,14 @@ public class InstanceClient {
                 props.load(is);
             }
             String rmiPort = props.getProperty("port");
-            return (IInstanceController) LocateRegistry.getRegistry("localhost", Integer.parseInt(rmiPort)).lookup(IInstanceController.CONTROLLER_ID);
+            Registry registry = LocateRegistry.getRegistry(
+                InetAddress.getLoopbackAddress().getHostAddress(),
+                Integer.parseInt(rmiPort));
+            return (IInstanceController) registry.lookup(IInstanceController.CONTROLLER_ID);
         } catch (Exception e) {
-            log.error("Error reading RMI config", e);
+            if (!quiet) {
+                log.debug("Error instantiating RMI client: " + e.getMessage());
+            }
         }
         return null;
     }

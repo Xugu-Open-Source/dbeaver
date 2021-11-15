@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,31 +29,18 @@ import java.sql.ResultSet;
 /**
  * SQLServerTableTrigger
  */
-public class SQLServerTableTrigger extends SQLServerTriggerBase<SQLServerTable>
-{
-
-    public SQLServerTableTrigger(
-        SQLServerTable table,
-        ResultSet dbResult)
-    {
+public class SQLServerTableTrigger extends SQLServerTriggerBase<SQLServerTableBase> {
+    public SQLServerTableTrigger(@NotNull SQLServerTableBase table, ResultSet dbResult) {
         super(table, dbResult);
     }
 
-    public SQLServerTableTrigger(
-        SQLServerTable table,
-        String name)
-    {
+    public SQLServerTableTrigger(@NotNull SQLServerTableBase table, String name) {
         super(table, name);
-    }
-
-    public SQLServerTableTrigger(SQLServerTable table, SQLServerTableTrigger source) {
-        super(table, source);
     }
 
     @Override
     @Property(viewable = true, order = 4)
-    public SQLServerTable getTable()
-    {
+    public SQLServerTableBase getTable() {
         return getParentObject();
     }
 
@@ -73,4 +60,11 @@ public class SQLServerTableTrigger extends SQLServerTriggerBase<SQLServerTable>
         return getTable().getSchema().getTriggerCache().refreshObject(monitor, getSchema(), this);
     }
 
+    public boolean canDisable() {
+        return !isDisabled() && !(getParentObject() instanceof SQLServerView);
+    }
+
+    public boolean canEnable() {
+        return isDisabled() && !(getParentObject() instanceof SQLServerView);
+    }
 }

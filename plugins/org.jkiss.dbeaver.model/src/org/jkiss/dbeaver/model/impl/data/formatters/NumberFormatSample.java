@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,10 +34,10 @@ public class NumberFormatSample implements DBDDataFormatterSample {
     public static final String PROP_ROUNDING_MODE ="roundingMode";
 
     @Override
-    public Map<Object, Object> getDefaultProperties(Locale locale)
+    public Map<String, Object> getDefaultProperties(Locale locale)
     {
         NumberFormat tmp = NumberFormat.getNumberInstance(locale);
-        Map<Object, Object> props = new HashMap<>();
+        Map<String, Object> props = new HashMap<>();
         props.put(PROP_USE_GROUPING, tmp.isGroupingUsed());
         props.put(PROP_MAX_INT_DIGITS, tmp.getMaximumIntegerDigits());
         props.put(PROP_MIN_INT_DIGITS, tmp.getMinimumIntegerDigits());

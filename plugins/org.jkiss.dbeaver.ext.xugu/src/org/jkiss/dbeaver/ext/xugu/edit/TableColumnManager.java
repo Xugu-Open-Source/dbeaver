@@ -81,7 +81,11 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 		final TableColumn column = new TableColumn(parent);
 		column.setName(getNewColumnName(monitor, context, parent));
 		column.setDataType((DataType) columnType);
-		column.setTypeName(columnType == null ? "INTEGER" : columnType.getName());
+		try {
+			column.setTypeName(columnType == null ? "INTEGER" : columnType.getName());
+		} catch (DBException e) {
+			throw new RuntimeException(e);
+		}
 		column.setMaxLength(columnType != null && columnType.getDataKind() == DBPDataKind.STRING ? 100 : 0);
 		column.setValueType(columnType == null ? Types.INTEGER : columnType.getTypeID());
 		column.setOrdinalPosition(-1);
@@ -313,8 +317,9 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 	};
 
 	@Override
-	public void renameObject(DBECommandContext commandContext, TableColumn object, String newName) throws DBException {
-		processObjectRename(commandContext, object, newName);
+	public void renameObject(DBECommandContext commandContext, TableColumn object, Map<String, Object> options,
+			String newName) throws DBException {
+		processObjectRename(commandContext, object, options, newName);
 	}
 
 	@Override

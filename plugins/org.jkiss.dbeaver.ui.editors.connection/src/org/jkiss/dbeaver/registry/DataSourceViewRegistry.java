@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.jkiss.dbeaver.registry;
 import org.eclipse.core.runtime.IConfigurationElement;
 import org.eclipse.core.runtime.IExtensionRegistry;
 import org.eclipse.core.runtime.Platform;
+import org.jkiss.dbeaver.model.connection.DBPDataSourceProviderDescriptor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,9 +52,9 @@ public class DataSourceViewRegistry
         }
     }
 
-    public DataSourceViewDescriptor findView(DataSourceProviderDescriptor provider, String targetID)
+    public DataSourceViewDescriptor findView(DBPDataSourceProviderDescriptor provider, String targetID)
     {
-        for (DataSourceProviderDescriptor pd = provider; pd != null; pd = pd.getParentProvider()) {
+        for (DBPDataSourceProviderDescriptor pd = provider; pd != null; pd = pd.getParentProvider()) {
             for (DataSourceViewDescriptor view : views) {
                 if (view.getDataSources().contains(pd.getId()) && targetID.equals(view.getTargetID())) {
                     return view;
@@ -62,5 +63,18 @@ public class DataSourceViewRegistry
         }
         return null;
     }
-    
+
+    public List<DataSourceViewDescriptor> getViews(DBPDataSourceProviderDescriptor provider, String targetID)
+    {
+        List<DataSourceViewDescriptor> result = new ArrayList<>();
+        for (DBPDataSourceProviderDescriptor pd = provider; pd != null; pd = pd.getParentProvider()) {
+            for (DataSourceViewDescriptor view : views) {
+                if (view.getDataSources().contains(pd.getId()) && targetID.equals(view.getTargetID())) {
+                    result.add(view);
+                }
+            }
+        }
+        return result;
+    }
+
 }

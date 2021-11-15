@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.app.DBPDataSourceRegistry;
-import org.jkiss.dbeaver.model.edit.DBEObjectMaker;
+import org.jkiss.dbeaver.model.edit.DBEObjectManager;
 import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.AbstractJob;
@@ -44,13 +44,15 @@ public class DBNProjectDatabases extends DBNNode implements DBNContainer, DBPEve
     public DBNProjectDatabases(DBNProject parentNode, DBPDataSourceRegistry dataSourceRegistry)
     {
         super(parentNode);
-        this.dataSourceRegistry = getModel().isGlobal() ?
-            dataSourceRegistry :
-            dataSourceRegistry.createCopy(parentNode.getProject(), false);
+        this.dataSourceRegistry = dataSourceRegistry;
         this.dataSourceRegistry.addDataSourceListener(this);
 
         List<? extends DBPDataSourceContainer> projectDataSources = this.dataSourceRegistry.getDataSources();
         for (DBPDataSourceContainer ds : projectDataSources) {
+            if (ds.isTemplate()) {
+                // Skip templates
+                continue;
+            }
             addDataSource(ds, false, false);
         }
     }
@@ -151,9 +153,11 @@ public class DBNProjectDatabases extends DBNNode implements DBNContainer, DBPEve
                     childNodes.add(folderNode);
                 }
             }
-            // Add only root datasources
+            // Add only visible root datasources
             for (DBNDataSource dataSource : dataSources) {
-                if (dataSource == null || dataSource.getDataSourceContainer().getFolder() != null) {
+                if (dataSource == null ||
+                    dataSource.getDataSourceContainer().isHidden() ||
+                    dataSource.getDataSourceContainer().getFolder() != null) {
                     continue;
                 }
                 childNodes.add(dataSource);
@@ -174,7 +178,9 @@ public class DBNProjectDatabases extends DBNNode implements DBNContainer, DBPEve
         Set<DBPDataSourceRegistry> registryToRefresh = new LinkedHashSet<>();
         for (DBNNode node : nodes) {
             if (node instanceof DBNDataSource) {
-                DBPDataSourceContainer oldContainer = ((DBNDataSource) node).getDataSourceContainer();
+                DBNDataSource dataSource = (DBNDataSource) node;
+                //dataSource.moveToFolder(getOwnerProject(), null);
+                DBPDataSourceContainer oldContainer = dataSource.getDataSourceContainer();
                 if (oldContainer.getRegistry() == dataSourceRegistry) {
                     // the same registry
                     continue;
@@ -250,6 +256,9 @@ public class DBNProjectDatabases extends DBNNode implements DBNContainer, DBPEve
     private DBNDataSource addDataSource(@NotNull DBPDataSourceContainer descriptor, boolean reflect, boolean reveal)
     {
         DBNDataSource newNode = new DBNDataSource(this, descriptor);
+        if (!getModel().isNodeVisible(newNode)) {
+            return null;
+        }
         dataSources.add(newNode);
 
         DBPDataSourceFolder dsFolder = descriptor.getFolder();
@@ -296,8 +305,8 @@ public class DBNProjectDatabases extends DBNNode implements DBNContainer, DBPEve
                     addDataSource((DBPDataSourceContainer) event.getObject(), true, event.getEnabled() != null && event.getEnabled());
                 } else if (model.getNodeByObject(event.getObject()) == null) {
                     DBNDatabaseNode parentNode = null;
-                    if (event.getOptions() != null) {
-                        Object containerNode = event.getOptions().get(DBEObjectMaker.OPTION_CONTAINER);
+                    {
+                        Object containerNode = event.getOptions().get(DBEObjectManager.OPTION_CONTAINER);
                         if (containerNode instanceof DBNDatabaseFolder && event.getObject().getClass().getName().equals(((DBNDatabaseFolder) containerNode).getMeta().getType())) {
                             // Use container node only if it a folder with exact object type
                             // Otherwise it may be a wrong node (e.g. grand-parent node)
@@ -392,12 +401,14 @@ public class DBNProjectDatabases extends DBNNode implements DBNContainer, DBPEve
                         nodeChange);
 
                     if (event.getObject() instanceof DBPDataSourceContainer) {
-                        if (enabled != null && !enabled) {
-                            // Clear disabled node
-                            dbmNode.clearNode(false);
+                        if (enabled != null) {
+                            if (!enabled) {
+                                // Clear disabled node
+                                dbmNode.clearNode(false);
+                            }
                         } else {
                             if (event.getAction() == DBPEvent.Action.OBJECT_UPDATE) {
-                                // Force reorder
+                                // Force reorder.
                                 children = null;
                                 getModel().fireNodeEvent(new DBNEvent(this, DBNEvent.Action.UPDATE, this));
                             }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,23 +16,34 @@
  */
 package org.jkiss.dbeaver.tools.transfer.stream;
 
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.data.DBDDataFormatterProfile;
+import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
+import org.jkiss.dbeaver.model.data.json.JSONUtils;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableContext;
+import org.jkiss.dbeaver.model.struct.DBSDataContainer;
+import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
-import org.jkiss.dbeaver.tools.transfer.DTUtils;
-import org.jkiss.dbeaver.tools.transfer.DataTransferSettings;
-import org.jkiss.dbeaver.tools.transfer.IDataTransferSettings;
+import org.jkiss.dbeaver.tools.transfer.*;
 import org.jkiss.dbeaver.tools.transfer.internal.DTMessages;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.StandardConstants;
 
+import java.lang.reflect.InvocationTargetException;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
  * Stream transfer settings
  */
 public class StreamConsumerSettings implements IDataTransferSettings {
+
+    private static final Log log = Log.getLog(StreamConsumerSettings.class);
 
     public enum LobExtractType {
         SKIP,
@@ -49,10 +60,11 @@ public class StreamConsumerSettings implements IDataTransferSettings {
 
     public static final String PROP_EXTRACT_IMAGES = "extractImages";
     public static final String PROP_FILE_EXTENSION = "extension";
-    public static final String PROP_FORMAT = "format";
 
-    private LobExtractType lobExtractType = LobExtractType.SKIP;
-    private LobEncoding lobEncoding = LobEncoding.HEX;
+    private static final String SETTING_VALUE_FORMAT = "valueFormat"; //$NON-NLS-1$
+
+    private LobExtractType lobExtractType = LobExtractType.INLINE;
+    private LobEncoding lobEncoding = LobEncoding.BINARY;
 
     private String outputFolder = System.getProperty(StandardConstants.ENV_USER_HOME);
     private String outputFilePattern = GeneralUtils.variablePattern(StreamTransferConsumer.VARIABLE_TABLE) + "_" + GeneralUtils.variablePattern(StreamTransferConsumer.VARIABLE_TIMESTAMP);
@@ -61,6 +73,8 @@ public class StreamConsumerSettings implements IDataTransferSettings {
     private String outputTimestampPattern = GeneralUtils.DEFAULT_TIMESTAMP_PATTERN;
 
     private DBDDataFormatterProfile formatterProfile;
+    @NotNull
+    private DBDDisplayFormat valueFormat = DBDDisplayFormat.UI;
 
     private boolean outputClipboard = false;
     private boolean useSingleFile = false;
@@ -70,6 +84,7 @@ public class StreamConsumerSettings implements IDataTransferSettings {
     private boolean openFolderOnFinish = true;
     private boolean executeProcessOnFinish = false;
     private String finishProcessCommand = null;
+    private final Map<DBSDataContainer, StreamMappingContainer> dataMappings = new LinkedHashMap<>();
 
     public LobExtractType getLobExtractType() {
         return lobExtractType;
@@ -191,6 +206,20 @@ public class StreamConsumerSettings implements IDataTransferSettings {
         this.finishProcessCommand = finishProcessCommand;
     }
 
+    @NotNull
+    public Map<DBSDataContainer, StreamMappingContainer> getDataMappings() {
+        return dataMappings;
+    }
+
+    @Nullable
+    public StreamMappingContainer getDataMapping(@NotNull DBSDataContainer container) {
+        return dataMappings.get(container);
+    }
+
+    public void addDataMapping(@NotNull StreamMappingContainer container) {
+        dataMappings.put(container.getSource(), container);
+    }
+
     public DBDDataFormatterProfile getFormatterProfile() {
         return formatterProfile;
     }
@@ -201,8 +230,8 @@ public class StreamConsumerSettings implements IDataTransferSettings {
 
     @Override
     public void loadSettings(DBRRunnableContext runnableContext, DataTransferSettings dataTransferSettings, Map<String, Object> settings) {
-        lobExtractType = CommonUtils.valueOf(LobExtractType.class, (String) settings.get("lobExtractType"), LobExtractType.SKIP);
-        lobEncoding = CommonUtils.valueOf(LobEncoding.class, (String) settings.get("lobEncoding"), LobEncoding.HEX);
+        lobExtractType = CommonUtils.valueOf(LobExtractType.class, CommonUtils.toString(settings.get("lobExtractType")), LobExtractType.INLINE);
+        lobEncoding = CommonUtils.valueOf(LobEncoding.class, CommonUtils.toString(settings.get("lobEncoding")), LobEncoding.BINARY);
 
         outputFolder = CommonUtils.toString(settings.get("outputFolder"), outputFolder);
         outputFilePattern = CommonUtils.toString(settings.get("outputFilePattern"), outputFilePattern);
@@ -226,6 +255,39 @@ public class StreamConsumerSettings implements IDataTransferSettings {
         String formatterProfile = CommonUtils.toString(settings.get("formatterProfile"));
         if (!CommonUtils.isEmpty(formatterProfile)) {
             this.formatterProfile = DBWorkbench.getPlatform().getDataFormatterRegistry().getCustomProfile(formatterProfile);
+        }
+        valueFormat = DBDDisplayFormat.safeValueOf(CommonUtils.toString(settings.get(SETTING_VALUE_FORMAT)));
+
+        final Map<String, Object> mappings = JSONUtils.getObjectOrNull(settings, "mappings");
+        if (mappings != null && !mappings.isEmpty()) {
+            try {
+                runnableContext.run(true, true, monitor -> {
+                    final List<DataTransferPipe> pipes = dataTransferSettings.getDataPipes();
+                    for (DataTransferPipe pipe : pipes) {
+                        final IDataTransferProducer<?> producer = pipe.getProducer();
+                        if (producer != null) {
+                            final DBSObject object = producer.getDatabaseObject();
+                            if (object instanceof DBSDataContainer) {
+                                final DBSDataContainer container = (DBSDataContainer) object;
+                                final Map<String, Object> containerSettings = JSONUtils.getObjectOrNull(mappings, DBUtils.getObjectFullId(container));
+                                if (containerSettings != null) {
+                                    final StreamMappingContainer mappingContainer = new StreamMappingContainer(container);
+                                    mappingContainer.loadSettings(monitor, containerSettings);
+                                    addDataMapping(mappingContainer);
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (InvocationTargetException e) {
+                DBWorkbench.getPlatformUI().showError(
+                    DTMessages.stream_transfer_consumer_title_configuration_load_failed,
+                    DTMessages.stream_transfer_consumer_message_cannot_load_configuration,
+                    e
+                );
+            } catch (InterruptedException e) {
+                log.debug("Canceled by user", e);
+            }
         }
     }
 
@@ -254,6 +316,17 @@ public class StreamConsumerSettings implements IDataTransferSettings {
             settings.put("formatterProfile", formatterProfile.getProfileName());
         } else {
             settings.put("formatterProfile", "");
+        }
+        settings.put(SETTING_VALUE_FORMAT, valueFormat.name());
+
+        if (!dataMappings.isEmpty()) {
+            final Map<String, Object> mappings = new LinkedHashMap<>();
+            for (StreamMappingContainer container : dataMappings.values()) {
+                final Map<String, Object> containerSettings = new LinkedHashMap<>();
+                container.saveSettings(containerSettings);
+                mappings.put(DBUtils.getObjectFullId(container.getSource()), containerSettings);
+            }
+            settings.put("mappings", mappings);
         }
     }
 
@@ -286,4 +359,12 @@ public class StreamConsumerSettings implements IDataTransferSettings {
         return summary.toString();
     }
 
+    @NotNull
+    public DBDDisplayFormat getValueFormat() {
+        return valueFormat;
+    }
+
+    public void setValueFormat(@NotNull DBDDisplayFormat valueFormat) {
+        this.valueFormat = valueFormat;
+    }
 }

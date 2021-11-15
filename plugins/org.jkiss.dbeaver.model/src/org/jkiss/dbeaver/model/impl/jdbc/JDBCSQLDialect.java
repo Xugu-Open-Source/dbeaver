@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,13 @@ package org.jkiss.dbeaver.model.impl.jdbc;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPIdentifierCase;
 import org.jkiss.dbeaver.model.DBPKeywordType;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCDatabaseMetaData;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.sql.BasicSQLDialect;
 import org.jkiss.dbeaver.model.sql.SQLConstants;
 import org.jkiss.dbeaver.model.sql.SQLDialect;
@@ -42,6 +44,7 @@ public class JDBCSQLDialect extends BasicSQLDialect {
     private static final Log log = Log.getLog(JDBCSQLDialect.class);
 
     private String name;
+    private String id;
     private String[][] identifierQuoteString = new String[][]{{SQLConstants.DEFAULT_IDENTIFIER_QUOTE, SQLConstants.DEFAULT_IDENTIFIER_QUOTE}};
     private SQLStateType sqlStateType;
     private String searchStringEscape;
@@ -60,11 +63,12 @@ public class JDBCSQLDialect extends BasicSQLDialect {
 
     private transient boolean typesLoaded = false;
 
-    public JDBCSQLDialect(String name) {
+    public JDBCSQLDialect(String name, String id) {
         this.name = name;
+        this.id = id;
     }
 
-    public void initDriverSettings(JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
+    public void initDriverSettings(JDBCSession session, JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
         String singleQuoteStr;
         try {
             singleQuoteStr = metaData.getIdentifierQuoteString();
@@ -201,13 +205,19 @@ public class JDBCSQLDialect extends BasicSQLDialect {
             this.isCatalogAtStart = true;
         }
 
-        loadDriverKeywords(metaData);
+        loadDriverKeywords(session, dataSource, metaData);
     }
 
     @NotNull
     @Override
     public String getDialectName() {
         return name;
+    }
+
+    @NotNull
+    @Override
+    public String getDialectId() {
+        return id;
     }
 
     @Nullable
@@ -260,12 +270,6 @@ public class JDBCSQLDialect extends BasicSQLDialect {
         return sqlStateType;
     }
 
-    @NotNull
-    @Override
-    public String getScriptDelimiter() {
-        return ";"; //$NON-NLS-1$
-    }
-
     @Override
     public boolean validIdentifierPart(char c, boolean quoted) {
         // Some driver return extra characters which must be quoted. We can't know this here.
@@ -277,15 +281,27 @@ public class JDBCSQLDialect extends BasicSQLDialect {
         return supportsUnquotedMixedCase;
     }
 
+    public void setSupportsUnquotedMixedCase(boolean supportsUnquotedMixedCase) {
+        this.supportsUnquotedMixedCase = supportsUnquotedMixedCase;
+    }
+
     @Override
     public boolean supportsQuotedMixedCase() {
         return supportsQuotedMixedCase;
+    }
+
+    protected void setSupportsQuotedMixedCase(boolean supportsQuotedMixedCase) {
+        this.supportsQuotedMixedCase = supportsQuotedMixedCase;
     }
 
     @NotNull
     @Override
     public DBPIdentifierCase storesUnquotedCase() {
         return unquotedIdentCase;
+    }
+
+    protected void setUnquotedIdentCase(@NotNull DBPIdentifierCase unquotedIdentCase) {
+        this.unquotedIdentCase = unquotedIdentCase;
     }
 
     @NotNull
@@ -335,7 +351,7 @@ public class JDBCSQLDialect extends BasicSQLDialect {
         addKeywords(types, DBPKeywordType.TYPE);
     }
 
-    private void loadDriverKeywords(JDBCDatabaseMetaData metaData) {
+    private void loadDriverKeywords(JDBCSession session, JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
         try {
             // Keywords
             Collection<String> sqlKeywords = makeStringList(metaData.getSQLKeywords());
@@ -350,18 +366,7 @@ public class JDBCSQLDialect extends BasicSQLDialect {
         try {
             // Functions
             Set<String> allFunctions = new HashSet<>();
-            for (String func : makeStringList(metaData.getNumericFunctions())) {
-                allFunctions.add(func.toUpperCase());
-            }
-            for (String func : makeStringList(metaData.getStringFunctions())) {
-                allFunctions.add(func.toUpperCase());
-            }
-            for (String func : makeStringList(metaData.getSystemFunctions())) {
-                allFunctions.add(func.toUpperCase());
-            }
-            for (String func : makeStringList(metaData.getTimeDateFunctions())) {
-                allFunctions.add(func.toUpperCase());
-            }
+            loadFunctions(session, metaData, allFunctions);
             // Remove functions which clashes with keywords
             for (Iterator<String> fIter = allFunctions.iterator(); fIter.hasNext(); ) {
                 if (getKeywordType(fIter.next()) == DBPKeywordType.KEYWORD) {
@@ -371,6 +376,21 @@ public class JDBCSQLDialect extends BasicSQLDialect {
             addFunctions(allFunctions);
         } catch (Throwable e) {
             log.debug("Error reading SQL functions: " + e.getMessage());
+        }
+    }
+
+    protected void loadFunctions(JDBCSession session, JDBCDatabaseMetaData metaData, Set<String> allFunctions) throws DBException, SQLException {
+        for (String func : makeStringList(metaData.getNumericFunctions())) {
+            allFunctions.add(func.toUpperCase());
+        }
+        for (String func : makeStringList(metaData.getStringFunctions())) {
+            allFunctions.add(func.toUpperCase());
+        }
+        for (String func : makeStringList(metaData.getSystemFunctions())) {
+            allFunctions.add(func.toUpperCase());
+        }
+        for (String func : makeStringList(metaData.getTimeDateFunctions())) {
+            allFunctions.add(func.toUpperCase());
         }
     }
 

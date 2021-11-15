@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,11 @@ public abstract class AbstractDataSourceInfo implements DBPDataSourceInfo
     @Override
     public boolean supportsTransactions() {
         return false;
+    }
+
+    @Override
+    public boolean supportsTransactionsForDDL() {
+        return supportsTransactions();
     }
 
     @Override
@@ -74,6 +79,11 @@ public abstract class AbstractDataSourceInfo implements DBPDataSourceInfo
     }
 
     @Override
+    public boolean supportsNullableUniqueConstraints() {
+        return false;
+    }
+
+    @Override
     public boolean isDynamicMetadata() {
         return false;
     }
@@ -108,6 +118,11 @@ public abstract class AbstractDataSourceInfo implements DBPDataSourceInfo
     @Override
     public DBSObjectType[] getSupportedObjectTypes() {
         return new DBSObjectType[0];
+    }
+
+    @Override
+    public boolean needsTableMetaForColumnResolution() {
+        return false;
     }
 
     @Override

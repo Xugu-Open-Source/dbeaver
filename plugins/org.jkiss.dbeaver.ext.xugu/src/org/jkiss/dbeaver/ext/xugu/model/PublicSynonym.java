@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 import org.jkiss.code.NotNull;
@@ -228,7 +229,7 @@ public class PublicSynonym  extends BaseObject<DBSObject> implements DBSEntity, 
 
 
 	@Override
-	public Collection<? extends DBSEntityAttribute> getAttributes(DBRProgressMonitor monitor) throws DBException {
+	public List<? extends DBSEntityAttribute> getAttributes(DBRProgressMonitor monitor) throws DBException {
 		// TODO Auto-generated method stub
 		return null;
 	}

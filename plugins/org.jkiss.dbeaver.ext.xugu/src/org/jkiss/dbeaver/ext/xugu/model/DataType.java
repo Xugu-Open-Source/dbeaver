@@ -46,6 +46,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -320,7 +321,7 @@ public class DataType extends BaseObject<DBSObject>
 
 	@Override
 	@Association
-	public Collection<DataTypeAttribute> getAttributes(@NotNull DBRProgressMonitor monitor) throws DBException {
+	public List<? extends DBSEntityAttribute> getAttributes(@NotNull DBRProgressMonitor monitor) throws DBException {
 		// TODO 获取属性集
 		return null;
 	}
@@ -484,6 +485,11 @@ public class DataType extends BaseObject<DBSObject>
 				@NotNull JDBCResultSet resultSet) throws SQLException, DBException {
 			return new DataTypeMethod(session.getProgressMonitor(), DataType.this, resultSet);
 		}
+	}
+
+	@Override
+	public long getTypeModifiers() {
+		return 0;
 	}
 
 }

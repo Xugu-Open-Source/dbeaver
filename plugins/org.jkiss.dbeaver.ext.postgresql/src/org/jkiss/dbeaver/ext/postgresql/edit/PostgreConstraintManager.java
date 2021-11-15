@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  */
 package org.jkiss.dbeaver.ext.postgresql.edit;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreTableBase;
@@ -27,6 +28,7 @@ import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPScriptObject;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
+import org.jkiss.dbeaver.model.edit.DBEObjectRenamer;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.impl.edit.DBECommandAbstract;
@@ -45,13 +47,18 @@ import java.util.Map;
 /**
  * Postgre constraint manager
  */
-public class PostgreConstraintManager extends SQLConstraintManager<PostgreTableConstraintBase, PostgreTableBase> {
+public class PostgreConstraintManager extends SQLConstraintManager<PostgreTableConstraintBase, PostgreTableBase> implements DBEObjectRenamer<PostgreTableConstraintBase> {
+
+    @Override
+    public boolean canRenameObject(PostgreTableConstraintBase object) {
+        return object.getDataSource().getServerType().supportsKeyAndIndexRename();
+    }
 
     @Nullable
     @Override
     public DBSObjectCache<PostgreTableContainer, PostgreTableConstraintBase> getObjectsCache(PostgreTableConstraintBase object)
     {
-        return object.getTable().getContainer().getSchema().constraintCache;
+        return object.getTable().getContainer().getSchema().getConstraintCache();
     }
 
     @Override
@@ -110,4 +117,19 @@ public class PostgreConstraintManager extends SQLConstraintManager<PostgreTableC
         return "ALTER TABLE " + PATTERN_ITEM_TABLE + " DROP CONSTRAINT " + PATTERN_ITEM_CONSTRAINT; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
     }
 
+    @Override
+    public void renameObject(@NotNull DBECommandContext commandContext, @NotNull PostgreTableConstraintBase object, @NotNull Map<String, Object> options, @NotNull String newName) throws DBException {
+        processObjectRename(commandContext, object, options, newName);
+    }
+
+    @Override
+    protected void addObjectRenameActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, List<DBEPersistAction> actions, ObjectRenameCommand command, Map<String, Object> options) {
+        PostgreTableConstraintBase constraint = command.getObject();
+        actions.add(
+                new SQLDatabasePersistAction(
+                        "Rename constraint",
+                        "ALTER TABLE " + constraint.getTable().getFullyQualifiedName(DBPEvaluationContext.DDL) + //$NON-NLS-1$
+                                " RENAME CONSTRAINT " + DBUtils.getQuotedIdentifier(constraint) + " TO " + DBUtils.getQuotedIdentifier(constraint.getDataSource(), command.getNewName())) //$NON-NLS-1$
+        );
+    }
 }

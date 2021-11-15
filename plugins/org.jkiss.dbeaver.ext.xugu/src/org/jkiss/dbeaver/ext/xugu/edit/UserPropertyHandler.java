@@ -32,7 +32,7 @@ public enum UserPropertyHandler implements DBEPropertyHandler<User>, DBEProperty
 	SUB_TARGET_OBJECT, MAX_QUERIES, MAX_UPDATES, MAX_CONNECTIONS, MAX_USER_CONNECTIONS;
 
 	@Override
-	public Object getId() {
+	public String getId() {
 		return name();
 	}
 

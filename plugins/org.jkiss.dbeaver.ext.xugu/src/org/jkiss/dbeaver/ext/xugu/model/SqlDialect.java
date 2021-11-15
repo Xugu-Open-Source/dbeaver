@@ -24,6 +24,7 @@ import org.jkiss.dbeaver.model.DBPDataKind;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.data.DBDBinaryFormatter;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCDatabaseMetaData;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSource;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCSQLDialect;
 import org.jkiss.dbeaver.model.impl.sql.BasicSQLDialect;
@@ -63,12 +64,12 @@ class SqlDialect extends JDBCSQLDialect {
 	private DBPPreferenceStore preferenceStore;
 
 	public SqlDialect() {
-		super(OemConfig.OEM_NAME_EN);
+		super(OemConfig.OEM_NAME_EN, OemConfig.OEM_NAME_EN_LOWER);
 	}
 
 	@Override
-	public void initDriverSettings(JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
-		super.initDriverSettings(dataSource, metaData);
+    public void initDriverSettings(JDBCSession session, JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
+        super.initDriverSettings(session, dataSource, metaData);
 		crlfBroken = !dataSource.isServerVersionAtLeast(11, 0);
 		preferenceStore = dataSource.getContainer().getPreferenceStore();
 
@@ -234,12 +235,6 @@ class SqlDialect extends JDBCSQLDialect {
 		return ret;
 	}
 
-	@NotNull
-	@Override
-	public MultiValueInsertMode getMultiValueInsertMode() {
-		return MultiValueInsertMode.GROUP_ROWS;
-	}
-
 	@Override
 	public boolean supportsAliasInSelect() {
 		return true;
@@ -289,10 +284,11 @@ class SqlDialect extends JDBCSQLDialect {
 		return preferenceStore.getBoolean(Constants.PREF_DISABLE_SCRIPT_ESCAPE_PROCESSING);
 	}
 
-	@Override
-	public String getScriptDelimiter() {
-		return super.getScriptDelimiter();
-	}
+    @NotNull
+    @Override
+    public String[] getScriptDelimiters() {
+        return super.getScriptDelimiters();
+    }
 
 	@Override
 	public boolean isCRLFBroken() {

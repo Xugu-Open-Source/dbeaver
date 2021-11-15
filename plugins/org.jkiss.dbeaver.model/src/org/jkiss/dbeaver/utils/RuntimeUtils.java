@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,18 +38,35 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 /**
  * RuntimeUtils
  */
-public class RuntimeUtils {
+public final class RuntimeUtils {
     private static final Log log = Log.getLog(RuntimeUtils.class);
 
-    @SuppressWarnings("unchecked")
+    private static final boolean IS_WINDOWS = Platform.getOS().equals(Platform.OS_WIN32);
+    private static final boolean IS_MACOS = Platform.getOS().equals(Platform.OS_MACOSX);
+    private static final boolean IS_LINUX = Platform.getOS().equals(Platform.OS_LINUX);
+
+    private RuntimeUtils() {
+        //intentionally left blank
+    }
+
     public static <T> T getObjectAdapter(Object adapter, Class<T> objectType) {
         return Platform.getAdapterManager().getAdapter(adapter, objectType);
+    }
+
+    public static <T> T getObjectAdapter(Object adapter, Class<T> objectType, boolean force) {
+        IAdapterManager adapterManager = Platform.getAdapterManager();
+        if (force) {
+            adapterManager.loadAdapter(adapter, objectType.getName());
+        }
+        return adapterManager.getAdapter(adapter, objectType);
     }
 
     public static DBRProgressMonitor makeMonitor(IProgressMonitor monitor) {
@@ -108,7 +125,7 @@ public class RuntimeUtils {
     }
 
     public static String getNativeBinaryName(String binName) {
-        return GeneralUtils.isWindows() ? binName + ".exe" : binName;
+        return isWindows() ? binName + ".exe" : binName;
     }
 
     public static File getNativeClientBinary(@NotNull DBPNativeClientLocation home, @Nullable String binFolder, @NotNull String binName) throws IOException {
@@ -150,7 +167,7 @@ public class RuntimeUtils {
         try {
             Thread.sleep(ms);
         } catch (InterruptedException e) {
-            log.warn("Sleep interrupted", e);
+            log.debug("Sleep interrupted", e);
         }
     }
 
@@ -200,13 +217,17 @@ public class RuntimeUtils {
 
             @Override
             protected IStatus run(DBRProgressMonitor monitor) {
+                monitor.beginTask(getName(), 1);
                 try {
+                    monitor.subTask("Execute task");
                     monitoringTask.run(monitor);
                 } catch (InvocationTargetException e) {
                     log.error(getName() + " - error", e.getTargetException());
                     return Status.OK_STATUS;
                 } catch (InterruptedException e) {
                     // do nothing
+                } finally {
+                    monitor.done();
                 }
                 return Status.OK_STATUS;
             }
@@ -221,8 +242,9 @@ public class RuntimeUtils {
                 break;
             }
             try {
-                Thread.sleep(50);
-                DBWorkbench.getPlatformUI().readAndDispatchEvents();
+                if (!DBWorkbench.getPlatformUI().readAndDispatchEvents()) {
+                    Thread.sleep(50);
+                }
             } catch (InterruptedException e) {
                 log.debug("Task '" + taskName + "' was interrupted");
                 break;
@@ -272,16 +294,104 @@ public class RuntimeUtils {
         }
     }
 
-    public static boolean isPlatformMacOS() {
-        return Platform.getOS().toLowerCase().contains("macos");
+    public static boolean isWindows() {
+        return IS_WINDOWS;
     }
 
-    public static boolean isPlatformWindows() {
-        return Platform.getOS().toLowerCase().contains("win32");
+    public static boolean isMacOS() {
+        return IS_MACOS;
+    }
+
+    public static boolean isLinux() {
+        return IS_LINUX;
     }
 
     public static void setThreadName(String name) {
         Thread.currentThread().setName("DBeaver: " + name);
+    }
+
+    /**
+     * Splits command line string into a list of separate arguments,
+     * respecting quoted strings and escaped characters, similar to
+     * how terminals do that.
+     *
+     * @param input            input string to be split
+     * @param escapesSupported whether escapes using {@code \} are supported or not
+     * @return a list of separate, unquoted arguments
+     */
+    @NotNull
+    public static List<String> splitCommandLine(@NotNull String input, boolean escapesSupported) {
+        final List<String> arguments = new ArrayList<>();
+        final StringBuilder argument = new StringBuilder();
+        CommandLineState state = CommandLineState.NONE;
+        boolean escaped = false;
+
+        for (int index = 0; index < input.length(); index++) {
+            final char ch = input.charAt(index);
+            final char quote = state == CommandLineState.SINGLE_QUOTE ? '\'' : '"';
+
+            if (escaped) {
+                argument.append(ch);
+                escaped = false;
+                continue;
+            }
+
+            switch (state) {
+                case NONE:
+                case NORMAL:
+                    if (ch == '\'') {
+                        state = CommandLineState.SINGLE_QUOTE;
+                    } else if (ch == '"') {
+                        state = CommandLineState.DOUBLE_QUOTE;
+                    } else {
+                        if (ch == '\\' && escapesSupported) {
+                            escaped = true;
+                            state = CommandLineState.NORMAL;
+                        } else if (!Character.isWhitespace(ch)) {
+                            argument.append(ch);
+                            state = CommandLineState.NORMAL;
+                        } else if (state == CommandLineState.NORMAL) {
+                            arguments.add(argument.toString());
+                            argument.setLength(0);
+                            state = CommandLineState.NONE;
+                        }
+                    }
+                    break;
+                case SINGLE_QUOTE:
+                case DOUBLE_QUOTE:
+                    if (ch == '\\' && escapesSupported) {
+                        final char next = input.charAt(++index);
+                        if (next != quote && next != '\\') {
+                            argument.append(ch);
+                        }
+                        argument.append(next);
+                    } else if (ch == quote) {
+                        state = CommandLineState.NORMAL;
+                        break;
+                    } else {
+                        argument.append(ch);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        if (escaped) {
+            argument.append('\\');
+            arguments.add(argument.toString());
+        } else if (state != CommandLineState.NONE) {
+            arguments.add(argument.toString());
+        }
+
+        return arguments;
+    }
+
+    private enum CommandLineState {
+        NONE,
+        NORMAL,
+        SINGLE_QUOTE,
+        DOUBLE_QUOTE
     }
 
     private static class MonitoringTask implements DBRRunnableWithProgress {
@@ -303,10 +413,8 @@ public class RuntimeUtils {
             try {
                 task.run(monitor);
             } finally {
-                monitor.done();
                 finished = true;
             }
         }
     }
-
 }

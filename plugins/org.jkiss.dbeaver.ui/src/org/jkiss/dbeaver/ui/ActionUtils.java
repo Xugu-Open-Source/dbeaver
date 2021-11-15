@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -238,17 +238,23 @@ public class ActionUtils
         IBindingService bindingService = serviceLocator.getService(IBindingService.class);
         if (bindingService != null) {
             TriggerSequence sequence = null;
-            for (Binding b : bindingService.getBindings()) {
-                ParameterizedCommand parameterizedCommand = b.getParameterizedCommand();
-                if (parameterizedCommand != null && commandId.equals(parameterizedCommand.getId())) {
-                    if (paramName != null) {
-                        Object cmdParamValue = parameterizedCommand.getParameterMap().get(paramName);
-                        if (!CommonUtils.equalObjects(cmdParamValue, paramValue)) {
-                            continue;
+            Binding[] bindings = bindingService.getBindings();
+            if (bindings != null) {
+                for (Binding b : bindings) {
+                    ParameterizedCommand parameterizedCommand = b.getParameterizedCommand();
+                    if (parameterizedCommand != null && commandId.equals(parameterizedCommand.getId())) {
+                        if (paramName != null) {
+                            Object cmdParamValue = parameterizedCommand.getParameterMap().get(paramName);
+                            if (!CommonUtils.equalObjects(cmdParamValue, paramValue)) {
+                                continue;
+                            }
+                        }
+                        sequence = b.getTriggerSequence();
+                        if (b.getType() == Binding.USER) {
+                            // Prefer user-defined binding over default (system)
+                            break;
                         }
                     }
-                    sequence = b.getTriggerSequence();
-                    break;
                 }
             }
             if (sequence == null) {
@@ -268,6 +274,18 @@ public class ActionUtils
             return shortcut;
         }
         return commandName + " (" + shortcut + ")";
+    }
+
+    @Nullable
+    public static Command findCommand(@NotNull String commandId) {
+        final ICommandService commandService = PlatformUI.getWorkbench().getService(ICommandService.class);
+        if (commandService != null) {
+            final Command command = commandService.getCommand(commandId);
+            if (command != null && command.isDefined()) {
+                return command;
+            }
+        }
+        return null;
     }
 
     public static void runCommand(String commandId, IServiceLocator serviceLocator)
@@ -291,7 +309,7 @@ public class ActionUtils
                     boolean needContextPatch = false;
                     if (selection != null) {
                         needContextPatch = true;
-                        if (serviceLocator instanceof IWorkbenchSite) {
+                        if (serviceLocator instanceof IWorkbenchPartSite) {
                             final ISelection curSelection = ((IWorkbenchSite) serviceLocator).getSelectionProvider().getSelection();
                             if (curSelection instanceof IStructuredSelection && selection instanceof IStructuredSelection) {
                                 if (((IStructuredSelection) curSelection).size() == ((IStructuredSelection) selection).size() &&
@@ -398,12 +416,16 @@ public class ActionUtils
         }
     }
 
-    public static void fireCommandRefresh(final String commandID)
+    public static void fireCommandRefresh(final String ... commandIDs)
     {
         // Update commands
         final ICommandService commandService = PlatformUI.getWorkbench().getService(ICommandService.class);
         if (commandService != null) {
-            UIUtils.asyncExec(() -> commandService.refreshElements(commandID, null));
+            UIUtils.asyncExec(() -> {
+                for (String commandID : commandIDs) {
+                    commandService.refreshElements(commandID, null);
+                }
+            });
         }
     }
 }

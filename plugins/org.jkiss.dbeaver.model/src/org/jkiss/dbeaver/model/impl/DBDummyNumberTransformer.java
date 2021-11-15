@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import org.jkiss.dbeaver.model.meta.IPropertyValueTransformer;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 
 /**
- * Shows numeric value if it is not zero and not MAX_VALUE
+ * Shows numeric value if it is greater than zero and not MAX_VALUE
  */
 public class DBDummyNumberTransformer implements IPropertyValueTransformer<DBSObject, Number> {
 
@@ -30,11 +30,11 @@ public class DBDummyNumberTransformer implements IPropertyValueTransformer<DBSOb
         if (value == null) {
             return null;
         }
-        if (value instanceof Double && (value.doubleValue() == 0.0 || value.doubleValue() == Double.MAX_VALUE)) {
+        if (value instanceof Double && (value.doubleValue() <= 0.0 || value.doubleValue() == Double.MAX_VALUE)) {
             return null;
-        } else if (value instanceof Float && (value.floatValue() == 0.0 || value.floatValue() == Float.MAX_VALUE)) {
+        } else if (value instanceof Float && (value.floatValue() <= 0.0 || value.floatValue() == Float.MAX_VALUE)) {
             return null;
-        } else if ((value.longValue() == 0 || value.longValue() == Long.MAX_VALUE || value.longValue() == Integer.MAX_VALUE)) {
+        } else if ((value.longValue() <= 0 || value.longValue() == Long.MAX_VALUE || value.longValue() == Integer.MAX_VALUE)) {
             return null;
         }
 

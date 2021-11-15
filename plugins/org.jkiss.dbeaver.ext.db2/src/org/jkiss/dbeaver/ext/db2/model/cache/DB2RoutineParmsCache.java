@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2013-2015 Denis Forveille (titou10.titou10@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ public class DB2RoutineParmsCache extends JDBCObjectCache<DB2Routine, DB2Routine
     {
         JDBCPreparedStatement dbStat = session.prepareStatement(SQL);
         dbStat.setString(1, db2Routine.getSchema().getName());
-        dbStat.setString(2, db2Routine.getUniqueName());
+        dbStat.setString(2, db2Routine.getSpecificName());
         return dbStat;
     }
 

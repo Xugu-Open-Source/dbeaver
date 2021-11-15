@@ -49,6 +49,8 @@ import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.rdb.DBSTrigger;
+
 import com.xugu.metadata.*;
 import com.xugu.parser.Parsing;
 import com.xugu.parser.Parsing.TableType;
@@ -517,7 +519,7 @@ public class Utils {
 			Collection<Sequence> seqList = null;
 			Collection<Package> pacList = null;
 			Collection<ProcedureStandalone> procList = null;
-			Collection<Trigger> triList = null;
+			Collection<? extends DBSTrigger> triList = null;
 			List<TableColumn> colList = null;
 			switch (type) {
 			case "TABLE":
@@ -606,8 +608,8 @@ public class Utils {
 			}
 			if (triList != null && triList.size() > 0) {
 				String res = "";
-				Iterator<Trigger> it = triList.iterator();
-				Trigger trigger = it.next();
+				Iterator<? extends DBSTrigger> it = triList.iterator();
+				Trigger trigger = (Trigger) it.next();
 				while (it.hasNext()) {
 					res += trigger.getTable().getName() + "." + trigger.getName() + ",";
 				}

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,6 +66,10 @@ public class PostgreRolePrivilege extends PostgrePrivilege {
         return kind;
     }
 
+    public void setKind(PostgrePrivilegeGrant.Kind kind) {
+        this.kind = kind;
+    }
+
     public String getSchemaName() {
         return schemaName;
     }
@@ -77,7 +81,8 @@ public class PostgreRolePrivilege extends PostgrePrivilege {
     public String getFullObjectName() {
         return DBUtils.getQuotedIdentifier(getDataSource(), schemaName) +
             (kind == PostgrePrivilegeGrant.Kind.SCHEMA ? "" :
-                ("." + (kind == PostgrePrivilegeGrant.Kind.FUNCTION ? objectName : DBUtils.getQuotedIdentifier(getDataSource(), objectName))));
+                ("." + (kind == PostgrePrivilegeGrant.Kind.FUNCTION || kind == PostgrePrivilegeGrant.Kind.PROCEDURE ? objectName :
+                        DBUtils.getQuotedIdentifier(getDataSource(), objectName))));
     }
 
     @Override

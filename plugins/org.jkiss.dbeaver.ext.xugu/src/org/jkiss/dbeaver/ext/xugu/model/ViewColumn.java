@@ -71,9 +71,6 @@ public class ViewColumn extends TableColumn {
 				this.maxLength = this.precision;
 			} else if (typeChar.equals(this.typeName) || typeVarchar.equals(this.typeName)) {
 				this.precision = JDBCUtils.safeGetInt(dbResult, "SCALE");
-				if (precision <= 0) {
-					this.precision = null;
-				}
 				this.scale = null;
 			} else if (this.typeName.matches(typeIntervalRegex)) {
 				this.scale = JDBCUtils.safeGetInt(dbResult, "SCALE") % 65536;
@@ -95,7 +92,7 @@ public class ViewColumn extends TableColumn {
 			setPrecision(this.precision);
 		} else {
 			setScale(this.scale == null || this.scale == 0 ? null : this.scale);
-			setPrecision(this.precision == null || this.precision == 0 ? null : this.precision);
+			setPrecision(this.precision);
 		}
 	}
 

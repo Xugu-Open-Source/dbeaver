@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.impl.edit.DBECommandAbstract;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSObject;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -35,14 +36,16 @@ import java.util.Map;
  */
 public class PostgreCommandGrantPrivilege extends DBECommandAbstract<PostgrePrivilegeOwner> {
 
-    private boolean grant;
-    private PostgrePrivilege permission;
-    private PostgrePrivilegeType[] privilege;
+    private final boolean grant;
+    private final PostgrePrivilege permission;
+    private final PostgrePrivilegeType[] privilege;
+    private final DBSObject privilegeOwner;
 
-    public PostgreCommandGrantPrivilege(PostgrePrivilegeOwner user, boolean grant, PostgrePrivilege permission, PostgrePrivilegeType[] privilege)
+    public PostgreCommandGrantPrivilege(PostgrePrivilegeOwner user, boolean grant, DBSObject privilegeOwner, PostgrePrivilege permission, PostgrePrivilegeType[] privilege)
     {
         super(user, grant ? "Grant" : "Revoke");
         this.grant = grant;
+        this.privilegeOwner = privilegeOwner;
         this.permission = permission;
         this.privilege = privilege;
     }
@@ -75,10 +78,18 @@ public class PostgreCommandGrantPrivilege extends DBECommandAbstract<PostgrePriv
         String objectName, roleName;
         if (object instanceof PostgreRole) {
             roleName = DBUtils.getQuotedIdentifier(object);
-            objectName = ((PostgreRolePrivilege)permission).getFullObjectName();
+            if (privilegeOwner instanceof PostgreProcedure) {
+                objectName = ((PostgreProcedure) privilegeOwner).getFullQualifiedSignature();
+            } else {
+                objectName = ((PostgreRolePrivilege) permission).getFullObjectName();
+            }
         } else {
             PostgreObjectPrivilege permission = (PostgreObjectPrivilege) this.permission;
-            roleName = permission.getGrantee() == null ? null : DBUtils.getQuotedIdentifier(object.getDataSource(), permission.getGrantee());
+            if (permission.getGrantee() != null) {
+                roleName = permission.getGrantee();
+            } else {
+                roleName = "";
+            }
             objectName = PostgreUtils.getObjectUniqueName(object);
         }
         if (roleName == null) {
@@ -87,6 +98,11 @@ public class PostgreCommandGrantPrivilege extends DBECommandAbstract<PostgrePriv
 
         String objectType;
         if (permission instanceof PostgreRolePrivilege) {
+            if (privilegeOwner instanceof PostgreProcedure) {
+                if (((PostgreProcedure) privilegeOwner).getKind() == PostgreProcedureKind.p) {
+                    ((PostgreRolePrivilege) permission).setKind(PostgrePrivilegeGrant.Kind.PROCEDURE);
+                }
+            }
             objectType = ((PostgreRolePrivilege) permission).getKind().name();
         } else {
             objectType = PostgreUtils.getObjectTypeName(object);
@@ -100,7 +116,9 @@ public class PostgreCommandGrantPrivilege extends DBECommandAbstract<PostgrePriv
             grantedTypedObject = objectType + " " + objectName;
         }
 
-        String grantScript = (grant ? "GRANT " : "REVOKE ") + privName + grantedCols + " ON " + grantedTypedObject + (grant ? " TO " : " FROM ") + roleName;
+        String grantScript = (grant ? "GRANT " : "REVOKE ") + privName + grantedCols +
+            " ON " + grantedTypedObject +
+            (grant ? " TO " : " FROM ") + roleName;
         if (grant && withGrantOption) {
             grantScript += " WITH GRANT OPTION";
         }

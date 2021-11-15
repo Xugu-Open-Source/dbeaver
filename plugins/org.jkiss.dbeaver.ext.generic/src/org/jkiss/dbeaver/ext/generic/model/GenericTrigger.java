@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTrigger;
@@ -27,21 +28,18 @@ import org.jkiss.dbeaver.model.struct.rdb.DBSTrigger;
 import java.util.Map;
 
 /**
- * GenericProcedure
+ * GenericTrigger
  */
-public class GenericTrigger implements DBSTrigger, GenericScriptObject
+public abstract class GenericTrigger<OWNER extends DBSObject> implements DBSTrigger, GenericScriptObject
 {
     @NotNull
-    private final GenericStructContainer container;
-    @Nullable
-    private final GenericTableBase table;
+    private final OWNER container;
     private String name;
     private String description;
     protected String source;
 
-    public GenericTrigger(@NotNull GenericStructContainer container, @Nullable GenericTableBase table, String name, String description) {
+    public GenericTrigger(@NotNull OWNER container, String name, String description) {
         this.container = container;
-        this.table = table;
         this.name = name;
         this.description = description;
     }
@@ -55,7 +53,7 @@ public class GenericTrigger implements DBSTrigger, GenericScriptObject
 
     @Nullable
     @Override
-    @Property(viewable = true, multiline = true, order = 100)
+    @Property(viewable = true, length = PropertyLength.MULTILINE, order = 100)
     public String getDescription()
     {
         return description;
@@ -72,30 +70,22 @@ public class GenericTrigger implements DBSTrigger, GenericScriptObject
         return true;
     }
 
-    @Nullable
-    @Override
-    @Property(viewable = true, order = 4)
-    public GenericTableBase getTable()
-    {
-        return table;
-    }
-
     @NotNull
-    public GenericStructContainer getContainer() {
+    public OWNER getContainer() {
         return container;
     }
 
     @Override
-    public DBSObject getParentObject()
+    public OWNER getParentObject()
     {
-        return table == null ? container : table;
+        return container;
     }
 
     @NotNull
     @Override
     public GenericDataSource getDataSource()
     {
-        return container.getDataSource();
+        return (GenericDataSource) container.getDataSource();
     }
 
     @Override

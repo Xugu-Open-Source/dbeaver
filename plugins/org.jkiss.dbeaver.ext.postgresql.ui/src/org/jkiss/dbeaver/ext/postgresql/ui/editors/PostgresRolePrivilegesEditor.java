@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.access.DBAUser;
 import org.jkiss.dbeaver.model.edit.DBECommandReflector;
 import org.jkiss.dbeaver.model.navigator.*;
+import org.jkiss.dbeaver.model.navigator.meta.DBXTreeFolder;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.load.DatabaseLoadService;
@@ -130,18 +131,14 @@ public class PostgresRolePrivilegesEditor extends AbstractDatabaseObjectEditor<P
                     return false;
                 }
                 if (element instanceof DBNDatabaseFolder) {
-                    try {
-                        String elementTypeName = ((DBNDatabaseFolder) element).getMeta().getType();
-                        if (elementTypeName == null) {
-                            return false;
-                        }
-                        Class<?> childType = Class.forName(elementTypeName);
-                        return PostgreTableReal.class.isAssignableFrom(childType) ||
-                            PostgreSequence.class.isAssignableFrom(childType) ||
-                            PostgreProcedure.class.isAssignableFrom(childType);
-                    } catch (ClassNotFoundException e) {
+                    final DBXTreeFolder meta = ((DBNDatabaseFolder) element).getMeta();
+                    final Class<?> childType = meta.getSource().getObjectClass(meta.getType());
+                    if (childType == null) {
                         return false;
                     }
+                    return PostgreTableReal.class.isAssignableFrom(childType) ||
+                        PostgreSequence.class.isAssignableFrom(childType) ||
+                        PostgreProcedure.class.isAssignableFrom(childType);
                 }
                 return true;
             }
@@ -174,7 +171,7 @@ public class PostgresRolePrivilegesEditor extends AbstractDatabaseObjectEditor<P
             });
 
             if (!isRoleEditor()) {
-                for (PostgrePrivilegeType pt : PostgrePrivilegeType.values()) {
+                for (PostgrePrivilegeType pt : getDatabaseObject().getDataSource().getSupportedPrivilegeTypes()) {
                     if (!pt.isValid() || !pt.supportsType(getDatabaseObject().getClass())) {
                         continue;
                     }
@@ -262,7 +259,11 @@ public class PostgresRolePrivilegesEditor extends AbstractDatabaseObjectEditor<P
                     PostgrePrivilegeGrant.Kind kind;
                     String objectName;
                     if (permissionsOwner instanceof PostgreProcedure) {
-                        kind = PostgrePrivilegeGrant.Kind.FUNCTION;
+                        if (((PostgreProcedure) permissionsOwner).getKind() == PostgreProcedureKind.p) {
+                            kind = PostgrePrivilegeGrant.Kind.PROCEDURE;
+                        } else {
+                            kind = PostgrePrivilegeGrant.Kind.FUNCTION;
+                        }
                         objectName = ((PostgreProcedure) permissionsOwner).getUniqueName();
                     } else {
                         if (permissionsOwner instanceof PostgreSchema) {
@@ -312,6 +313,7 @@ public class PostgresRolePrivilegesEditor extends AbstractDatabaseObjectEditor<P
                 new PostgreCommandGrantPrivilege(
                     databaseObject,
                     grant,
+                    currentObject,
                     permission,
                     privilegeType == null ? null : new PostgrePrivilegeType[] { privilegeType }),
                 new DBECommandReflector<PostgrePrivilegeOwner, PostgreCommandGrantPrivilege>() {
@@ -346,7 +348,7 @@ public class PostgresRolePrivilegesEditor extends AbstractDatabaseObjectEditor<P
 
             if (!CommonUtils.isEmpty(objects)) {
                 Class<?> objectType = objects.get(0).getClass();
-                for (PostgrePrivilegeType pt : PostgrePrivilegeType.values()) {
+                for (PostgrePrivilegeType pt : getDatabaseObject().getDataSource().getSupportedPrivilegeTypes()) {
                     if (!pt.isValid() || !pt.supportsType(objectType)) {
                         continue;
                     }
@@ -470,7 +472,7 @@ public class PostgresRolePrivilegesEditor extends AbstractDatabaseObjectEditor<P
     }
 
     @Override
-    public void refreshPart(Object source, boolean force)
+    public RefreshResult refreshPart(Object source, boolean force)
     {
         if (force ||
             (source instanceof DBNEvent && ((DBNEvent) source).getSource() == DBNEvent.UPDATE_ON_SAVE) ||
@@ -479,7 +481,9 @@ public class PostgresRolePrivilegesEditor extends AbstractDatabaseObjectEditor<P
             isLoaded = false;
             UIUtils.syncExec(() -> updateObjectPermissions(null));
             activatePart();
+            return RefreshResult.REFRESHED;
         }
+        return RefreshResult.IGNORED;
     }
 
     private static class DatabaseObjectFilter extends DatabaseNavigatorTreeFilter {
@@ -505,10 +509,7 @@ public class PostgresRolePrivilegesEditor extends AbstractDatabaseObjectEditor<P
 
         @Override
         public boolean select(Object element) {
-            if (!(element instanceof DBNDatabaseItem)) {
-                return true;
-            }
-            return isLeafObject(element);
+            return true;
         }
     }
 

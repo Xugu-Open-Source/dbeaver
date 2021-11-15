@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +18,8 @@
 package org.jkiss.dbeaver.ui.editors.sql.preferences;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.*;
 import org.jkiss.dbeaver.Log;
@@ -26,11 +28,13 @@ import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.sql.SQLScriptCommitType;
 import org.jkiss.dbeaver.model.sql.SQLScriptErrorHandling;
+import org.jkiss.dbeaver.ui.ShellUtils;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.editors.sql.SQLPreferenceConstants;
 import org.jkiss.dbeaver.ui.editors.sql.internal.SQLEditorMessages;
 import org.jkiss.dbeaver.ui.internal.UIMessages;
 import org.jkiss.dbeaver.ui.preferences.TargetPrefPage;
+import org.jkiss.dbeaver.utils.HelpUtils;
 import org.jkiss.dbeaver.utils.PrefUtils;
 import org.jkiss.utils.CommonUtils;
 
@@ -65,6 +69,7 @@ public class PrefPageSQLExecute extends TargetPrefPage
     private Button enableSQLAnonymousParameters;
     private Text anonymousParameterMarkText;
     private Text namedParameterPrefixText;
+    private Text controlCommandPrefixText;
     private Button enableParametersInDDL;
     private Button enableVariables;
 
@@ -96,6 +101,7 @@ public class PrefPageSQLExecute extends TargetPrefPage
             store.contains(ModelPreferences.SQL_ANONYMOUS_PARAMETERS_ENABLED) ||
             store.contains(ModelPreferences.SQL_ANONYMOUS_PARAMETERS_MARK) ||
             store.contains(ModelPreferences.SQL_NAMED_PARAMETERS_PREFIX) ||
+            store.contains(ModelPreferences.SQL_CONTROL_COMMAND_PREFIX) ||
             store.contains(ModelPreferences.SQL_VARIABLES_ENABLED) ||
 
             store.contains(SQLPreferenceConstants.RESET_CURSOR_ON_EXECUTE) ||
@@ -182,8 +188,29 @@ public class PrefPageSQLExecute extends TargetPrefPage
             anonymousParameterMarkText.setTextLimit(1);
             namedParameterPrefixText = UIUtils.createLabelText(paramsGroup, SQLEditorMessages.pref_page_sql_editor_text_named_parameter_prefix, "", SWT.BORDER, new GridData(32, SWT.DEFAULT));
             namedParameterPrefixText.setTextLimit(1);
+            controlCommandPrefixText = UIUtils.createLabelText(paramsGroup, SQLEditorMessages.pref_page_sql_editor_text_control_command_prefix, "", SWT.BORDER, new GridData(32, SWT.DEFAULT));
+            controlCommandPrefixText.setTextLimit(1);
             enableParametersInDDL = UIUtils.createCheckbox(paramsGroup, SQLEditorMessages.pref_page_sql_editor_enable_parameters_in_ddl, SQLEditorMessages.pref_page_sql_editor_enable_parameters_in_ddl_tip, false, 2);
             enableVariables = UIUtils.createCheckbox(paramsGroup, SQLEditorMessages.pref_page_sql_editor_enable_variables, SQLEditorMessages.pref_page_sql_editor_enable_variables_tip, false, 2);
+
+            GridData gd = new GridData(GridData.FILL_HORIZONTAL);
+            gd.horizontalSpan = 2;
+
+            UIUtils.createLink(paramsGroup, SQLEditorMessages.pref_page_sql_editor_text_explanation_link, new SelectionAdapter() {
+                @Override
+                public void widgetSelected(SelectionEvent e) {
+                    switch (e.text) {
+                        case "params":
+                            ShellUtils.launchProgram(HelpUtils.getHelpExternalReference("SQL-Execution#dynamic-parameter-bindings"));
+                            break;
+                        case "commands":
+                            ShellUtils.launchProgram(HelpUtils.getHelpExternalReference("Client-Side-Scripting"));
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }).setLayoutData(gd);
         }
 
         // Delimiters
@@ -191,9 +218,9 @@ public class PrefPageSQLExecute extends TargetPrefPage
             Composite delimGroup = UIUtils.createControlGroup(composite, SQLEditorMessages.pref_page_sql_editor_group_delimiters, 2, GridData.FILL_HORIZONTAL | GridData.VERTICAL_ALIGN_BEGINNING, 0);
             statementDelimiterText = UIUtils.createLabelText(delimGroup, SQLEditorMessages.pref_page_sql_editor_text_statement_delimiter, "", SWT.BORDER, new GridData(32, SWT.DEFAULT));
             //statementDelimiterText.setTextLimit(1);
-            ignoreNativeDelimiter = UIUtils.createCheckbox(delimGroup, SQLEditorMessages.pref_page_sql_editor_checkbox_ignore_native_delimiter, null, false, 2);
-            blankLineDelimiter = UIUtils.createCheckbox(delimGroup, SQLEditorMessages.pref_page_sql_editor_checkbox_blank_line_delimiter, null, false, 2);
-            removeTrailingDelimiter = UIUtils.createCheckbox(delimGroup, SQLEditorMessages.pref_page_sql_editor_checkbox_remove_trailing_delimiter, null, false, 2);
+            ignoreNativeDelimiter = UIUtils.createCheckbox(delimGroup, SQLEditorMessages.pref_page_sql_editor_checkbox_ignore_native_delimiter, SQLEditorMessages.pref_page_sql_editor_checkbox_ignore_native_delimiter_tip, false, 2);
+            blankLineDelimiter = UIUtils.createCheckbox(delimGroup, SQLEditorMessages.pref_page_sql_editor_checkbox_blank_line_delimiter, SQLEditorMessages.pref_page_sql_editor_checkbox_blank_line_delimiter_tip, false, 2);
+            removeTrailingDelimiter = UIUtils.createCheckbox(delimGroup, SQLEditorMessages.pref_page_sql_editor_checkbox_remove_trailing_delimiter, SQLEditorMessages.pref_page_sql_editor_checkbox_remove_trailing_delimiter_tip, false, 2);
         }
 
         return composite;
@@ -225,6 +252,7 @@ public class PrefPageSQLExecute extends TargetPrefPage
             enableSQLAnonymousParameters.setSelection(store.getBoolean(ModelPreferences.SQL_ANONYMOUS_PARAMETERS_ENABLED));
             anonymousParameterMarkText.setText(store.getString(ModelPreferences.SQL_ANONYMOUS_PARAMETERS_MARK));
             namedParameterPrefixText.setText(store.getString(ModelPreferences.SQL_NAMED_PARAMETERS_PREFIX));
+            controlCommandPrefixText.setText(store.getString(ModelPreferences.SQL_CONTROL_COMMAND_PREFIX));
             enableParametersInDDL.setSelection(store.getBoolean(ModelPreferences.SQL_PARAMETERS_IN_DDL_ENABLED));
             enableVariables.setSelection(store.getBoolean(ModelPreferences.SQL_VARIABLES_ENABLED));
         } catch (Exception e) {
@@ -258,6 +286,7 @@ public class PrefPageSQLExecute extends TargetPrefPage
             store.setValue(ModelPreferences.SQL_ANONYMOUS_PARAMETERS_ENABLED, enableSQLAnonymousParameters.getSelection());
             store.setValue(ModelPreferences.SQL_ANONYMOUS_PARAMETERS_MARK, anonymousParameterMarkText.getText());
             store.setValue(ModelPreferences.SQL_NAMED_PARAMETERS_PREFIX, namedParameterPrefixText.getText());
+            store.setValue(ModelPreferences.SQL_CONTROL_COMMAND_PREFIX, controlCommandPrefixText.getText());
             store.setValue(ModelPreferences.SQL_PARAMETERS_IN_DDL_ENABLED, enableParametersInDDL.getSelection());
             store.setValue(ModelPreferences.SQL_VARIABLES_ENABLED, enableVariables.getSelection());
         } catch (Exception e) {
@@ -289,6 +318,7 @@ public class PrefPageSQLExecute extends TargetPrefPage
         store.setToDefault(ModelPreferences.SQL_PARAMETERS_IN_DDL_ENABLED);
         store.setToDefault(ModelPreferences.SQL_ANONYMOUS_PARAMETERS_ENABLED);
         store.setToDefault(ModelPreferences.SQL_ANONYMOUS_PARAMETERS_MARK);
+        store.setToDefault(ModelPreferences.SQL_CONTROL_COMMAND_PREFIX);
         store.setToDefault(ModelPreferences.SQL_VARIABLES_ENABLED);
 
         store.setToDefault(ModelPreferences.SQL_NAMED_PARAMETERS_PREFIX);

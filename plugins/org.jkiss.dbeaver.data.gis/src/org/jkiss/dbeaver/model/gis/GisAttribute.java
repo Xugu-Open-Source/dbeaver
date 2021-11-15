@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
  */
 package org.jkiss.dbeaver.model.gis;
 
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 
@@ -23,9 +25,11 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
  * GisAttribute.
 */
 public interface GisAttribute {
-
     int getAttributeGeometrySRID(DBRProgressMonitor monitor) throws DBCException;
 
-    String getAttributeGeometryType(DBRProgressMonitor monitor) throws DBCException;
+    @NotNull
+    DBGeometryDimension getAttributeGeometryDimension(DBRProgressMonitor monitor) throws DBCException;
 
+    @Nullable
+    String getAttributeGeometryType(DBRProgressMonitor monitor) throws DBCException;
 }

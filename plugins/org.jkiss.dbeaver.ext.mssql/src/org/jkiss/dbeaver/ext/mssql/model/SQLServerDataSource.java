@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.jkiss.dbeaver.ext.mssql.model;
 
 import org.eclipse.core.runtime.IAdaptable;
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ModelPreferences;
@@ -25,20 +26,21 @@ import org.jkiss.dbeaver.ext.mssql.SQLServerConstants;
 import org.jkiss.dbeaver.ext.mssql.SQLServerUtils;
 import org.jkiss.dbeaver.ext.mssql.model.session.SQLServerSessionManager;
 import org.jkiss.dbeaver.model.*;
+import org.jkiss.dbeaver.model.access.DBAUserChangePassword;
 import org.jkiss.dbeaver.model.admin.sessions.DBAServerSessionManager;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
-import org.jkiss.dbeaver.model.exec.DBCException;
-import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
-import org.jkiss.dbeaver.model.exec.DBCQueryTransformType;
-import org.jkiss.dbeaver.model.exec.DBCQueryTransformer;
+import org.jkiss.dbeaver.model.exec.*;
 import org.jkiss.dbeaver.model.exec.jdbc.*;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSource;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCExecutionContext;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCRemoteInstance;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectCache;
+import org.jkiss.dbeaver.model.impl.net.SSLHandlerTrustStoreImpl;
 import org.jkiss.dbeaver.model.meta.Association;
+import org.jkiss.dbeaver.model.net.DBWHandlerConfiguration;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.sql.SQLQuery;
 import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.BeanUtils;
@@ -49,16 +51,19 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 
-public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceContainer, IAdaptable {
+public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceContainer, DBPObjectStatisticsCollector, IAdaptable, DBCQueryTransformProviderExt {
 
     private static final Log log = Log.getLog(SQLServerDataSource.class);
 
     // Delegate data type reading to the driver
     private final SystemDataTypeCache dataTypeCache = new SystemDataTypeCache();
     private final DatabaseCache databaseCache = new DatabaseCache();
+    private final ServerLoginCache serverLoginCache = new ServerLoginCache();
 
     private boolean supportsColumnProperty;
     private String serverVersion;
+
+    private volatile transient boolean hasStatistics;
 
     public SQLServerDataSource(DBRProgressMonitor monitor, DBPDataSourceContainer container)
         throws DBException
@@ -106,6 +111,24 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
         return this;
     }
 
+    public DatabaseCache getDatabaseCache() {
+        return databaseCache;
+    }
+
+    @Association
+    public List<SQLServerLogin> getLogins(@NotNull DBRProgressMonitor monitor) throws DBException {
+        return serverLoginCache.getAllObjects(monitor, this);
+    }
+
+    @Association
+    public SQLServerLogin getLogin(@NotNull DBRProgressMonitor monitor, @NotNull String loginName) throws DBException {
+        return serverLoginCache.getObject(monitor, this, loginName);
+    }
+
+    public ServerLoginCache getServerLoginCache() {
+        return serverLoginCache;
+    }
+
     @Override
     protected Properties getAllConnectionProperties(@NotNull DBRProgressMonitor monitor, JDBCExecutionContext context, String purpose, DBPConnectionConfiguration connectionInfo) throws DBCException {
         Properties properties = super.getAllConnectionProperties(monitor, context, purpose, connectionInfo);
@@ -123,7 +146,52 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
 
         authSchema.getInitializer().initializeAuthentication(connectionInfo, properties);
 
+        final DBWHandlerConfiguration sslConfig = getContainer().getActualConnectionConfiguration().getHandler(SQLServerConstants.HANDLER_SSL);
+        if (sslConfig != null && sslConfig.isEnabled()) {
+            initSSL(monitor, properties, sslConfig);
+        }
+
         return properties;
+    }
+
+    private void initSSL(DBRProgressMonitor monitor, Properties properties, DBWHandlerConfiguration sslConfig) throws DBCException {
+        monitor.subTask("Install SSL certificates");
+
+        try {
+//            SSLHandlerTrustStoreImpl.initializeTrustStore(monitor, this, sslConfig);
+//            DBACertificateStorage certificateStorage = getContainer().getPlatform().getCertificateStorage();
+//            String keyStorePath = certificateStorage.getKeyStorePath(getContainer(), "ssl").getAbsolutePath();
+
+            properties.put("encrypt", "true");
+            properties.put("trustServerCertificate", sslConfig.getStringProperty(SQLServerConstants.PROP_SSL_TRUST_SERVER_CERTIFICATE));
+
+            final String keystoreFileProp;
+            final String keystorePasswordProp;
+
+            if (CommonUtils.isEmpty(sslConfig.getStringProperty(SSLHandlerTrustStoreImpl.PROP_SSL_METHOD))) {
+                // Backward compatibility
+                keystoreFileProp = sslConfig.getStringProperty(SQLServerConstants.PROP_SSL_KEYSTORE);
+                keystorePasswordProp = sslConfig.getStringProperty(SQLServerConstants.PROP_SSL_KEYSTORE_PASSWORD);
+            } else {
+                keystoreFileProp = sslConfig.getStringProperty(SSLHandlerTrustStoreImpl.PROP_SSL_KEYSTORE);
+                keystorePasswordProp = sslConfig.getPassword();
+            }
+
+            if (!CommonUtils.isEmpty(keystoreFileProp)) {
+                properties.put("trustStore", keystoreFileProp);
+            }
+
+            if (!CommonUtils.isEmpty(keystorePasswordProp)) {
+                properties.put("trustStorePassword", keystorePasswordProp);
+            }
+
+            final String keystoreHostnameProp = sslConfig.getStringProperty(SQLServerConstants.PROP_SSL_KEYSTORE_HOSTNAME);
+            if (!CommonUtils.isEmpty(keystoreHostnameProp)) {
+                properties.put("hostNameInCertificate", keystoreHostnameProp);
+            }
+        } catch (Exception e) {
+            throw new DBCException("Error initializing SSL trust store", e);
+        }
     }
 
     @Override
@@ -154,9 +222,9 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
     @Override
     public Object getDataSourceFeature(String featureId) {
         switch (featureId) {
-            case DBConstants.FEATURE_LIMIT_AFFECTS_DML:
+            case DBPDataSource.FEATURE_LIMIT_AFFECTS_DML:
                 return true;
-            case DBConstants.FEATURE_MAX_STRING_LENGTH:
+            case DBPDataSource.FEATURE_MAX_STRING_LENGTH:
                 return 8000;
         }
         return super.getDataSourceFeature(featureId);
@@ -201,7 +269,9 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
                 return dt;
             }
         }
-        log.debug("System data type " + systemTypeId + " not found");
+        if (systemTypeId != SQLServerConstants.TABLE_TYPE_SYSTEM_ID) { // 243 - ID of user defined table types
+            log.debug("System data type " + systemTypeId + " not found");
+        }
         SQLServerDataType sdt = new SQLServerDataType(this, String.valueOf(systemTypeId), systemTypeId, DBPDataKind.OBJECT, java.sql.Types.OTHER);
         dataTypeCache.cacheObject(sdt);
         return sdt;
@@ -228,7 +298,7 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
             case NUMERIC: return "int";
             case STRING: return "varchar";
             case DATETIME: return SQLServerConstants.TYPE_DATETIME;
-            case BINARY: return "binary";
+            case BINARY:
             case CONTENT: return "varbinary";
             case ROWID: return "uniqueidentifier";
             default:
@@ -243,27 +313,6 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
         return CommonUtils.toBoolean(getContainer().getConnectionConfiguration().getProviderProperty(SQLServerConstants.PROP_SHOW_ALL_SCHEMAS));
     }
 
-    //////////////////////////////////////////////////////////
-    // Windows authentication
-
-    @Override
-    protected String getConnectionUserName(@NotNull DBPConnectionConfiguration connectionInfo) {
-        if (SQLServerUtils.isWindowsAuth(connectionInfo)) {
-            return "";
-        } else {
-            return super.getConnectionUserName(connectionInfo);
-        }
-    }
-
-    @Override
-    protected String getConnectionUserPassword(@NotNull DBPConnectionConfiguration connectionInfo) {
-        if (SQLServerUtils.isWindowsAuth(connectionInfo)) {
-            return "";
-        } else {
-            return super.getConnectionUserPassword(connectionInfo);
-        }
-    }
-
     //////////////////////////////////////////////////////////////
     // Databases
 
@@ -274,6 +323,15 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
 
     public SQLServerDatabase getDatabase(DBRProgressMonitor monitor, String name) throws DBException {
         return databaseCache.getObject(monitor, this, name);
+    }
+
+    public SQLServerDatabase getDatabase(DBRProgressMonitor monitor, long dbId) throws DBException {
+        for (SQLServerDatabase db : databaseCache.getAllObjects(monitor, this)) {
+            if (db.getDatabaseId() == dbId) {
+                return db;
+            }
+        }
+        return null;
     }
 
     public SQLServerDatabase getDatabase(String name) {
@@ -294,8 +352,9 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
         return databaseCache.getObject(monitor, this, childName);
     }
 
+    @NotNull
     @Override
-    public Class<? extends DBSObject> getChildType(@NotNull DBRProgressMonitor monitor) throws DBException {
+    public Class<? extends DBSObject> getPrimaryChildType(@Nullable DBRProgressMonitor monitor) throws DBException {
         return SQLServerDatabase.class;
     }
 
@@ -307,6 +366,8 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
     @Override
     public DBSObject refreshObject(@NotNull DBRProgressMonitor monitor) throws DBException {
         databaseCache.clearCache();
+        serverLoginCache.clearCache();
+        hasStatistics = false;
         return super.refreshObject(monitor);
     }
 
@@ -326,6 +387,8 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
             return adapter.cast(new SQLServerStructureAssistant(this));
         } else if (adapter == DBAServerSessionManager.class) {
             return adapter.cast(new SQLServerSessionManager(this));
+        } else if (adapter == DBAUserChangePassword.class) {
+            return adapter.cast(new SQLServerChangeLoginPassword(this));
         }
         return super.getAdapter(adapter);
     }
@@ -351,6 +414,53 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
         }
 
         return super.getErrorPosition(monitor, context, query, error);
+    }
+
+    @Override
+    public boolean isStatisticsCollected() {
+        return hasStatistics;
+    }
+
+    @Override
+    public void collectObjectStatistics(DBRProgressMonitor monitor, boolean totalSizeOnly, boolean forceRefresh) throws DBException {
+        if (hasStatistics && !forceRefresh) {
+            return;
+        }
+        if (SQLServerUtils.isDriverAzure(getContainer().getDriver()) || isDataWarehouseServer(monitor)) {
+            hasStatistics = true;
+            return;
+        }
+        try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load schema statistics")) {
+            try (JDBCStatement dbStat = session.createStatement()) {
+                try (JDBCResultSet dbResult = dbStat.executeQuery("SELECT database_id, SUM(size)\n" +
+                    "FROM sys.master_files WITH(NOWAIT)\n" +
+                    "GROUP BY database_id")) {
+                    while (dbResult.next()) {
+                        long dbId = JDBCUtils.safeGetLong(dbResult, 1);
+                        long bytes = dbResult.getLong(2) * 8 * 1024;
+                        SQLServerDatabase database = getDatabase(monitor, dbId);
+                        if (database != null) {
+                            database.setDatabaseTotalSize(bytes);
+                        }
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            throw new DBCException("Error reading database statistics", e);
+        } finally {
+            hasStatistics = true;
+        }
+    }
+
+    @Override
+    public boolean isForceTransform(DBCSession session, SQLQuery sqlQuery) {
+        try {
+            SQLServerTableBase table = SQLServerUtils.getTableFromQuery(session, sqlQuery, this);
+            return table != null && table.isClustered(session.getProgressMonitor());
+        } catch (DBException | SQLException e) {
+            log.debug("Table not found. ", e);
+        }
+        return false;
     }
 
     static class DatabaseCache extends JDBCObjectCache<SQLServerDataSource, SQLServerDatabase> {
@@ -392,6 +502,25 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
         @Override
         protected SQLServerDataType fetchObject(@NotNull JDBCSession session, @NotNull SQLServerDataSource dataSource, @NotNull JDBCResultSet resultSet) throws SQLException, DBException {
             return new SQLServerDataType(dataSource, resultSet);
+        }
+    }
+
+    private class ServerLoginCache extends JDBCObjectCache<SQLServerDataSource, SQLServerLogin> {
+
+        @NotNull
+        @Override
+        protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull SQLServerDataSource dataSource) throws SQLException {
+            return session.prepareStatement("SELECT * FROM sys.server_principals");
+        }
+
+        @Nullable
+        @Override
+        protected SQLServerLogin fetchObject(@NotNull JDBCSession session, @NotNull SQLServerDataSource dataSource, @NotNull JDBCResultSet resultSet) throws SQLException, DBException {
+            String loginName = JDBCUtils.safeGetString(resultSet, "name");
+            if (CommonUtils.isNotEmpty(loginName)) {
+                return new SQLServerLogin(dataSource, loginName, resultSet);
+            }
+            return null;
         }
     }
 }

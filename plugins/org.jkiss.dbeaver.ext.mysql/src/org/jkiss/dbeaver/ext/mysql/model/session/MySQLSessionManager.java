@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,11 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.mysql.model.MySQLDataSource;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.admin.sessions.DBAServerSessionManager;
+import org.jkiss.dbeaver.model.admin.sessions.DBAServerSessionManagerSQL;
 import org.jkiss.dbeaver.model.exec.DBCSession;
-import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.utils.CommonUtils;
 
 import java.sql.SQLException;
@@ -35,7 +36,7 @@ import java.util.Map;
 /**
  * MySQL session manager
  */
-public class MySQLSessionManager implements DBAServerSessionManager<MySQLSession> {
+public class MySQLSessionManager implements DBAServerSessionManager<MySQLSession>, DBAServerSessionManagerSQL {
 
     public static final String PROP_KILL_QUERY = "killQuery";
 
@@ -59,7 +60,7 @@ public class MySQLSessionManager implements DBAServerSessionManager<MySQLSession
     {
         boolean hideSleeping = CommonUtils.getOption(options, OPTION_HIDE_SLEEPING);
         try {
-            try (JDBCPreparedStatement dbStat = ((JDBCSession) session).prepareStatement("SHOW FULL PROCESSLIST")) {
+            try (JDBCPreparedStatement dbStat = ((JDBCSession) session).prepareStatement(generateSessionReadQuery(options))) {
                 try (JDBCResultSet dbResult = dbStat.executeQuery()) {
                     List<MySQLSession> sessions = new ArrayList<>();
                     while (dbResult.next()) {
@@ -93,4 +94,13 @@ public class MySQLSessionManager implements DBAServerSessionManager<MySQLSession
         }
     }
 
+    @Override
+    public boolean canGenerateSessionReadQuery() {
+        return true;
+    }
+
+    @Override
+    public String generateSessionReadQuery(Map<String, Object> options) {
+        return "SHOW FULL PROCESSLIST";
+    }
 }

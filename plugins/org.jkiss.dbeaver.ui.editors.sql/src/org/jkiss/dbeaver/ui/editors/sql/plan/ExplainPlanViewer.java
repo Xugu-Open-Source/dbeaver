@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,16 +34,15 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPContextProvider;
 import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.model.edit.DBEObjectConfigurator;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.exec.DBCExecutionPurpose;
 import org.jkiss.dbeaver.model.exec.DBCSession;
 import org.jkiss.dbeaver.model.exec.DBExecUtils;
-import org.jkiss.dbeaver.model.exec.plan.DBCPlan;
-import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlanner;
-import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlannerSerializable;
-import org.jkiss.dbeaver.model.exec.plan.DBCSavedQueryPlanner;
+import org.jkiss.dbeaver.model.exec.plan.*;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.load.DatabaseLoadService;
+import org.jkiss.dbeaver.model.runtime.load.ILoadVisualizerExt;
 import org.jkiss.dbeaver.model.sql.SQLQuery;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
@@ -53,6 +52,7 @@ import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.ProgressPageControl;
 import org.jkiss.dbeaver.ui.controls.VerticalButton;
 import org.jkiss.dbeaver.ui.controls.VerticalFolder;
+import org.jkiss.dbeaver.ui.editors.sql.SQLEditor;
 import org.jkiss.dbeaver.ui.editors.sql.SQLPlanSaveProvider;
 import org.jkiss.dbeaver.ui.editors.sql.SQLPlanViewProvider;
 import org.jkiss.dbeaver.ui.editors.sql.internal.SQLEditorActivator;
@@ -74,6 +74,7 @@ import java.lang.reflect.InvocationTargetException;
 public class ExplainPlanViewer extends Viewer implements IAdaptable
 {
     static final Log log = Log.getLog(ExplainPlanViewer.class);
+    private LoadingJob<DBCPlan> explainService;
 
     private static class PlanViewInfo {
         private SQLPlanViewDescriptor descriptor;
@@ -282,10 +283,10 @@ public class ExplainPlanViewer extends Viewer implements IAdaptable
         if (planner == null) {
             DBWorkbench.getPlatformUI().showError("No SQL Plan","This datasource doesn't support execution plans");
         } else {
-            LoadingJob<DBCPlan> service = LoadingJob.createService(
+            explainService = LoadingJob.createService(
                 new ExplainPlanService(planner, executionContext, lastQuery.getText(), lastQueryId),
                 planPresentationContainer.createVisualizer());
-            service.schedule();
+            explainService.schedule();
         }
     }
 
@@ -337,16 +338,35 @@ public class ExplainPlanViewer extends Viewer implements IAdaptable
             contributionManager.add(refreshPlanAction);
         }
 
+        @Override
+        protected boolean cancelProgress() {
+            if (explainService != null) {
+                explainService.cancel();
+                return true;
+            }
+            return false;
+        }
+
         PlanLoadVisualizer createVisualizer() {
             return new PlanLoadVisualizer();
         }
 
-        class PlanLoadVisualizer extends ProgressVisualizer<DBCPlan> {
+        class PlanLoadVisualizer extends ProgressVisualizer<DBCPlan> implements ILoadVisualizerExt {
             @Override
             public void completeLoading(DBCPlan plan) {
                 super.completeLoading(plan);
                 if (plan != null) {
                     visualizePlan(plan);
+                }
+                explainService = null;
+            }
+
+            @Override
+            public void finalizeLoading() {
+                // Redraw editor
+                // We need to update UI controls state after error dialog
+                if (workbenchPart instanceof SQLEditor) {
+                    ((SQLEditor) workbenchPart).refreshActions();
                 }
             }
         }
@@ -373,13 +393,18 @@ public class ExplainPlanViewer extends Viewer implements IAdaptable
         public DBCPlan evaluate(DBRProgressMonitor monitor)
             throws InvocationTargetException {
             try {
+                DBCQueryPlannerConfiguration configuration = makeExplainPlanConfiguration(monitor, planner);
+                if (configuration == null) {
+                    return null;
+                }
+
                 DBExecUtils.tryExecuteRecover(monitor, executionContext.getDataSource(), param -> {
                     try (DBCSession session = executionContext.openSession(monitor, DBCExecutionPurpose.UTIL, "Explain '" + query + "'")) {
                         try {
                             if (savedQueryId != null && planner instanceof DBCSavedQueryPlanner) {
                                 plan = ((DBCSavedQueryPlanner) planner).readSavedQueryExecutionPlan(session, savedQueryId);
                             } else {
-                                plan = planner.planQueryExecution(session, query);
+                                plan = planner.planQueryExecution(session, query, configuration);
                             }
                         } catch (DBException e) {
                             throw new InvocationTargetException(e);
@@ -391,6 +416,7 @@ public class ExplainPlanViewer extends Viewer implements IAdaptable
             }
             return plan;
         }
+
     }
 
     private class RefreshPlanAction extends Action {
@@ -404,6 +430,15 @@ public class ExplainPlanViewer extends Viewer implements IAdaptable
         {
             ExplainPlanViewer.this.refresh();
         }
+    }
+
+    public static DBCQueryPlannerConfiguration makeExplainPlanConfiguration(DBRProgressMonitor monitor, DBCQueryPlanner planner) {
+        DBCQueryPlannerConfiguration configuration = new DBCQueryPlannerConfiguration();
+        DBEObjectConfigurator<DBCQueryPlannerConfiguration> plannerConfigurator = GeneralUtils.adapt(planner, DBEObjectConfigurator.class);
+        if (plannerConfigurator != null) {
+            return plannerConfigurator.configureObject(monitor, planner, configuration);
+        }
+        return configuration;
     }
 
 }

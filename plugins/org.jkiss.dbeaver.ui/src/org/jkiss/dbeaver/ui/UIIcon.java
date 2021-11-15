@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -99,6 +99,10 @@ public class UIIcon {
     public static final DBIcon SORT = new DBIcon("sort", "misc/sort.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon SORT_CONFIG = new DBIcon("sort_config", "misc/sort_config.png"); //$NON-NLS-1$ //$NON-NLS-2$
 
+    public static final DBIcon ALIGN_TO_LEFT = new DBIcon("align_to_left", "misc/align_to_left.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon ALIGN_TO_CENTER = new DBIcon("align_to_center", "misc/align_to_center.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon ALIGN_TO_RIGHT = new DBIcon("align_to_right", "misc/align_to_right.png"); //$NON-NLS-1$ //$NON-NLS-2$
+
     public static final DBIcon FILTER = new DBIcon("misc/filter.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon FILTER_SMALL = new DBIcon("misc/filter_small.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon FILTER_VALUE = new DBIcon("misc/filter_value.png"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -126,6 +130,7 @@ public class UIIcon {
     public static final DBIcon EXPORT = new DBIcon("export", "file/export.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon REFRESH = new DBIcon("refresh", "/refresh.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon CONFIRM = new DBIcon("confirm", "misc/confirm.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon OK_MARK = new DBIcon("ok_mark", "misc/ok_mark.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon CLOSE = new DBIcon("close", "misc/close.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon SOURCES = new DBIcon("sources", "misc/sources.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon CANCEL = new DBIcon("cancel", "misc/cancel.png"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -190,6 +195,9 @@ public class UIIcon {
     public static final DBIcon SQL_VALIDATE = new DBIcon("sql_validate", "sql/sql_validate.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon SQL_PREVIEW = new DBIcon("sql_preview", "sql/sql_preview.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon SQL_TEXT = new DBIcon("sql_text", "sql/sql_text.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon SQL_VARIABLE = new DBIcon("sql_variable", "sql/variable.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon SQL_VARIABLE2 = new DBIcon("sql_variable2", "sql/variable2.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon SQL_PARAMETER = new DBIcon("sql_parameter", "sql/parameter.png"); //$NON-NLS-1$ //$NON-NLS-2$
 
     public static final DBIcon SQL_PAGE_DATA_GRID = new DBIcon("sql/page_data_grid.png"); //$NON-NLS-1$
     public static final DBIcon SQL_PAGE_DATA_GRID_LOCKED = new DBIcon("sql/page_data_grid_locked.png"); //$NON-NLS-1$
@@ -231,6 +239,10 @@ public class UIIcon {
     public static final DBIcon HIDE_ALL_DETAILS = new DBIcon("misc/hide_all_details.png"); //$NON-NLS-1$
 
     public static final DBIcon RUN = new DBIcon("run.png"); //$NON-NLS-1$
+
+    public static final DBIcon BUTTON_READ_ONLY = new DBIcon("buttons/lock.png"); //$NON-NLS-1$
+    public static final DBIcon BUTTON_TUNNEL = new DBIcon("buttons/tunnel.png"); //$NON-NLS-1$
+    public static final DBIcon BUTTON_CLOUD = new DBIcon("buttons/cloud.png"); //$NON-NLS-1$
 
     static  {
         DBIcon.loadIcons(UIIcon.class);

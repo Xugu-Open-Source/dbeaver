@@ -1,3 +1,19 @@
+/*
+ * DBeaver - Universal Database Manager
+ * Copyright (C) 2010-2021 DBeaver Corp and others
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.jkiss.dbeaver.ext.mysql.tasks;
 
 import org.jkiss.code.NotNull;
@@ -5,12 +21,12 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.mysql.MySQLConstants;
 import org.jkiss.dbeaver.ext.mysql.model.MySQLTableBase;
+import org.jkiss.dbeaver.model.connection.DBPNativeClientLocation;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableContext;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.task.DBTTask;
 import org.jkiss.dbeaver.registry.task.TaskPreferenceStore;
-import org.jkiss.dbeaver.tasks.nativetool.NativeToolUtils;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.CommonUtils;
@@ -18,12 +34,13 @@ import org.jkiss.utils.CommonUtils;
 import java.io.*;
 import java.text.NumberFormat;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class MySQLDatabaseExportHandler extends MySQLNativeToolHandler<MySQLExportSettings, DBSObject, MySQLDatabaseExportInfo> {
+    private static final String DISTRIB = "Distrib ";
+    private static final String VER = "Ver ";
 
     @Override
     public Collection<MySQLDatabaseExportInfo> getRunInfo(MySQLExportSettings settings) {
@@ -54,7 +71,7 @@ public class MySQLDatabaseExportHandler extends MySQLNativeToolHandler<MySQLExpo
 
     @Override
     protected List<String> getCommandLine(MySQLExportSettings settings, MySQLDatabaseExportInfo arg) throws IOException {
-        List<String> cmd = getMySQLToolCommandLine(this, settings, arg);
+        List<String> cmd = super.getCommandLine(settings, arg);
         if (!CommonUtils.isEmpty(arg.getTables())) {
             cmd.add(arg.getDatabase().getName());
             for (MySQLTableBase table : arg.getTables()) {
@@ -69,6 +86,10 @@ public class MySQLDatabaseExportHandler extends MySQLNativeToolHandler<MySQLExpo
 
     @Override
     public void fillProcessParameters(MySQLExportSettings settings, MySQLDatabaseExportInfo arg, List<String> cmd) throws IOException {
+        DBPNativeClientLocation nativeClientLocation = settings.getClientHome();
+        if (nativeClientLocation == null) {
+            throw new IllegalArgumentException("Client home can not be null!");
+        }
         File dumpBinary = RuntimeUtils.getNativeClientBinary(settings.getClientHome(), MySQLConstants.BIN_FOLDER, "mysqldump"); //$NON-NLS-1$
         String dumpPath = dumpBinary.getAbsolutePath();
         cmd.add(dumpPath);
@@ -80,7 +101,9 @@ public class MySQLDatabaseExportHandler extends MySQLNativeToolHandler<MySQLExpo
                 cmd.add("--single-transaction"); //$NON-NLS-1$
                 break;
         }
-
+        if (supportsColumnStatistics(dumpPath) && !arg.getDatabase().getDataSource().supportsColumnStatistics()) {
+            cmd.add("--column-statistics=0");
+        }
         if (settings.isNoCreateStatements()) {
             cmd.add("--no-create-info"); //$NON-NLS-1$
         } else {
@@ -124,31 +147,13 @@ public class MySQLDatabaseExportHandler extends MySQLNativeToolHandler<MySQLExpo
     @Override
     protected void startProcessHandler(DBRProgressMonitor monitor, DBTTask task, MySQLExportSettings settings, final MySQLDatabaseExportInfo arg, ProcessBuilder processBuilder, Process process, Log log) throws IOException {
         super.startProcessHandler(monitor, task, settings, arg, processBuilder, process, log);
-        String outFileName = GeneralUtils.replaceVariables(settings.getOutputFilePattern(), name -> {
-            switch (name) {
-                case NativeToolUtils.VARIABLE_DATABASE:
-                    return arg.getDatabase().getName();
-                case NativeToolUtils.VARIABLE_HOST:
-                    return arg.getDatabase().getDataSource().getContainer().getConnectionConfiguration().getHostName();
-                case NativeToolUtils.VARIABLE_TABLE:
-                    final Iterator<MySQLTableBase> iterator = arg.getTables() == null ? null : arg.getTables().iterator();
-                    if (iterator != null && iterator.hasNext()) {
-                        return iterator.next().getName();
-                    } else {
-                        return "null";
-                    }
-                case NativeToolUtils.VARIABLE_TIMESTAMP:
-                    return RuntimeUtils.getCurrentTimeStamp();
-                case NativeToolUtils.VARIABLE_DATE:
-                    return RuntimeUtils.getCurrentDate();
-                default:
-                    System.getProperty(name);
-            }
-            return null;
-        });
-
-        File outFile = new File(settings.getOutputFolder(), outFileName);
-
+        File outFile = settings.getOutputFile(arg);
+        if (outFile.exists()) {
+            // Unlike pg_dump, mysqldump happily overrides files which can easily lead to a lost dump.
+            // We prevent that with our manual check
+            // https://github.com/dbeaver/dbeaver/issues/11532
+            throw new IOException("Output file already exists");
+        }
         boolean isFiltering = settings.isRemoveDefiner();
         Thread job = isFiltering ?
             new DumpFilterJob(monitor, process.getInputStream(), outFile, log) :
@@ -205,4 +210,28 @@ public class MySQLDatabaseExportHandler extends MySQLNativeToolHandler<MySQLExpo
         }
     }
 
+    private static boolean supportsColumnStatistics(@NotNull String mysqldumpPath) {
+        String fullVersion;
+        try {
+            fullVersion = RuntimeUtils.executeProcess(mysqldumpPath, MySQLConstants.FLAG_VERSION);
+        } catch (DBException e) {
+            return false;
+        }
+        if (fullVersion == null || fullVersion.contains("MariaDB")) {
+            return false;
+        }
+        int fromIdx = fullVersion.indexOf(DISTRIB);
+        if (fromIdx == -1) {
+            fromIdx = fullVersion.indexOf(VER);
+            if (fromIdx == -1) {
+                return false;
+            }
+            fromIdx += VER.length();
+        } else {
+            fromIdx += DISTRIB.length();
+        }
+        int toIdx = fullVersion.indexOf(".", fromIdx);
+        int majorVersion = CommonUtils.toInt(fullVersion.substring(fromIdx, toIdx));
+        return majorVersion >= 8;
+    }
 }

@@ -384,7 +384,7 @@ public class Package extends BaseSchemaObject implements SourceObject, DBPScript
 	}
 
 	@Override
-	public Class<? extends DBSObject> getChildType(@NotNull DBRProgressMonitor monitor) throws DBException {
+	public Class<? extends DBSObject> getPrimaryChildType(DBRProgressMonitor monitor) throws DBException {
 		return ProcedurePackaged.class;
 	}
 
@@ -469,8 +469,4 @@ public class Package extends BaseSchemaObject implements SourceObject, DBPScript
 		// TODO Auto-generated method stub
 		return null;
 	}
- 
-	
-	
-	
 }

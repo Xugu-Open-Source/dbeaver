@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2016-2016 Karl Griesser (fullref@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.jkiss.dbeaver.model.DBPSaveableObject;
 import org.jkiss.dbeaver.model.DBPScriptObject;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 
@@ -45,6 +46,13 @@ public class ExasolConnection
 	private String comment="";
 	private Boolean persisted;
 
+	public ExasolConnection(
+	        ExasolDataSource dataSource
+	        )
+	{
+	    this.dataSource = dataSource;
+	    this.persisted = false;
+	}
 	
 	public ExasolConnection(
 	        ExasolDataSource dataSource,
@@ -124,7 +132,7 @@ public class ExasolConnection
     }
 
 	@Override
-	@Property(viewable = true, editable= true, updatable=true, multiline = true, order = 50)
+	@Property(viewable = true, editable= true, updatable=true, length = PropertyLength.MULTILINE, order = 50)
 	public String getDescription()
 	{
 		return this.comment;

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.jkiss.dbeaver.model.connection.DBPConnectionBootstrap;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContextDefaults;
 import org.jkiss.dbeaver.model.exec.DBCExecutionPurpose;
+import org.jkiss.dbeaver.model.exec.DBCTransactionManager;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
@@ -132,17 +133,18 @@ public class GenericExecutionContext extends JDBCExecutionContext implements DBC
         GenericCatalog defaultCatalog = context.getDefaultCatalog();
         String entityName = null;
         if (defaultCatalog != null && context.supportsCatalogChange()) {
-            if (this.getDefaultCatalog() != defaultCatalog) {
-                entityName = defaultCatalog.getName();
-            }
+            entityName = defaultCatalog.getName();
         } else if (context.supportsSchemaChange()) {
             GenericSchema defaultSchema = context.getDefaultSchema();
-            if (defaultSchema != null && this.getDefaultSchema() != defaultSchema) {
+            if (defaultSchema != null) {
                 entityName = defaultSchema.getName();
             }
         }
         if (entityName != null) {
             GenericDataSource dataSource = getDataSource();
+            DBCTransactionManager txnManager = null;
+            boolean autoCommit = true;
+            boolean needToSetAutocommit = false;
             try (JDBCSession session = openSession(monitor, DBCExecutionPurpose.UTIL, "Set active catalog")) {
                 if (dataSource.isSelectedEntityFromAPI()) {
                     // Use JDBC API to change entity
@@ -155,6 +157,14 @@ public class GenericExecutionContext extends JDBCExecutionContext implements DBC
                     if (CommonUtils.isEmpty(dataSource.getQuerySetActiveDB())) {
                         throw new DBCException("Active database can't be changed for this kind of datasource!");
                     }
+                    txnManager = DBUtils.getTransactionManager(this);
+                    needToSetAutocommit = txnManager != null && isSupportsTransactions() && !dataSource.supportsCatalogChangeInTransaction();
+                    if (needToSetAutocommit) {
+                        autoCommit = txnManager.isAutoCommit();
+                        if (!autoCommit) {
+                            txnManager.setAutoCommit(monitor, true);
+                        }
+                    }
                     String changeQuery = dataSource.getQuerySetActiveDB().replaceFirst("\\?", Matcher.quoteReplacement(entityName));
                     try (JDBCPreparedStatement dbStat = session.prepareStatement(changeQuery)) {
                         dbStat.execute();
@@ -163,6 +173,10 @@ public class GenericExecutionContext extends JDBCExecutionContext implements DBC
                 selectedEntityName = entityName;
             } catch (SQLException e) {
                 throw new DBCException(e, this);
+            } finally {
+                if (needToSetAutocommit && !autoCommit) {
+                    txnManager.setAutoCommit(monitor, false);
+                }
             }
         }
     }
@@ -229,12 +243,23 @@ public class GenericExecutionContext extends JDBCExecutionContext implements DBC
         }
         GenericDataSource dataSource = getDataSource();
         GenericCatalog oldSelectedCatalog = getDefaultCatalog();
+        DBCTransactionManager txnManager = null;
+        boolean autoCommit = true;
+        boolean needToSetAutocommit = false;
         try (JDBCSession session = openSession(monitor, DBCExecutionPurpose.UTIL, "Set active catalog")) {
             if (dataSource.isSelectedEntityFromAPI()) {
                 session.setCatalog(catalog.getName());
             } else {
                 if (CommonUtils.isEmpty(dataSource.getQuerySetActiveDB())) {
                     throw new DBCException("Active catalog can't be changed for this kind of datasource!");
+                }
+                txnManager = DBUtils.getTransactionManager(this);
+                needToSetAutocommit = txnManager != null && isSupportsTransactions() && !dataSource.supportsCatalogChangeInTransaction();
+                if (needToSetAutocommit) {
+                    autoCommit = txnManager.isAutoCommit();
+                    if (!autoCommit) {
+                        txnManager.setAutoCommit(monitor, true);
+                    }
                 }
                 String changeQuery = dataSource.getQuerySetActiveDB().replaceFirst("\\?", Matcher.quoteReplacement(catalog.getName()));
                 try (JDBCPreparedStatement dbStat = session.prepareStatement(changeQuery)) {
@@ -243,6 +268,10 @@ public class GenericExecutionContext extends JDBCExecutionContext implements DBC
             }
         } catch (SQLException e) {
             throw new DBCException(e, this);
+        } finally {
+            if (needToSetAutocommit && !autoCommit) {
+                txnManager.setAutoCommit(monitor, false);
+            }
         }
         selectedEntityName = catalog.getName();
         dataSource.setSelectedEntityType(GenericConstants.ENTITY_TYPE_CATALOG);
@@ -272,7 +301,7 @@ public class GenericExecutionContext extends JDBCExecutionContext implements DBC
 
     private void setDefaultSchema(DBRProgressMonitor monitor, String schemaName) throws DBCException {
         GenericDataSource dataSource = getDataSource();
-        try (JDBCSession session = openSession(monitor, DBCExecutionPurpose.UTIL, "Set active schema")) {
+        try (JDBCSession session = openSession(monitor, DBCExecutionPurpose.UTIL, TASK_TITLE_SET_SCHEMA)) {
             if (dataSource.isSelectedEntityFromAPI()) {
                 session.setSchema(schemaName);
             } else {

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 package org.jkiss.dbeaver.ui.gis.internal;
 
 import org.eclipse.core.runtime.Plugin;
-import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.impl.preferences.BundlePreferenceStore;
+import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.osgi.framework.BundleContext;
 
 import java.io.InputStream;
@@ -27,8 +27,6 @@ import java.io.InputStream;
  * The activator class controls the plug-in life cycle
  */
 public class GISViewerActivator extends Plugin {
-
-    // The plug-in ID
     public static final String PLUGIN_ID = "org.jkiss.dbeaver.data.gis.view";
 
     // The shared instance
@@ -71,5 +69,4 @@ public class GISViewerActivator extends Plugin {
     public InputStream getResourceStream(String path) {
         return GISViewerActivator.class.getClassLoader().getResourceAsStream(path);
     }
-
 }

@@ -27,6 +27,7 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -128,21 +129,21 @@ public class Trigger extends BaseTrigger<Schema> {
 	@Association
 	public Collection<TriggerColumn> getColumns(DBRProgressMonitor monitor) throws DBException {
 		Collection<TriggerColumn> res = new ArrayList<>();
-		Collection<TableColumn> tCols = baseTable.getAttributes(monitor);
+		Collection<? extends DBSEntityAttribute> tCols = baseTable.getAttributes(monitor);
 		if (this.isPersisted() == false && this.includeCols != null) {
 			if (this.includeCols.size() != 0) {
-				Iterator<TableColumn> it = tCols.iterator();
+				Iterator<? extends DBSEntityAttribute> it = tCols.iterator();
 				while (it.hasNext()) {
-					TableColumn tempCol = it.next();
+					TableColumn tempCol = (TableColumn) it.next();
 					tempCol.setPersisted(true);
 					if (includeCols.contains(tempCol.getName())) {
 						res.add(new TriggerColumn(tempCol.getName(), this, tempCol));
 					}
 				}
 			} else {
-				Iterator<TableColumn> it = tCols.iterator();
+				Iterator<? extends DBSEntityAttribute> it = tCols.iterator();
 				while (it.hasNext()) {
-					TableColumn tempCol = it.next();
+					TableColumn tempCol = (TableColumn) it.next();
 					tempCol.setPersisted(true);
 					res.add(new TriggerColumn(tempCol.getName(), this, tempCol));
 				}

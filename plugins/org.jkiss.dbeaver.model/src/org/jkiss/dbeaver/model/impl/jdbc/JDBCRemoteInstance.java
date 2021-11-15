@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,11 +24,13 @@ import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.DBPExclusiveResource;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
+import org.jkiss.dbeaver.model.exec.DBExecUtils;
 import org.jkiss.dbeaver.model.impl.SimpleExclusiveLock;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSInstance;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,6 +42,8 @@ public class JDBCRemoteInstance implements DBSInstance {
 
     @NotNull
     protected final JDBCDataSource dataSource;
+    @Nullable
+    protected JDBCRemoteInstance sharedInstance;
     @Nullable
     protected JDBCExecutionContext executionContext;
     @Nullable
@@ -54,6 +58,10 @@ public class JDBCRemoteInstance implements DBSInstance {
         if (initContext) {
             initializeMainContext(monitor);
         }
+    }
+
+    protected JDBCRemoteInstance(@NotNull JDBCDataSource dataSource) {
+        this.dataSource = dataSource;
     }
 
     @Override
@@ -84,6 +92,9 @@ public class JDBCRemoteInstance implements DBSInstance {
     }
 
     protected void initializeMainContext(@NotNull DBRProgressMonitor monitor) throws DBCException {
+        if (sharedInstance != null) {
+            return;
+        }
         if (executionContext == null) {
             this.executionContext = dataSource.createExecutionContext(this, getMainContextName());
             this.executionContext.connect(monitor, null, null, null, true);
@@ -92,15 +103,19 @@ public class JDBCRemoteInstance implements DBSInstance {
 
     public JDBCExecutionContext initializeMetaContext(@NotNull DBRProgressMonitor monitor)
         throws DBException {
+        if (sharedInstance != null) {
+            return sharedInstance.initializeMetaContext(monitor);
+        }
         if (this.metaContext != null) {
             return this.metaContext;
         }
         if (!dataSource.getContainer().getDriver().isEmbedded() && dataSource.getContainer().getPreferenceStore().getBoolean(ModelPreferences.META_SEPARATE_CONNECTION)) {
-            synchronized (allContexts) {
+        	// FIXME: do not sync expensive operations
+            //synchronized (allContexts) {
                 this.metaContext = dataSource.createExecutionContext(this, getMetadataContextName());
                 this.metaContext.connect(monitor, true, null, null, true);
                 return this.metaContext;
-            }
+            //}
         } else {
             return this.executionContext;
         }
@@ -119,14 +134,26 @@ public class JDBCRemoteInstance implements DBSInstance {
     @NotNull
     @Override
     public DBCExecutionContext openIsolatedContext(@NotNull DBRProgressMonitor monitor, @NotNull String purpose, @Nullable DBCExecutionContext initFrom) throws DBException {
+        if (sharedInstance != null) {
+            return sharedInstance.openIsolatedContext(monitor, purpose, initFrom);
+        }
         JDBCExecutionContext context = dataSource.createExecutionContext(this, purpose);
-        context.connect(monitor, null, null, (JDBCExecutionContext) initFrom, true);
+        DBExecUtils.tryExecuteRecover(monitor, getDataSource(), monitor1 -> {
+            try {
+                context.connect(monitor1, null, null, (JDBCExecutionContext) initFrom, true);
+            } catch (DBCException e) {
+                throw new InvocationTargetException(e);
+            }
+        });
         return context;
     }
 
     @NotNull
     @Override
     public JDBCExecutionContext[] getAllContexts() {
+        if (sharedInstance != null) {
+            return sharedInstance.getAllContexts();
+        }
         synchronized (allContexts) {
             return allContexts.toArray(new JDBCExecutionContext[0]);
         }
@@ -135,11 +162,17 @@ public class JDBCRemoteInstance implements DBSInstance {
     @NotNull
     @Override
     public JDBCExecutionContext getDefaultContext(DBRProgressMonitor monitor, boolean meta) {
+        if (sharedInstance != null) {
+            return sharedInstance.getDefaultContext(monitor, meta);
+        }
         return getDefaultContext(meta);
     }
 
     @NotNull
     public JDBCExecutionContext getDefaultContext(boolean meta) {
+        if (sharedInstance != null) {
+            return sharedInstance.getDefaultContext(meta);
+        }
         if (metaContext != null && (meta || executionContext == null)) {
             return this.metaContext;
         }
@@ -152,6 +185,9 @@ public class JDBCRemoteInstance implements DBSInstance {
 
     @Override
     public void shutdown(DBRProgressMonitor monitor) {
+        if (sharedInstance != null) {
+            return;
+        }
         shutdown(monitor, false);
     }
 

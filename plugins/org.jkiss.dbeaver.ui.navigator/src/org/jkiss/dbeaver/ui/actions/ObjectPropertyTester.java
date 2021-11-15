@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,20 +19,21 @@ package org.jkiss.dbeaver.ui.actions;
 import org.eclipse.core.expressions.PropertyTester;
 import org.eclipse.jface.action.IContributionItem;
 import org.eclipse.swt.widgets.Display;
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPOrderedObject;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.app.DBPResourceHandler;
-import org.jkiss.dbeaver.model.edit.DBEObjectMaker;
-import org.jkiss.dbeaver.model.edit.DBEObjectManager;
-import org.jkiss.dbeaver.model.edit.DBEObjectRenamer;
-import org.jkiss.dbeaver.model.edit.DBEObjectReorderer;
+import org.jkiss.dbeaver.model.edit.*;
 import org.jkiss.dbeaver.model.navigator.*;
-import org.jkiss.dbeaver.model.struct.DBSObject;
-import org.jkiss.dbeaver.model.struct.DBSObjectFilter;
-import org.jkiss.dbeaver.model.struct.DBSWrapper;
+import org.jkiss.dbeaver.model.struct.*;
+import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
 import org.jkiss.dbeaver.registry.ObjectManagerRegistry;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.ActionUtils;
 import org.jkiss.dbeaver.ui.navigator.actions.NavigatorHandlerObjectCreateNew;
+import org.jkiss.dbeaver.utils.RuntimeUtils;
 
 import java.util.List;
 
@@ -56,6 +57,8 @@ public class ObjectPropertyTester extends PropertyTester
     public static final String PROP_CAN_FILTER_OBJECT = "canFilterObject";
     public static final String PROP_HAS_FILTER = "hasFilter";
     public static final String PROP_HAS_TOOLS = "hasTools";
+    public static final String PROP_SUPPORTS_CREATING_INDEX = "supportsIndexCreate";
+    public static final String PROP_SUPPORTS_CREATING_CONSTRAINT = "supportsConstraintCreate";
 
     public ObjectPropertyTester() {
         super();
@@ -65,14 +68,14 @@ public class ObjectPropertyTester extends PropertyTester
     @Override
     public boolean test(Object receiver, String property, Object[] args, Object expectedValue) {
 
-        if (!(receiver instanceof DBNNode)) {
+        DBNNode node = RuntimeUtils.getObjectAdapter(receiver, DBNNode.class);
+        if (node == null) {
             return false;
         }
         Display display = Display.getCurrent();
         if (display == null) {
             return false;
         }
-        DBNNode node = (DBNNode)receiver;
 //System.out.println("TEST " + property + " ON " + node.getName());
 
         switch (property) {
@@ -154,12 +157,13 @@ public class ObjectPropertyTester extends PropertyTester
                         return false;
                     }
                     DBSObject object = ((DBNDatabaseNode) node).getObject();
-                    return
-                        object != null &&
-                            !DBUtils.isReadOnly(object) &&
-                            object.isPersisted() &&
-                            node.getParentNode() instanceof DBNContainer &&
-                            getObjectManager(object.getClass(), DBEObjectRenamer.class) != null;
+                    if (object != null) {
+                        DBEObjectRenamer objectRenamer = getObjectManager(object.getClass(), DBEObjectRenamer.class);
+                        return !DBUtils.isReadOnly(object) &&
+                                object.isPersisted() &&
+                                node.getParentNode() instanceof DBNContainer &&
+                                objectRenamer != null && objectRenamer.canRenameObject(object);
+                    }
                 }
                 break;
             }
@@ -212,14 +216,27 @@ public class ObjectPropertyTester extends PropertyTester
                 }
                 break;
             }
+            case PROP_SUPPORTS_CREATING_INDEX:
+                return supportsCreatingColumnObject(node, DBSTableIndex.class);
+            case PROP_SUPPORTS_CREATING_CONSTRAINT:
+                return supportsCreatingColumnObject(node, DBSEntityConstraint.class);
         }
         return false;
     }
 
     public static boolean canCreateObject(DBNNode node, Boolean onlySingle) {
-        if (node instanceof DBNDatabaseNode && ((DBNDatabaseNode)node).isVirtual()) {
-            // Can't create virtual objects
-            return false;
+        if (node instanceof DBNDatabaseNode) {
+            if (((DBNDatabaseNode)node).isVirtual()) {
+                // Can't create virtual objects
+                return false;
+            }
+            DBPDataSource dataSource = ((DBNDatabaseNode) node).getDataSource();
+            if (dataSource != null && dataSource.getInfo().isReadOnlyMetaData()) {
+                return false;
+            }
+            if (!(node instanceof DBNDataSource) && isMetadataChangeDisabled(((DBNDatabaseNode)node))) {
+                return false;
+            }
         }
         if (onlySingle == null) {
             // Just try to find first create handler
@@ -272,6 +289,11 @@ public class ObjectPropertyTester extends PropertyTester
         }
     }
 
+    public static boolean isMetadataChangeDisabled(DBNDatabaseNode node) {
+        DBNBrowseSettings navSettings = node.getDataSourceContainer().getNavigatorSettings();
+        return navSettings.isHideFolders() || navSettings.isShowOnlyEntities();
+    }
+
     private static <T extends DBEObjectManager> T getObjectManager(Class<?> objectType, Class<T> managerType)
     {
         return ObjectManagerRegistry.getInstance().getObjectManager(objectType, managerType);
@@ -282,4 +304,29 @@ public class ObjectPropertyTester extends PropertyTester
         ActionUtils.evaluatePropertyState(NAMESPACE + "." + propName);
     }
 
+    private static boolean supportsCreatingColumnObject(@Nullable DBNNode node, @NotNull Class<?> supertype) {
+        if (!(node instanceof DBNDatabaseItem)) {
+            return false;
+        }
+        DBNDatabaseItem databaseItem = (DBNDatabaseItem) node;
+        DBSObject attributeObject = databaseItem.getObject();
+        if (!(attributeObject instanceof DBSEntityAttribute)) {
+            return false;
+        }
+        DBSObject entityObject = attributeObject.getParentObject();
+        if (!(entityObject instanceof DBSEntity)) {
+            return false;
+        }
+        DBEStructEditor<?> structEditor = DBWorkbench.getPlatform().getEditorsRegistry().getObjectManager(entityObject.getClass(), DBEStructEditor.class);
+        if (structEditor == null) {
+            return false;
+        }
+        for (Class<?> childType: structEditor.getChildTypes()) {
+            DBEObjectMaker<?, ?> maker = DBWorkbench.getPlatform().getEditorsRegistry().getObjectManager(childType, DBEObjectMaker.class);
+            if (maker != null && maker.canCreateObject(entityObject) && supertype.isAssignableFrom(childType)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

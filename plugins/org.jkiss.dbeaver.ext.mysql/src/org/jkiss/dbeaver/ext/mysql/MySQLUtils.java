@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 package org.jkiss.dbeaver.ext.mysql;
 
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.ext.mysql.model.MySQLDataSource;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
@@ -35,11 +36,10 @@ import java.util.*;
  * MySQL utils
  */
 public class MySQLUtils {
-
     private static final Log log = Log.getLog(MySQLUtils.class);
 
-    private static Map<String, Integer> typeMap = new HashMap<>();
-    public static final String COLUMN_POSTFIX_PRIV = "_priv";
+    private static final String COLUMN_POSTFIX_PRIV = "_priv";
+    private static final Map<String, Integer> typeMap = new HashMap<>();
 
     static {
         typeMap.put("bit", java.sql.Types.BIT);
@@ -147,4 +147,7 @@ public class MySQLUtils {
                 driver.getDriverClassName());
     }
 
+    public static boolean isAlterUSerSupported(MySQLDataSource dataSource) {
+        return dataSource.isMariaDB() ? dataSource.isServerVersionAtLeast(10, 2) : dataSource.isServerVersionAtLeast(5, 7);
+    }
 }

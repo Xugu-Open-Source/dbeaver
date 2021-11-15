@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,8 @@ import org.jkiss.dbeaver.model.navigator.DBNModel;
 import org.jkiss.dbeaver.model.navigator.DBNNode;
 import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSInstance;
+import org.jkiss.dbeaver.model.struct.DBSInstanceLazy;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.properties.PropertySourceCustom;
@@ -205,9 +207,6 @@ public class DatabaseLazyEditorInput implements IDatabaseEditorInput, IPersistab
             dataSourceContainer = project.getDataSourceRegistry().getDataSource(dataSourceId);
         }
         if (dataSourceContainer == null) {
-            dataSourceContainer = DBUtils.findDataSource(dataSourceId);
-        }
-        if (dataSourceContainer == null) {
             log.error("Can't find data source '" + dataSourceId + "'"); //$NON-NLS-2$
             return null;
         }
@@ -269,6 +268,12 @@ public class DatabaseLazyEditorInput implements IDatabaseEditorInput, IPersistab
                 throw new DBException("Navigator node '" + nodePath + "' not found");
             }
             if (node instanceof DBNDatabaseNode) {
+                DBSObject object = ((DBNDatabaseNode) node).getObject();
+                DBSInstance instance = DBUtils.getObjectOwnerInstance(object);
+                if (instance instanceof DBSInstanceLazy && !((DBSInstanceLazy) instance).isInstanceConnected()) {
+                    ((DBSInstanceLazy) instance).checkInstanceConnection(monitor);
+                }
+
                 DatabaseNodeEditorInput realInput = new DatabaseNodeEditorInput((DBNDatabaseNode) node);
                 realInput.setDefaultFolderId(activeFolderId);
                 realInput.setDefaultPageId(activePageId);

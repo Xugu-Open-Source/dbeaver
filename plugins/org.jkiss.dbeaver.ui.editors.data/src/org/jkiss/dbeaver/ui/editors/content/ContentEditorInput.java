@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.eclipse.core.runtime.Path;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.ui.*;
 import org.eclipse.ui.editors.text.IEncodingSupport;
+import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
@@ -75,16 +76,30 @@ public class ContentEditorInput implements IPathEditorInput, IStatefulEditorInpu
     private StringEditorInput.StringStorage stringStorage;
 
     public ContentEditorInput(
-        IValueController valueController,
-        IEditorPart[] editorParts,
-        IEditorPart defaultPart,
-        DBRProgressMonitor monitor)
+        @NotNull IValueController valueController,
+        @Nullable IEditorPart[] editorParts,
+        @Nullable IEditorPart defaultPart,
+        @NotNull DBRProgressMonitor monitor)
         throws DBException
     {
         this.valueController = valueController;
         this.editorParts = editorParts;
         this.defaultPart = defaultPart;
         this.fileCharset = getDefaultEncoding();
+        this.prepareContent(monitor);
+    }
+    public ContentEditorInput(
+        @NotNull IValueController valueController,
+        @Nullable IEditorPart[] editorParts,
+        @Nullable IEditorPart defaultPart,
+        @Nullable String charset,
+        @NotNull DBRProgressMonitor monitor)
+        throws DBException
+    {
+        this.valueController = valueController;
+        this.editorParts = editorParts;
+        this.defaultPart = defaultPart;
+        this.fileCharset = CommonUtils.isEmpty(charset) ? getDefaultEncoding() : charset;
         this.prepareContent(monitor);
     }
 
@@ -377,7 +392,7 @@ public class ContentEditorInput implements IPathEditorInput, IStatefulEditorInpu
                 }
             } else {
                 // Create new storage and pass it to content
-                storage = new TemporaryContentStorage(DBWorkbench.getPlatform(), contentFile, fileCharset);
+                storage = new TemporaryContentStorage(DBWorkbench.getPlatform(), contentFile, fileCharset, false);
                 contentDetached = content.updateContents(monitor, storage);
             }
         } else if (stringStorage != null) {

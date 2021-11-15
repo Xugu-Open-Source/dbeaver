@@ -332,8 +332,9 @@ public class UserEditorGeneral extends BaseUserEditor {
 	}
 
 	@Override
-	public void refreshPart(Object source, boolean force) {
+	public RefreshResult refreshPart(Object source, boolean force) {
 		// TODO Ë¢ÐÂ±à¼­Çø
+		return RefreshResult.IGNORED;
 	}
 
 	private class PageControl extends UserPageControl {

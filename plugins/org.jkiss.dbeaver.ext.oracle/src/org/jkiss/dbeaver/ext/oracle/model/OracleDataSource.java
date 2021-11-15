@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,28 +26,23 @@ import org.jkiss.dbeaver.ext.oracle.model.plan.OracleQueryPlanner;
 import org.jkiss.dbeaver.ext.oracle.model.session.OracleServerSessionManager;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.access.DBAPasswordChangeInfo;
+import org.jkiss.dbeaver.model.access.DBAUserChangePassword;
 import org.jkiss.dbeaver.model.admin.sessions.DBAServerSessionManager;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
 import org.jkiss.dbeaver.model.exec.*;
 import org.jkiss.dbeaver.model.exec.jdbc.*;
 import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlanner;
-import org.jkiss.dbeaver.model.impl.auth.DBAAuthDatabaseNative;
-import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSource;
-import org.jkiss.dbeaver.model.impl.jdbc.JDBCExecutionContext;
-import org.jkiss.dbeaver.model.impl.jdbc.JDBCRemoteInstance;
-import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
+import org.jkiss.dbeaver.model.impl.jdbc.*;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectCache;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCStructCache;
 import org.jkiss.dbeaver.model.meta.Association;
+import org.jkiss.dbeaver.model.meta.ForTest;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLConstants;
-import org.jkiss.dbeaver.model.sql.SQLQueryResult;
 import org.jkiss.dbeaver.model.sql.SQLState;
-import org.jkiss.dbeaver.model.struct.DBSDataType;
-import org.jkiss.dbeaver.model.struct.DBSObject;
-import org.jkiss.dbeaver.model.struct.DBSObjectFilter;
-import org.jkiss.dbeaver.model.struct.DBSStructureAssistant;
+import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.BeanUtils;
@@ -63,7 +58,7 @@ import java.util.regex.Pattern;
 /**
  * GenericDataSource
  */
-public class OracleDataSource extends JDBCDataSource implements IAdaptable {
+public class OracleDataSource extends JDBCDataSource implements DBPObjectStatisticsCollector, DBPDataTypeMapper, IAdaptable {
     private static final Log log = Log.getLog(OracleDataSource.class);
 
     final public SchemaCache schemaCache = new SchemaCache();
@@ -80,6 +75,7 @@ public class OracleDataSource extends JDBCDataSource implements IAdaptable {
     private String planTableName;
     private boolean useRuleHint;
     private boolean resolveGeometryAsStruct = true;
+    private boolean hasStatistics;
 
     private final Map<String, Boolean> availableViews = new HashMap<>();
 
@@ -94,10 +90,26 @@ public class OracleDataSource extends JDBCDataSource implements IAdaptable {
         }
     }
 
+    // Constructor for tests
+    @ForTest
+    public OracleDataSource(DBPDataSourceContainer container) {
+        super(container, new OracleSQLDialect());
+        this.outputReader = new OracleOutputReader();
+
+        OracleConfigurator configurator = GeneralUtils.adapt(this, OracleConfigurator.class);
+        if (configurator != null) {
+            resolveGeometryAsStruct = configurator.resolveGeometryAsStruct();
+        }
+        this.hasStatistics = false;
+
+        OracleSchema defSchema = new OracleSchema(this, -1, "TEST_SCHEMA");
+        schemaCache.setCache(Collections.singletonList(defSchema));
+    }
+
     @Override
     public Object getDataSourceFeature(String featureId) {
         switch (featureId) {
-            case DBConstants.FEATURE_MAX_STRING_LENGTH:
+            case DBPDataSource.FEATURE_MAX_STRING_LENGTH:
                 return 4000;
         }
 
@@ -124,7 +136,7 @@ public class OracleDataSource extends JDBCDataSource implements IAdaptable {
                         available = true;
                     }
                 }
-            } catch (SQLException e) {
+            } catch (Exception e) {
                 available = false;
             }
             synchronized (availableViews) {
@@ -169,7 +181,7 @@ public class OracleDataSource extends JDBCDataSource implements IAdaptable {
         // Ref: https://stackoverflow.com/questions/21733300/oracle-password-expiry-and-grace-period-handling-using-java-oracle-jdbc
 
         DBPConnectionConfiguration connectionInfo = getContainer().getActualConnectionConfiguration();
-        DBAPasswordChangeInfo passwordInfo = DBWorkbench.getPlatformUI().promptUserPasswordChange("Password has expired. Set new password.", connectionInfo.getUserName(), connectionInfo.getUserPassword());
+        DBAPasswordChangeInfo passwordInfo = DBWorkbench.getPlatformUI().promptUserPasswordChange("Password has expired. Set new password.", connectionInfo.getUserName(), connectionInfo.getUserPassword(), true, true);
         if (passwordInfo == null) {
             return false;
         }
@@ -180,6 +192,8 @@ public class OracleDataSource extends JDBCDataSource implements IAdaptable {
                 throw new DBException("You can't set empty password");
             }
             Properties connectProps = getAllConnectionProperties(monitor, context, purpose, connectionInfo);
+            connectProps.setProperty(JDBCConstants.PROP_USER, passwordInfo.getUserName());
+            connectProps.setProperty(JDBCConstants.PROP_PASSWORD, passwordInfo.getOldPassword());
             connectProps.setProperty("oracle.jdbc.newPassword", passwordInfo.getNewPassword());
 
             final String url = getConnectionURL(connectionInfo);
@@ -247,16 +261,10 @@ public class OracleDataSource extends JDBCDataSource implements IAdaptable {
                         log.warn("Can't set session territory", e);
                     }
                 }
-                String nlsDateFormat = connectionInfo.getProviderProperty(OracleConstants.PROP_SESSION_NLS_DATE_FORMAT);
-                if (nlsDateFormat != null) {
-                    try {
-                        JDBCUtils.executeSQL(
-                            session,
-                            "ALTER SESSION SET NLS_DATE_FORMAT='" + nlsDateFormat + "'");
-                    } catch (Throwable e) {
-                        log.warn("Can't set session NLS date format", e);
-                    }
-                }
+                setNLSParameter(session, connectionInfo, "NLS_DATE_FORMAT", OracleConstants.PROP_SESSION_NLS_DATE_FORMAT);
+                setNLSParameter(session, connectionInfo, "NLS_TIMESTAMP_FORMAT", OracleConstants.PROP_SESSION_NLS_TIMESTAMP_FORMAT);
+                setNLSParameter(session, connectionInfo, "NLS_LENGTH_SEMANTICS", OracleConstants.PROP_SESSION_NLS_LENGTH_FORMAT);
+                setNLSParameter(session, connectionInfo, "NLS_CURRENCY", OracleConstants.PROP_SESSION_NLS_CURRENCY_FORMAT);
 
                 if (JDBCExecutionContext.TYPE_METADATA.equals(context.getContextName())) {
                     if (CommonUtils.toBoolean(connectionInfo.getProviderProperty(OracleConstants.PROP_USE_META_OPTIMIZER))) {
@@ -274,23 +282,21 @@ public class OracleDataSource extends JDBCDataSource implements IAdaptable {
         }
     }
 
-    public OracleSchema getDefaultSchema() {
-        return (OracleSchema) DBUtils.getDefaultContext(this, true).getContextDefaults().getDefaultSchema();
+    private void setNLSParameter(JDBCSession session, DBPConnectionConfiguration connectionInfo, String oraNlsName, String paramName) {
+        String paramValue = connectionInfo.getProviderProperty(paramName);
+        if (!CommonUtils.isEmpty(paramValue)) {
+            try {
+                JDBCUtils.executeSQL(
+                    session,
+                    "ALTER SESSION SET "+ oraNlsName + "='" + paramValue + "'");
+            } catch (Throwable e) {
+                log.warn("Can not set session NLS parameter " + oraNlsName, e);
+            }
+        }
     }
 
-    @Override
-    protected String getConnectionUserName(@NotNull DBPConnectionConfiguration connectionInfo) {
-        String userName = connectionInfo.getUserName();
-        String authModelId = connectionInfo.getAuthModelId();
-        if (!CommonUtils.isEmpty(authModelId) && !DBAAuthDatabaseNative.ID.equals(authModelId)) {
-            return userName;
-        }
-        // FIXME: left for backward compatibility. Replaced by auth model. Remove in future.
-        if (!CommonUtils.isEmpty(userName) && userName.contains(" AS ")) {
-            return userName;
-        }
-        final String role = connectionInfo.getProviderProperty(OracleConstants.PROP_INTERNAL_LOGON);
-        return role == null ? userName : userName + " AS " + role;
+    public OracleSchema getDefaultSchema() {
+        return (OracleSchema) DBUtils.getDefaultContext(this, true).getContextDefaults().getDefaultSchema();
     }
 
     @Override
@@ -301,8 +307,13 @@ public class OracleDataSource extends JDBCDataSource implements IAdaptable {
     @Override
     public ErrorType discoverErrorType(@NotNull Throwable error) {
         Throwable rootCause = GeneralUtils.getRootCause(error);
-        if (rootCause instanceof SQLException && ((SQLException) rootCause).getErrorCode() == OracleConstants.EC_FEATURE_NOT_SUPPORTED) {
-            return ErrorType.FEATURE_UNSUPPORTED;
+        if (rootCause instanceof SQLException) {
+            switch (((SQLException) rootCause).getErrorCode()) {
+                case OracleConstants.EC_NO_RESULTSET_AVAILABLE:
+                    return ErrorType.RESULT_SET_MISSING;
+                case OracleConstants.EC_FEATURE_NOT_SUPPORTED:
+                    return ErrorType.FEATURE_UNSUPPORTED;
+            }
         }
         return super.discoverErrorType(error);
     }
@@ -313,7 +324,7 @@ public class OracleDataSource extends JDBCDataSource implements IAdaptable {
         if (!getContainer().getPreferenceStore().getBoolean(ModelPreferences.META_CLIENT_NAME_DISABLE)) {
             // Program name
             String appName = DBUtils.getClientApplicationName(getContainer(), context, purpose);
-            appName = appName.replace('(', '_').replace(')', '_'); // Replace brackets - Oracle don't like them
+            appName = appName.replaceAll("[^ a-zA-Z0-9]", "?"); // Replace any special characters - Oracle don't like them
             connectionsProps.put("v$session.program", CommonUtils.truncateString(appName, 48));
         }
         // FIXME: left for backward compatibility. Replaced by auth model. Remove in future.
@@ -344,7 +355,8 @@ public class OracleDataSource extends JDBCDataSource implements IAdaptable {
         if (publicSchema != null && publicSchema.getName().equals(name)) {
             return publicSchema;
         }
-        return schemaCache.getObject(monitor, this, name);
+        // Schema cache may be null during DataSource initialization
+        return schemaCache == null ? null : schemaCache.getObject(monitor, this, name);
     }
 
     @Association
@@ -485,8 +497,9 @@ public class OracleDataSource extends JDBCDataSource implements IAdaptable {
         return getSchema(monitor, childName);
     }
 
+    @NotNull
     @Override
-    public Class<? extends OracleSchema> getChildType(@NotNull DBRProgressMonitor monitor)
+    public Class<? extends OracleSchema> getPrimaryChildType(@Nullable DBRProgressMonitor monitor)
         throws DBException {
         return OracleSchema.class;
     }
@@ -508,6 +521,8 @@ public class OracleDataSource extends JDBCDataSource implements IAdaptable {
             return adapter.cast(new OracleServerSessionManager(this));
         } else if (adapter == DBCQueryPlanner.class) {
             return adapter.cast(new OracleQueryPlanner(this));
+        } else if(adapter == DBAUserChangePassword.class) {
+            return adapter.cast(new OracleChangeUserPassword(this));
         }
         return super.getAdapter(adapter);
     }
@@ -579,6 +594,55 @@ public class OracleDataSource extends JDBCDataSource implements IAdaptable {
                 return null;
             }
             return schema.getDataType(monitor, typeName);
+        }
+    }
+
+    @Override
+    public String mapExternalDataType(@NotNull DBPDataSource externalDataSource, @NotNull DBSTypedObject typedObject) {
+        String externalTypeName = typedObject.getTypeName().toUpperCase(Locale.ENGLISH);
+        String localDataType = null, dataTypeModifies = null;
+
+        switch (externalTypeName) {
+            case "XML":
+            case "XMLTYPE":
+                localDataType = OracleConstants.TYPE_FQ_XML;
+                break;
+            case "JSON":
+            case "JSONB":
+                localDataType = "JSON";
+                break;
+            case "GEOMETRY":
+            case "GEOGRAPHY":
+            case "SDO_GEOMETRY":
+                localDataType = OracleConstants.TYPE_FQ_GEOMETRY;
+                break;
+            case "NUMERIC":
+                localDataType = OracleConstants.TYPE_NUMBER;
+                if (typedObject.getPrecision() != null) {
+                    dataTypeModifies = typedObject.getPrecision().toString();
+                    if (typedObject.getScale() != null) {
+                        dataTypeModifies += "," + typedObject.getScale();
+                    }
+                }
+                break;
+        }
+        if (localDataType == null) {
+            return null;
+        }
+        try {
+            OracleDataType dataType = resolveDataType(new VoidProgressMonitor(), localDataType);
+            if (dataType == null) {
+                return null;
+
+            }
+            String targetTypeName = dataType.getFullyQualifiedName(DBPEvaluationContext.DDL);
+            if (dataTypeModifies != null) {
+                targetTypeName += "(" + dataTypeModifies + ")";
+            }
+            return targetTypeName;
+        } catch (DBException e) {
+            log.debug("Error resolving local data type", e);
+            return null;
         }
     }
 
@@ -732,6 +796,47 @@ public class OracleDataSource extends JDBCDataSource implements IAdaptable {
         return null;
     }
 
+    ///////////////////////////////////////////////
+    // Statistics
+
+    @Override
+    public boolean isStatisticsCollected() {
+        return hasStatistics;
+    }
+
+    @Override
+    public void collectObjectStatistics(DBRProgressMonitor monitor, boolean totalSizeOnly, boolean forceRefresh) throws DBException {
+        if (hasStatistics && !forceRefresh) {
+            return;
+        }
+        try (final JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load tablespace '" + getName() + "' statistics")) {
+            // Tablespace stats
+            try (JDBCStatement dbStat = session.createStatement()) {
+                try (JDBCResultSet dbResult = dbStat.executeQuery(
+                    "SELECT\n" +
+                    "\tTS.TABLESPACE_NAME, F.AVAILABLE_SPACE, S.USED_SPACE\n" +
+                    "FROM\n" +
+                    "\tSYS.DBA_TABLESPACES TS,\n" +
+                    "\t(SELECT TABLESPACE_NAME, SUM(BYTES) AVAILABLE_SPACE FROM DBA_DATA_FILES GROUP BY TABLESPACE_NAME) F,\n" +
+                    "\t(SELECT TABLESPACE_NAME, SUM(BYTES) USED_SPACE FROM DBA_SEGMENTS GROUP BY TABLESPACE_NAME) S\n" +
+                    "WHERE\n" +
+                    "\tF.TABLESPACE_NAME(+) = TS.TABLESPACE_NAME AND S.TABLESPACE_NAME(+) = TS.TABLESPACE_NAME")) {
+                    while (dbResult.next()) {
+                        String tsName = dbResult.getString(1);
+                        OracleTablespace tablespace = tablespaceCache.getObject(monitor, getDataSource(), tsName);
+                        if (tablespace != null) {
+                            tablespace.fetchSizes(dbResult);
+                        }
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            throw new DBException("Can't read tablespace statistics", e, getDataSource());
+        } finally {
+            hasStatistics = true;
+        }
+    }
+
     private class OracleOutputReader implements DBCServerOutputReader {
         @Override
         public boolean isServerOutputEnabled() {
@@ -755,7 +860,7 @@ public class OracleDataSource extends JDBCDataSource implements IAdaptable {
         }
 
         @Override
-        public void readServerOutput(@NotNull DBRProgressMonitor monitor, @NotNull DBCExecutionContext context, @Nullable SQLQueryResult queryResult, @Nullable DBCStatement statement, @NotNull PrintWriter output) throws DBCException {
+        public void readServerOutput(@NotNull DBRProgressMonitor monitor, @NotNull DBCExecutionContext context, @Nullable DBCExecutionResult executionResult, @Nullable DBCStatement statement, @NotNull PrintWriter output) throws DBCException {
             try (JDBCSession session = (JDBCSession) context.openSession(monitor, DBCExecutionPurpose.UTIL, "Read DBMS output")) {
                 try (CallableStatement getLineProc = session.getOriginal().prepareCall("{CALL DBMS_OUTPUT.GET_LINE(?, ?)}")) {
                     getLineProc.registerOutParameter(1, java.sql.Types.VARCHAR);

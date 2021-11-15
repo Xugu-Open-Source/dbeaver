@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,24 +75,10 @@ public class GroupingPanel implements IResultSetPanel {
         this.ownerListener = new ResultSetListenerAdapter() {
             @Override
             public void handleResultSetLoad() {
-                if (resultsContainer == null) {
-                    return;
-                }
-                // Here we can refresh grouping (makes sense if source query was modified with some conditions)
-                // Or just clear it (if brand new query was executed)
-                GroupingResultsContainer groupingResultsContainer = getGroupingResultsContainer();
-                if (presentation.getController().getModel().isMetadataChanged()) {
-                    groupingResultsContainer.clearGrouping();
-                } else {
-                    try {
-                        groupingResultsContainer.rebuildGrouping();
-                    } catch (DBException e) {
-                        DBWorkbench.getPlatformUI().showError("Grouping error", "Can't refresh grouping query", e);
-                    }
-                }
+                refresh(true);
             }
         };
-        this.presentation.getController().addListener(ownerListener);
+        //this.presentation.getController().addListener(ownerListener);
 
         return groupingPlaceholder;
     }
@@ -151,7 +137,25 @@ public class GroupingPanel implements IResultSetPanel {
     }
 
     @Override
+    public void setFocus() {
+        //resultsContainer.getResultSetController().getControl().setFocus();
+    }
+
+    @Override
     public void refresh(boolean force) {
+        // Here we can refresh grouping (makes sense if source query was modified with some conditions)
+        // Or just clear it (if brand new query was executed)
+        GroupingResultsContainer groupingResultsContainer = getGroupingResultsContainer();
+        if (presentation.getController().getModel().isMetadataChanged()) {
+            groupingResultsContainer.clearGrouping();
+        } else {
+            try {
+                groupingResultsContainer.rebuildGrouping();
+            } catch (DBException e) {
+                DBWorkbench.getPlatformUI().showError("Grouping error", "Can't refresh grouping query", e);
+            }
+        }
+        groupingPlaceholder.layout(true, true);
     }
 
     @Override

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ import org.jkiss.dbeaver.model.impl.jdbc.*;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCBasicDataTypeCache;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectCache;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCDataType;
+import org.jkiss.dbeaver.model.impl.net.SSLHandlerTrustStoreImpl;
 import org.jkiss.dbeaver.model.impl.sql.QueryTransformerLimit;
 import org.jkiss.dbeaver.model.net.DBWHandlerConfiguration;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
@@ -66,7 +67,7 @@ import java.util.regex.Pattern;
 /**
  * GenericDataSource
  */
-public class MySQLDataSource extends JDBCDataSource {
+public class MySQLDataSource extends JDBCDataSource implements DBPObjectStatisticsCollector {
     private static final Log log = Log.getLog(MySQLDataSource.class);
 
     private final JDBCBasicDataTypeCache<MySQLDataSource, JDBCDataType> dataTypeCache;
@@ -75,21 +76,27 @@ public class MySQLDataSource extends JDBCDataSource {
     private List<MySQLPrivilege> privileges;
     private List<MySQLUser> users;
     private List<MySQLCharset> charsets;
+    private List<MySQLPlugin> plugins;
     private Map<String, MySQLCollation> collations;
     private String defaultCharset, defaultCollation;
     private int lowerCaseTableNames = 1;
     private SQLHelpProvider helpProvider;
+    private volatile boolean hasStatistics;
+    private boolean containsCheckConstraintTable;
+
+    private transient boolean inServerTimezoneHandle;
 
     public MySQLDataSource(DBRProgressMonitor monitor, DBPDataSourceContainer container)
         throws DBException {
         super(monitor, container, new MySQLDialect());
         dataTypeCache = new JDBCBasicDataTypeCache<>(this);
+        hasStatistics = !container.getPreferenceStore().getBoolean(ModelPreferences.READ_EXPENSIVE_STATISTICS);
     }
 
     @Override
     public Object getDataSourceFeature(String featureId) {
         switch (featureId) {
-            case DBConstants.FEATURE_MAX_STRING_LENGTH:
+            case DBPDataSource.FEATURE_MAX_STRING_LENGTH:
                 if (isServerVersionAtLeast(5, 0)) {
                     return 65535;
                 } else {
@@ -120,6 +127,9 @@ public class MySQLDataSource extends JDBCDataSource {
         }
 
         String serverTZ = connectionInfo.getProviderProperty(MySQLConstants.PROP_SERVER_TIMEZONE);
+        if (CommonUtils.isEmpty(serverTZ) && inServerTimezoneHandle/*&& getContainer().getDriver().getId().equals(MySQLConstants.DRIVER_ID_MYSQL8)*/) {
+            serverTZ = "UTC";
+        }
         if (!CommonUtils.isEmpty(serverTZ)) {
             props.put("serverTimezone", serverTZ);
         }
@@ -163,9 +173,20 @@ public class MySQLDataSource extends JDBCDataSource {
             props.put("requireSSL", sslConfig.getStringProperty(MySQLConstants.PROP_REQUIRE_SSL));
         }
 
-        final String caCertProp = sslConfig.getStringProperty(MySQLConstants.PROP_SSL_CA_CERT);
-        final String clientCertProp = sslConfig.getStringProperty(MySQLConstants.PROP_SSL_CLIENT_CERT);
-        final String clientCertKeyProp = sslConfig.getStringProperty(MySQLConstants.PROP_SSL_CLIENT_KEY);
+        final String caCertProp;
+        final String clientCertProp;
+        final String clientCertKeyProp;
+
+        if (CommonUtils.isEmpty(sslConfig.getStringProperty(SSLHandlerTrustStoreImpl.PROP_SSL_METHOD))) {
+            // Backward compatibility
+            caCertProp = sslConfig.getStringProperty(MySQLConstants.PROP_SSL_CA_CERT);
+            clientCertProp = sslConfig.getStringProperty(MySQLConstants.PROP_SSL_CLIENT_CERT);
+            clientCertKeyProp = sslConfig.getStringProperty(MySQLConstants.PROP_SSL_CLIENT_KEY);
+        } else {
+            caCertProp = sslConfig.getStringProperty(SSLHandlerTrustStoreImpl.PROP_SSL_CA_CERT);
+            clientCertProp = sslConfig.getStringProperty(SSLHandlerTrustStoreImpl.PROP_SSL_CLIENT_CERT);
+            clientCertKeyProp = sslConfig.getStringProperty(SSLHandlerTrustStoreImpl.PROP_SSL_CLIENT_KEY);
+        }
 
         {
             // Trust keystore
@@ -178,11 +199,15 @@ public class MySQLDataSource extends JDBCDataSource {
                 securityManager.deleteCertificate(getContainer(), "ssl");
             }
             final String ksPath = makeKeyStorePath(securityManager.getKeyStorePath(getContainer(), "ssl"));
+            final char[] ksPass = securityManager.getKeyStorePassword(getContainer(), "ssl");
             if (isMariaDB()) {
                 props.put("trustStore", ksPath);
+                props.put("trustStorePassword", String.valueOf(ksPass));
             } else {
                 props.put("clientCertificateKeyStoreUrl", ksPath);
                 props.put("trustCertificateKeyStoreUrl", ksPath);
+                props.put("clientCertificateKeyStorePassword", String.valueOf(ksPass));
+                props.put("trustCertificateKeyStorePassword", String.valueOf(ksPass));
             }
         }
         final String cipherSuites = sslConfig.getStringProperty(MySQLConstants.PROP_SSL_CIPHER_SUITES);
@@ -213,7 +238,7 @@ public class MySQLDataSource extends JDBCDataSource {
     }
 
     protected void initializeContextState(@NotNull DBRProgressMonitor monitor, @NotNull JDBCExecutionContext context, JDBCExecutionContext initFrom) throws DBException {
-        if (initFrom != null) {
+        if (initFrom != null && !context.getDataSource().getContainer().isConnectionReadOnly()) {
             MySQLCatalog object = ((MySQLExecutionContext)initFrom).getDefaultCatalog();
             if (object != null) {
                 ((MySQLExecutionContext)context).setCurrentDatabase(monitor, object);
@@ -311,6 +336,20 @@ public class MySQLDataSource extends JDBCDataSource {
 
             }
 
+            // Read plugins
+            {
+                plugins = new ArrayList<>();
+                try (JDBCPreparedStatement dbStat = session.prepareStatement("SHOW PLUGINS")) {
+                    try (JDBCResultSet dbResult = dbStat.executeQuery()) {
+                        while (dbResult.next()) {
+                            plugins.add(new MySQLPlugin(this, dbResult));
+                        }
+                    }
+                } catch (SQLException e) {
+                    log.debug("Error reading plugins information", e);
+                }
+            }
+
             try (JDBCPreparedStatement dbStat = session.prepareStatement("SHOW VARIABLES LIKE 'lower_case_table_names'")) {
                 try (JDBCResultSet dbResult = dbStat.executeQuery()) {
                     if (dbResult.next()) {
@@ -324,6 +363,19 @@ public class MySQLDataSource extends JDBCDataSource {
             // Read catalogs
             catalogCache.getAllObjects(monitor, this);
             //activeCatalogName = MySQLUtils.determineCurrentDatabase(session);
+
+            if (getDataSource().supportsInformationSchema()) {
+                // Check check constraints in base
+                try {
+                    String resultSet = JDBCUtils.queryString(session, "SELECT * FROM information_schema.TABLES t\n" +
+                            "WHERE\n" +
+                            "\tt.TABLE_SCHEMA = 'information_schema'\n" +
+                            "\tAND t.TABLE_NAME = 'CHECK_CONSTRAINTS'");
+                    containsCheckConstraintTable = (resultSet != null);
+                } catch (SQLException e) {
+                    log.debug("Error reading information schema", e);
+                }
+            }
         }
     }
 
@@ -366,8 +418,9 @@ public class MySQLDataSource extends JDBCDataSource {
         return getCatalog(childName);
     }
 
+    @NotNull
     @Override
-    public Class<? extends MySQLCatalog> getChildType(@NotNull DBRProgressMonitor monitor)
+    public Class<? extends MySQLCatalog> getPrimaryChildType(@Nullable DBRProgressMonitor monitor)
         throws DBException {
         return MySQLCatalog.class;
     }
@@ -380,7 +433,27 @@ public class MySQLDataSource extends JDBCDataSource {
 
     @Override
     protected Connection openConnection(@NotNull DBRProgressMonitor monitor, @Nullable JDBCExecutionContext context, @NotNull String purpose) throws DBCException {
-        Connection mysqlConnection = super.openConnection(monitor, context, purpose);
+        Connection mysqlConnection;
+        try {
+            mysqlConnection = super.openConnection(monitor, context, purpose);
+        } catch (DBCException e) {
+            if (e.getCause() instanceof SQLException &&
+                SQLState.SQL_01S00.getCode().equals (((SQLException) e.getCause()).getSQLState()) &&
+                CommonUtils.isEmpty(getContainer().getActualConnectionConfiguration().getProviderProperty(MySQLConstants.PROP_SERVER_TIMEZONE)))
+            {
+                // Workaround for nasty problem with MySQL 8 driver and serverTimezone error
+                log.debug("Error connecting without serverTimezone. Trying to set serverTimezone=UTC. Original error: " + e.getMessage());
+                inServerTimezoneHandle = true;
+                try {
+                    mysqlConnection = super.openConnection(monitor, context, purpose);
+                } catch (DBCException e2) {
+                    inServerTimezoneHandle = false;
+                    throw e2;
+                }
+            } else {
+                throw e;
+            }
+        }
 
         if (!getContainer().getPreferenceStore().getBoolean(ModelPreferences.META_CLIENT_NAME_DISABLE)) {
             // Provide client info
@@ -466,6 +539,21 @@ public class MySQLDataSource extends JDBCDataSource {
 
     public MySQLCollation getDefaultCollation() {
         return getCollation(defaultCollation);
+    }
+
+    @NotNull
+    public Collection<MySQLPlugin> getPlugins() {
+        return plugins;
+    }
+
+    @Nullable
+    public MySQLPlugin getPlugin(@NotNull String name) {
+        for (MySQLPlugin plugin : plugins) {
+            if (plugin.getName().equals(name)) {
+                return plugin;
+            }
+        }
+        return null;
     }
 
     public List<MySQLPrivilege> getPrivileges(DBRProgressMonitor monitor)
@@ -636,6 +724,46 @@ public class MySQLDataSource extends JDBCDataSource {
         }
     }
 
+    @Override
+    public boolean isStatisticsCollected() {
+        return hasStatistics;
+    }
+
+    @Override
+    public void collectObjectStatistics(DBRProgressMonitor monitor, boolean totalSizeOnly, boolean forceRefresh) throws DBException {
+        if (hasStatistics && !forceRefresh) {
+            return;
+        }
+        if (!this.isMariaDB() && !this.isServerVersionAtLeast(4, 1)) {
+            // Not supported by MySQL server
+            hasStatistics = true;
+            return;
+        }
+
+        try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load table status")) {
+            try (JDBCPreparedStatement dbStat = session.prepareStatement(
+                "SELECT table_schema, SUM(data_length + index_length) \n" +
+                    "FROM information_schema.tables \n" +
+                    "GROUP BY table_schema"))
+            {
+                try (JDBCResultSet dbResult = dbStat.executeQuery()) {
+                    while (dbResult.next()) {
+                        String dbName = dbResult.getString(1);
+                        MySQLCatalog catalog = catalogCache.getObject(monitor, this, dbName);
+                        if (catalog != null) {
+                            long dbSize = dbResult.getLong(2);
+                            catalog.setDatabaseSize(dbSize);
+                        }
+                    }
+                }
+            } catch (SQLException e) {
+                throw new DBCException(e, session.getExecutionContext());
+            }
+        } finally {
+            hasStatistics = true;
+        }
+    }
+
     static class CatalogCache extends JDBCObjectCache<MySQLDataSource, MySQLCatalog> {
         @NotNull
         @Override
@@ -692,4 +820,39 @@ public class MySQLDataSource extends JDBCDataSource {
         return null;
     }
 
+    public boolean supportsCheckConstraints() {
+        if (this.isMariaDB()) {
+            return this.isServerVersionAtLeast(10, 2) && containsCheckConstraintTable;
+        }
+        else {
+            return this.isServerVersionAtLeast(8, 0) && containsCheckConstraintTable;
+        }
+    }
+
+    /**
+     * Checks if information_schema table is supported.
+     *
+     * <p>The table was not supported up until MySQL 5.0
+     *
+     * @return {@code true} if information_schema is supported
+     */
+    public boolean supportsInformationSchema() {
+        return isServerVersionAtLeast(5, 0);
+    }
+
+    public boolean supportsSequences() {
+        if (this.isMariaDB()) {
+            return this.isServerVersionAtLeast(10, 3);
+        }
+        return false;
+    }
+
+    /**
+     * Checks if column statistics is supported.
+     *
+     * @return {@code true} if column statistics is supported
+     */
+    public boolean supportsColumnStatistics() {
+        return !isMariaDB() && isServerVersionAtLeast(8, 0);
+    }
 }

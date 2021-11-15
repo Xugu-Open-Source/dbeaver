@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,11 @@ package org.jkiss.dbeaver.ext.generic.model;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
-import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPQualifiedObject;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.struct.DBSAlias;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 
@@ -56,7 +56,7 @@ public abstract class GenericSynonym implements DBSAlias, DBSObject, DBPQualifie
 
     @Nullable
     @Override
-    @Property(viewable = true, multiline = true, order = 10)
+    @Property(viewable = true, length = PropertyLength.MULTILINE, order = 10)
     public String getDescription() {
         return description;
     }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,9 +45,11 @@ public class EditIndexPage extends AttributesSelectorPage {
     public static final String PROP_DESC = "desc";
 
     private final DBSTableIndex index;
+    private String indexName;
     private List<DBSIndexType> indexTypes;
     private DBSIndexType selectedIndexType;
     private boolean unique;
+    private boolean supportUniqueIndexes = true;
 
     private int descColumnIndex;
 
@@ -58,13 +60,34 @@ public class EditIndexPage extends AttributesSelectorPage {
     {
         super(title, index.getTable());
         this.index = index;
+        this.indexName = this.index.getName();
         this.indexTypes = new ArrayList<>(indexTypes);
         Assert.isTrue(!CommonUtils.isEmpty(this.indexTypes));
+    }
+
+    public EditIndexPage(
+            String title,
+            DBSTableIndex index,
+            Collection<DBSIndexType> indexTypes, boolean supportUniqueIndexes)
+    {
+        super(title, index.getTable());
+        this.index = index;
+        this.indexTypes = new ArrayList<>(indexTypes);
+        Assert.isTrue(!CommonUtils.isEmpty(this.indexTypes));
+        this.supportUniqueIndexes = supportUniqueIndexes;
     }
 
     @Override
     protected void createContentsBeforeColumns(Composite panel)
     {
+        // Usually index name is auto-generated from column names
+/*
+        final Text nameText = entity != null ? UIUtils.createLabelText(panel, EditorsMessages.dialog_struct_edit_constrain_label_name, indexName) : null;
+        if (nameText != null) {
+            nameText.addModifyListener(e -> indexName = nameText.getText().trim());
+        }
+*/
+
         UIUtils.createControlLabel(panel, EditorsMessages.dialog_struct_edit_index_label_type);
         final Combo typeCombo = new Combo(panel, SWT.DROP_DOWN | SWT.READ_ONLY);
         typeCombo.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
@@ -85,13 +108,19 @@ public class EditIndexPage extends AttributesSelectorPage {
             }
         });
 
-        final Button uniqueButton = UIUtils.createLabelCheckbox(panel, "Unique", false);
-        uniqueButton.addSelectionListener(new SelectionAdapter() {
-            @Override
-            public void widgetSelected(SelectionEvent e) {
-                unique = uniqueButton.getSelection();
-            }
-        });
+        if (supportUniqueIndexes) {
+            final Button uniqueButton = UIUtils.createLabelCheckbox(panel, "Unique", false);
+            uniqueButton.addSelectionListener(new SelectionAdapter() {
+                @Override
+                public void widgetSelected(SelectionEvent e) {
+                    unique = uniqueButton.getSelection();
+                }
+            });
+        }
+    }
+
+    public String getIndexName() {
+        return indexName;
     }
 
     public DBSIndexType getIndexType()

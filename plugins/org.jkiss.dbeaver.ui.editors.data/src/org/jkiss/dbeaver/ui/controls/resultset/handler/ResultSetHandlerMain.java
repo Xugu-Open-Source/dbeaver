@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@ import org.eclipse.ui.IWorkbenchCommandConstants;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchPartSite;
 import org.eclipse.ui.handlers.HandlerUtil;
+import org.eclipse.ui.internal.Workbench;
 import org.eclipse.ui.texteditor.ITextEditorActionDefinitionIds;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
@@ -55,10 +56,8 @@ import org.jkiss.dbeaver.model.exec.DBExecUtils;
 import org.jkiss.dbeaver.model.runtime.AbstractJob;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
-import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.tools.transfer.database.DatabaseTransferProducer;
 import org.jkiss.dbeaver.tools.transfer.ui.wizard.DataTransferWizard;
-import org.jkiss.dbeaver.ui.IActionConstants;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.resultset.*;
 import org.jkiss.dbeaver.ui.data.IValueController;
@@ -95,6 +94,8 @@ public class ResultSetHandlerMain extends AbstractHandler {
     public static final String CMD_ROW_EDIT_INLINE = "org.jkiss.dbeaver.core.resultset.row.edit.inline";
     public static final String CMD_ROW_ADD = "org.jkiss.dbeaver.core.resultset.row.add";
     public static final String CMD_ROW_COPY = "org.jkiss.dbeaver.core.resultset.row.copy";
+    public static final String CMD_ROW_COPY_FROM_ABOVE = "org.jkiss.dbeaver.core.resultset.row.copy.from.above";
+    public static final String CMD_ROW_COPY_FROM_BELOW = "org.jkiss.dbeaver.core.resultset.row.copy.from.below";
     public static final String CMD_ROW_DELETE = "org.jkiss.dbeaver.core.resultset.row.delete";
     public static final String CMD_CELL_SET_NULL = "org.jkiss.dbeaver.core.resultset.cell.setNull";
     public static final String CMD_CELL_SET_DEFAULT = "org.jkiss.dbeaver.core.resultset.cell.setDefault";
@@ -121,7 +122,7 @@ public class ResultSetHandlerMain extends AbstractHandler {
     public static IResultSetController getActiveResultSet(IWorkbenchPart activePart) {
         if (activePart != null) {
             IWorkbenchPartSite site = activePart.getSite();
-            if (site != null && !DBWorkbench.getPlatform().isShuttingDown()) {
+            if (site != null && !Workbench.getInstance().isClosing()) {
                 Shell shell = site.getShell();
                 if (shell != null) {
                     for (Control focusControl = shell.getDisplay().getFocusControl(); focusControl != null; focusControl = focusControl.getParent()) {
@@ -226,14 +227,19 @@ public class ResultSetHandlerMain extends AbstractHandler {
                 boolean insertAfter = rsv.getPreferenceStore().getBoolean(ResultSetPreferences.RS_EDIT_NEW_ROWS_AFTER);
                 if (shiftPressed) insertAfter = !insertAfter;
                 rsv.addNewRow(copy, insertAfter, true);
-                if (insertAfter) {
-                    presentation.scrollToRow(IResultSetPresentation.RowPosition.NEXT);
-                }
+                break;
+            }
+            case CMD_ROW_COPY_FROM_ABOVE:
+            case CMD_ROW_COPY_FROM_BELOW: {
+                rsv.copyRowValues(actionId.equals(CMD_ROW_COPY_FROM_ABOVE), true);
                 break;
             }
             case CMD_ROW_DELETE:
             case IWorkbenchCommandConstants.EDIT_DELETE:
-                rsv.deleteSelectedRows();
+                // Execute in async mode. Otherwise if user holds DEL button pressed then all keyboard
+                // events are processed in sync mode and first pain event after all keyboard events.
+                // Bad UIX.
+                UIUtils.asyncExec(rsv::deleteSelectedRows);
                 break;
             case CMD_CELL_SET_NULL:
             case CMD_CELL_SET_DEFAULT:
@@ -242,7 +248,7 @@ public class ResultSetHandlerMain extends AbstractHandler {
                 for (Object cell : selection.toArray()) {
                     DBDAttributeBinding attr = selection.getElementAttribute(cell);
                     ResultSetRow row = selection.getElementRow(cell);
-                    if (row != null && attr != null) {
+                    if (row != null && attr != null && !DBExecUtils.isAttributeReadOnly(attr)) {
                         ResultSetValueController valueController = new ResultSetValueController(
                             rsv,
                             attr,
@@ -360,18 +366,17 @@ public class ResultSetHandlerMain extends AbstractHandler {
             }
             case IWorkbenchCommandConstants.EDIT_COPY:
                 ResultSetUtils.copyToClipboard(
-                    presentation.copySelectionToString(
+                    presentation.copySelection(
                         new ResultSetCopySettings(false, false, false, true, false, null, null, null, DBDDisplayFormat.EDIT)));
                 break;
             case IWorkbenchCommandConstants.EDIT_PASTE:
-            case IActionConstants.CMD_PASTE_SPECIAL:
                 if (presentation instanceof IResultSetEditor) {
-                    ((IResultSetEditor) presentation).pasteFromClipboard(actionId.equals(IActionConstants.CMD_PASTE_SPECIAL));
+                    ((IResultSetEditor) presentation).pasteFromClipboard(null);
                 }
                 break;
             case IWorkbenchCommandConstants.EDIT_CUT:
                 ResultSetUtils.copyToClipboard(
-                    presentation.copySelectionToString(
+                    presentation.copySelection(
                         new ResultSetCopySettings(false, false, true, true, false, null, null, null, DBDDisplayFormat.EDIT))
                 );
                 break;
@@ -473,7 +478,7 @@ public class ResultSetHandlerMain extends AbstractHandler {
                 break;
             }
             case CMD_FILTER_CLEAR_SETTING: {
-                rsv.resetDataFilter(true);
+                rsv.clearDataFilter(true);
             }
             case CMD_REFERENCES_MENU: {
                 boolean shiftPressed = event.getTrigger() instanceof Event && ((((Event) event.getTrigger()).stateMask & SWT.SHIFT) == SWT.SHIFT);
@@ -485,14 +490,10 @@ public class ResultSetHandlerMain extends AbstractHandler {
                 for (ResultSetRow selectedRow : rsv.getSelection().getSelectedRows()) {
                     selectedRows.add(Long.valueOf(selectedRow.getRowNumber()));
                 }
-                List<String> selectedAttributes = new ArrayList<>();
-                for (DBDAttributeBinding attributeBinding : rsv.getSelection().getSelectedAttributes()) {
-                    selectedAttributes.add(attributeBinding.getName());
-                }
 
                 ResultSetDataContainerOptions options = new ResultSetDataContainerOptions();
                 options.setSelectedRows(selectedRows);
-                options.setSelectedColumns(selectedAttributes);
+                options.setSelectedColumns(rsv.getSelection().getSelectedAttributes());
 
                 ResultSetDataContainer dataContainer = new ResultSetDataContainer(rsv, options);
                 DataTransferWizard.openWizard(
@@ -522,7 +523,7 @@ public class ResultSetHandlerMain extends AbstractHandler {
             case CMD_TOGGLE_ORDER: {
                 final DBDAttributeBinding attr = rsv.getActivePresentation().getCurrentAttribute();
                 if (attr != null) {
-                    rsv.toggleSortOrder(attr, false, false);
+                    rsv.toggleSortOrder(attr, null);
                 }
                 break;
             }

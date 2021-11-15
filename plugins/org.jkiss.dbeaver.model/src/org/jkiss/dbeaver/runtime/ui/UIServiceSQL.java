@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,6 +71,7 @@ public interface UIServiceSQL {
     Object openSQLConsole(
         @NotNull DBPDataSourceContainer dataSourceContainer,
         @Nullable DBCExecutionContext executionContext,
+        DBSObject selectedObject,
         String name,
         String sqlText);
 
@@ -85,6 +86,8 @@ public interface UIServiceSQL {
         throws DBException;
 
     void setSQLPanelText(Object panelObject, String sqlText);
+
+    String getSQLPanelText(Object panelObject);
 
     void disposeSQLPanel(Object panelObject);
 

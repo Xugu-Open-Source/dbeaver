@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,10 @@ public class ResultSetMessages extends NLS {
     public static String confirm_order_resultset_message;
     public static String confirm_order_resultset_toggleMessage;
 
+    public static String confirm_filter_resultset_title;
+    public static String confirm_filter_resultset_message;
+    public static String confirm_filter_resultset_toggleMessage;
+
     public static String confirm_fetch_all_rows_title;
     public static String confirm_fetch_all_rows_message;
     public static String confirm_fetch_all_rows_toggleMessage;
@@ -42,6 +46,8 @@ public class ResultSetMessages extends NLS {
 
     public static String controls_resultset_filter_button_reset;
     public static String controls_resultset_filter_column_name;
+    public static String controls_resultset_filter_column_visible;
+    public static String controls_resultset_filter_column_pinned;
     public static String controls_resultset_filter_column_criteria;
     public static String controls_resultset_filter_column_order;
     public static String controls_resultset_filter_group_columns;
@@ -61,6 +67,10 @@ public class ResultSetMessages extends NLS {
     public static String controls_resultset_viewer_action_order_filter;
     public static String controls_resultset_viewer_action_order;
     public static String controls_resultset_viewer_action_filter;
+    public static String controls_resultset_viewer_action_filter_clipboard;
+    public static String controls_resultset_viewer_action_filter_value;
+    public static String controls_resultset_viewer_action_filter_input;
+    public static String controls_resultset_viewer_action_filter_remove;
     public static String controls_resultset_viewer_action_custom_filter;
     public static String controls_resultset_viewer_action_column_view;
     public static String controls_resultset_viewer_action_logical_structure;
@@ -69,6 +79,7 @@ public class ResultSetMessages extends NLS {
     public static String controls_resultset_viewer_action_view_column_type;
     public static String controls_resultset_viewer_action_view_column_types;
     public static String controls_resultset_viewer_action_data_formats;
+    public static String controls_resultset_viewer_action_binary_format;
     public static String controls_resultset_viewer_action_refresh;
     public static String controls_resultset_viewer_action_panels;
     public static String controls_resultset_viewer_action_options;
@@ -89,6 +100,10 @@ public class ResultSetMessages extends NLS {
     public static String controls_resultset_viewer_status_rows_size;
     public static String controls_resultset_viewer_value;
     public static String controls_resultset_viewer_calculate_row_count;
+    public static String controls_resultset_viewer_pin_column;
+    public static String controls_resultset_viewer_pin_columns;
+    public static String controls_resultset_viewer_unpin_column;
+    public static String controls_resultset_viewer_unpin_columns;
     public static String controls_resultset_viewer_hide_column_x;
     public static String controls_resultset_viewer_hide_columns_x;
     public static String controls_resultset_viewer_hide_columns_error_title;
@@ -119,10 +134,10 @@ public class ResultSetMessages extends NLS {
 
     public static String actions_name_color_by;
     public static String actions_name_color_reset_by;
-	public static String actions_name_colorize_data_types;
-	public static String actions_name_row_colors;
-	public static String actions_name_structurize_complex_types;
-	public static String actions_spreadsheet_copy_special;
+    public static String actions_name_colorize_data_types;
+    public static String actions_name_row_colors;
+    public static String actions_name_structurize_complex_types;
+    public static String actions_spreadsheet_copy_special;
 
     // Data managers (FIXME: model_jdbc_ is a legacy prefix)
     public static String model_jdbc_bad_content_value_;
@@ -135,6 +150,21 @@ public class ResultSetMessages extends NLS {
     public static String model_jdbc_set_to_current_time;
     public static String model_jdbc_unsupported_content_value_type_;
 
+    public static String dialog_row_colors_title;
+    public static String dialog_row_colors_table_attributes_name;
+    public static String dialog_row_colors_table_attributes_color;
+    public static String dialog_row_colors_group_settings_label;
+    public static String dialog_row_colors_group_settings_range_label;
+    public static String dialog_row_colors_group_settings_range_tip;
+    public static String dialog_row_colors_group_settings_single_column_label;
+    public static String dialog_row_colors_group_settings_single_column_tip;
+    public static String dialog_row_colors_group_settings_operator_label;
+    public static String dialog_row_colors_group_settings_operator_tip;
+    public static String dialog_row_colors_group_settings_value_label;
+    public static String dialog_row_colors_group_settings_background_color_label;
+    public static String dialog_row_colors_group_settings_foreground_color_label;
+    public static String dialog_row_colors_group_settings_tip;
+
     public static String dialog_value_view_button_cancel;
     public static String dialog_value_view_button_sat_null;
     public static String dialog_value_view_button_save;
@@ -145,6 +175,24 @@ public class ResultSetMessages extends NLS {
     public static String dialog_value_view_dialog_error_updating_title;
     public static String dialog_value_view_job_selector_name;
     public static String dialog_value_view_label_dictionary;
+
+    public static String dialog_filter_value_edit_title;
+    public static String dialog_filter_value_edit_label_choose_values;
+    public static String dialog_filter_value_edit_label_define_description;
+    public static String dialog_filter_value_edit_text_hint;
+    public static String dialog_filter_value_edit_table_value_label;
+    public static String dialog_filter_value_edit_table_value_description;
+    public static String dialog_filter_value_edit_table_description_label;
+    public static String dialog_filter_value_edit_table_description_description;
+    public static String dialog_filter_value_edit_table_count_label;
+    public static String dialog_filter_value_edit_table_count_description;
+    public static String dialog_filter_value_edit_table_group_options;
+    public static String dialog_filter_value_edit_table_options_checkbox_case_insensitive_label;
+    public static String dialog_filter_value_edit_table_options_checkbox_case_insensitive_description;
+    public static String dialog_filter_value_edit_table_options_checkbox_read_from_server_label;
+    public static String dialog_filter_value_edit_table_options_checkbox_read_from_server_description;
+    public static String dialog_filter_value_edit_table_options_checkbox_show_row_count_label;
+    public static String dialog_filter_value_edit_table_options_checkbox_show_row_count_description;
 
     public static String dialog_control_label_massage;
     public static String dialog_cursor_view_monitor_rows_fetched;
@@ -161,6 +209,18 @@ public class ResultSetMessages extends NLS {
     public static String dialog_toolbar_show_all;
     public static String dialog_toolbar_show_none;
     public static String dialog_toolbar_sort;
+
+    public static String dialog_copy_as_configuration_name;
+    public static String dialog_copy_as_configuration_error_saving_processor_properties_title;
+    public static String dialog_copy_as_configuration_error_saving_processor_properties_message;
+
+    public static String dialog_paste_as_title;
+    public static String dialog_paste_as_insert_multiple_rows_text;
+    public static String dialog_paste_as_insert_multiple_rows_tip;
+    public static String dialog_paste_as_insert_nulls_text;
+    public static String dialog_paste_as_insert_nulls_tip;
+    public static String dialog_paste_as_null_value_mark_text;
+    public static String dialog_paste_as_null_value_mark_tip;
 
     // Pref pages
     public static String pref_page_content_editor_checkbox_commit_on_content_apply;
@@ -183,11 +243,14 @@ public class ResultSetMessages extends NLS {
     public static String pref_page_data_format_datetime_use_native_formatting_tip;
     public static String pref_page_data_format_numeric_use_native_formatting;
     public static String pref_page_data_format_numeric_use_native_formatting_tip;
+    public static String pref_page_data_format_numeric_use_scientific_notation;
+    public static String pref_page_data_format_numeric_use_scientific_notation_tip;
     public static String pref_page_data_format_group_format;
     public static String pref_page_data_format_label_profile;
     public static String pref_page_data_format_label_sample;
     public static String pref_page_data_format_label_settingt;
     public static String pref_page_data_format_label_type;
+    public static String pref_page_data_format_link_patterns;
 
     public static String dialog_data_format_profiles_button_delete_profile;
     public static String dialog_data_format_profiles_button_new_profile;
@@ -197,6 +260,17 @@ public class ResultSetMessages extends NLS {
     public static String dialog_data_format_profiles_error_message;
     public static String dialog_data_format_profiles_error_title;
     public static String dialog_data_format_profiles_title;
+
+    public static String dialog_save_script_title;
+    public static String dialog_save_script_settings_title;
+    public static String dialog_save_script_button_use_qualified_names;
+    public static String dialog_save_script_button_use_qualified_names_tip;
+    public static String dialog_save_script_button_delete_cascade;
+    public static String dialog_save_script_button_delete_cascade_tip;
+    public static String dialog_save_script_button_delete_deep_cascade;
+    public static String dialog_save_script_button_delete_deep_cascade_tip;
+    public static String dialog_save_script_button_bar_button_persist;
+    public static String dialog_save_script_button_bar_button_copy;
 
     //Preference/Properties
     // ResultSetsMain
@@ -213,53 +287,23 @@ public class ResultSetMessages extends NLS {
     public static String pref_page_database_resultsets_label_reread_on_scrolling_tip;
     public static String pref_page_database_resultsets_label_use_sql;
     public static String pref_page_database_resultsets_label_use_sql_tip;
-    public static String pref_page_database_resultsets_label_server_side_order;
+    public static String pref_page_database_resultsets_label_order_mode;
+    public static String pref_page_database_resultsets_label_order_mode_tip;
+    public static String pref_page_database_resultsets_label_order_mode_smart;
+    public static String pref_page_database_resultsets_label_order_mode_always_client;
+    public static String pref_page_database_resultsets_label_order_mode_always_server;
     public static String pref_page_database_resultsets_label_fetch_size;
     public static String pref_page_database_resultsets_label_read_metadata;
     public static String pref_page_database_resultsets_label_read_references;
     public static String pref_page_database_resultsets_group_string;
     public static String pref_page_database_resultsets_checkbox_string_use_editor;
     public static String pref_page_database_resultsets_checkbox_string_use_editor_tip;
+    public static String pref_page_database_resultsets_label_replace_nulls_to_default;
+    public static String pref_page_database_resultsets_label_replace_nulls_to_default_tip;
 
     public static String pref_page_database_resultsets_label_read_metadata_tip;
     public static String pref_page_database_resultsets_label_read_references_tip;
     public static String pref_page_database_resultsets_label_fetch_size_tip;
-    // ResultSetPresentation
-    public static String pref_page_database_resultsets_group_common;
-    public static String pref_page_database_resultsets_label_switch_mode_on_rows;
-    public static String pref_page_database_resultsets_label_show_column_description;
-    public static String pref_page_database_resultsets_label_show_connection_name;
-    public static String pref_page_database_resultsets_label_calc_column_width_by_values;
-    public static String pref_page_database_resultsets_label_calc_column_width_by_values_tip;
-    public static String pref_page_database_resultsets_label_structurize_complex_types;
-    public static String pref_page_database_resultsets_label_structurize_complex_types_tip;
-    public static String pref_page_database_resultsets_group_grid;
-    public static String pref_page_database_resultsets_label_mark_odd_rows;
-    public static String pref_page_database_resultsets_label_colorize_data_types;
-    public static String pref_page_database_resultsets_label_right_justify_numbers_and_date;
-    public static String pref_page_database_resultsets_label_right_justify_datetime;
-    public static String pref_page_database_resultsets_label_row_batch_size;
-    public static String pref_page_database_resultsets_label_row_batch_size_tip;
-    public static String pref_page_database_resultsets_label_show_cell_icons;
-    public static String pref_page_database_resultsets_label_show_attr_icons;
-    public static String pref_page_database_resultsets_label_show_attr_icons_tip;
-    public static String pref_page_database_resultsets_label_show_attr_filters;
-    public static String pref_page_database_resultsets_label_show_attr_filters_tip;
-    public static String pref_page_database_resultsets_label_show_attr_ordering;
-    public static String pref_page_database_resultsets_label_show_attr_ordering_tip;
-    public static String pref_page_database_resultsets_label_use_smooth_scrolling;
-    public static String pref_page_database_resultsets_label_use_smooth_scrolling_tip;
-    public static String pref_page_database_resultsets_label_show_boolean_as_checkbox;
-    public static String pref_page_database_resultsets_label_show_boolean_as_checkbox_tip;
-    public static String pref_page_database_resultsets_label_double_click_behavior;
-    public static String pref_page_database_resultsets_group_plain_text;
-    public static String pref_page_database_resultsets_label_value_format;
-    public static String pref_page_database_resultsets_label_tab_width;
-    public static String pref_page_database_resultsets_label_maximum_column_length;
-    public static String pref_page_database_resultsets_label_text_show_nulls;
-    public static String pref_page_database_resultsets_label_text_delimiter_leading;
-    public static String pref_page_database_resultsets_label_text_delimiter_trailing;
-    public static String pref_page_database_resultsets_label_text_extra_spaces;
 
     public static String pref_page_content_cache_clob;
     public static String pref_page_content_cache_blob;
@@ -272,17 +316,10 @@ public class ResultSetMessages extends NLS {
     public static String pref_page_database_general_label_result_set_cancel_timeout;
     public static String pref_page_database_general_label_result_set_cancel_timeout_tip;
 
-    public static String pref_page_result_selector_editor;
-	public static String pref_page_result_selector_inline_editor;
-	public static String pref_page_result_selector_none;
-
-	public static String pref_page_results_group_advanced;
+    public static String pref_page_results_group_advanced;
     public static String pref_page_sql_editor_group_misc;
-
-	public static String value_format_selector_database_native;
-	public static String value_format_selector_display;
-	public static String value_format_selector_editable;
-	public static String value_format_selector_value;
+    public static String pref_page_database_general_use_column_names;
+    public static String pref_page_database_general_use_column_names_tip;
 
     public static String dialog_text_check_box_record;
     
@@ -294,6 +331,40 @@ public class ResultSetMessages extends NLS {
     public static String results_decorator_grouping_is_not_supported;
     public static String results_decorator_no_connected_to_db;
     public static String results_decorator_no_groupings;
+    
+    public static String virtual_edit_columns_page_add;
+    public static String virtual_edit_columns_page_table_column_name;
+    public static String virtual_edit_columns_page_table_column_data_type;
+    public static String virtual_edit_columns_page_table_column_expression;
+    public static String virtual_edit_columns_page_dialog_button_add;
+    public static String virtual_edit_columns_page_dialog_button_edit;
+    public static String virtual_edit_columns_page_dialog_button_remove;
+    public static String virtual_edit_columns_page_confirm_action_delete;
+    public static String virtual_edit_columns_page_confirm_action_question_delete_column;
+
+    public static String virtual_edit_attribute_viewer_title;
+    public static String virtual_edit_attribute_label_text_column_name;
+    public static String virtual_edit_attribute_label_combo_type_name;
+    public static String virtual_edit_attribute_label_combo_type_name_tip;
+    public static String virtual_edit_attribute_label_combo_data_kind;
+    public static String virtual_edit_attribute_label_combo_data_kind_tip;
+    public static String virtual_edit_attribute_label_text_expression;
+    public static String virtual_edit_attribute_label_text_preview;
+    public static String virtual_edit_attribute_preview_message_editor;
+    public static String virtual_edit_attribute_preview_message_current_text;
+
+    public static String validate_unique_key_usage_dialog_title;
+    public static String validate_unique_key_usage_dialog_main_question;
+    public static String validate_unique_key_usage_dialog_use_all_columns;
+    public static String validate_unique_key_usage_dialog_custom_unique_key;
+    public static String validate_unique_key_usage_dialog_use_all_columns_no_valid_columns_found;
+    public static String validate_unique_key_usage_dialog_use_all_columns_cannot_reload_unique_columns;
+
+    public static String panel_editor_text_loading_placeholder_label;
+    public static String panel_editor_text_word_wrap_name;
+    public static String panel_editor_text_auto_format_name;
+    public static String panel_editor_text_encoding_name;
+    public static String panel_editor_text_encoding_title;
 
     static {
         // initialize resource bundle

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,12 +22,8 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPNamedObject2;
-import org.jkiss.dbeaver.model.DBPObjectWithDescription;
 import org.jkiss.dbeaver.model.app.DBPProject;
-import org.jkiss.dbeaver.model.task.DBTTask;
-import org.jkiss.dbeaver.model.task.DBTTaskEvent;
-import org.jkiss.dbeaver.model.task.DBTTaskRun;
-import org.jkiss.dbeaver.model.task.DBTTaskType;
+import org.jkiss.dbeaver.model.task.*;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
@@ -41,8 +37,7 @@ import java.util.*;
 /**
  * TaskImpl
  */
-public class TaskImpl implements DBTTask, DBPNamedObject2, DBPObjectWithDescription {
-
+public class TaskImpl implements DBTTask, DBPNamedObject2 {
     private static final Log log = Log.getLog(TaskImpl.class);
 
     private static final String META_FILE_NAME = "meta.json";
@@ -63,12 +58,13 @@ public class TaskImpl implements DBTTask, DBPNamedObject2, DBPObjectWithDescript
     private DBTTaskType type;
     private Map<String, Object> properties;
     private TaskRunImpl lastRun;
+    @Nullable private TaskFolderImpl taskFolder;
 
     private static class RunStatistics {
-        private List<TaskRunImpl> runs = new ArrayList<>();
+        private final List<TaskRunImpl> runs = new ArrayList<>();
     }
 
-    public TaskImpl(@NotNull DBPProject project, @NotNull DBTTaskType type, @NotNull String id, @NotNull String label, @Nullable String description, @NotNull Date createTime, @Nullable Date updateTime) {
+    public TaskImpl(@NotNull DBPProject project, @NotNull DBTTaskType type, @NotNull String id, @NotNull String label, @Nullable String description, @NotNull Date createTime, @Nullable Date updateTime, @Nullable TaskFolderImpl taskFolder) {
         this.project = project;
         this.id = id;
         this.label = label;
@@ -76,6 +72,7 @@ public class TaskImpl implements DBTTask, DBPNamedObject2, DBPObjectWithDescript
         this.createTime = createTime;
         this.updateTime = updateTime;
         this.type = type;
+        this.taskFolder = taskFolder;
     }
 
     @NotNull
@@ -108,6 +105,16 @@ public class TaskImpl implements DBTTask, DBPNamedObject2, DBPObjectWithDescript
 
     public void setDescription(@NotNull String description) {
         this.description = description;
+    }
+
+    @Nullable
+    @Override
+    public DBTTaskFolder getTaskFolder() {
+        return taskFolder;
+    }
+
+    public void setTaskFolder(@Nullable DBTTaskFolder taskFolder) {
+        this.taskFolder = (TaskFolderImpl) taskFolder;
     }
 
     @NotNull
@@ -146,10 +153,7 @@ public class TaskImpl implements DBTTask, DBPNamedObject2, DBPObjectWithDescript
     @Override
     public DBTTaskRun getLastRun() {
         if (lastRun == null) {
-            synchronized (this) {
-                List<TaskRunImpl> runs = loadRunStatistics().runs;
-                lastRun = runs.isEmpty() ? VOID_RUN : runs.get(runs.size() - 1);
-            }
+            refreshRunStatistics();
         }
         return lastRun == VOID_RUN ? null : lastRun;
     }
@@ -202,8 +206,25 @@ public class TaskImpl implements DBTTask, DBPNamedObject2, DBPObjectWithDescript
     }
 
     @Override
+    public void refreshRunStatistics() {
+        try {
+            synchronized (this) {
+                List<TaskRunImpl> runs = loadRunStatistics().runs;
+                lastRun = runs.isEmpty() ? VOID_RUN : runs.get(runs.size() - 1);
+            }
+        } catch (Throwable e) {
+            log.debug("Error loading task runs", e); //$NON-NLS-1$
+        }
+    }
+
+    @Override
     public void setProperties(@NotNull Map<String, Object> properties) {
         this.properties = new LinkedHashMap<>(properties);
+    }
+
+    @Override
+    public boolean isTemporary() {
+        return TaskManagerImpl.TEMPORARY_ID.equals(id);
     }
 
     @NotNull
@@ -226,8 +247,13 @@ public class TaskImpl implements DBTTask, DBPNamedObject2, DBPObjectWithDescript
             return new RunStatistics();
         }
         try (FileReader reader = new FileReader(metaFile)) {
-            return gson.fromJson(reader, RunStatistics.class);
-        } catch (IOException e) {
+            RunStatistics statistics = gson.fromJson(reader, RunStatistics.class);
+            if (statistics == null) {
+                log.error("Null task run statistics returned");
+                return new RunStatistics();
+            }
+            return statistics;
+        } catch (Exception e) {
             log.error("Error reading task run statistics", e);
             return new RunStatistics();
         }
@@ -276,5 +302,4 @@ public class TaskImpl implements DBTTask, DBPNamedObject2, DBPObjectWithDescript
     public String toString() {
         return id + " " + label + " (" + type.getName() + ")";
     }
-
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,21 +39,25 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.core.CoreMessages;
 import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
-import org.jkiss.dbeaver.tasks.ui.view.DatabaseTasksView;
 import org.jkiss.dbeaver.ui.*;
-import org.jkiss.dbeaver.ui.actions.common.ToggleViewAction;
 import org.jkiss.dbeaver.ui.app.standalone.about.AboutBoxAction;
 import org.jkiss.dbeaver.ui.app.standalone.actions.EmergentExitAction;
 import org.jkiss.dbeaver.ui.app.standalone.actions.ResetUISettingsAction;
+import org.jkiss.dbeaver.ui.app.standalone.actions.ResetWorkspaceStateAction;
+import org.jkiss.dbeaver.ui.app.standalone.internal.CoreApplicationActivator;
 import org.jkiss.dbeaver.ui.app.standalone.update.CheckForUpdateAction;
 import org.jkiss.dbeaver.ui.controls.StatusLineContributionItemEx;
+import org.jkiss.dbeaver.ui.navigator.actions.ToggleViewAction;
 import org.jkiss.dbeaver.ui.navigator.database.DatabaseNavigatorView;
 import org.jkiss.dbeaver.ui.navigator.project.ProjectExplorerView;
 import org.jkiss.dbeaver.ui.navigator.project.ProjectNavigatorView;
+import org.jkiss.utils.ArrayUtils;
+import org.jkiss.utils.BeanUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.StandardConstants;
 import org.osgi.framework.Bundle;
 
+import java.lang.reflect.Field;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -79,7 +83,7 @@ public class ApplicationActionBarAdvisor extends ActionBarAdvisor
         super(configurer);
     }
 
-    private static final String[] actionSetId = new String[] {
+    private static final String[] REDUNTANT_ACTIONS_SETS = new String[] {
         "org.eclipse.ui.WorkingSetActionSet", //$NON-NLS-1$
         //"org.eclipse.ui.edit.text.actionSet.navigation", //$NON-NLS-1$
         //"org.eclipse.ui.edit.text.actionSet.convertLineDelimitersTo", //$NON-NLS-1$
@@ -88,6 +92,9 @@ public class ApplicationActionBarAdvisor extends ActionBarAdvisor
         //"org.eclipse.ui.NavigateActionSet", //$NON-NLS-1$
         //"org.eclipse.search.searchActionSet" //$NON-NLS-1$
         "org.eclipse.mylyn.tasks.ui.navigation",
+
+        // Disable files actionset to redefine OpenLocalFileAction
+        "org.eclipse.ui.actionSet.openFiles"
     };
 
 
@@ -96,14 +103,47 @@ public class ApplicationActionBarAdvisor extends ActionBarAdvisor
         IActionSetDescriptor[] actionSets = asr.getActionSets();
 
         for (IActionSetDescriptor actionSet : actionSets) {
-            for (String element : actionSetId) {
-
-                if (element.equals(actionSet.getId())) {
+            if ("org.eclipse.search.searchActionSet".equals(actionSet.getId())) {
+                patchSearchIcons(actionSet);
+            } else {
+                if (ArrayUtils.contains(REDUNTANT_ACTIONS_SETS, actionSet.getId())) {
                     log.debug("Disable Eclipse action set '" + actionSet.getId() + "'");
                     IExtension ext = actionSet.getConfigurationElement().getDeclaringExtension();
-                    asr.removeExtension(ext, new Object[] { actionSet });
+                    asr.removeExtension(ext, new Object[]{actionSet});
                 }
             }
+        }
+    }
+
+    private void patchSearchIcons(IActionSetDescriptor actionSet) {
+        // Patch search icons. Directly change icon reference in config registry
+        // FIXME: This is a very dirty hack but I didn't find any better way to patch search action icons
+        for (IConfigurationElement searchActionItem : actionSet.getConfigurationElement().getChildren()) {
+            String saId = searchActionItem.getAttribute("id");
+            if ("org.eclipse.search.OpenSearchDialog".equals(saId) || "org.eclipse.search.OpenSearchDialogPage".equals(saId)) {
+                patchActionSetIcon(searchActionItem, "platform:/plugin/" + CoreApplicationActivator.PLUGIN_ID + "/icons/eclipse/search.png");
+            } else if ("org.eclipse.search.OpenFileSearchPage".equals(saId)) {
+                patchActionSetIcon(searchActionItem, UIIcon.FIND_TEXT.getLocation());
+            }
+        }
+    }
+
+    private void patchActionSetIcon(IConfigurationElement searchActionItem, String iconPath) {
+        try {
+            Object cfgElement = BeanUtils.invokeObjectDeclaredMethod(searchActionItem, "getConfigurationElement", new Class[0], new Object[0]);
+            if (cfgElement  != null) {
+                Field pavField = cfgElement.getClass().getDeclaredField("propertiesAndValue");
+                pavField.setAccessible(true);
+                String[] pav = (String[]) pavField.get(cfgElement);
+                for (int i = 0; i < pav.length; i += 2) {
+                    if (pav[i].equals("icon")) {
+                        pav[i + 1] = iconPath;
+                    }
+                }
+            }
+        } catch (Throwable e) {
+            // ignore
+            log.debug("Failed to patch search actions", e);
         }
     }
 
@@ -207,10 +247,8 @@ public class ApplicationActionBarAdvisor extends ActionBarAdvisor
         IWorkbenchWindow workbenchWindow = getActionBarConfigurer().getWindowConfigurer().getWindow();
         {
             // File
-            //MenuManager recentMenu = new MenuManager("Recent editors");
-            //recentMenu.add(ContributionItemFactory.REOPEN_EDITORS.create(getActionBarConfigurer().getWindowConfigurer().getWindow()));
 
-            fileMenu.add(new GroupMarker(IWorkbenchActionConstants.FILE_START));
+            /*fileMenu.add(new GroupMarker(IWorkbenchActionConstants.FILE_START));
             fileMenu.add(new GroupMarker(IWorkbenchActionConstants.NEW_EXT));
             fileMenu.add(new Separator());
             fileMenu.add(new GroupMarker(IWorkbenchActionConstants.CLOSE_EXT));
@@ -221,27 +259,33 @@ public class ApplicationActionBarAdvisor extends ActionBarAdvisor
             fileMenu.add(new Separator());
             fileMenu.add(new GroupMarker(IWorkbenchActionConstants.IMPORT_EXT));
             fileMenu.add(new Separator());
-            //fileMenu.add(new GroupMarker(IWorkbenchActionConstants.SAVE_EXT));
-            //fileMenu.add(new Separator());
+            fileMenu.add(new GroupMarker(IWorkbenchActionConstants.SAVE_EXT));
+            fileMenu.add(new Separator());*/
 
             MenuManager recentEditors = new MenuManager("Recent editors");
             recentEditors.add(ContributionItemFactory.REOPEN_EDITORS.create(workbenchWindow));
             recentEditors.add(new GroupMarker(IWorkbenchActionConstants.MRU));
             fileMenu.add(recentEditors);
 
+            fileMenu.add(ActionUtils.makeCommandContribution(workbenchWindow, "org.eclipse.ui.edit.text.openLocalFile"));
+            fileMenu.add(new GroupMarker(IWorkbenchActionConstants.FILE_START));
+            fileMenu.add(new GroupMarker(IWorkbenchActionConstants.NEW_EXT));
             fileMenu.add(new GroupMarker(IWorkbenchActionConstants.MB_ADDITIONS));
+
 
             fileMenu.add(openWorkspaceAction);
 
             fileMenu.add(new Separator());
             fileMenu.add(new ResetUISettingsAction(workbenchWindow));
+            fileMenu.add(new ResetWorkspaceStateAction(workbenchWindow));
             fileMenu.add(new EmergentExitAction(workbenchWindow));
 
             fileMenu.add(new GroupMarker(IWorkbenchActionConstants.FILE_END));
         }
 
-        {
+        if (false) {
             // Edit
+            // Disabled because new Eclipse adds this to the File menu by default
             ActionSetRegistry asr = WorkbenchPlugin.getDefault().getActionSetRegistry();
             IActionSetDescriptor actionSet = asr.findActionSet("org.eclipse.ui.edit.text.actionSet.convertLineDelimitersTo");
             if (actionSet != null) {
@@ -279,7 +323,8 @@ public class ApplicationActionBarAdvisor extends ActionBarAdvisor
             windowMenu.add(new ToggleViewAction(DatabaseNavigatorView.VIEW_ID));
             windowMenu.add(new ToggleViewAction(ProjectNavigatorView.VIEW_ID));
             windowMenu.add(new ToggleViewAction(ProjectExplorerView.VIEW_ID));
-            windowMenu.add(new ToggleViewAction(DatabaseTasksView.VIEW_ID));
+            //windowMenu.add(new ToggleViewAction(DatabaseTasksView.VIEW_ID));
+            windowMenu.add(new GroupMarker("primary.views"));
             {
                 MenuManager showViewMenuMgr = new MenuManager(CoreMessages.actions_menu_window_showView, "showView"); //$NON-NLS-1$
                 IContributionItem showViewMenu = ContributionItemFactory.VIEWS_SHORTLIST.create(PlatformUI.getWorkbench().getActiveWorkbenchWindow());

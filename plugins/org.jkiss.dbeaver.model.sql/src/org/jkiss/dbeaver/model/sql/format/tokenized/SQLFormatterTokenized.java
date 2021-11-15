@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,16 +17,16 @@
 
 package org.jkiss.dbeaver.model.sql.format.tokenized;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.DBPIdentifierCase;
 import org.jkiss.dbeaver.model.sql.format.SQLFormatter;
 import org.jkiss.dbeaver.model.sql.format.SQLFormatterConfiguration;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.ArrayUtils;
+import org.jkiss.utils.CommonUtils;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 
 /**
  * SQL formatter
@@ -50,7 +50,9 @@ public class SQLFormatterTokenized implements SQLFormatter {
         formatterCfg = configuration;
 
         for (String delim : formatterCfg.getSyntaxManager().getStatementDelimiters()) {
-            statementDelimiters.add(delim.toUpperCase(Locale.ENGLISH));
+            if (!CommonUtils.isEmptyTrimmed(delim)) {
+                statementDelimiters.add(delim.toUpperCase(Locale.ENGLISH));
+            }
         }
 
         SQLTokensParser fParser = new SQLTokensParser(formatterCfg);
@@ -83,7 +85,7 @@ public class SQLFormatterTokenized implements SQLFormatter {
         isCompact = compact;
     }
 
-    private List<FormatterToken> format(final List<FormatterToken> argList) {
+    private List<FormatterToken> format(@NotNull List<FormatterToken> argList) {
         if (argList.isEmpty()) {
             return argList;
         }
@@ -219,16 +221,20 @@ public class SQLFormatterTokenized implements SQLFormatter {
         return false;
     }
 
-    private void removeSpacesAroundCommentToken(List<FormatterToken> argList) {
-        FormatterToken token;// Remove extra tokens (spaces, etc)
+    private static void removeSpacesAroundCommentToken(List<? extends FormatterToken> argList) {
+        // Remove extra tokens (spaces, etc)
+        // We do not, however, remove spaces between comments which occupy the entire string.
+        // That means, we do not delete spaces around comments if spaces contain line separator.
+        CharSequence separator = "\n";
         for (int index = argList.size() - 1; index >= 1; index--) {
-            token = argList.get(index);
+            FormatterToken token = argList.get(index);
             FormatterToken prevToken = argList.get(index - 1);
-            if (token.getType() == TokenType.SPACE && prevToken.getType() == TokenType.COMMENT) {
+            boolean isTokenNotContainsSeparator = !token.getString().contains(separator);
+            if (prevToken.getType() == TokenType.COMMENT && token.getType() == TokenType.SPACE && isTokenNotContainsSeparator) {
                 argList.remove(index);
-            } else if (token.getType() == TokenType.COMMENT && prevToken.getType() == TokenType.SPACE) {
+            } else if (prevToken.getType() == TokenType.SPACE && !prevToken.getString().contains(separator) && token.getType() == TokenType.COMMENT) {
                 argList.remove(index - 1);
-            } else if (token.getType() == TokenType.SPACE) {
+            } else if (token.getType() == TokenType.SPACE && isTokenNotContainsSeparator) {
                 token.setString(" "); //$NON-NLS-1$
             }
         }
@@ -284,9 +290,6 @@ public class SQLFormatterTokenized implements SQLFormatter {
         }
     }
 
-
-
-
     private static String getPrevDMLKeyword(List<FormatterToken> argList, int index) {
         for (int i = index - 1; i >= 0; i--) {
             FormatterToken token = argList.get(i);
@@ -318,5 +321,4 @@ public class SQLFormatterTokenized implements SQLFormatter {
                 return false;
         }
     }
-
 }

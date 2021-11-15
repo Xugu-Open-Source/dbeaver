@@ -52,6 +52,7 @@ import cn.hutool.core.util.EscapeUtil;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlan;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlanStyle;
 import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlanner;
+import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlannerConfiguration;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource.SchedulerJobCache;
 import org.jkiss.dbeaver.ext.xugu.model.Schema.SynonymCache;
 import org.jkiss.dbeaver.ext.xugu.model.plan.PlanAnalyser;
@@ -164,7 +165,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	@Override
 	public Object getDataSourceFeature(String featureId) {
 		switch (featureId) {
-		case DBConstants.FEATURE_MAX_STRING_LENGTH:
+        case DBPDataSource.FEATURE_MAX_STRING_LENGTH:
 			return 4000;
 		default:
 			return super.getDataSourceFeature(featureId);
@@ -321,11 +322,6 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	}
 
 	@Override
-	protected String getConnectionUserName(@NotNull DBPConnectionConfiguration connectionInfo)  {
-		return connectionInfo.getUserName();
-	}
-
-	@Override
 	public ErrorType discoverErrorType(@NotNull Throwable error) {
 		Throwable rootCause = GeneralUtils.getRootCause(error);
 		if (rootCause instanceof SQLException
@@ -449,7 +445,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	}
 
 	@Override
-	public Class<? extends Schema> getChildType(@NotNull DBRProgressMonitor monitor) throws DBException {
+	public Class<? extends DBSObject> getPrimaryChildType(DBRProgressMonitor monitor) throws DBException {
 		return Schema.class;
 	}
 
@@ -704,13 +700,11 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 		@SuppressWarnings("unchecked")
 		@Override
-		public void readServerOutput(@NotNull DBRProgressMonitor monitor, @NotNull DBCExecutionContext context,
-				@Nullable SQLQueryResult queryResult, @Nullable DBCStatement statement, @NotNull PrintWriter output)
-				throws DBCException {
+		public void readServerOutput(@NotNull DBRProgressMonitor monitor, @NotNull DBCExecutionContext context, DBCExecutionResult executionResult, DBCStatement statement, @NotNull PrintWriter output) throws DBCException {
 			try {
 				if (statement == null) {
-					if (queryResult != null) {
-			            dumpWarnings(output, queryResult.getWarnings());
+					if (executionResult != null) {
+			            dumpWarnings(output, executionResult.getWarnings());
 			        }
 	            } else {
 	            	Object originStatement = getOriginalStatement(statement);
@@ -761,7 +755,8 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 	@NotNull
 	@Override
-	public DBCPlan planQueryExecution(@NotNull DBCSession session, @NotNull String query) throws DBException {
+	public DBCPlan planQueryExecution(DBCSession session, String query, DBCQueryPlannerConfiguration configuration)
+			throws DBException {
 		PlanAnalyser plan = new PlanAnalyser(this, (JDBCSession) session, query);
 		plan.explain();
 		return plan;

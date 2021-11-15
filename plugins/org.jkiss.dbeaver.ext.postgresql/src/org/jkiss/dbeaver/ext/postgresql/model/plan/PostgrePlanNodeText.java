@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,9 @@
  */
 package org.jkiss.dbeaver.ext.postgresql.model.plan;
 
-import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataSource;
+import org.jkiss.dbeaver.model.DBPDataSource;
 
-
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 
 /**
@@ -222,7 +217,7 @@ public class PostgrePlanNodeText extends PostgrePlanNodeBase<PostgrePlanNodeText
         
     }
     
-    public PostgrePlanNodeText(PostgreDataSource dataSource, PostgrePlanNodeText parent, String line, int indent) {
+    public PostgrePlanNodeText(DBPDataSource dataSource, PostgrePlanNodeText parent, String line, int indent) {
         super(dataSource, parent);
         
         this.indent = indent;

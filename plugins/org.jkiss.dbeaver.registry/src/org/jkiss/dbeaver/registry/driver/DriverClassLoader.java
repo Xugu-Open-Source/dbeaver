@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ public class DriverClassLoader extends URLClassLoader
         String nativeName = System.mapLibraryName(libname);
         for (DBPDriverLibrary driverFile : driver.getDriverLibraries()) {
             if (driverFile.getType() == DBPDriverLibrary.FileType.lib && driverFile.matchesCurrentPlatform()) {
-                final File localFile = driverFile.getLocalFile();
+                File localFile = driverFile.getLocalFile();
                 if (localFile == null) {
                     // Check library files cache
                     List<DriverDescriptor.DriverFileInfo> cachedFiles = driver.getCachedFiles(driverFile);
@@ -57,6 +57,9 @@ public class DriverClassLoader extends URLClassLoader
                     }
                 }
                 if (localFile != null && localFile.exists()) {
+                    if (localFile.isDirectory()) {
+                        localFile = new File(localFile, nativeName);
+                    }
                     if (localFile.getName().equalsIgnoreCase(nativeName)) {
                         return localFile.getAbsolutePath();
                     }

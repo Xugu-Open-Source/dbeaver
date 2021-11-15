@@ -65,6 +65,7 @@ import org.jkiss.dbeaver.model.impl.sql.edit.struct.SQLTriggerManager;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
+import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.ui.UITask;
 import org.jkiss.dbeaver.ui.UIUtils;
@@ -256,7 +257,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 		private Combo triggerTimingCombo;
 		private Text triggerConditionText;
 		private Table colListTable;
-		private Collection<org.jkiss.dbeaver.ext.xugu.model.TableColumn> colList;
+		private Collection<? extends DBSEntityAttribute> colList;
 
 		public  TriggerDialog(Shell parentShell, Schema schema, DBRProgressMonitor monitor) {
 			super(parentShell);
@@ -437,9 +438,9 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 			// 重新加载数据
 			colListTable.removeAll();
 			if (colList.size() != 0) {
-				Iterator<org.jkiss.dbeaver.ext.xugu.model.TableColumn> it = colList.iterator();
+				Iterator<? extends DBSEntityAttribute> it = colList.iterator();
 				while (it.hasNext()) {
-					org.jkiss.dbeaver.ext.xugu.model.TableColumn col = it.next();
+					org.jkiss.dbeaver.ext.xugu.model.TableColumn col = (org.jkiss.dbeaver.ext.xugu.model.TableColumn) it.next();
 					TableItem item = new TableItem(colListTable, SWT.NONE);
 					item.setText(new String[] { col.getName(),
 							col.getDataType() == null ? col.getTypeName() : col.getDataType().toString(),

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,7 +63,6 @@ import java.util.Locale;
  * Script selector panel (shell)
  */
 public class ScriptSelectorPanel extends AbstractPopupPanel {
-
     private static final Log log = Log.getLog(ScriptSelectorPanel.class);
 
     private static final String DIALOG_ID = "DBeaver.ScriptSelectorPopup";
@@ -269,7 +268,7 @@ public class ScriptSelectorPanel extends AbstractPopupPanel {
             }
         });
         columnController.createColumns();
-        columnController.sortByColumn(1, SWT.UP);
+        columnController.sortByColumn(1, SWT.DOWN);
 
         scriptTree.addSelectionListener(new SelectionAdapter() {
             @Override
@@ -323,6 +322,7 @@ public class ScriptSelectorPanel extends AbstractPopupPanel {
 
         final Tree tree = scriptViewer.getTree();
         final TreeColumn[] columns = tree.getColumns();
+        tree.setHeaderVisible(true);
         columns[0].pack();
         columns[0].setWidth(columns[0].getWidth() + 10);
         columns[1].pack();
@@ -339,6 +339,8 @@ public class ScriptSelectorPanel extends AbstractPopupPanel {
     }
 
     public static void showTree(IWorkbenchWindow workbenchWindow, SQLNavigatorContext editorContext, IFolder rootFolder, List<ResourceInfo> scriptFiles) {
+//        List<ResourceInfo> sortedFiles = new ArrayList<>(scriptFiles);
+//        sortedFiles.sort((o1, o2) -> (int) (o2.getLocalFile().lastModified() - o1.getLocalFile().lastModified()));
         ScriptSelectorPanel selectorPanel = new ScriptSelectorPanel(workbenchWindow, editorContext, rootFolder, scriptFiles);
         selectorPanel.setModeless(true);
         selectorPanel.open();

@@ -176,8 +176,9 @@ public class RoleEditor extends AbstractDatabaseObjectEditor<Role> {
 	}
 
 	@Override
-	public void refreshPart(Object source, boolean force) {
+	public RefreshResult refreshPart(Object source, boolean force) {
 		// do nothing
+		return RefreshResult.IGNORED;
 	}
 
 	private class PageControl extends ObjectEditorPageControl {

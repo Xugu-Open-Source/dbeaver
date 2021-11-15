@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,11 @@ package org.jkiss.dbeaver.ext.postgresql.model;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.model.DBPObjectWithLazyDescription;
+import org.jkiss.dbeaver.model.DBPOverloadedObject;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 
@@ -31,25 +34,26 @@ import java.util.List;
 /**
  * PostgreAggregate
  */
-public class PostgreAggregate implements PostgreObject {
+public class PostgreAggregate implements PostgreObject, DBPOverloadedObject, DBPObjectWithLazyDescription {
 
     private long oid;
-    private PostgreSchema schema;
+    private final PostgreSchema schema;
     private String name;
     private boolean persisted;
+    private PostgreProcedure function;
 
-    public PostgreAggregate(PostgreSchema schema, ResultSet dbResult)
-        throws SQLException
-    {
+    public PostgreAggregate(DBRProgressMonitor monitor, PostgreSchema schema, ResultSet dbResult)
+        throws SQLException, DBException {
         this.schema = schema;
-        this.loadInfo(dbResult);
+        this.loadInfo(monitor, dbResult);
     }
 
-    private void loadInfo(ResultSet dbResult)
-        throws SQLException
-    {
+    private void loadInfo(DBRProgressMonitor monitor, ResultSet dbResult)
+        throws SQLException, DBException {
         this.oid = JDBCUtils.safeGetLong(dbResult, "proc_oid");
         this.name = JDBCUtils.safeGetString(dbResult, "proc_name");
+
+        this.function = schema.getProcedure(monitor, this.oid);
 
         this.persisted = true;
     }
@@ -64,7 +68,6 @@ public class PostgreAggregate implements PostgreObject {
 
     @Property(viewable = true, order = 2)
     public List<PostgreDataType> getInputTypes(DBRProgressMonitor monitor) throws DBException {
-        PostgreProcedure function = getFunction(monitor);
         if (function == null) {
             return null;
         }
@@ -77,7 +80,6 @@ public class PostgreAggregate implements PostgreObject {
 
     @Property(viewable = true, order = 3)
     public PostgreDataType getOutputType(DBRProgressMonitor monitor) throws DBException {
-        PostgreProcedure function = getFunction(monitor);
         return function == null ? null : function.getReturnType();
     }
 
@@ -88,8 +90,8 @@ public class PostgreAggregate implements PostgreObject {
     }
 
     @Property(viewable = true, order = 10)
-    public PostgreProcedure getFunction(DBRProgressMonitor monitor) throws DBException {
-        return schema.getProcedure(monitor, this.oid);
+    public PostgreProcedure getFunction() throws DBException {
+        return function;
     }
 
     @Override
@@ -114,9 +116,9 @@ public class PostgreAggregate implements PostgreObject {
         return null;
     }
 
-    @Property(viewable = true, multiline = true, order = 100)
+    @Override
+    @Property(viewable = true, length = PropertyLength.MULTILINE, order = 100)
     public String getDescription(DBRProgressMonitor monitor) throws DBException {
-        PostgreProcedure function = getFunction(monitor);
         return function == null ? null : function.getDescription();
     }
 
@@ -124,5 +126,12 @@ public class PostgreAggregate implements PostgreObject {
     public boolean isPersisted() {
         return persisted;
     }
+
+    @NotNull
+    @Override
+    public String getOverloadedName() {
+        return function == null ? name : PostgreProcedure.makeOverloadedName(schema, name, function.getInputParameters(), true, false);
+    }
+
 }
 

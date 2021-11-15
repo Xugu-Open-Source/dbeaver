@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,16 +26,20 @@ import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.*;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.data.DBDDataFormatter;
 import org.jkiss.dbeaver.model.data.DBDDataFormatterProfile;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
+import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
+import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.registry.formatter.DataFormatterDescriptor;
 import org.jkiss.dbeaver.registry.formatter.DataFormatterRegistry;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.properties.PropertySourceCustom;
+import org.jkiss.dbeaver.ui.ShellUtils;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.LocaleSelectorControl;
 import org.jkiss.dbeaver.ui.controls.resultset.internal.ResultSetMessages;
@@ -43,6 +47,8 @@ import org.jkiss.dbeaver.ui.dialogs.EnterNameDialog;
 import org.jkiss.dbeaver.ui.preferences.PreferenceStoreDelegate;
 import org.jkiss.dbeaver.ui.preferences.TargetPrefPage;
 import org.jkiss.dbeaver.ui.properties.PropertyTreeViewer;
+import org.jkiss.dbeaver.utils.HelpUtils;
+import org.jkiss.utils.CommonUtils;
 
 import java.util.List;
 import java.util.*;
@@ -52,9 +58,11 @@ import java.util.*;
  */
 public class PrefPageDataFormat extends TargetPrefPage
 {
-    static final Log log = Log.getLog(PrefPageDataFormat.class);
+    private static final Log log = Log.getLog(PrefPageDataFormat.class);
 
     public static final String PAGE_ID = "org.jkiss.dbeaver.preferences.main.dataformat"; //$NON-NLS-1$
+
+    final private String HELP_DATA_FORMAT_LINK = "Managing-Data-Formats";
 
     private DBDDataFormatterProfile formatterProfile;
 
@@ -68,11 +76,12 @@ public class PrefPageDataFormat extends TargetPrefPage
 
     private String profileName;
     private Locale profileLocale;
-    private Map<String, Map<Object, Object>> profileProperties = new HashMap<>();
+    private Map<String, Map<String, Object>> profileProperties = new HashMap<>();
     private Combo profilesCombo;
     private PropertySourceCustom propertySource;
     private Button datetimeNativeFormatCheck;
     private Button numericNativeFormatCheck;
+    private Button numericScientificFormatCheck;
 
     public PrefPageDataFormat()
     {
@@ -83,7 +92,12 @@ public class PrefPageDataFormat extends TargetPrefPage
     @Override
     protected boolean hasDataSourceSpecificOptions(DBPDataSourceContainer dataSourceDescriptor)
     {
-        return dataSourceDescriptor.getDataFormatterProfile().isOverridesParent();
+        DBPPreferenceStore store = dataSourceDescriptor.getPreferenceStore();
+        return
+            store.contains(ModelPreferences.RESULT_NATIVE_DATETIME_FORMAT) ||
+            store.contains(ModelPreferences.RESULT_NATIVE_NUMERIC_FORMAT) ||
+            store.contains(ModelPreferences.RESULT_SCIENTIFIC_NUMERIC_FORMAT) ||
+            dataSourceDescriptor.getDataFormatterProfile().isOverridesParent();
     }
 
     @Override
@@ -146,6 +160,13 @@ public class PrefPageDataFormat extends TargetPrefPage
 
             datetimeNativeFormatCheck = UIUtils.createCheckbox(settingsGroup, ResultSetMessages.pref_page_data_format_datetime_use_native_formatting, ResultSetMessages.pref_page_data_format_datetime_use_native_formatting_tip, false, 2);
             numericNativeFormatCheck = UIUtils.createCheckbox(settingsGroup, ResultSetMessages.pref_page_data_format_numeric_use_native_formatting, ResultSetMessages.pref_page_data_format_numeric_use_native_formatting_tip, false, 2);
+            numericScientificFormatCheck = UIUtils.createCheckbox(settingsGroup, ResultSetMessages.pref_page_data_format_numeric_use_scientific_notation, ResultSetMessages.pref_page_data_format_numeric_use_scientific_notation_tip, false, 2);
+            numericNativeFormatCheck.addSelectionListener(new SelectionAdapter() {
+                @Override
+                public void widgetSelected(SelectionEvent e) {
+                    numericScientificFormatCheck.setEnabled(numericNativeFormatCheck.getSelection());
+                }
+            });
         }
 
         // formats
@@ -170,11 +191,19 @@ public class PrefPageDataFormat extends TargetPrefPage
             Label propsLabel = UIUtils.createControlLabel(formatGroup, ResultSetMessages.pref_page_data_format_label_settingt);
             propsLabel.setLayoutData(new GridData(GridData.VERTICAL_ALIGN_BEGINNING));
             propertiesControl = new PropertyTreeViewer(formatGroup, SWT.BORDER);
-            propertiesControl.getControl().addListener(SWT.Modify, event -> saveFormatterProperties());
 
             UIUtils.createControlLabel(formatGroup, ResultSetMessages.pref_page_data_format_label_sample);
             sampleText = new Text(formatGroup, SWT.BORDER | SWT.READ_ONLY);
             sampleText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+
+            Link urlHelpLabel = UIUtils.createLink(formatGroup, "<a href=\"" + HelpUtils.getHelpExternalReference(HELP_DATA_FORMAT_LINK) + "\">"
+                    + ResultSetMessages.pref_page_data_format_link_patterns + "</a>", new SelectionAdapter() {
+                @Override
+                public void widgetSelected(SelectionEvent e) {
+                    ShellUtils.launchProgram(HelpUtils.getHelpExternalReference(HELP_DATA_FORMAT_LINK));
+                }
+            });
+            urlHelpLabel.setLayoutData(new GridData(GridData.FILL, GridData.VERTICAL_ALIGN_BEGINNING, false, false, 2, 1));
         }
 
         return composite;
@@ -225,8 +254,10 @@ public class PrefPageDataFormat extends TargetPrefPage
         profileName = formatterProfile.getProfileName();
         profileLocale = formatterProfile.getLocale();
         profileProperties.clear();
+
+        DBPPreferenceStore store = getTargetPreferenceStore();
         for (DataFormatterDescriptor dfd : formatterDescriptors) {
-            Map<Object, Object> formatterProps = formatterProfile.getFormatterProperties(dfd.getId());
+            Map<String, Object> formatterProps = formatterProfile.getFormatterProperties(store, dfd.getId());
             if (formatterProps != null) {
                 profileProperties.put(dfd.getId(), formatterProps);
             }
@@ -292,9 +323,9 @@ public class PrefPageDataFormat extends TargetPrefPage
             return;
         }
 
-        Map<Object,Object> formatterProps = profileProperties.get(formatterDescriptor.getId());
-        Map<Object, Object> defaultProps = formatterDescriptor.getSample().getDefaultProperties(localeSelector.getSelectedLocale());
-        propertySource = new PropertySourceCustom(
+        Map<String,Object> formatterProps = profileProperties.get(formatterDescriptor.getId());
+        Map<String, Object> defaultProps = formatterDescriptor.getSample().getDefaultProperties(localeSelector.getSelectedLocale());
+        propertySource = new VerifyingPropertySourceCustom(
             formatterDescriptor.getProperties(),
             formatterProps);
         propertySource.setDefaultValues(defaultProps);
@@ -302,42 +333,44 @@ public class PrefPageDataFormat extends TargetPrefPage
         reloadSample();
     }
 
-    private void reloadSample()
-    {
+    private void reloadSampleThrowable() throws Exception {
         DataFormatterDescriptor formatterDescriptor = getCurrentFormatter();
         if (formatterDescriptor == null) {
             return;
         }
+        DBDDataFormatter formatter = formatterDescriptor.createFormatter();
+        Map<String, Object> defProps = formatterDescriptor.getSample().getDefaultProperties(profileLocale);
+        Map<String, Object> props = profileProperties.get(formatterDescriptor.getId());
+        Map<String, Object> formatterProps = new HashMap<>();
+        if (defProps != null && !defProps.isEmpty()) {
+            formatterProps.putAll(defProps);
+        }
+        if (props != null && !props.isEmpty()) {
+            formatterProps.putAll(props);
+        }
+        formatter.init(null, profileLocale, formatterProps);
+
+        String sampleValue = formatter.formatValue(formatterDescriptor.getSample().getSampleValue());
+        sampleText.setText(CommonUtils.notEmpty(sampleValue));
+    }
+
+    private void reloadSample() {
         try {
-            DBDDataFormatter formatter = formatterDescriptor.createFormatter();
-
-            Map<Object, Object> defProps = formatterDescriptor.getSample().getDefaultProperties(profileLocale);
-            Map<Object, Object> props = profileProperties.get(formatterDescriptor.getId());
-            Map<Object, Object> formatterProps = new HashMap<>();
-            if (defProps != null && !defProps.isEmpty()) {
-                formatterProps.putAll(defProps);
-            }
-            if (props != null && !props.isEmpty()) {
-                formatterProps.putAll(props);
-            }
-            formatter.init(null, profileLocale, formatterProps);
-
-            String sampleValue = formatter.formatValue(formatterDescriptor.getSample().getSampleValue());
-            sampleText.setText(sampleValue);
+            reloadSampleThrowable();
         } catch (Exception e) {
+            DBWorkbench.getPlatformUI().showError("Data formats", "Can't apply formatter values to the sample", e);
             log.warn("Can't render sample value", e); //$NON-NLS-1$
         }
     }
 
-    private void saveFormatterProperties()
-    {
+    private void saveFormatterProperties() throws Exception {
         DataFormatterDescriptor formatterDescriptor = getCurrentFormatter();
         if (formatterDescriptor == null) {
             return;
         }
-        Map<Object, Object> props = propertySource.getProperties();
+        Map<String, Object> props = propertySource.getPropertyValues();
         profileProperties.put(formatterDescriptor.getId(), props);
-        reloadSample();
+        reloadSampleThrowable();
     }
 
     private void onLocaleChange(Locale locale)
@@ -354,6 +387,16 @@ public class PrefPageDataFormat extends TargetPrefPage
     }
 
     @Override
+    protected void performDefaults() {
+        DBPPreferenceStore targetPreferenceStore = getTargetPreferenceStore();
+        clearPreferences(targetPreferenceStore);
+        formatterProfile = null;
+        loadPreferences(targetPreferenceStore);
+        reloadSample();
+        super.performDefaults();
+    }
+
+    @Override
     protected void loadPreferences(DBPPreferenceStore store)
     {
         refreshProfileList();
@@ -362,21 +405,24 @@ public class PrefPageDataFormat extends TargetPrefPage
 
         datetimeNativeFormatCheck.setSelection(store.getBoolean(ModelPreferences.RESULT_NATIVE_DATETIME_FORMAT));
         numericNativeFormatCheck.setSelection(store.getBoolean(ModelPreferences.RESULT_NATIVE_NUMERIC_FORMAT));
+        numericScientificFormatCheck.setSelection(store.getBoolean(ModelPreferences.RESULT_SCIENTIFIC_NUMERIC_FORMAT));
+        numericScientificFormatCheck.setEnabled(numericNativeFormatCheck.getSelection());
     }
 
     @Override
-    protected void savePreferences(DBPPreferenceStore store)
-    {
+    protected void savePreferences(DBPPreferenceStore store) {
+        propertiesControl.saveEditorValues();
         try {
             formatterProfile.setProfileName(profileName);
             formatterProfile.setLocale(profileLocale);
             for (String typeId : profileProperties.keySet()) {
-                formatterProfile.setFormatterProperties(typeId, profileProperties.get(typeId));
+                formatterProfile.setFormatterProperties(store, typeId, profileProperties.get(typeId));
             }
-            formatterProfile.saveProfile();
+            formatterProfile.saveProfile(store);
 
             store.setValue(ModelPreferences.RESULT_NATIVE_DATETIME_FORMAT, datetimeNativeFormatCheck.getSelection());
             store.setValue(ModelPreferences.RESULT_NATIVE_NUMERIC_FORMAT, numericNativeFormatCheck.getSelection());
+            store.setValue(ModelPreferences.RESULT_SCIENTIFIC_NUMERIC_FORMAT, numericScientificFormatCheck.getSelection());
         } catch (Exception e) {
             log.warn(e);
         }
@@ -385,8 +431,12 @@ public class PrefPageDataFormat extends TargetPrefPage
     @Override
     protected void clearPreferences(DBPPreferenceStore store)
     {
-        formatterProfile.reset();
+        if (formatterProfile != null) {
+            formatterProfile.reset(store);
+        }
         store.setToDefault(ModelPreferences.RESULT_NATIVE_DATETIME_FORMAT);
+        store.setToDefault(ModelPreferences.RESULT_NATIVE_NUMERIC_FORMAT);
+        store.setToDefault(ModelPreferences.RESULT_SCIENTIFIC_NUMERIC_FORMAT);
     }
 
     @Override
@@ -420,7 +470,7 @@ public class PrefPageDataFormat extends TargetPrefPage
         private static final int DELETE_ID = IDialogConstants.CLIENT_ID + 2;
         private org.eclipse.swt.widgets.List profileList;
 
-        public DataFormatProfilesEditDialog(Shell parentShell)
+        DataFormatProfilesEditDialog(Shell parentShell)
         {
             super(parentShell);
         }
@@ -474,6 +524,9 @@ public class PrefPageDataFormat extends TargetPrefPage
             DataFormatterRegistry registry = DataFormatterRegistry.getInstance();
             if (buttonId == NEW_ID) {
                 String profileName = EnterNameDialog.chooseName(getShell(), ResultSetMessages.dialog_data_format_profiles_dialog_name_chooser_title);
+                if (CommonUtils.isEmpty(profileName)) {
+                    return;
+                }
                 if (registry.getCustomProfile(profileName) != null) {
                     UIUtils.showMessageBox(
                             getShell(),
@@ -512,6 +565,40 @@ public class PrefPageDataFormat extends TargetPrefPage
             Button deleteButton = getButton(DELETE_ID);
             if (deleteButton != null) {
                 deleteButton.setEnabled(false);
+            }
+        }
+    }
+
+    /**
+     * Attempts to apply formatter setting and rollbacks it to the previous value if error occurs
+     */
+    private class VerifyingPropertySourceCustom extends PropertySourceCustom {
+        public VerifyingPropertySourceCustom(DBPPropertyDescriptor[] properties, Map<String, ?> values) {
+            super(properties, values);
+        }
+
+        @Override
+        public void setPropertyValue(@Nullable DBRProgressMonitor monitor, String id, Object value) {
+            final Object previousValue = getPropertyValue(monitor, id);
+
+            super.setPropertyValue(monitor, id, value);
+
+            try {
+                saveFormatterProperties();
+            } catch (Exception e) {
+                super.setPropertyValue(monitor, id, previousValue);
+                throw new IllegalArgumentException(e);
+            }
+        }
+
+        @Override
+        public void resetPropertyValueToDefault(String id) {
+            super.resetPropertyValueToDefault(id);
+
+            try {
+                saveFormatterProperties();
+            } catch (Exception e) {
+                throw new IllegalArgumentException(e);
             }
         }
     }

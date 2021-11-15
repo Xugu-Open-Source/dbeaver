@@ -22,6 +22,7 @@ import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.data.DBDContentStorage;
 import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
 import org.jkiss.dbeaver.model.exec.DBCException;
+import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.impl.edit.AbstractObjectManager;
@@ -44,10 +45,10 @@ public abstract class BaseContentOpaque<OPAQUE_TYPE extends Object> extends JDBC
 	private OPAQUE_TYPE opaque;
 	private InputStream tmpStream;
 
-	public BaseContentOpaque(DBPDataSource dataSource, OPAQUE_TYPE opaque) {
-		super(dataSource);
-		this.opaque = opaque;
-	}
+	public BaseContentOpaque(DBCExecutionContext executionContext, OPAQUE_TYPE opaque) {
+        super(executionContext);
+        this.opaque = opaque;
+    }
 
 	@Override
 	public long getLOBLength() throws DBCException {

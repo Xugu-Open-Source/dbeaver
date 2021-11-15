@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,15 @@
 package org.jkiss.dbeaver.ui.dialogs;
 
 import org.eclipse.jface.dialogs.Dialog;
+import org.eclipse.jface.dialogs.ErrorDialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.FocusAdapter;
 import org.eclipse.swt.events.FocusEvent;
+import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
 import org.jkiss.dbeaver.ui.UIUtils;
 
@@ -44,6 +48,14 @@ public abstract class AbstractPopupPanel extends Dialog {
     {
         super(parentShell);
         this.title = title;
+    }
+
+    @Override
+    protected Point getInitialSize() {
+        Point initialSize = super.getInitialSize();
+        Rectangle maxBounds = Display.getCurrent().getBounds();
+        initialSize.x = Math.min(initialSize.x, maxBounds.width - maxBounds.width / 50);
+        return initialSize;
     }
 
     @Override
@@ -114,9 +126,14 @@ public abstract class AbstractPopupPanel extends Dialog {
 
     private void handleFocusLost(FocusEvent e) {
         Shell shell = getShell();
-        if (shell != null) {
+        if (shell != null && !shell.isDisposed()) {
             Control focusControl = shell.getDisplay().getFocusControl();
             if (focusControl != null && !UIUtils.isParent(shell, focusControl)) {
+                Object dialog = focusControl.getShell().getData();
+                if (dialog instanceof BlockingPopupDialog || dialog instanceof ErrorDialog) {
+                    // It is an error popup
+                    return;
+                }
                 cancelPressed();
             }
         } else {

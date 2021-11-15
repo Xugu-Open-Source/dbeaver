@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,16 @@
  */
 package org.jkiss.dbeaver.ext.oracle.model;
 
-import org.jkiss.dbeaver.DBException;
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.Property;
-import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
-import org.jkiss.utils.CommonUtils;
 
 import java.sql.ResultSet;
 import java.util.Collection;
+import java.util.List;
 
 /**
  * OracleTableTrigger
@@ -35,6 +35,7 @@ public class OracleTableTrigger extends OracleTrigger<OracleTableBase>
     private static final Log log = Log.getLog(OracleTableTrigger.class);
 
     private OracleSchema ownerSchema;
+    private List<OracleTriggerColumn> columns;
 
     public OracleTableTrigger(OracleTableBase table, String name)
     {
@@ -72,9 +73,12 @@ public class OracleTableTrigger extends OracleTrigger<OracleTableBase>
     }
 
     @Association
-    public Collection<OracleTriggerColumn> getColumns(DBRProgressMonitor monitor) throws DBException
-    {
-        return parent.triggerCache.getChildren(monitor, parent, this);
+    @Nullable
+    public Collection<OracleTriggerColumn> getColumns() {
+        return columns;
     }
 
+    public void setColumns(@NotNull List<OracleTriggerColumn> columns) {
+        this.columns = columns;
+    }
 }

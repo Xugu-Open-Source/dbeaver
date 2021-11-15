@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ public class SystemVariablesResolver implements IVariableResolver {
 
     public static final String VAR_APP_NAME = "application.name";
     public static final String VAR_APP_VERSION = "application.version";
+    public static final String VAR_APP_PATH = "application.path";
     public static final String VAR_WORKSPACE = "workspace";
     public static final String VAR_HOME = "home";
     public static final String VAR_DBEAVER_HOME = "dbeaver_home";
@@ -54,6 +55,7 @@ public class SystemVariablesResolver implements IVariableResolver {
             case VAR_WORKSPACE:
                 return getWorkspacePath();
             case VAR_DBEAVER_HOME:
+            case VAR_APP_PATH:
                 return getInstallPath();
             case VAR_LOCAL_IP:
                 try {

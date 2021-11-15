@@ -20,6 +20,7 @@ import org.jkiss.dbeaver.ext.xugu.Constants;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.exec.DBCException;
+import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.impl.jdbc.data.JDBCContentXML;
@@ -35,13 +36,14 @@ import java.sql.SQLXML;
  * XML ÄÚÈÝ
  */
 public class ContentXml extends JDBCContentXML {
-	public ContentXml(DBPDataSource dataSource, SQLXML xml) {
-		super(dataSource, xml);
-	}
+	public ContentXml(DBCExecutionContext executionContext, SQLXML xml)
+    {
+        super(executionContext, xml);
+    }
 
 	@Override
 	protected ContentXml createNewContent() {
-		return new ContentXml(dataSource, null);
+		return new ContentXml(executionContext, null);
 	}
 
 	@Override
@@ -57,22 +59,24 @@ public class ContentXml extends JDBCContentXML {
 			} else {
 				preparedStatement.setNull(paramIndex, java.sql.Types.SQLXML);
 			}
-		} catch (SQLException e) {
-			throw new DBCException(e, session.getDataSource());
-		} catch (IOException e) {
-			throw new DBCException("IO exception happened while read XML file", e);
 		}
+        catch (SQLException e) {
+            throw new DBCException(e, session.getExecutionContext());
+        }
+        catch (IOException e) {
+            throw new DBCException("IO error while reading XML", e);
+        }
 	}
 
 	private Object createXmlObject(JDBCSession session, InputStream stream) throws DBCException {
 		try {
-			return BeanUtils.invokeStaticMethod(DBUtils.getDriverClass(dataSource, Constants.XMLTYPE_CLASS_NAME),
+			return BeanUtils.invokeStaticMethod(DBUtils.getDriverClass(session.getExecutionContext().getDataSource(), Constants.XMLTYPE_CLASS_NAME),
 					"createXML", new Class[] { java.sql.Connection.class, java.io.InputStream.class },
 					new Object[] { session.getOriginal(), stream });
 		} catch (SQLException e) {
-			throw new DBCException(e, session.getDataSource());
-		} catch (Throwable e) {
-			throw new DBCException("Internal exception happened while create XMLType ", e, session.getDataSource());
-		}
+            throw new DBCException(e, session.getExecutionContext());
+        } catch (Throwable e) {
+            throw new DBCException("Internal error when creating XMLType", e, session.getExecutionContext());
+        }
 	}
 }

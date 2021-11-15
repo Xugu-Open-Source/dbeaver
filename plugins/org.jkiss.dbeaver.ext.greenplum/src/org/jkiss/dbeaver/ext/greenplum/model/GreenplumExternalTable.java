@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2019 Dmitriy Dubson (ddubson@pivotal.io)
  * Copyright (C) 2019 Gavin Shaw (gshaw@pivotal.io)
  * Copyright (C) 2019 Zach Marcin (zmarcin@pivotal.io)
@@ -30,6 +30,7 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.IPropertyValueListProvider;
 import org.jkiss.dbeaver.model.meta.IPropertyValueTransformer;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.utils.CommonUtils;
 
@@ -65,7 +66,7 @@ public class GreenplumExternalTable extends PostgreTable {
                     .stream(values())
                     .filter(formatType -> formatType.getValue().equalsIgnoreCase(formatTypeString))
                     .findFirst()
-                    .orElseThrow(IllegalArgumentException::new);
+                    .orElse(b);
         }
     }
 
@@ -111,7 +112,7 @@ public class GreenplumExternalTable extends PostgreTable {
         this.uriLocationsHandler = new GreenplumExternalTableUriLocationsHandler(
                 JDBCUtils.safeGetStringTrimmed(dbResult, "urilocation"), ',');
         this.execLocation = JDBCUtils.safeGetString(dbResult, "execlocation");
-        this.formatType = FormatType.valueOf(JDBCUtils.safeGetString(dbResult, "fmttype"));
+        this.formatType = CommonUtils.valueOf(FormatType.class, JDBCUtils.safeGetString(dbResult, "fmttype"), FormatType.b);
         this.formatOptions = JDBCUtils.safeGetString(dbResult, "fmtopts");
         this.encoding = JDBCUtils.safeGetString(dbResult, "encoding");
 
@@ -130,7 +131,7 @@ public class GreenplumExternalTable extends PostgreTable {
     }
 
     @Property(viewable = true, editable = true, updatable = true, order = 24,
-            multiline = true, valueRenderer = ExternalTableUriLocationsRenderer.class)
+            length = PropertyLength.MULTILINE, valueRenderer = ExternalTableUriLocationsRenderer.class)
     public String getUriLocations() {
         return this.uriLocationsHandler.getCommaSeparatedList();
     }

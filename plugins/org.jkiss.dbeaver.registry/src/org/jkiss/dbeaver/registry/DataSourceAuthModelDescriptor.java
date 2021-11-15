@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,19 @@
 
 package org.jkiss.dbeaver.registry;
 
-import org.apache.commons.jexl3.JexlExpression;
 import org.eclipse.core.runtime.IConfigurationElement;
 import org.jkiss.code.NotNull;
-import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.Log;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBPImage;
+import org.jkiss.dbeaver.model.auth.DBAAuthCredentials;
 import org.jkiss.dbeaver.model.auth.DBAAuthModel;
 import org.jkiss.dbeaver.model.connection.DBPAuthModelDescriptor;
-import org.jkiss.dbeaver.model.impl.AbstractDescriptor;
+import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
+import org.jkiss.dbeaver.model.connection.DBPDriver;
+import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
+import org.jkiss.dbeaver.runtime.properties.PropertyCollector;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.ArrayList;
@@ -36,60 +38,21 @@ import java.util.List;
 /**
  * Auth model descriptor
  */
-public class DataSourceAuthModelDescriptor extends AbstractDescriptor implements DBPAuthModelDescriptor {
-    private static final Log log = Log.getLog(DataSourceAuthModelDescriptor.class);
+public class DataSourceAuthModelDescriptor extends DataSourceBindingDescriptor implements DBPAuthModelDescriptor {
 
     public static final String EXTENSION_ID = "org.jkiss.dbeaver.dataSourceAuth"; //$NON-NLS-1$
-
-    public static class DataSourceInfo {
-        private String id;
-        private String driver;
-        private JexlExpression expression;
-
-        DataSourceInfo(IConfigurationElement cfg) {
-            String condition = cfg.getAttribute("if");
-            if (!CommonUtils.isEmpty(condition)) {
-                try {
-                    this.expression = parseExpression(condition);
-                } catch (DBException ex) {
-                    log.warn("Can't parse auth model datasource expression: " + condition, ex); //$NON-NLS-1$
-                }
-            }
-            this.id = cfg.getAttribute("id");
-            this.driver = cfg.getAttribute("driver");
-        }
-
-        public boolean appliesTo(DBPDataSourceContainer dataSourceContainer, Object context) {
-            if (!CommonUtils.isEmpty(id) && !id.equals(dataSourceContainer.getDriver().getProviderId())) {
-                return false;
-            }
-            if (!CommonUtils.isEmpty(driver) && !id.equals(dataSourceContainer.getDriver().getId())) {
-                return false;
-            }
-            if (expression != null) {
-                try {
-                    return CommonUtils.toBoolean(
-                        expression.evaluate(makeContext(dataSourceContainer, context)));
-                } catch (Exception e) {
-                    log.debug("Error evaluating expression '" + expression + "'", e);
-                    return false;
-                }
-            }
-            return true;
-        }
-    }
 
     private final String id;
     private final ObjectType implType;
     private final String name;
     private final String description;
     private DBPImage icon;
-    private List<DataSourceInfo> dataSources = new ArrayList<>();
-    private List<String> replaces = new ArrayList<>();
+    private boolean defaultModel;
+    private final List<String> replaces = new ArrayList<>();
 
     private DBAAuthModel instance;
 
-    public DataSourceAuthModelDescriptor(IConfigurationElement config) {
+    DataSourceAuthModelDescriptor(IConfigurationElement config) {
         super(config);
 
         this.id = config.getAttribute(RegistryConstants.ATTR_ID);
@@ -98,37 +61,62 @@ public class DataSourceAuthModelDescriptor extends AbstractDescriptor implements
         this.description = config.getAttribute(RegistryConstants.ATTR_DESCRIPTION);
         this.icon = iconToImage(config.getAttribute(RegistryConstants.ATTR_ICON));
         if (this.icon == null) {
-            this.icon = DBIcon.DATABASE_DEFAULT;
+            this.icon = DBIcon.TREE_PACKAGE;
         }
+        this.defaultModel = CommonUtils.toBoolean(config.getAttribute(RegistryConstants.ATTR_DEFAULT));
 
-        for (IConfigurationElement dsConfig : config.getChildren("datasource")) {
-            this.dataSources.add(new DataSourceInfo(dsConfig));
-        }
         for (IConfigurationElement dsConfig : config.getChildren("replace")) {
             this.replaces.add(dsConfig.getAttribute("model"));
         }
-
     }
 
+    @NotNull
+    @Override
     public String getId() {
         return id;
     }
 
+    @Override
+    @NotNull
     public String getName() {
         return name;
     }
 
+    @Override
     public String getDescription() {
         return description;
     }
 
+    @Override
     public DBPImage getIcon() {
         return icon;
     }
 
+    @NotNull
     @Override
     public String getImplClassName() {
         return implType.getImplName();
+    }
+
+    @Override
+    public boolean isDefaultModel() {
+        return defaultModel;
+    }
+
+    @Override
+    public boolean isApplicableTo(DBPDriver driver) {
+        return appliesTo(driver);
+    }
+
+    @Nullable
+    @Override
+    public DBPAuthModelDescriptor getReplacedBy(@NotNull DBPDriver driver) {
+        for (DataSourceAuthModelDescriptor amd : DataSourceProviderRegistry.getInstance().getAllAuthModels()) {
+            if (amd.getReplaces().contains(id) && amd.isDriverApplicable(driver)) {
+                return amd;
+            }
+        }
+        return null;
     }
 
     @NotNull
@@ -145,16 +133,20 @@ public class DataSourceAuthModelDescriptor extends AbstractDescriptor implements
         return instance;
     }
 
-    boolean appliesTo(DBPDataSourceContainer dataSourceContainer, Object context) {
-        if (dataSources.isEmpty()) {
-            return true;
-        }
-        for (DataSourceInfo dsi : dataSources) {
-            if (dsi.appliesTo(dataSourceContainer, context)) {
-                return true;
-            }
-        }
-        return false;
+    @NotNull
+    @Override
+    public DBPPropertySource createCredentialsSource(DBPDataSourceContainer dataSource, DBPConnectionConfiguration configuration) {
+        DBAAuthModel instance = getInstance();
+        DBAAuthCredentials credentials = dataSource == null || configuration == null ?
+            instance.createCredentials() :
+            instance.loadCredentials(dataSource, configuration);
+        PropertyCollector propertyCollector = new PropertyCollector(credentials, false);
+        propertyCollector.collectProperties();
+        return propertyCollector;
+    }
+
+    boolean appliesTo(DBPDriver driver) {
+        return isDriverApplicable(driver);
     }
 
     public List<String> getReplaces() {

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,12 +22,14 @@ import org.jkiss.dbeaver.ext.generic.model.GenericDataSource;
 import org.jkiss.dbeaver.ext.generic.model.meta.GenericMetaModel;
 import org.jkiss.dbeaver.model.DBPDataKind;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.access.DBAUserChangePassword;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectCache;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSStructureAssistant;
 
 import java.sql.SQLException;
 import java.util.Collection;
@@ -114,6 +116,20 @@ public class VerticaDataSource extends GenericDataSource {
     @Association
     public Collection<VerticaNode> getClusterNodes(DBRProgressMonitor monitor) throws DBException {
         return nodeCache.getAllObjects(monitor, this);
+    }
+
+    public VerticaNode getClusterNode(DBRProgressMonitor monitor, String name) throws DBException {
+        return nodeCache.getObject(monitor, this, name);
+    }
+
+    @Override
+    public <T> T getAdapter(Class<T> adapter) {
+        if (adapter == DBAUserChangePassword.class) {
+            return adapter.cast(new VerticaChangeUserPassword(this));
+        } else if (adapter == DBSStructureAssistant.class) {
+            return adapter.cast(new VerticaStructureAssistant(this));
+        }
+        return super.getAdapter(adapter);
     }
 
     class NodeCache extends JDBCObjectCache<VerticaDataSource, VerticaNode> {

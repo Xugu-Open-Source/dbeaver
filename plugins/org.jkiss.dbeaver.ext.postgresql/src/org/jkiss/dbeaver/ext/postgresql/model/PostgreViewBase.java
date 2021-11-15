@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,16 +18,15 @@ package org.jkiss.dbeaver.ext.postgresql.model;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.ext.postgresql.PostgreConstants;
 import org.jkiss.dbeaver.ext.postgresql.PostgreUtils;
 import org.jkiss.dbeaver.ext.postgresql.edit.PostgreTableColumnManager;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
+import org.jkiss.dbeaver.model.DBPScriptObject;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
-import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistActionComment;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
@@ -113,11 +112,11 @@ public abstract class PostgreViewBase extends PostgreTableReal implements DBSVie
         }
 
         List<DBEPersistAction> actions = new ArrayList<>();
-        if (CommonUtils.getOption(options, PostgreConstants.OPTION_DDL_SHOW_COLUMN_COMMENTS)) {
+        if (CommonUtils.getOption(options, DBPScriptObject.OPTION_INCLUDE_COMMENTS)) {
             if (getDescription() != null) {
                 actions.add(
                     new SQLDatabasePersistAction("Comment",
-                        "COMMENT ON " + getViewType() + " " + getFullyQualifiedName(DBPEvaluationContext.DDL) + " IS " + SQLUtils.quoteString(this, getDescription())));
+                        "COMMENT ON " + getTableTypeName() + " " + getFullyQualifiedName(DBPEvaluationContext.DDL) + " IS " + SQLUtils.quoteString(this, getDescription())));
             }
 
             for (PostgreTableColumn column : CommonUtils.safeCollection(getAttributes(monitor))) {
@@ -127,14 +126,14 @@ public abstract class PostgreViewBase extends PostgreTableReal implements DBSVie
             }
 
         }
-        if (isPersisted() && CommonUtils.getOption(options, PostgreConstants.OPTION_DDL_SHOW_PERMISSIONS)) {
+        if (isPersisted() && CommonUtils.getOption(options, DBPScriptObject.OPTION_INCLUDE_PERMISSIONS)) {
             PostgreUtils.getObjectGrantPermissionActions(monitor, this, actions, options);
         }
 
         StringBuilder ddl = new StringBuilder(source);
         if (!actions.isEmpty()) {
             ddl.append("\n\n").append(SQLUtils.generateScript(
-                getDataSource(), actions.toArray(new DBEPersistAction[actions.size()]), false));
+                getDataSource(), actions.toArray(new DBEPersistAction[0]), false));
         }
 
         return ddl.toString();
@@ -145,12 +144,9 @@ public abstract class PostgreViewBase extends PostgreTableReal implements DBSVie
     }
 
     @Override
-    public void setObjectDefinitionText(String sourceText) throws DBException
-    {
+    public void setObjectDefinitionText(String sourceText) {
         this.source = sourceText;
     }
-
-    public abstract String getViewType();
 
     @Override
     public DBSObject refreshObject(@NotNull DBRProgressMonitor monitor) throws DBException {

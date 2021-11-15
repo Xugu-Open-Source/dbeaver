@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,10 +21,7 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.oracle.model.source.OracleStatefulObject;
-import org.jkiss.dbeaver.model.DBPEvaluationContext;
-import org.jkiss.dbeaver.model.DBPNamedObject2;
-import org.jkiss.dbeaver.model.DBPRefreshableObject;
-import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
@@ -35,13 +32,11 @@ import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectCache;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCStructCache;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTable;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTableColumn;
-import org.jkiss.dbeaver.model.meta.Association;
-import org.jkiss.dbeaver.model.meta.IPropertyCacheValidator;
-import org.jkiss.dbeaver.model.meta.LazyProperty;
-import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.*;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectState;
+import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableForeignKey;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
 import org.jkiss.utils.CommonUtils;
@@ -49,13 +44,15 @@ import org.jkiss.utils.CommonUtils;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
  * OracleTable base
  */
 public abstract class OracleTableBase extends JDBCTable<OracleDataSource, OracleSchema>
-    implements DBPNamedObject2, DBPRefreshableObject, OracleStatefulObject
+    implements DBPNamedObject2, DBPRefreshableObject, OracleStatefulObject, DBPObjectWithLazyDescription
 {
     private static final Log log = Log.getLog(OracleTableBase.class);
 
@@ -81,7 +78,6 @@ public abstract class OracleTableBase extends JDBCTable<OracleDataSource, Oracle
         }
     }
 
-    public final TriggerCache triggerCache = new TriggerCache();
     private final TablePrivCache tablePrivCache = new TablePrivCache();
 
     public abstract TableAdditionalInfo getAdditionalInfo();
@@ -99,7 +95,7 @@ public abstract class OracleTableBase extends JDBCTable<OracleDataSource, Oracle
     protected OracleTableBase(OracleSchema oracleSchema, ResultSet dbResult)
     {
         super(oracleSchema, true);
-        setName(JDBCUtils.safeGetString(dbResult, "TABLE_NAME"));
+        setName(JDBCUtils.safeGetString(dbResult, "OBJECT_NAME"));
         this.valid = "VALID".equals(JDBCUtils.safeGetString(dbResult, "STATUS"));
         //this.comment = JDBCUtils.safeGetString(dbResult, "COMMENTS");
     }
@@ -141,22 +137,41 @@ public abstract class OracleTableBase extends JDBCTable<OracleDataSource, Oracle
             this);
     }
 
-    @Property(viewable = true, editable = true, updatable = true, multiline = true, order = 100)
+    @Property(viewable = true, editable = true, updatable = true, length = PropertyLength.MULTILINE, order = 100)
     @LazyProperty(cacheValidator = CommentsValidator.class)
-    public String getComment(DBRProgressMonitor monitor)
-        throws DBException
-    {
+    public String getComment(DBRProgressMonitor monitor) {
         if (comment == null) {
             try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load table comments")) {
                 comment = queryTableComment(session);
                 if (comment == null) {
                     comment = "";
                 }
-            } catch (SQLException e) {
-                log.warn("Can't fetch table '" + getName() + "' comment", e);
+            } catch (Exception e) {
+                log.error("Can't fetch table '" + getName() + "' comment", e);
             }
         }
         return comment;
+    }
+
+    @Nullable
+    @Override
+    public String getDescription(DBRProgressMonitor monitor) {
+        return getComment(monitor);
+    }
+
+    @Association
+    public Collection<OracleDependencyGroup> getDependencies(DBRProgressMonitor monitor) {
+        return OracleDependencyGroup.of(this);
+    }
+
+    @Association
+    public List<? extends OracleTableColumn> getCachedAttributes()
+    {
+        final DBSObjectCache<OracleTableBase, OracleTableColumn> childrenCache = getContainer().getTableCache().getChildrenCache(this);
+        if (childrenCache != null) {
+            return childrenCache.getCachedObjects();
+        }
+        return Collections.emptyList();
     }
 
     protected String queryTableComment(JDBCSession session) throws SQLException {
@@ -192,7 +207,7 @@ public abstract class OracleTableBase extends JDBCTable<OracleDataSource, Oracle
                     }
                 }
             }
-            for (OracleTableColumn col : getAttributes(monitor)) {
+            for (OracleTableColumn col : CommonUtils.safeCollection(getAttributes(monitor))) {
                 col.cacheComment();
             }
         } catch (Exception e) {
@@ -211,7 +226,7 @@ public abstract class OracleTableBase extends JDBCTable<OracleDataSource, Oracle
     }
 
     @Override
-    public Collection<OracleTableColumn> getAttributes(@NotNull DBRProgressMonitor monitor)
+    public List<OracleTableColumn> getAttributes(@NotNull DBRProgressMonitor monitor)
         throws DBException
     {
         return getContainer().tableCache.getChildren(monitor, getContainer(), this);
@@ -228,15 +243,17 @@ public abstract class OracleTableBase extends JDBCTable<OracleDataSource, Oracle
     public DBSObject refreshObject(@NotNull DBRProgressMonitor monitor) throws DBException
     {
         getContainer().constraintCache.clearObjectCache(this);
+        getContainer().tableTriggerCache.clearObjectCache(this);
 
         return getContainer().tableCache.refreshObject(monitor, getContainer(), this);
     }
 
+    @Nullable
     @Association
-    public Collection<OracleTableTrigger> getTriggers(DBRProgressMonitor monitor)
+    public List<OracleTableTrigger> getTriggers(@NotNull DBRProgressMonitor monitor)
         throws DBException
     {
-        return triggerCache.getAllObjects(monitor, this);
+        return getSchema().tableTriggerCache.getObjects(monitor, getSchema(), this);
     }
 
     @Override
@@ -309,69 +326,6 @@ public abstract class OracleTableBase extends JDBCTable<OracleDataSource, Oracle
     public Collection<OraclePrivTable> getTablePrivs(DBRProgressMonitor monitor) throws DBException
     {
         return tablePrivCache.getAllObjects(monitor, this);
-    }
-
-
-    static class TriggerCache extends JDBCStructCache<OracleTableBase, OracleTableTrigger, OracleTriggerColumn> {
-        TriggerCache()
-        {
-            super("TRIGGER_NAME");
-        }
-
-        @NotNull
-        @Override
-        protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull OracleTableBase owner) throws SQLException
-        {
-            JDBCPreparedStatement dbStat = session.prepareStatement(
-                "SELECT *\n" +
-                    "FROM " + OracleUtils.getAdminAllViewPrefix(session.getProgressMonitor(), owner.getDataSource(), "TRIGGERS") + " WHERE TABLE_OWNER=? AND TABLE_NAME=?\n" +
-                    "ORDER BY TRIGGER_NAME");
-            dbStat.setString(1, owner.getSchema().getName());
-            dbStat.setString(2, owner.getName());
-            return dbStat;
-        }
-
-        @Override
-        protected OracleTableTrigger fetchObject(@NotNull JDBCSession session, @NotNull OracleTableBase owner, @NotNull JDBCResultSet resultSet) throws SQLException, DBException
-        {
-            return new OracleTableTrigger(owner, resultSet);
-        }
-
-        @Override
-        protected JDBCStatement prepareChildrenStatement(@NotNull JDBCSession session, @NotNull OracleTableBase owner, @Nullable OracleTableTrigger forObject) throws SQLException
-        {
-            JDBCPreparedStatement dbStat = session.prepareStatement(
-                "SELECT TRIGGER_NAME,TABLE_OWNER,TABLE_NAME,COLUMN_NAME,COLUMN_LIST,COLUMN_USAGE\n" +
-                    "FROM " + OracleUtils.getSysSchemaPrefix(owner.getDataSource()) + "ALL_TRIGGER_COLS WHERE TABLE_OWNER=? AND TABLE_NAME=?" +
-                    (forObject == null ? "" : " AND TRIGGER_NAME=?") +
-                    "\nORDER BY TRIGGER_NAME");
-            dbStat.setString(1, owner.getContainer().getName());
-            dbStat.setString(2, owner.getName());
-            if (forObject != null) {
-                dbStat.setString(3, forObject.getName());
-            }
-            return dbStat;
-        }
-
-        @Override
-        protected OracleTriggerColumn fetchChild(@NotNull JDBCSession session, @NotNull OracleTableBase owner, @NotNull OracleTableTrigger parent, @NotNull JDBCResultSet dbResult) throws SQLException, DBException
-        {
-            OracleTableBase refTable = OracleTableBase.findTable(
-                session.getProgressMonitor(),
-                owner.getDataSource(),
-                JDBCUtils.safeGetString(dbResult, "TABLE_OWNER"),
-                JDBCUtils.safeGetString(dbResult, "TABLE_NAME"));
-            if (refTable != null) {
-                final String columnName = JDBCUtils.safeGetString(dbResult, "COLUMN_NAME");
-                OracleTableColumn tableColumn = refTable.getAttribute(session.getProgressMonitor(), columnName);
-                if (tableColumn == null) {
-                    log.debug("Column '" + columnName + "' not found in table '" + refTable.getFullyQualifiedName(DBPEvaluationContext.DDL) + "' for trigger '" + parent.getName() + "'");
-                }
-                return new OracleTriggerColumn(session.getProgressMonitor(), parent, tableColumn, dbResult);
-            }
-            return null;
-        }
-
     }
 
     static class TablePrivCache extends JDBCObjectCache<OracleTableBase, OraclePrivTable> {

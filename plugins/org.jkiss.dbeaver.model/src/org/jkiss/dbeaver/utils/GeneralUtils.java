@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@
 
 package org.jkiss.dbeaver.utils;
 
-import org.eclipse.core.internal.runtime.AdapterManager;
 import org.eclipse.core.runtime.*;
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.bundle.ModelActivator;
@@ -38,6 +38,8 @@ import java.math.BigInteger;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
@@ -52,7 +54,6 @@ import java.util.regex.Pattern;
  * General non-ui utility methods
  */
 public class GeneralUtils {
-
     private static final Log log = Log.getLog(GeneralUtils.class);
 
     public static final String UTF8_ENCODING = StandardCharsets.UTF_8.name();
@@ -69,7 +70,6 @@ public class GeneralUtils {
 
     public static final String[] byteToHex = new String[256];
     public static final char[] nibbleToHex = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
-    static final Map<String, byte[]> BOM_MAP = new HashMap<>();
     private static final char[] HEX_CHAR_TABLE = {
         '0', '1', '2', '3',
         '4', '5', '6', '7',
@@ -91,13 +91,11 @@ public class GeneralUtils {
      */
     public static String getDefaultFileEncoding() {
         return UTF8_ENCODING;
-        //return System.getProperty("file.encoding", DEFAULT_FILE_CHARSET_NAME);
     }
 
     public static String getDefaultLocalFileEncoding() {
         return System.getProperty(StandardConstants.ENV_FILE_ENCODING, getDefaultFileEncoding());
     }
-
 
     public static String getDefaultConsoleEncoding() {
         String consoleEncoding = System.getProperty(StandardConstants.ENV_CONSOLE_ENCODING);
@@ -112,10 +110,6 @@ public class GeneralUtils {
 
     public static String getDefaultLineSeparator() {
         return System.getProperty(StandardConstants.ENV_LINE_SEPARATOR, "\n");
-    }
-
-    public static byte[] getCharsetBOM(String charsetName) {
-        return BOM_MAP.get(charsetName.toUpperCase());
     }
 
     public static void writeByteAsHex(Writer out, byte b) throws IOException {
@@ -134,11 +128,14 @@ public class GeneralUtils {
     }
 
     public static String convertToString(byte[] bytes, int offset, int length) {
+        if (length == 0) {
+            return "";
+        }
         char[] chars = new char[length];
         for (int i = offset; i < offset + length; i++) {
             int b = bytes[i];
-            if (b < 0) b = -b + 127;
-            if (b < 32) b = 32;
+            if (b < 0) b = 256 + b;
+            if (b < 32 || (b >= 0x7F && b <= 0xA0)) b = 32;
             chars[i - offset] = (char) b;
         }
         return new String(chars);
@@ -234,7 +231,7 @@ public class GeneralUtils {
                 return value;
             }
         } catch (RuntimeException e) {
-            log.error(e);
+            log.error("Error converting value", e);
             return value;
         }
     }
@@ -374,6 +371,34 @@ public class GeneralUtils {
         return calendar.getTime();
     }
 
+    @Nullable
+    public static Date getProductBuildTime() {
+        Bundle definingBundle = null;
+        ApplicationDescriptor application = ApplicationRegistry.getInstance().getApplication();
+        if (application != null) {
+            definingBundle = application.getContributorBundle();
+        } else {
+            final IProduct product = Platform.getProduct();
+            if (product != null) {
+                definingBundle = product.getDefiningBundle();
+            }
+        }
+        if (definingBundle == null) {
+            return null;
+        }
+
+        final Dictionary<String, String> headers = definingBundle.getHeaders();
+        final String buildTime = headers.get("Build-Time");
+        if (buildTime != null) {
+            try {
+                return new SimpleDateFormat(DEFAULT_TIMESTAMP_PATTERN).parse(buildTime);
+            } catch (ParseException e) {
+                log.debug(e);
+            }
+        }
+        return null;
+    }
+
     public static String getExpressionParseMessage(Exception e) {
         String message = e.getMessage();
         if (message == null) {
@@ -481,15 +506,6 @@ public class GeneralUtils {
             log.warn("Error matching regex", e);
             return string;
         }
-    }
-
-    public static String[] parseCommandLine(String commandLine) {
-        StringTokenizer st = new StringTokenizer(commandLine);
-        String[] args = new String[st.countTokens()];
-        for (int i = 0; st.hasMoreTokens(); i++) {
-            args[i] = st.nextToken();
-        }
-        return args;
     }
 
     public static IStatus makeExceptionStatus(Throwable ex) {
@@ -657,18 +673,6 @@ public class GeneralUtils {
         return new URI(path.replace(" ", "%20"));
     }
 
-    public static String encodeTopic(@NotNull String topic) {
-        return topic.replace(".", "__dot__");
-    }
-
-    public static String decodeTopic(@NotNull String topic) {
-        return topic.replace("__dot__", ".");
-    }
-
-    public static boolean isWindows() {
-        return Platform.getOS().contains("win32");
-    }
-
     /////////////////////////////////////////////////////////////////////////
     // Adapters
     // Copy-pasted from org.eclipse.core.runtime.Adapters to support Eclipse Mars (#46667)
@@ -710,7 +714,7 @@ public class GeneralUtils {
                     + sourceObject.getClass().getName() + " returned " + result.getClass().getName() //$NON-NLS-1$
                     + " that is not an instance of " + adapter.getName()); //$NON-NLS-1$
             }
-            return (T) result;
+            return adapter.cast(result);
         }
 
         return null;
@@ -723,11 +727,39 @@ public class GeneralUtils {
     public static Object queryAdapterManager(Object sourceObject, String adapterId, boolean allowActivation) {
         Object result;
         if (allowActivation) {
-            result = AdapterManager.getDefault().loadAdapter(sourceObject, adapterId);
+            result = Platform.getAdapterManager().loadAdapter(sourceObject, adapterId);
         } else {
-            result = AdapterManager.getDefault().getAdapter(sourceObject, adapterId);
+            result = Platform.getAdapterManager().getAdapter(sourceObject, adapterId);
         }
         return result;
     }
 
+    public static byte[] getBytesFromUUID(UUID uuid) {
+        ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+        bb.putLong(uuid.getMostSignificantBits());
+        bb.putLong(uuid.getLeastSignificantBits());
+
+        return bb.array();
+    }
+
+    public static UUID getUUIDFromBytes(byte[] bytes) throws IllegalArgumentException {
+        if (bytes.length < 16) {
+            throw new IllegalArgumentException("UUID length must be at least 16 bytes (actual length = " + bytes.length + ")");
+        }
+        ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
+        return new UUID(byteBuffer.getLong(), byteBuffer.getLong());
+    }
+
+    public static UUID getMixedEndianUUIDFromBytes(byte[] bytes) {
+        ByteBuffer source = ByteBuffer.wrap(bytes);
+        ByteBuffer target = ByteBuffer.allocate(16).
+                order(ByteOrder.LITTLE_ENDIAN).
+                putInt(source.getInt()).
+                putShort(source.getShort()).
+                putShort(source.getShort()).
+                order(ByteOrder.BIG_ENDIAN).
+                putLong(source.getLong());
+        target.rewind();
+        return new UUID(target.getLong(), target.getLong());
+    }
 }

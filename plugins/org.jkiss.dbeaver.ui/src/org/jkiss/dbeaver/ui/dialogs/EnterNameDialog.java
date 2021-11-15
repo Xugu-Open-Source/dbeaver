@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,12 +26,13 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.utils.CommonUtils;
 
 public class EnterNameDialog extends Dialog {
 
     private String propertyName;
     private String propertyValue;
-    private Text propNameText;
+    protected Text propNameText;
     private String result;
 
     public EnterNameDialog(Shell parentShell, String propertyName, String propertyValue)
@@ -75,8 +76,15 @@ public class EnterNameDialog extends Dialog {
             propNameText.setText(propertyValue);
             propNameText.selectAll();
         }
+        propNameText.addModifyListener(e -> updateButtonsState());
 
         return propGroup;
+    }
+
+    @Override
+    protected void createButtonsForButtonBar(Composite parent) {
+        super.createButtonsForButtonBar(parent);
+        updateButtonsState();
     }
 
     @Override
@@ -104,5 +112,9 @@ public class EnterNameDialog extends Dialog {
     {
         EnterNameDialog dialog = new EnterNameDialog(parentShell, propertyName, propertyValue);
         return dialog.chooseName();
+    }
+
+    private void updateButtonsState() {
+        getButton(IDialogConstants.OK_ID).setEnabled(!CommonUtils.isEmptyTrimmed(propNameText.getText()));
     }
 }

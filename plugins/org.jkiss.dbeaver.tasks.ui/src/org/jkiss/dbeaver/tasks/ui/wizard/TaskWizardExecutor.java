@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,15 +24,15 @@ import org.jkiss.dbeaver.model.task.DBTTask;
 import org.jkiss.dbeaver.model.task.DBTTaskHandler;
 import org.jkiss.utils.CommonUtils;
 
-import java.io.Writer;
+import java.io.PrintStream;
 import java.util.Locale;
 
 public class TaskWizardExecutor extends TaskProcessorUI {
 
     private final Log log;
-    private Writer logWriter;
+    private PrintStream logWriter;
 
-    public TaskWizardExecutor(@NotNull DBRRunnableContext staticContext, @NotNull DBTTask task, @NotNull Log log, @NotNull Writer logWriter) {
+    public TaskWizardExecutor(@NotNull DBRRunnableContext staticContext, @NotNull DBTTask task, @NotNull Log log, @NotNull PrintStream logWriter) {
         super(staticContext, task);
         this.log = log;
         this.logWriter = logWriter;

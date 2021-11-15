@@ -27,10 +27,12 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.ext.xugu.Utils;
 import java.sql.ResultSet;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -50,7 +52,7 @@ public class View extends BaseTable implements SourceObject {
 
 	@Override
 	@Association
-	public Collection<TableColumn> getAttributes(@NotNull DBRProgressMonitor monitor) throws DBException {
+	public List<? extends DBSEntityAttribute> getAttributes(@NotNull DBRProgressMonitor monitor) throws DBException {
 		return getContainer().viewCache.getChildren(monitor, getContainer(), this);
 	}
 

@@ -14,21 +14,6 @@ import org.jkiss.utils.CommonUtils;
 
 public abstract class NativeToolHandler <SETTINGS extends AbstractNativeToolSettings<BASE_OBJECT>, BASE_OBJECT extends DBSObject, PROCESS_ARG>
 extends AbstractNativeToolHandler<SETTINGS, BASE_OBJECT, PROCESS_ARG>{
-
-	
-    @Override
-    protected void setupProcessParameters(SETTINGS settings, PROCESS_ARG arg, ProcessBuilder process) {
-        String userPassword = settings.getToolUserPassword();
-        if (CommonUtils.isEmpty(userPassword)) {
-            userPassword = settings.getDataSourceContainer().getActualConnectionConfiguration().getUserPassword();
-        }
-        if (!CommonUtils.isEmpty(userPassword)) {
-            process.environment().put(Constants.DEF_PASSWORD_VALUE, userPassword);
-        }/* else {
-            // Empty password?
-            process.environment().put(MySQLConstants.ENV_VARIABLE_MYSQL_PWD, "");
-        }*/
-    }
 	
     protected List<String> getMySQLToolCommandLine(AbstractNativeToolHandler<SETTINGS, BASE_OBJECT, PROCESS_ARG> handler, SETTINGS settings, PROCESS_ARG arg) throws IOException {
         java.util.List<String> cmd = new ArrayList<>();

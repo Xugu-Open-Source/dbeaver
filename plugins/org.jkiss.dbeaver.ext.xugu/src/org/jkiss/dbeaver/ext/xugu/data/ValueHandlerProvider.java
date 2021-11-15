@@ -19,7 +19,7 @@ package org.jkiss.dbeaver.ext.xugu.data;
 import org.jkiss.dbeaver.ext.xugu.Constants;
 import org.jkiss.dbeaver.model.DBPDataKind;
 import org.jkiss.dbeaver.model.DBPDataSource;
-import org.jkiss.dbeaver.model.data.DBDPreferences;
+import org.jkiss.dbeaver.model.data.DBDFormatSettings;
 import org.jkiss.dbeaver.model.data.DBDValueHandler;
 import org.jkiss.dbeaver.model.data.DBDValueHandlerProvider;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
@@ -31,8 +31,8 @@ import java.sql.Types;
  */
 public class ValueHandlerProvider implements DBDValueHandlerProvider {
 	@Override
-	public DBDValueHandler getValueHandler(DBPDataSource dataSource, DBDPreferences preferences,
-			DBSTypedObject typedObject) {
+	public DBDValueHandler getValueHandler(DBPDataSource dataSource, DBDFormatSettings preferences, DBSTypedObject typedObject)
+    {
 		switch (typedObject.getTypeID()) {
 		case Types.BLOB:
 			return BlobValueHandler.INSTANCE;
@@ -41,7 +41,7 @@ public class ValueHandlerProvider implements DBDValueHandlerProvider {
 			return ClobValueHandler.INSTANCE;
 		case Types.TIME_WITH_TIMEZONE:
 		case Types.TIMESTAMP_WITH_TIMEZONE:
-			return new TimestampValueHandler(preferences.getDataFormatterProfile());
+			return new TimestampValueHandler(preferences);
 		case Types.STRUCT:
 			return ObjectValueHandler.INSTANCE;
 		default:
@@ -60,7 +60,7 @@ public class ValueHandlerProvider implements DBDValueHandlerProvider {
 		}
 
 		if (typeName.contains(Constants.TYPE_NAME_TIMESTAMP) || typedObject.getDataKind() == DBPDataKind.DATETIME) {
-			return new TimestampValueHandler(preferences.getDataFormatterProfile());
+			return new TimestampValueHandler(preferences);
 		} else {
 			return null;
 		}

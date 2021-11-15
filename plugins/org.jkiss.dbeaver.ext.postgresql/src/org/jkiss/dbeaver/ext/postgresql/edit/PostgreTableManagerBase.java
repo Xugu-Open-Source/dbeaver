@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package org.jkiss.dbeaver.ext.postgresql.edit;
 
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.ext.postgresql.PostgreConstants;
 import org.jkiss.dbeaver.ext.postgresql.PostgreUtils;
 import org.jkiss.dbeaver.ext.postgresql.model.*;
 import org.jkiss.dbeaver.model.DBConstants;
@@ -43,6 +42,7 @@ import java.util.Map;
  */
 public abstract class PostgreTableManagerBase extends SQLTableManager<PostgreTableBase, PostgreSchema> {
 
+    @Override
     protected void addObjectExtraActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, List<DBEPersistAction> actions, NestedObjectCommand<PostgreTableBase, PropertyHandler> command, Map<String, Object> options) {
         boolean isDDL = CommonUtils.getOption(options, DBPScriptObject.OPTION_DDL_SOURCE);
         PostgreTableBase table = command.getObject();
@@ -55,12 +55,12 @@ public abstract class PostgreTableManagerBase extends SQLTableManager<PostgreTab
             comment = table.getDescription();
         }
         boolean showComments =
-            CommonUtils.getOption(options, PostgreConstants.OPTION_DDL_SHOW_COLUMN_COMMENTS) ||
+            CommonUtils.getOption(options, DBPScriptObject.OPTION_INCLUDE_COMMENTS) ||
             CommonUtils.getOption(options, DBPScriptObject.OPTION_OBJECT_SAVE);
-        if (showComments && command.getProperties().containsKey(DBConstants.PROP_ID_DESCRIPTION)) {
+        if ((showComments && !CommonUtils.isEmpty(comment)) || command.hasProperty(DBConstants.PROP_ID_DESCRIPTION)) {
             actions.add(new SQLDatabasePersistAction(
                 "Comment table",
-                "COMMENT ON " + (table.isView() ? ((PostgreViewBase)table).getViewType() : "TABLE") + " " + table.getFullyQualifiedName(DBPEvaluationContext.DDL) +
+                "COMMENT ON " + table.getTableTypeName() + " " + table.getFullyQualifiedName(DBPEvaluationContext.DDL) +
                     " IS " + SQLUtils.quoteString(table, CommonUtils.notEmpty(comment))));
         }
         if (isDDL || !table.isPersisted()) {
@@ -115,6 +115,18 @@ public abstract class PostgreTableManagerBase extends SQLTableManager<PostgreTab
                     }
                 }
 
+                // Rules
+                if (table instanceof PostgreTableReal) {
+                    Collection<PostgreRule> rules = ((PostgreTableReal) table).getRules(monitor);
+                    if (!CommonUtils.isEmpty(rules)) {
+                        actions.add(new SQLDatabasePersistActionComment(table.getDataSource(), "Table Rules"));
+
+                        for (PostgreRule rule : rules) {
+                            actions.add(new SQLDatabasePersistAction("Create rule", rule.getObjectDefinitionText(monitor, options)));
+                        }
+                    }
+                }
+
                 if (isDDL) {
                     PostgreUtils.getObjectGrantPermissionActions(monitor, table, actions, options);
                 }
@@ -125,8 +137,8 @@ public abstract class PostgreTableManagerBase extends SQLTableManager<PostgreTab
     }
 
     @Override
-    protected boolean isIncludeIndexInDDL(DBSTableIndex index) {
-        return !((PostgreIndex)index).isPrimaryKeyIndex() && super.isIncludeIndexInDDL(index);
+    protected boolean isIncludeIndexInDDL(DBRProgressMonitor monitor, DBSTableIndex index) throws DBException {
+        return !((PostgreIndex)index).isPrimaryKeyIndex() && super.isIncludeIndexInDDL(monitor, index);
     }
 
 }

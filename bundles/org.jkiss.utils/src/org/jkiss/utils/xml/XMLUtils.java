@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 
 package org.jkiss.utils.xml;
 
+import javax.xml.XMLConstants;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.w3c.dom.Document;
@@ -62,6 +63,7 @@ public class XMLUtils {
         try {
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             DocumentBuilder xmlBuilder = dbf.newDocumentBuilder();
+            dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
             return xmlBuilder.parse(source);
         } catch (Exception er) {
             throw new XMLException("Error parsing XML document", er);

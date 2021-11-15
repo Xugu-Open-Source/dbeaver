@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
  */
 package org.jkiss.dbeaver.ext.generic.model;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.ext.generic.model.meta.GenericMetaColumn;
 import org.jkiss.dbeaver.ext.generic.model.meta.GenericMetaObject;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.sql.SQLDialect;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.DBSObject;
-import org.jkiss.utils.CommonUtils;
 
 import java.math.BigDecimal;
 import java.sql.ResultSet;
@@ -160,4 +160,8 @@ public class GenericUtils {
 
     }
 
+    public static boolean canAlterTable(@NotNull DBSObject object) {
+        // Either object is not yet persisted (so no alter is required) or database supports table altering
+        return !object.isPersisted() || object.getDataSource().getSQLDialect().supportsAlterTableStatement();
+    }
 }

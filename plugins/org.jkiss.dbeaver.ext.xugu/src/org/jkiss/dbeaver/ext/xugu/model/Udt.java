@@ -409,7 +409,7 @@ public class Udt extends BaseSchemaObject
 	}
 
 	@Override
-	public Class<? extends DBSObject> getChildType(DBRProgressMonitor monitor) throws DBException {
+	public Class<? extends DBSObject> getPrimaryChildType(DBRProgressMonitor monitor) throws DBException {
 		return DataType.class;
 	}
 
@@ -440,5 +440,10 @@ public class Udt extends BaseSchemaObject
 		actions.add(new ObjectPersistAction(ObjectType.UDT, "Compile UDT",
 				"ALTER TYPE " + getFullyQualifiedName(DBPEvaluationContext.DDL) + " RECOMPILE"));
 		return actions.toArray(new DBEPersistAction[actions.size()]);
+	}
+
+	@Override
+	public long getTypeModifiers() {
+		return 0;
 	}
 }

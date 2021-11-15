@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,11 +44,8 @@ import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * ClientHomesPanel
@@ -153,7 +150,12 @@ public class ClientHomesPanel extends Composite {
                 UIConnectionMessages.controls_client_homes_panel_confirm_remove_home_title,
                 NLS.bind(UIConnectionMessages.controls_client_homes_panel_confirm_remove_home_text, info.location.getName()))) {
                 homesTable.remove(selIndex);
-                selectHome(null);
+                if (homesTable.getItemCount() > 0) {
+                    selectHome((HomeInfo) homesTable.getItem(selIndex - 1).getData());
+                    homesTable.setSelection(selIndex - 1);
+                } else {
+                    selectHome(null);
+                }
             }
         }
     }
@@ -196,15 +198,10 @@ public class ClientHomesPanel extends Composite {
                 DBWorkbench.getPlatformUI().showError("Client download", "Failed to download client files", e.getTargetException());
             }
         }
-        try {
-            productNameText.setText(home == null ? "" : CommonUtils.notEmpty(driver.getNativeClientManager().getProductName(home.location))); //$NON-NLS-1$
-        } catch (DBException e) {
-            log.warn(e);
-        }
-        try {
-            productVersionText.setText(home == null ? "" : CommonUtils.notEmpty(driver.getNativeClientManager().getProductVersion(home.location))); //$NON-NLS-1$
-        } catch (DBException e) {
-            log.warn(e);
+        DBPNativeClientLocationManager nativeClientLocationManager = driver.getNativeClientManager();
+        if (nativeClientLocationManager != null) {
+            productNameText.setText(home == null ? "" : CommonUtils.notEmpty(nativeClientLocationManager.getProductName(home.location))); //$NON-NLS-1$
+            productVersionText.setText(home == null ? "" : CommonUtils.notEmpty(nativeClientLocationManager.getProductVersion(home.location))); //$NON-NLS-1$
         }
     }
 
@@ -221,9 +218,11 @@ public class ClientHomesPanel extends Composite {
 
     public void loadHomes(DBPDriver driver) {
         homesTable.removeAll();
+        this.driver = driver;
+
         selectHome(null);
 
-        this.driver = driver;
+
         DBPNativeClientLocationManager clientManager = this.driver.getNativeClientManager();
         if (clientManager == null) {
             log.debug("Client manager is not supported by driver '" + driver.getName() + "'"); //$NON-NLS-1$ //$NON-NLS-2$

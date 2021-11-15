@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,6 +70,10 @@ public class SelectActiveSchemaHandler extends AbstractDataSourceHandler impleme
 
     @Override
     public Object execute(ExecutionEvent event) throws ExecutionException {
+        if (SelectActiveDataSourceHandler.getDataSourceContainerProvider(HandlerUtil.getActiveEditor(event)) == null) {
+            return null;
+        }
+
         DBPDataSourceContainer dataSourceContainer = DataSourceToolbarUtils.getCurrentDataSource(HandlerUtil.getActiveWorkbenchWindow(event));
         if (dataSourceContainer == null) {
             log.debug("No active connection. Action is in disabled state.");
@@ -217,6 +221,11 @@ public class SelectActiveSchemaHandler extends AbstractDataSourceHandler impleme
         @Override
         protected void fillContributionItems(List<IContributionItem> menuItems) {
             IWorkbenchWindow workbenchWindow = UIUtils.getActiveWorkbenchWindow();
+            if (workbenchWindow.getActivePage() == null ||
+                SelectActiveDataSourceHandler.getDataSourceContainerProvider(workbenchWindow.getActivePage().getActiveEditor()) == null)
+            {
+                return;
+            }
             DBPDataSourceContainer dataSourceContainer = DataSourceToolbarUtils.getCurrentDataSource(workbenchWindow);
             if (dataSourceContainer == null) {
                 return;

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,10 @@ import java.util.List;
 public abstract class ActiveWizard extends BaseWizard
 {
     private List<WizardPrefPage> prefPages = new ArrayList<>();
+
+    protected List<WizardPrefPage> getPrefPages() {
+        return prefPages;
+    }
 
     protected WizardPrefPage addPreferencePage(IPreferencePage prefPage, String title, String description)
     {
@@ -77,7 +81,7 @@ public abstract class ActiveWizard extends BaseWizard
         for (WizardPrefPage prefPage : pages) {
             savePageSettings(prefPage);
 
-            WizardPrefPage[] subPages = prefPage.getSubPages(false, true);
+            WizardPrefPage[] subPages = prefPage.getDialogPages(false, true);
             if (subPages != null) {
                 savePrefPageSettings(subPages);
             }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureContainer;
 
 import java.util.Collection;
+import java.util.List;
 
 /**
  * Generic struct container
@@ -49,10 +50,12 @@ public interface GenericStructContainer extends DBSObjectContainer, DBSProcedure
 
     ForeignKeysCache getForeignKeysCache();
 
-    Collection<? extends GenericView> getViews(DBRProgressMonitor monitor) throws DBException;
-    Collection<? extends GenericTable> getPhysicalTables(DBRProgressMonitor monitor) throws DBException;
+    TableTriggerCache getTableTriggerCache();
 
-    Collection<? extends GenericTableBase> getTables(DBRProgressMonitor monitor) throws DBException;
+    List<? extends GenericView> getViews(DBRProgressMonitor monitor) throws DBException;
+    List<? extends GenericTable> getPhysicalTables(DBRProgressMonitor monitor) throws DBException;
+
+    List<? extends GenericTableBase> getTables(DBRProgressMonitor monitor) throws DBException;
 
     GenericTableBase getTable(DBRProgressMonitor monitor, String name) throws DBException;
 

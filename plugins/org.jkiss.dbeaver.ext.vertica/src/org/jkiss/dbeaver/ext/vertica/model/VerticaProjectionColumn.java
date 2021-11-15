@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
  */
 package org.jkiss.dbeaver.ext.vertica.model;
 
-import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.vertica.VerticaUtils;
 import org.jkiss.dbeaver.model.DBPDataKind;
@@ -25,7 +24,7 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTableColumn;
 import org.jkiss.dbeaver.model.meta.Property;
-import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 
 /**
  * VerticaProjectionColumn
@@ -51,8 +50,21 @@ public class VerticaProjectionColumn extends JDBCTableColumn<VerticaProjection>
                 int divPos2 = typeName.indexOf(')', divPos);
                 if (divPos2 != -1) {
                     String length = typeName.substring(divPos + 1, divPos2);
+                    boolean numericType = false;
+                    String scale = null;
+                    if (length.contains(",")) { // floats, numbers etc.
+                        String[] numbers = length.split(",");
+                        if (numbers.length == 2) {
+                            numericType = true;
+                            length = numbers[0];
+                            scale = numbers[1];
+                        }
+                    }
                     try {
                         setMaxLength(Integer.parseInt(length));
+                        if (numericType) {
+                            setScale(Integer.parseInt(scale));
+                        }
                     } catch (NumberFormatException e) {
                         log.warn(e);
                     }
@@ -90,16 +102,11 @@ public class VerticaProjectionColumn extends JDBCTableColumn<VerticaProjection>
     }
 
     @Override
-    public Integer getScale() {
-        return super.getScale();
-    }
-
-    @Override
     public Integer getPrecision() {
         return super.getPrecision();
     }
 
-    @Property(viewable = true, editable = true, updatable = true, multiline = true, order = 100)
+    @Property(viewable = true, editable = true, updatable = true, length = PropertyLength.MULTILINE, order = 100)
     @Override
     public String getDescription() {
         return description;

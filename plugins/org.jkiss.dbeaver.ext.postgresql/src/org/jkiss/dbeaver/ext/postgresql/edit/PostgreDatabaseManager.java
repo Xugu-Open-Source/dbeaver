@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  */
 package org.jkiss.dbeaver.ext.postgresql.edit;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataSource;
@@ -33,6 +34,7 @@ import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistActionAtomic;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.utils.CommonUtils;
 
@@ -66,7 +68,7 @@ public class PostgreDatabaseManager extends SQLObjectEditor<PostgreDatabase, Pos
 
     @Override
     protected PostgreDatabase createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context, Object container, Object copyFrom, Map<String, Object> options) throws DBException {
-        return new PostgreDatabase(monitor, (PostgreDataSource) container, "NewDatabase", null, null, null, null);
+        return ((PostgreDataSource) container).createDatabaseImpl(monitor, "NewDatabase", null, null, null, null);
     }
 
     @Override
@@ -96,8 +98,8 @@ public class PostgreDatabaseManager extends SQLObjectEditor<PostgreDatabase, Pos
     }
 
     @Override
-    public void renameObject(DBECommandContext commandContext, PostgreDatabase database, String newName) throws DBException {
-        processObjectRename(commandContext, database, newName);
+    public void renameObject(@NotNull DBECommandContext commandContext, @NotNull PostgreDatabase database, @NotNull Map<String, Object> options, @NotNull String newName) throws DBException {
+        processObjectRename(commandContext, database, options, newName);
     }
 
     @Override
@@ -136,8 +138,8 @@ public class PostgreDatabaseManager extends SQLObjectEditor<PostgreDatabase, Pos
     }
 
     @Override
-    protected void validateObjectProperties(ObjectChangeCommand command, Map<String, Object> options) throws DBException {
-        super.validateObjectProperties(command, options);
+    protected void validateObjectProperties(DBRProgressMonitor monitor, ObjectChangeCommand command, Map<String, Object> options) throws DBException {
+        super.validateObjectProperties(monitor, command, options);
         options.put(DBECommandContext.OPTION_AVOID_TRANSACTIONS, true);
     }
 
@@ -175,6 +177,15 @@ public class PostgreDatabaseManager extends SQLObjectEditor<PostgreDatabase, Pos
                     log.error("Can't connect to the new database");
                 }
             }
+        }
+    }
+
+    @Override
+    protected void addObjectExtraActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, List<DBEPersistAction> actions, NestedObjectCommand<PostgreDatabase, PropertyHandler> command, Map<String, Object> options) throws DBException {
+        if (command.hasProperty(DBConstants.PROP_ID_DESCRIPTION)) {
+            PostgreDatabase database = command.getObject();
+            actions.add(new SQLDatabasePersistAction("COMMENT ON DATABASE " + DBUtils.getQuotedIdentifier(database) +
+                    " IS " + SQLUtils.quoteString(database, CommonUtils.notEmpty(database.getDescription()))));
         }
     }
 

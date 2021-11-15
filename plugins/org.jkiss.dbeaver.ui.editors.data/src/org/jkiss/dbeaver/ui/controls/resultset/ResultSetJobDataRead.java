@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,9 @@ import org.jkiss.dbeaver.ui.controls.resultset.internal.ResultSetMessages;
 
 import java.lang.reflect.InvocationTargetException;
 
-class ResultSetJobDataRead extends ResultSetJobAbstract implements ILoadService<Object> {
+abstract class ResultSetJobDataRead extends ResultSetJobAbstract implements ILoadService<Object>, IQueryExecuteController {
+
+    private static final int PROGRESS_VISUALIZE_PERIOD = 100;
 
     private DBDDataFilter dataFilter;
     private Composite progressControl;
@@ -64,9 +66,12 @@ class ResultSetJobDataRead extends ResultSetJobAbstract implements ILoadService<
         this.refresh = refresh;
     }
 
-    public Throwable getError()
-    {
+    public Throwable getError() {
         return error;
+    }
+
+    void setError(Throwable error) {
+        this.error = error;
     }
 
     DBCStatistics getStatistics()
@@ -87,7 +92,7 @@ class ResultSetJobDataRead extends ResultSetJobAbstract implements ILoadService<
             fetchFlags |= DBSDataContainer.FLAG_FETCH_SEGMENT;
         }
 
-        if (offset > 0 && dataContainer.getDataSource().getContainer().getPreferenceStore().getBoolean(ModelPreferences.RESULT_SET_REREAD_ON_SCROLLING)) {
+        if (offset > 0 && getExecutionContext().getDataSource().getContainer().getPreferenceStore().getBoolean(ModelPreferences.RESULT_SET_REREAD_ON_SCROLLING)) {
             if (maxRows > 0) {
                 maxRows += offset;
             }
@@ -101,11 +106,13 @@ class ResultSetJobDataRead extends ResultSetJobAbstract implements ILoadService<
 
         DBCExecutionPurpose purpose = dataFilter != null && dataFilter.hasFilters() ? DBCExecutionPurpose.USER_FILTERED : DBCExecutionPurpose.USER;
 
+        progressMonitor.beginTask("Read data", 1);
         try (DBCSession session = getExecutionContext().openSession(
             progressMonitor,
             purpose,
             NLS.bind(ResultSetMessages.controls_rs_pump_job_context_name, dataContainer.toString())))
         {
+            progressMonitor.subTask("Read data from container");
             DBExecUtils.tryExecuteRecover(monitor, session.getDataSource(), monitor1 -> {
                 try {
                     statistics = dataContainer.readData(
@@ -125,6 +132,7 @@ class ResultSetJobDataRead extends ResultSetJobAbstract implements ILoadService<
             error = e;
         } finally {
             visualizer.completeLoading(null);
+            progressMonitor.done();
         }
 
         return Status.OK_STATUS;
@@ -146,8 +154,6 @@ class ResultSetJobDataRead extends ResultSetJobAbstract implements ILoadService<
         return getExecutionController();
     }
 
-    private static final int PROGRESS_VISUALIZE_PERIOD = 100;
-
     private class PumpVisualizer extends UIJob {
 
         private ProgressLoaderVisualizer<Object> visualizer;
@@ -160,6 +166,24 @@ class ResultSetJobDataRead extends ResultSetJobAbstract implements ILoadService<
 
         @Override
         public IStatus runInUIThread(IProgressMonitor monitor) {
+            ResultSetJobDataRead loadService = (ResultSetJobDataRead) visualizer.getLoadService();
+            if (loadService != null && loadService.isCanceled()) {
+                long cancelTimestamp = loadService.getCancelTimestamp();
+                long cancelTimeout = controller.getPreferenceStore().getLong(ResultSetPreferences.RESULT_SET_CANCEL_TIMEOUT);
+                if (cancelTimeout > 0 && System.currentTimeMillis() - cancelTimestamp > cancelTimeout) {
+                    // Job was canceled but didn't end.
+                    // Something went wrong but we don't want to block UI
+                    // Connection was canceled then lets just finish the pump job.
+
+                    controller.removeDataPump(loadService);
+                    loadService.forceDataReadCancel(new DBCException("Cancel operation timed out"));
+
+                    visualizer.completeLoading(null);
+                    visualizer.visualizeLoading();
+
+                    return Status.OK_STATUS;
+                }
+            }
             if (!controller.getDataReceiver().isDataReceivePaused()) {
                 visualizer.visualizeLoading();
             } else {
@@ -170,7 +194,6 @@ class ResultSetJobDataRead extends ResultSetJobAbstract implements ILoadService<
             }
             return Status.OK_STATUS;
         }
-
     }
 
 }

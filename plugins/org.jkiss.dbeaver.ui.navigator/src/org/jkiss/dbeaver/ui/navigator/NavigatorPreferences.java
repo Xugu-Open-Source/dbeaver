@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,6 @@
  */
 package org.jkiss.dbeaver.ui.navigator;
 
-import org.jkiss.dbeaver.ui.editors.DatabaseEditorPreferences;
-
 /**
  * NavigatorPreferences
  */
@@ -26,6 +24,7 @@ public class NavigatorPreferences {
     public static final String NAVIGATOR_COLOR_ALL_NODES = "navigator.color.nodes.all"; //$NON-NLS-1$
     public static final String NAVIGATOR_EXPAND_ON_CONNECT = "navigator.expand.on.connect"; //$NON-NLS-1$
     public static final String NAVIGATOR_RESTORE_STATE_DEPTH = "navigator.restore.state.depth"; //$NON-NLS-1$
+    public static final String NAVIGATOR_RESTORE_FILTER = "navigator.restore.filters"; //$NON-NLS-1$
     public static final String NAVIGATOR_SYNC_EDITOR_DATASOURCE = "navigator.sync.editor.datasource"; //$NON-NLS-1$
     public static final String NAVIGATOR_REFRESH_EDITORS_ON_OPEN = "navigator.refresh.editor.open"; //$NON-NLS-1$
     public static final String NAVIGATOR_GROUP_BY_DRIVER = "navigator.group.by.driver"; //$NON-NLS-1$
@@ -36,6 +35,12 @@ public class NavigatorPreferences {
     public static final String NAVIGATOR_SHOW_SQL_PREVIEW = "navigator.editor.show.preview"; //$NON-NLS-1$
     public static final String NAVIGATOR_SHOW_OBJECT_TIPS = "navigator.show.objects.tips"; //$NON-NLS-1$
     public static final String NAVIGATOR_LONG_LIST_FETCH_SIZE = "navigator.long.list.fetch.size"; //$NON-NLS-1$
+    public static final String NAVIGATOR_SHOW_STATISTICS_INFO = "navigator.show.statistics.info"; //$NON-NLS-1$
+    public static final String NAVIGATOR_SHOW_CONNECTION_HOST_NAME = "navigator.show.connection.host"; //$NON-NLS-1$
+    public static final String NAVIGATOR_SHOW_NODE_ACTIONS = "navigator.show.node.actions"; //$NON-NLS-1$
+
+    public static final String NAVIGATOR_SHOW_TOOLTIPS = "navigator.show.tooltips"; //$NON-NLS-1$
+    public static final String NAVIGATOR_SHOW_CONTENTS_IN_TOOLTIP = "navigator.show.tooltips.file.contents"; //$NON-NLS-1$
 
     public static final String ENTITY_EDITOR_DETACH_INFO = "entity.editor.info.detach"; //$NON-NLS-1$
     public static final String ENTITY_EDITOR_INFO_SASH_STATE = "entity.editor.info.sash.state"; //$NON-NLS-1$

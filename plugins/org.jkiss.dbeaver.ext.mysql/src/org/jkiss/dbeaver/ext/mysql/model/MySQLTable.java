@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,14 +21,14 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.mysql.MySQLConstants;
-import org.jkiss.dbeaver.model.DBPEvaluationContext;
-import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.jdbc.*;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCConstants;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectCache;
 import org.jkiss.dbeaver.model.meta.*;
+import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
@@ -36,6 +36,8 @@ import org.jkiss.dbeaver.model.struct.cache.SimpleObjectCache;
 import org.jkiss.dbeaver.model.struct.rdb.DBSForeignKeyModifyRule;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTable;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
+import org.jkiss.dbeaver.runtime.properties.PropertyCollector;
+import org.jkiss.utils.ByteNumberFormat;
 import org.jkiss.utils.CommonUtils;
 
 import java.sql.ResultSet;
@@ -45,12 +47,10 @@ import java.util.*;
 /**
  * MySQLTable
  */
-public class MySQLTable extends MySQLTableBase
-{
+public class MySQLTable extends MySQLTableBase implements DBPObjectStatistics, DBPReferentialIntegrityController {
     private static final Log log = Log.getLog(MySQLTable.class);
 
     private static final String INNODB_COMMENT = "InnoDB free";
-    public static final String CATEGORY_STATISTICS = "Statistics";
 
     public static class AdditionalInfo {
         private volatile boolean loaded = false;
@@ -72,19 +72,19 @@ public class MySQLTable extends MySQLTableBase
         @Property(viewable = true, editable = true, updatable = true, order = 4) public long getAutoIncrement() { return autoIncrement; }
         @Property(viewable = false, editable = true, updatable = true, listProvider = CharsetListProvider.class, order = 5) public MySQLCharset getCharset() { return charset; }
         @Property(viewable = false, editable = true, updatable = true, listProvider = CollationListProvider.class, order = 6) public MySQLCollation getCollation() { return collation; }
-        @Property(viewable = true, editable = true, updatable = true, multiline = true, order = 100) public String getDescription() { return description; }
+        @Property(viewable = true, editable = true, updatable = true, length = PropertyLength.MULTILINE, order = 100) public String getDescription() { return description; }
 
-        @Property(category = CATEGORY_STATISTICS, viewable = false, order = 10) public long getRowCount() { return rowCount; }
-        @Property(category = CATEGORY_STATISTICS, viewable = false, order = 11) public long getAvgRowLength() { return avgRowLength; }
-        @Property(category = CATEGORY_STATISTICS, viewable = true, order = 12) public long getDataLength() { return dataLength; }
-        @Property(category = CATEGORY_STATISTICS, viewable = false, order = 13) public long getMaxDataLength() { return maxDataLength; }
-        @Property(category = CATEGORY_STATISTICS, viewable = false, order = 14) public long getDataFree() { return dataFree; }
-        @Property(category = CATEGORY_STATISTICS, viewable = false, order = 15) public long getIndexLength() { return indexLength; }
-        @Property(category = CATEGORY_STATISTICS, viewable = false, order = 16) public String getRowFormat() { return rowFormat; }
+        @Property(category = DBConstants.CAT_STATISTICS, viewable = false, order = 10) public long getRowCount() { return rowCount; }
+        @Property(category = DBConstants.CAT_STATISTICS, viewable = false, order = 11) public long getAvgRowLength() { return avgRowLength; }
+        @Property(category = DBConstants.CAT_STATISTICS, viewable = true, order = 12, formatter = ByteNumberFormat.class) public long getDataLength() { return dataLength; }
+        @Property(category = DBConstants.CAT_STATISTICS, viewable = false, order = 13, formatter = ByteNumberFormat.class) public long getMaxDataLength() { return maxDataLength; }
+        @Property(category = DBConstants.CAT_STATISTICS, viewable = false, order = 14, formatter = ByteNumberFormat.class) public long getDataFree() { return dataFree; }
+        @Property(category = DBConstants.CAT_STATISTICS, viewable = false, order = 15, formatter = ByteNumberFormat.class) public long getIndexLength() { return indexLength; }
+        @Property(category = DBConstants.CAT_STATISTICS, viewable = false, order = 16) public String getRowFormat() { return rowFormat; }
 
-        @Property(category = CATEGORY_STATISTICS, viewable = false, order = 20) public Date getCreateTime() { return createTime; }
-        @Property(category = CATEGORY_STATISTICS, viewable = false, order = 21) public Date getUpdateTime() { return updateTime; }
-        @Property(category = CATEGORY_STATISTICS, viewable = false, order = 22) public Date getCheckTime() { return checkTime; }
+        @Property(category = DBConstants.CAT_STATISTICS, viewable = false, order = 20) public Date getCreateTime() { return createTime; }
+        @Property(category = DBConstants.CAT_STATISTICS, viewable = false, order = 21) public Date getUpdateTime() { return updateTime; }
+        @Property(category = DBConstants.CAT_STATISTICS, viewable = false, order = 22) public Date getCheckTime() { return checkTime; }
 
         public void setEngine(MySQLEngine engine) { this.engine = engine; }
         public void setAutoIncrement(long autoIncrement) { this.autoIncrement = autoIncrement; }
@@ -107,6 +107,10 @@ public class MySQLTable extends MySQLTableBase
 
     private final AdditionalInfo additionalInfo = new AdditionalInfo();
     private volatile List<MySQLTableForeignKey> referenceCache;
+    @Nullable
+    private String disableReferentialIntegrityStatement;
+    @Nullable
+    private String enableReferentialIntegrityStatement;
 
     public MySQLTable(MySQLCatalog catalog)
     {
@@ -149,7 +153,7 @@ public class MySQLTable extends MySQLTableBase
         // Copy constraints
         for (DBSEntityConstraint srcConstr : CommonUtils.safeCollection(source.getConstraints(monitor))) {
             MySQLTableConstraint constr = new MySQLTableConstraint(monitor, this, srcConstr);
-            this.getContainer().constraintCache.cacheObject(constr);
+            this.getContainer().uniqueKeyCache.cacheObject(constr);
         }
 
         // Copy FKs
@@ -186,6 +190,25 @@ public class MySQLTable extends MySQLTableBase
     }
 
     @Override
+    public boolean hasStatistics() {
+        return additionalInfo.loaded == true;
+    }
+
+    @Override
+    public long getStatObjectSize() {
+        return additionalInfo.dataLength + additionalInfo.indexLength;
+    }
+
+    @Nullable
+    @Override
+    public DBPPropertySource getStatProperties() {
+        PropertyCollector collector = new PropertyCollector(additionalInfo, true);
+        collector.collectProperties();
+        return collector;
+    }
+
+
+    @Override
     public boolean isView()
     {
         return false;
@@ -206,13 +229,36 @@ public class MySQLTable extends MySQLTableBase
     public Collection<MySQLTableConstraint> getConstraints(@NotNull DBRProgressMonitor monitor)
         throws DBException
     {
-        return getContainer().constraintCache.getObjects(monitor, getContainer(), this);
+        List<MySQLTableConstraint> constraintObjects = getContainer().uniqueKeyCache.getObjects(monitor, getContainer(), this);
+        if (getDataSource().supportsCheckConstraints()) {
+            List<MySQLTableConstraint> checkConstraintObjects = getContainer().checkConstraintCache.getObjects(monitor, getContainer(), this);
+            if (!CommonUtils.isEmpty(checkConstraintObjects)) {
+                constraintObjects.addAll(checkConstraintObjects);
+            }
+            return constraintObjects;
+        }
+        else {
+            return constraintObjects;
+        }
     }
 
-    public MySQLTableConstraint getConstraint(DBRProgressMonitor monitor, String ukName)
+    public MySQLTableConstraint getUniqueKey(DBRProgressMonitor monitor, String ukName)
         throws DBException
     {
-        return getContainer().constraintCache.getObject(monitor, getContainer(), this, ukName);
+        return getContainer().uniqueKeyCache.getObject(monitor, getContainer(), this, ukName);
+    }
+
+    @Association
+    public Collection<MySQLTableConstraint> getCheckConstraints(@NotNull DBRProgressMonitor monitor)
+            throws DBException
+    {
+         return getContainer().checkConstraintCache.getObjects(monitor, getContainer(), this);
+    }
+
+    public MySQLTableConstraint getCheckConstraint(DBRProgressMonitor monitor, String constName)
+            throws DBException
+    {
+        return getContainer().checkConstraintCache.getObject(monitor, getContainer(), this, constName);
     }
 
     @Override
@@ -248,8 +294,9 @@ public class MySQLTable extends MySQLTableBase
         return foreignKeys;
     }
 
+    @Nullable
     @Association
-    public Collection<MySQLTrigger> getTriggers(DBRProgressMonitor monitor)
+    public List<MySQLTrigger> getTriggers(@NotNull DBRProgressMonitor monitor)
         throws DBException
     {
         List<MySQLTrigger> triggers = new ArrayList<>();
@@ -274,41 +321,12 @@ public class MySQLTable extends MySQLTableBase
             additionalInfo.loaded = true;
             return;
         }
-        MySQLDataSource dataSource = getDataSource();
         try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load table status")) {
             try (JDBCPreparedStatement dbStat = session.prepareStatement(
                 "SHOW TABLE STATUS FROM " + DBUtils.getQuotedIdentifier(getContainer()) + " LIKE '" + getName() + "'")) {
                 try (JDBCResultSet dbResult = dbStat.executeQuery()) {
                     if (dbResult.next()) {
-                        // filer table description (for INNODB it contains some system information)
-                        String desc = JDBCUtils.safeGetString(dbResult, MySQLConstants.COL_TABLE_COMMENT);
-                        if (desc != null) {
-                            if (desc.startsWith(INNODB_COMMENT)) {
-                                desc = "";
-                            } else if (!CommonUtils.isEmpty(desc)) {
-                                int divPos = desc.indexOf("; " + INNODB_COMMENT);
-                                if (divPos != -1) {
-                                    desc = desc.substring(0, divPos);
-                                }
-                            }
-                            additionalInfo.description = desc;
-                        }
-                        additionalInfo.engine = dataSource.getEngine(JDBCUtils.safeGetString(dbResult, MySQLConstants.COL_ENGINE));
-                        additionalInfo.rowCount = JDBCUtils.safeGetLong(dbResult, MySQLConstants.COL_ROWS);
-                        additionalInfo.autoIncrement = JDBCUtils.safeGetLong(dbResult, MySQLConstants.COL_AUTO_INCREMENT);
-                        additionalInfo.createTime = JDBCUtils.safeGetTimestamp(dbResult, MySQLConstants.COL_CREATE_TIME);
-                        additionalInfo.updateTime = JDBCUtils.safeGetTimestamp(dbResult, "Update_time");
-                        additionalInfo.checkTime = JDBCUtils.safeGetTimestamp(dbResult, "Check_time");
-                        additionalInfo.collation = dataSource.getCollation(JDBCUtils.safeGetString(dbResult, MySQLConstants.COL_COLLATION));
-                        if (additionalInfo.collation != null) {
-                            additionalInfo.charset = additionalInfo.collation.getCharset();
-                        }
-                        additionalInfo.avgRowLength = JDBCUtils.safeGetLong(dbResult, MySQLConstants.COL_AVG_ROW_LENGTH);
-                        additionalInfo.dataLength = JDBCUtils.safeGetLong(dbResult, MySQLConstants.COL_DATA_LENGTH);
-                        additionalInfo.maxDataLength = JDBCUtils.safeGetLong(dbResult, "Max_data_length");
-                        additionalInfo.dataFree = JDBCUtils.safeGetLong(dbResult, "Data_free");
-                        additionalInfo.indexLength = JDBCUtils.safeGetLong(dbResult, "Index_length");
-                        additionalInfo.rowFormat = JDBCUtils.safeGetString(dbResult, "Row_format");
+                        fetchAdditionalInfo(dbResult);
                     }
                     additionalInfo.loaded = true;
                 }
@@ -316,6 +334,41 @@ public class MySQLTable extends MySQLTableBase
                 throw new DBCException(e, session.getExecutionContext());
             }
         }
+    }
+
+    void fetchAdditionalInfo(JDBCResultSet dbResult) {
+        MySQLDataSource dataSource = getDataSource();
+        // filer table description (for INNODB it contains some system information)
+        String desc = JDBCUtils.safeGetString(dbResult, MySQLConstants.COL_TABLE_COMMENT);
+        if (desc != null) {
+            if (desc.startsWith(INNODB_COMMENT)) {
+                desc = "";
+            } else if (!CommonUtils.isEmpty(desc)) {
+                int divPos = desc.indexOf("; " + INNODB_COMMENT);
+                if (divPos != -1) {
+                    desc = desc.substring(0, divPos);
+                }
+            }
+            additionalInfo.description = desc;
+        }
+        additionalInfo.engine = dataSource.getEngine(JDBCUtils.safeGetString(dbResult, MySQLConstants.COL_ENGINE));
+        additionalInfo.rowCount = JDBCUtils.safeGetLong(dbResult, MySQLConstants.COL_ROWS);
+        additionalInfo.autoIncrement = JDBCUtils.safeGetLong(dbResult, MySQLConstants.COL_AUTO_INCREMENT);
+        additionalInfo.createTime = JDBCUtils.safeGetTimestamp(dbResult, MySQLConstants.COL_CREATE_TIME);
+        additionalInfo.updateTime = JDBCUtils.safeGetTimestamp(dbResult, "Update_time");
+        additionalInfo.checkTime = JDBCUtils.safeGetTimestamp(dbResult, "Check_time");
+        additionalInfo.collation = dataSource.getCollation(JDBCUtils.safeGetString(dbResult, MySQLConstants.COL_COLLATION));
+        if (additionalInfo.collation != null) {
+            additionalInfo.charset = additionalInfo.collation.getCharset();
+        }
+        additionalInfo.avgRowLength = JDBCUtils.safeGetLong(dbResult, MySQLConstants.COL_AVG_ROW_LENGTH);
+        additionalInfo.dataLength = JDBCUtils.safeGetLong(dbResult, MySQLConstants.COL_DATA_LENGTH);
+        additionalInfo.maxDataLength = JDBCUtils.safeGetLong(dbResult, "Max_data_length");
+        additionalInfo.dataFree = JDBCUtils.safeGetLong(dbResult, "Data_free");
+        additionalInfo.indexLength = JDBCUtils.safeGetLong(dbResult, "Index_length");
+        additionalInfo.rowFormat = JDBCUtils.safeGetString(dbResult, "Row_format");
+
+        additionalInfo.loaded = true;
     }
 
     private List<MySQLTableForeignKey> loadForeignKeys(DBRProgressMonitor monitor, boolean references)
@@ -390,21 +443,26 @@ public class MySQLTable extends MySQLTableBase
 
                     // Find PK
                     MySQLTableConstraint pk = null;
-                    if (pkTable != null && pkName != null) {
-                        pk = DBUtils.findObject(pkTable.getConstraints(monitor), pkName);
-                        if (pk == null) {
-                            log.warn("Unique key '" + pkName + "' not found in table " + pkTable.getFullyQualifiedName(DBPEvaluationContext.DDL));
-                        }
-                    }
-                    if (pk == null && pkTable != null) {
+                    if (pkTable != null) {
+                    	// Find pk based on referenced columns
                         Collection<MySQLTableConstraint> constraints = pkTable.getConstraints(monitor);
                         if (constraints != null) {
                             for (MySQLTableConstraint pkConstraint : constraints) {
                                 if (pkConstraint.getConstraintType().isUnique() && DBUtils.getConstraintAttribute(monitor, pkConstraint, pkColumn) != null) {
                                     pk = pkConstraint;
-                                    break;
+                                    if (pkConstraint.getName().equals(pkName))
+                                    	break;
+                                    // If pk name does not match, keep searching (actual pk might not be this one)
                                 }
                             }
+                        }
+                    }
+                    if (pk == null && pkTable != null && pkName != null) {
+                    	// Find pk based on name
+                    	Collection<MySQLTableConstraint> constraints = pkTable.getConstraints(monitor);
+                    	pk = DBUtils.findObject(constraints, pkName);
+                        if (pk == null) {
+                            log.warn("Unique key '" + pkName + "' not found in table " + pkTable.getFullyQualifiedName(DBPEvaluationContext.DDL));
                         }
                     }
                     if (pk == null && pkTable != null) {
@@ -441,7 +499,14 @@ public class MySQLTable extends MySQLTableBase
                             fkList.add(fk);
                         }
                         MySQLTableForeignKeyColumn fkColumnInfo = new MySQLTableForeignKeyColumn(fk, fkColumn, keySeq, pkColumn);
-                        fk.addColumn(fkColumnInfo);
+                        if (fk.hasColumn(fkColumnInfo)) {
+                            // Known MySQL bug, metaData.getImportedKeys() can return duplicates
+                            // https://bugs.mysql.com/bug.php?id=95280
+                            log.debug("FK "+ fkName +" has already been added, skip");
+                        }
+                        else {
+                            fk.addColumn(fkColumnInfo);
+                        }
                     }
                 }
             } finally {
@@ -515,12 +580,63 @@ public class MySQLTable extends MySQLTableBase
 
     @Override
     public DBSObject refreshObject(@NotNull DBRProgressMonitor monitor) throws DBException {
-        getContainer().constraintCache.clearObjectCache(this);
+        getContainer().uniqueKeyCache.clearObjectCache(this);
+        if (getDataSource().supportsCheckConstraints()) {
+            getContainer().checkConstraintCache.clearObjectCache(this);
+        }
         getContainer().indexCache.clearObjectCache(this);
         getContainer().triggerCache.clearChildrenOf(this);
         this.referenceCache = null;
 
         return super.refreshObject(monitor);
+    }
+
+    @Override
+    public boolean supportsChangingReferentialIntegrity(@NotNull DBRProgressMonitor monitor) {
+        return true;
+    }
+
+    @Override
+    public void enableReferentialIntegrity(@NotNull DBRProgressMonitor monitor, boolean enable) throws DBException {
+        String sql = getChangeReferentialIntegrityStatement(monitor, enable);
+        sql = sql.replace("?", getFullyQualifiedName(DBPEvaluationContext.DDL));
+        try {
+            DBUtils.executeInMetaSession(monitor, this, "Changing referential integrity", sql);
+        } catch (SQLException e) {
+            throw new DBException("Unable to change referential integrity", e);
+        }
+    }
+
+    @NotNull
+    public String getChangeReferentialIntegrityStatement(@NotNull DBRProgressMonitor monitor, boolean enable) {
+        if (enable && enableReferentialIntegrityStatement != null) {
+            return enableReferentialIntegrityStatement;
+        } else if (!enable && disableReferentialIntegrityStatement != null) {
+            return disableReferentialIntegrityStatement;
+        }
+
+        boolean supportsAlterTableKeysStmt = false; // ALTER TABLE ... ENABLE/DISABLE KEYS statement works per table and speeds up insert
+        try {
+            AdditionalInfo info = getAdditionalInfo(monitor);
+            if (info != null && info.getEngine() != null && MySQLEngine.MYISAM.equals(info.getEngine().getName())) {
+                supportsAlterTableKeysStmt = true;
+            }
+        } catch (DBCException e) {
+            log.debug("Unable to retrieve additional info for mysql table", e);
+        }
+
+        if (supportsAlterTableKeysStmt) {
+            disableReferentialIntegrityStatement = "ALTER TABLE ? DISABLE KEYS";
+            enableReferentialIntegrityStatement = "ALTER TABLE ? ENABLE KEYS";
+        } else {
+            disableReferentialIntegrityStatement = "SET GLOBAL FOREIGN_KEY_CHECKS=0";
+            enableReferentialIntegrityStatement = "SET GLOBAL FOREIGN_KEY_CHECKS=1";
+        }
+
+        if (enable) {
+            return enableReferentialIntegrityStatement;
+        }
+        return disableReferentialIntegrityStatement;
     }
 
     public static class EngineListProvider implements IPropertyValueListProvider<MySQLTable> {

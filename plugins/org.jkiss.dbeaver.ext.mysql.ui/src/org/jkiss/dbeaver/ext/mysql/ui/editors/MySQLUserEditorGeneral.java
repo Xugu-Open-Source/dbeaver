@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,22 +19,27 @@ package org.jkiss.dbeaver.ext.mysql.ui.editors;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
-import org.eclipse.swt.widgets.*;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Spinner;
+import org.eclipse.swt.widgets.Text;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.ext.mysql.ui.internal.MySQLUIMessages;
-import org.jkiss.dbeaver.ext.mysql.ui.controls.PrivilegeTableControl;
-import org.jkiss.dbeaver.ext.mysql.ui.config.MySQLCommandGrantPrivilege;
-import org.jkiss.dbeaver.ext.mysql.ui.config.UserPropertyHandler;
 import org.jkiss.dbeaver.ext.mysql.model.MySQLGrant;
 import org.jkiss.dbeaver.ext.mysql.model.MySQLPrivilege;
 import org.jkiss.dbeaver.ext.mysql.model.MySQLUser;
+import org.jkiss.dbeaver.ext.mysql.ui.config.MySQLCommandGrantPrivilege;
+import org.jkiss.dbeaver.ext.mysql.ui.config.MySQLUserManager;
+import org.jkiss.dbeaver.ext.mysql.ui.config.UserPropertyHandler;
+import org.jkiss.dbeaver.ext.mysql.ui.controls.PrivilegeTableControl;
+import org.jkiss.dbeaver.ext.mysql.ui.internal.MySQLUIMessages;
+import org.jkiss.dbeaver.model.edit.DBECommand;
 import org.jkiss.dbeaver.model.edit.DBECommandReflector;
-import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
-import org.jkiss.dbeaver.ui.LoadingJob;
-import org.jkiss.dbeaver.ui.editors.ControlPropertyCommandListener;
 import org.jkiss.dbeaver.model.impl.edit.DBECommandAdapter;
+import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.load.DatabaseLoadService;
+import org.jkiss.dbeaver.ui.LoadingJob;
 import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.ui.editors.ControlPropertyCommandListener;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.Iterator;
@@ -62,12 +67,12 @@ public class MySQLUserEditorGeneral extends MySQLUserEditorAbstract
         pageControl = new PageControl(parent);
 
         Composite container = UIUtils.createPlaceholder(pageControl, 2, 5);
-        GridData gd = new GridData(GridData.FILL_VERTICAL);
+        GridData gd = new GridData(GridData.FILL_BOTH);
         container.setLayoutData(gd);
 
         newUser = !getDatabaseObject().isPersisted();
         {
-            Composite loginGroup = UIUtils.createControlGroup(container, MySQLUIMessages.editors_user_editor_general_group_login, 2, GridData.HORIZONTAL_ALIGN_BEGINNING, 200);
+            Composite loginGroup = UIUtils.createControlGroup(container, MySQLUIMessages.editors_user_editor_general_group_login, 2, GridData.FILL_HORIZONTAL, 0);
 
             userNameText = UIUtils.createLabelText(loginGroup, MySQLUIMessages.editors_user_editor_general_label_user_name, getDatabaseObject().getUserName());
             userNameText.setEditable(newUser);
@@ -90,7 +95,7 @@ public class MySQLUserEditorGeneral extends MySQLUserEditorAbstract
         }
 
         {
-            Composite limitsGroup = UIUtils.createControlGroup(container, MySQLUIMessages.editors_user_editor_general_group_limits, 2, GridData.HORIZONTAL_ALIGN_BEGINNING, 0);
+            Composite limitsGroup = UIUtils.createControlGroup(container, MySQLUIMessages.editors_user_editor_general_group_limits, 2, GridData.FILL_HORIZONTAL, 0);
 
             Spinner maxQueriesText = UIUtils.createLabelSpinner(limitsGroup, MySQLUIMessages.editors_user_editor_general_spinner_max_queries, getDatabaseObject().getMaxQuestions(), 0, Integer.MAX_VALUE);
             ControlPropertyCommandListener.create(this, maxQueriesText, UserPropertyHandler.MAX_QUERIES);
@@ -199,9 +204,10 @@ public class MySQLUserEditorGeneral extends MySQLUserEditorAbstract
     }
 
     @Override
-    public void refreshPart(Object source, boolean force)
+    public RefreshResult refreshPart(Object source, boolean force)
     {
         // do nothing
+        return RefreshResult.IGNORED;
     }
 
     private class PageControl extends UserPageControl {
@@ -235,6 +241,27 @@ public class MySQLUserEditorGeneral extends MySQLUserEditorAbstract
                     }
                 });
             }
+        }
+
+        @Override
+        public void onCommandChange(DBECommand<?> command) {
+            if (command instanceof MySQLUserManager.CommandRenameUser) {
+                MySQLUserManager.CommandRenameUser mysqlCommand = (MySQLUserManager.CommandRenameUser) command;
+                setUsernameAndHost(mysqlCommand.getNewUserName(), mysqlCommand.getNewHost());
+            }
+        }
+
+        @Override
+        public void onReset() {
+            MySQLUser user = getDatabaseObject();
+            setUsernameAndHost(user.getUserName(), user.getHost());
+        }
+
+        private void setUsernameAndHost(@NotNull String username, @NotNull String host) {
+            UIUtils.asyncExec(() -> {
+                userNameText.setText(username);
+                hostText.setText(host);
+            });
         }
     }
 }

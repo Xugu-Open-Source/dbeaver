@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ public class DBNLocalFolder extends DBNNode implements DBNContainer
     }
 
     @Override
-    void dispose(boolean reflect)
+    protected void dispose(boolean reflect)
     {
         super.dispose(reflect);
     }
@@ -213,7 +213,7 @@ public class DBNLocalFolder extends DBNNode implements DBNContainer
     public void dropNodes(Collection<DBNNode> nodes) throws DBException {
         for (DBNNode node : nodes) {
             if (node instanceof DBNDataSource) {
-                ((DBNDataSource) node).setFolder(folder);
+                ((DBNDataSource) node).moveToFolder(getOwnerProject(), folder);
             } else if (node instanceof DBNLocalFolder) {
                 ((DBNLocalFolder) node).getFolder().setParent(this.getFolder());
             }

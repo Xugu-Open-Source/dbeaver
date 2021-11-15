@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2013-2017 Denis Forveille (titou10.titou10@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,20 +26,13 @@ import org.jkiss.dbeaver.ext.db2.DB2Utils;
 import org.jkiss.dbeaver.ext.db2.editors.DB2DDLFormat;
 import org.jkiss.dbeaver.ext.db2.editors.DB2SourceObject;
 import org.jkiss.dbeaver.ext.db2.model.cache.DB2RoutineParmsCache;
-import org.jkiss.dbeaver.ext.db2.model.dict.DB2OwnerType;
-import org.jkiss.dbeaver.ext.db2.model.dict.DB2RoutineLanguage;
-import org.jkiss.dbeaver.ext.db2.model.dict.DB2RoutineOrigin;
-import org.jkiss.dbeaver.ext.db2.model.dict.DB2RoutineType;
-import org.jkiss.dbeaver.ext.db2.model.dict.DB2RoutineValidType;
-import org.jkiss.dbeaver.ext.db2.model.dict.DB2YesNo;
+import org.jkiss.dbeaver.ext.db2.model.dict.*;
 import org.jkiss.dbeaver.ext.db2.model.module.DB2Module;
-import org.jkiss.dbeaver.model.DBPEvaluationContext;
-import org.jkiss.dbeaver.model.DBPRefreshableObject;
-import org.jkiss.dbeaver.model.DBPUniqueObject;
-import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
@@ -59,7 +52,17 @@ import java.util.Map;
  * @author Denis Forveille
  */
 public class DB2Routine extends DB2Object<DBSObject>
-    implements DBSProcedure, DB2SourceObject, DBPRefreshableObject, DBPUniqueObject {
+    implements DBSProcedure, DB2SourceObject, DBPRefreshableObject, DBPImageProvider {
+
+    public enum FunctionType {
+        C("Column or aggregate"),
+        R("Row"),
+        S("Scalar"),
+        T("Table");
+
+        FunctionType(String type) {
+        }
+    }
 
     private final DB2RoutineParmsCache parmsCache = new DB2RoutineParmsCache();
 
@@ -69,7 +72,8 @@ public class DB2Routine extends DB2Object<DBSObject>
 
     private DB2RoutineType             type;
 
-    private String                     routineName;
+    @Nullable
+    private String                     specificName;
     private Integer                    routineId;
     private DB2RoutineOrigin           origin;
     private DB2RoutineLanguage         language;
@@ -94,18 +98,18 @@ public class DB2Routine extends DB2Object<DBSObject>
     private String                     jarSignature;
     private String                     javaClass;
     private DB2RoutineValidType        valid;
+    private FunctionType functionType;
 
     // -----------------------
     // Constructors
     // -----------------------
 
-    public DB2Routine(DBSObject owner, ResultSet dbResult)
-    {
-        super(owner, JDBCUtils.safeGetString(dbResult, "SPECIFICNAME"), true);
+    public DB2Routine(DBSObject owner, ResultSet dbResult) {
+        super(owner, JDBCUtils.safeGetString(dbResult, "ROUTINENAME"), true);
 
         DB2DataSource db2DataSource = (DB2DataSource) owner.getDataSource();
 
-        this.routineName = JDBCUtils.safeGetString(dbResult, "ROUTINENAME");
+        this.specificName = JDBCUtils.safeGetString(dbResult, "SPECIFICNAME");
         this.routineId = JDBCUtils.safeGetInteger(dbResult, "ROUTINEID");
 
         this.type = CommonUtils.valueOf(DB2RoutineType.class, JDBCUtils.safeGetString(dbResult, "ROUTINETYPE"));
@@ -136,6 +140,9 @@ public class DB2Routine extends DB2Object<DBSObject>
         }
         if (db2DataSource.isAtLeastV9_7()) {
             this.dialect = JDBCUtils.safeGetString(dbResult, "DIALECT");
+            if (type == DB2RoutineType.F) {
+                this.functionType = CommonUtils.valueOf(FunctionType.class, JDBCUtils.safeGetString(dbResult, "FUNCTIONTYPE"));
+            }
         }
 
         if (owner instanceof DB2Schema) {
@@ -161,7 +168,7 @@ public class DB2Routine extends DB2Object<DBSObject>
     @Override
     public DBSObjectState getObjectState()
     {
-        return DBSObjectState.UNKNOWN;
+        return valid == DB2RoutineValidType.Y ? DBSObjectState.NORMAL : DBSObjectState.UNKNOWN;
     }
 
     @Override
@@ -177,6 +184,7 @@ public class DB2Routine extends DB2Object<DBSObject>
     }
 
     @Override
+    @Property(viewable = true, order = 7)
     public DBSProcedureType getProcedureType()
     {
         return type.getProcedureType();
@@ -196,14 +204,6 @@ public class DB2Routine extends DB2Object<DBSObject>
             return (DBSObjectContainer) parent;
         }
         return db2Schema;
-    }
-
-    @NotNull
-    @Override
-    public String getUniqueName()
-    {
-        // unique name is the "specifiname" column
-        return super.getName();
     }
 
     // -----------------
@@ -237,24 +237,16 @@ public class DB2Routine extends DB2Object<DBSObject>
     // Properties
     // -----------------------
 
-    @NotNull
-    @Override
-    @Property(viewable = true, order = 1)
-    public String getName()
-    {
-        return routineName;
-    }
-
     @Property(viewable = true, order = 2)
     public DB2Schema getSchema()
     {
         return db2Schema;
     }
 
+    @Nullable
     @Property(viewable = true, order = 3)
-    public String getSpecificName()
-    {
-        return super.getName();
+    public String getSpecificName() {
+        return specificName;
     }
 
     @Property(viewable = true, order = 5, category = DB2Constants.CAT_DATETIME)
@@ -373,10 +365,23 @@ public class DB2Routine extends DB2Object<DBSObject>
 
     @Nullable
     @Override
-    @Property(viewable = false, multiline = true)
+    @Property(viewable = false, length = PropertyLength.MULTILINE)
     public String getDescription()
     {
         return remarks;
     }
 
+    public FunctionType getFunctionType() {
+        return functionType;
+    }
+
+    @Nullable
+    @Override
+    public DBPImage getObjectImage() {
+        if (type == DB2RoutineType.F) {
+            return DBIcon.TREE_FUNCTION;
+        } else {
+            return DBIcon.TREE_PROCEDURE;
+        }
+    }
 }

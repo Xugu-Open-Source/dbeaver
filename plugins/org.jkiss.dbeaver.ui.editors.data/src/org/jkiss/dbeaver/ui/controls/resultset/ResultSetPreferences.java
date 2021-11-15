@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,9 @@ package org.jkiss.dbeaver.ui.controls.resultset;
  */
 public final class ResultSetPreferences {
 
+    public static final int MIN_SEGMENT_SIZE = 100;
+    public static final int MAX_DEF_COLUMN_WIDTH = 30;
+
     // ResultSet
     public static final String RS_EDIT_MAX_TEXT_SIZE = "resultset.edit.maxtextsize"; //$NON-NLS-1$
     public static final String RS_EDIT_LONG_AS_LOB = "resultset.edit.longaslob"; //$NON-NLS-1$
@@ -37,8 +40,9 @@ public final class ResultSetPreferences {
     public static final String RESULT_SET_AUTO_FETCH_NEXT_SEGMENT = "resultset.autofetch.next.segment"; //$NON-NLS-1$
     public static final String RESULT_SET_CANCEL_TIMEOUT = "resultset.cancel.timeout"; //$NON-NLS-1$
     public static final String RESULT_SET_BINARY_EDITOR_TYPE = "resultset.binary.editor"; //$NON-NLS-1$
-    public static final String RESULT_SET_ORDER_SERVER_SIDE = "resultset.order.serverSide"; //$NON-NLS-1$
+    public static final String RESULT_SET_ORDERING_MODE = "resultset.order.mode"; //$NON-NLS-1$
     public static final String RESULT_SET_SHOW_ODD_ROWS = "resultset.show.oddRows"; //$NON-NLS-1$
+    public static final String RESULT_SET_HIGHLIGHT_SELECTED_ROWS = "resultset.highlight.selectedRows"; //$NON-NLS-1$
     public static final String RESULT_SET_SHOW_CELL_ICONS = "resultset.show.cellIcons"; //$NON-NLS-1$
     public static final String RESULT_SET_SHOW_ATTR_ICONS = "resultset.show.attIcons"; //$NON-NLS-1$
     public static final String RESULT_SET_SHOW_ATTR_FILTERS = "resultset.show.attFilters"; //$NON-NLS-1$
@@ -51,6 +55,7 @@ public final class ResultSetPreferences {
 
     public static final String RESULT_SET_USE_SMOOTH_SCROLLING = "resultset.hScroll.smooth"; //$NON-NLS-1$
     public static final String RESULT_SET_SHOW_BOOLEAN_AS_CHECKBOX = "resultset.show.boolean.checkbox"; //$NON-NLS-1$
+    public static final String RESULT_SET_CLICK_TOGGLE_BOOLEAN = "resultset.show.boolean.toggleOnClick"; //$NON-NLS-1$
     public static final String RESULT_SET_CALC_COLUMN_WIDTH_BY_VALUES = "resultset.calc.columnWidthByValues"; //$NON-NLS-1$
     public static final String RESULT_SET_SHOW_CONNECTION_NAME = "resultset.show.connectionName"; //$NON-NLS-1$
     public static final String RESULT_SET_COLORIZE_DATA_TYPES = "resultset.show.colorizeDataTypes"; //$NON-NLS-1$
@@ -59,6 +64,9 @@ public final class ResultSetPreferences {
     public static final String RESULT_SET_AUTO_SWITCH_MODE = "resultset.behavior.autoSwitchMode"; //$NON-NLS-1$
     public static final String RESULT_SET_DOUBLE_CLICK = "resultset.behavior.doubleClick"; //$NON-NLS-1$
     public static final String RESULT_SET_ROW_BATCH_SIZE = "resultset.show.row.batch.size"; //$NON-NLS-1$
+    public static final String RESULT_SET_MAX_COLUMN_DEF_WIDTH = "resultset.max.column.def.width"; //$NON-NLS-1$
+    
+    public static final String RESULT_SET_FILTER_AUTO_COMPLETE_PROPOSIAL = "resultset.behavior.autoCompleteProposial"; //$NON-NLS-1$
 
     public static final String RESULT_SET_PRESENTATION = "resultset.presentation.active"; //$NON-NLS-1$
     public static final String RESULT_SET_STRING_USE_CONTENT_EDITOR = "resultset.string.use.content.editor"; //$NON-NLS-1$
@@ -72,10 +80,13 @@ public final class ResultSetPreferences {
     public static final String RESULT_TEXT_SHOW_NULLS = "resultset.text.show.nulls"; //$NON-NLS-1$
     public static final String RESULT_TEXT_DELIMITER_LEADING = "resultset.text.delimiter.leading"; //$NON-NLS-1$
     public static final String RESULT_TEXT_DELIMITER_TRAILING = "resultset.text.delimiter.trailing"; //$NON-NLS-1$
+    public static final String RESULT_TEXT_DELIMITER_TOP = "resultset.text.delimiter.top"; //$NON-NLS-1$
+    public static final String RESULT_TEXT_DELIMITER_BOTTOM = "resultset.text.delimiter.bottom"; //$NON-NLS-1$
     public static final String RESULT_TEXT_EXTRA_SPACES = "resultset.text.extra.spaces"; //$NON-NLS-1$
 
     // Confirmations
     public static final String CONFIRM_ORDER_RESULTSET = "order_resultset"; //$NON-NLS-1$
+    public static final String CONFIRM_FILTER_RESULTSET = "filter_resultset"; //$NON-NLS-1$
     public static final String CONFIRM_RS_FETCH_ALL = "fetch_all_rows"; //$NON-NLS-1$
     public static final String CONFIRM_RS_EDIT_CLOSE = "close_resultset_edit"; //$NON-NLS-1$
     public static final String CONFIRM_RS_PANEL_RESET = "reset_panels_content"; //$NON-NLS-1$

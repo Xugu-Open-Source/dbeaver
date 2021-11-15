@@ -1,7 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
- * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +38,7 @@ public class MySQLScriptExecuteWizardPageSettings extends MySQLWizardPageSetting
 {
     private Text inputFileText;
     private Combo logLevelCombo;
+    private Button disableForeignKeyChecks;
 
     MySQLScriptExecuteWizardPageSettings(MySQLScriptExecuteWizard wizard)
     {
@@ -54,9 +54,12 @@ public class MySQLScriptExecuteWizardPageSettings extends MySQLWizardPageSetting
     }
 
     @Override
-    public boolean isPageComplete()
-    {
-        return super.isPageComplete() && wizard.getSettings().getInputFile() != null;
+    protected boolean determinePageCompletion() {
+        if (wizard.getSettings().getInputFile() == null) {
+            setErrorMessage("Input file not specified");
+            return false;
+        }
+        return super.determinePageCompletion();
     }
 
     @Override
@@ -106,10 +109,16 @@ public class MySQLScriptExecuteWizardPageSettings extends MySQLWizardPageSetting
             }
         });
         createExtraArgsInput(settingsGroup);
+        disableForeignKeyChecks = UIUtils.createCheckbox(
+                settingsGroup,
+                MySQLUIMessages.tools_script_execute_wizard_page_settings_checkbox_disable_foreign_key_checks,
+                MySQLUIMessages.tools_script_execute_wizard_page_settings_checkbox_disable_foreign_key_checks_tooltip,
+                false,
+                2
+        );
 
         Composite extraGroup = UIUtils.createComposite(composite, 2);
         createSecurityGroup(extraGroup);
-        wizard.createTaskSaveGroup(extraGroup);
 
         setControl(composite);
 
@@ -134,13 +143,14 @@ public class MySQLScriptExecuteWizardPageSettings extends MySQLWizardPageSetting
         String fileName = inputFileText.getText();
         settings.setInputFile(fileName);
         settings.setLogLevel(CommonUtils.valueOf(MySQLScriptExecuteSettings.LogLevel.class, logLevelCombo.getText()));
+        settings.setIsForeignKeyCheckDisabled(disableForeignKeyChecks.getSelection());
     }
 
     @Override
     protected void updateState()
     {
         saveState();
-        getContainer().updateButtons();
+        updatePageCompletion();
     }
 
 }

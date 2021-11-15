@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import java.text.Format;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Property
 {
+
     String DEFAULT_LOCAL_STRING = "#"; //NON-NLS-1
     String RESOURCE_TYPE_NAME = "name"; //NON-NLS-1
     String RESOURCE_TYPE_DESCRIPTION = "description"; //NON-NLS-1
@@ -88,7 +89,7 @@ public @interface Property
     /**
      * Multiline properties usually contain some big texts
      */
-    boolean multiline() default false;
+    PropertyLength length() default PropertyLength.LONG;
 
     /**
      * Specific properties ae rendered separate from others
@@ -105,6 +106,11 @@ public @interface Property
      * Used for caheable properties which may return java.lang.Object ot DBSObject.
      */
     boolean linkPossible() default false;
+
+    /**
+     * Hyperlink property
+     */
+    boolean href() default false;
 
     /**
      * Makes sense only for lazy properties. If set to true then this property value can be read
@@ -134,5 +140,9 @@ public @interface Property
     Class<? extends IPropertyValueListProvider> listProvider() default IPropertyValueListProvider.class;
 
     Class<? extends IPropertyValueTransformer> valueRenderer() default IPropertyValueTransformer.class;
+
+    Class<? extends IPropertyValueValidator> valueValidator() default IPropertyValueValidator.class;
+
+    Class<? extends IPropertyValueValidator> visibleIf() default IPropertyValueValidator.class;
 
 }

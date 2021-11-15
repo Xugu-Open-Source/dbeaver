@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,8 @@ import org.jkiss.dbeaver.model.DBPIdentifierCase;
 import org.jkiss.dbeaver.model.DBPKeywordType;
 import org.jkiss.dbeaver.model.data.DBDBinaryFormatter;
 import org.jkiss.dbeaver.model.data.DBDDataFilter;
-import org.jkiss.dbeaver.model.struct.DBSAttributeBase;
+import org.jkiss.dbeaver.model.exec.DBCLogicalOperator;
+import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedure;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureParameter;
@@ -50,8 +51,12 @@ public interface SQLDialect {
     enum MultiValueInsertMode {
         NOT_SUPPORTED,
         GROUP_ROWS,
-        PLAIN
+        PLAIN,
+        INSERT_ALL
     }
+
+    @NotNull
+    String getDialectId();
 
     /**
      * Dialect name
@@ -180,11 +185,11 @@ public interface SQLDialect {
     String[] getParametersPrefixes();
 
     /**
-     * Script delimiter character
-     * @return script delimiter mark
+     * Script delimiter characters
+     * @return array of possible script delimiters with first element as default delimiter
      */
     @NotNull
-    String getScriptDelimiter();
+    String[] getScriptDelimiters();
 
     @Nullable
     String getScriptDelimiterRedefiner();
@@ -205,6 +210,14 @@ public interface SQLDialect {
     String[] getBlockHeaderStrings();
 
     /**
+     * Inner block prefixes strings.
+     * Determines if the block is a child of the header block.
+     * @return inner block prefixes or null (if not supported)
+     */
+    @Nullable
+    String[] getInnerBlockPrefixes();
+
+    /**
      * Retrieves whether a catalog appears at the start of a fully qualified
      * table name.  If not, the catalog appears at the end.
      *
@@ -219,6 +232,10 @@ public interface SQLDialect {
      */
     @NotNull
     SQLStateType getSQLStateType();
+
+    boolean isWordStart(int ch);
+
+    boolean isWordPart(int ch);
 
     boolean validIdentifierStart(char c);
     /**
@@ -245,12 +262,17 @@ public interface SQLDialect {
 
     boolean supportsOrderByIndex();
 
+    boolean supportsNestedComments();
+
     /**
      * Check whether dialect support plain comment queries (queries which contains only comments)
      */
     boolean supportsCommentQuery();
 
     boolean supportsNullability();
+
+    @Nullable
+    SQLExpressionFormatter getCaseInsensitiveExpressionFormatter(@NotNull DBCLogicalOperator operator);
 
     @NotNull
     DBPIdentifierCase storesUnquotedCase();
@@ -260,12 +282,28 @@ public interface SQLDialect {
 
     /**
      * Enables to call particular cast operator or function for special data types.
-     * @param attribute   attribute data to help decide whether cast and how to cast
+     * @param attribute   value attribute to help decide whether cast and how to cast
      * @param expression      string representation for cast
      * @return            casted string
      */
     @NotNull
-    String getTypeCastClause(DBSAttributeBase attribute, String expression);
+    String getTypeCastClause(DBSTypedObject attribute, String expression);
+
+    /**
+     * Quoting functions
+     */
+
+    boolean isQuotedIdentifier(String identifier);
+
+    String getQuotedIdentifier(String identifier, boolean forceCaseSensitive, boolean forceQuotes);
+
+    String getUnquotedIdentifier(String identifier);
+
+    boolean isQuotedString(String string);
+
+    String getQuotedString(String string);
+
+    String getUnquotedString(String string);
 
     /**
      * Escapes string to make usable inside of SQL queries.
@@ -281,17 +319,22 @@ public interface SQLDialect {
 
     /**
      * Encode value to string format (to use it in scripts, e.g. in INSERT/UPDATE statements)
-     * @param attribute
+     * @param attribute   value attribute to help decide whether value should be escaped or not
      * @param value       original value
      * @param strValue    string representation (default result)
      */
     @NotNull
-    String escapeScriptValue(DBSAttributeBase attribute, @NotNull Object value, @NotNull String strValue);
+    String escapeScriptValue(DBSTypedObject attribute, @NotNull Object value, @NotNull String strValue);
 
+    /**
+     * Default multi-value insertion mode
+     * Used e.g. to SQL export
+     * @return MultiValueInsertMode enum value
+     */
     @NotNull
-    MultiValueInsertMode getMultiValueInsertMode();
+    MultiValueInsertMode getDefaultMultiValueInsertMode();
 
-    String addFiltersToQuery(DBPDataSource dataSource, String query, DBDDataFilter filter);
+    String addFiltersToQuery(DBRProgressMonitor monitor, DBPDataSource dataSource, String query, DBDDataFilter filter);
 
     /**
      * Two-item array containing begin and end of multi-line comments.
@@ -317,9 +360,9 @@ public interface SQLDialect {
     boolean isDelimiterAfterBlock();
 
     /**
-     * Should we quote column/table/etc names if they conflicts with reserved words?
+     * True if dialect requires delimiter for a query which starts with @firstKeyword and ends with @lastKeyword
      */
-    boolean isQuoteReservedWords();
+    boolean needsDelimiterFor(String firstKeyword, String lastKeyword);
 
     /**
      * Reports about broken CRLF. Queries mustn't contain CRLF line feeds, only LF.
@@ -353,6 +396,9 @@ public interface SQLDialect {
     @Nullable
     String[] getTransactionRollbackKeywords();
 
+    /**
+     * Generates full type name for drivers which don't implement {@link DBSTypedObject#getFullTypeName()}
+     */
     @Nullable
     String getColumnTypeModifiers(DBPDataSource dataSource, @NotNull DBSTypedObject column, @NotNull String typeName, @NotNull DBPDataKind dataKind);
 
@@ -365,7 +411,8 @@ public interface SQLDialect {
 
     boolean isDisableScriptEscapeProcessing();
 
-    boolean supportsAlterTableConstraint();
+    boolean supportsAlterTableStatement();
 
+    boolean supportsInsertAllDefaultValuesStatement();
 
 }

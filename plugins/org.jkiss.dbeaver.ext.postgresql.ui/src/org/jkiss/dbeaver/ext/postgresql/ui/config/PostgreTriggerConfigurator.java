@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,14 +23,9 @@ import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
-import org.eclipse.swt.widgets.Text;
-import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreProcedure;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreTrigger;
 import org.jkiss.dbeaver.model.DBIcon;
-import org.jkiss.dbeaver.model.DBPEvaluationContext;
-import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.edit.DBEObjectConfigurator;
 import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
 import org.jkiss.dbeaver.model.navigator.DBNModel;
@@ -50,8 +45,8 @@ import org.jkiss.dbeaver.ui.editors.object.struct.EntityEditPage;
  * Postgre sequence configurator
  */
 public class PostgreTriggerConfigurator implements DBEObjectConfigurator<PostgreTrigger> {
-    
-    protected static final Log log = Log.getLog(PostgreTriggerConfigurator.class);
+
+    //protected static final Log log = Log.getLog(PostgreTriggerConfigurator.class);
 
     @Override
     public PostgreTrigger configureObject(DBRProgressMonitor monitor, Object parent, PostgreTrigger trigger) {
@@ -63,20 +58,8 @@ public class PostgreTriggerConfigurator implements DBEObjectConfigurator<Postgre
                 if (!editPage.edit()) {
                     return null;
                 }
-                try {
-                    trigger.setName(editPage.getEntityName());
-                    trigger.setFunction(editPage.selectedFunction);
-                    String procName = "X";
-                    PostgreProcedure function = trigger.getFunction(monitor);
-                    if (function != null) {
-                        procName = function.getFullQualifiedSignature();
-                    }
-                    trigger.setObjectDefinitionText("CREATE TRIGGER " + DBUtils.getQuotedIdentifier(trigger) + "\n"
-                            + "BEFORE UPDATE" + " " + "\n" + "ON " + trigger.getTable().getFullyQualifiedName(DBPEvaluationContext.DDL)
-                            + " FOR EACH ROW" + "\n" + "EXECUTE PROCEDURE " + (function == null ? procName : function.getFullyQualifiedName(DBPEvaluationContext.DDL))+ "()\n");
-                } catch (DBException e) {
-                    log.error(e);
-                }
+                trigger.setName(editPage.getEntityName());
+                trigger.setFunction(editPage.selectedFunction);
                 return trigger;
             }
         }.execute();
@@ -85,19 +68,12 @@ public class PostgreTriggerConfigurator implements DBEObjectConfigurator<Postgre
     public class TriggerEditPage extends EntityEditPage {
 
         PostgreTrigger trigger;
-        CSmartSelector functionCombo;
+        CSmartSelector<PostgreProcedure> functionCombo;
         PostgreProcedure selectedFunction;
-        Text processIdText;
-        
-        public TriggerEditPage editPage;
 
-        public TriggerEditPage(PostgreTrigger trigger) {
+        TriggerEditPage(PostgreTrigger trigger) {
             super(trigger.getDataSource(), DBSEntityType.TRIGGER);
             this.trigger = trigger;
-        }
-        
-        public TriggerEditPage getEditPage() {
-            return editPage;
         }
 
         @Override
@@ -108,13 +84,23 @@ public class PostgreTriggerConfigurator implements DBEObjectConfigurator<Postgre
             GridData gd = new GridData(GridData.FILL_HORIZONTAL);
             gd.widthHint = UIUtils.getFontHeight(functionCombo) * 30;
             functionCombo.setLayoutData(gd);
+
+            // On macOS, the combo's down arrow is not shown unless you manually resize the page. The solution is to call layout()
+            // https://github.com/dbeaver/dbeaver/issues/12651
+            UIUtils.asyncExec(functionCombo::layout);
+
             return pageContents;
+        }
+
+        @Override
+        public boolean isPageComplete() {
+            return super.isPageComplete() && selectedFunction != null;
         }
 
         private class PostgreProcedureSelector extends CSmartSelector<PostgreProcedure> {
             private final Composite parent;
 
-            public PostgreProcedureSelector(Composite pageContents, Composite parent) {
+            PostgreProcedureSelector(Composite pageContents, Composite parent) {
                 super(pageContents, SWT.BORDER | SWT.DROP_DOWN | SWT.READ_ONLY, new LabelProvider() {
                     @Override
                     public Image getImage(Object element) {
@@ -142,22 +128,19 @@ public class PostgreTriggerConfigurator implements DBEObjectConfigurator<Postgre
                                 : navigatorModel.getNodeByObject(selectedFunction);
                         DBNNode node = DBWorkbench.getPlatformUI().selectObject(parent.getShell(),
                                 "Select function for ", dsNode, curNode,
-                                new Class[] { DBSInstance.class, DBSObjectContainer.class, PostgreProcedure.class },
-                                new Class[] { PostgreProcedure.class }, null);
+                                new Class[]{ DBSInstance.class, DBSObjectContainer.class, PostgreProcedure.class },
+                                new Class[]{ PostgreProcedure.class }, null);
                         if (node instanceof DBNDatabaseNode
                                 && ((DBNDatabaseNode) node).getObject() instanceof PostgreProcedure) {
                             functionCombo.removeAll();
                             selectedFunction = (PostgreProcedure) ((DBNDatabaseNode) node).getObject();
                             functionCombo.addItem(selectedFunction);
                             functionCombo.select(selectedFunction);
+                            updatePageState();
                         }
-                        
                     }
                 }
-
             }
-            
         }
     }
-
 }

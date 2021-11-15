@@ -136,7 +136,8 @@ public class SynonymManager extends SQLObjectEditor<Synonym, Schema> implements 
 	}
 
 	@Override
-	public void renameObject(DBECommandContext commandContext, Synonym object, String newName) throws DBException {
+	public void renameObject(DBECommandContext commandContext, Synonym object, Map<String, Object> options,
+			String newName) throws DBException {
 		throw new DBException("Direct synonym rename is not yet implemented in " + OemConfig.OEM_NAME_EN
 				+ " Database. You should use export/import functions for that.");
 	}

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,10 @@
 package org.jkiss.dbeaver.ext.generic.model;
 
 import org.jkiss.code.NotNull;
-import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCConstants;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCBasicDataTypeCache;
-import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCDataType;
 
 /**
  * GenericDataTypeCache
@@ -30,13 +28,20 @@ import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCDataType;
 public class GenericDataTypeCache extends JDBCBasicDataTypeCache<GenericStructContainer, GenericDataType>
 {
 
+    private static final boolean IGNORE_NUMERIC_TYPES = false;
+
     public GenericDataTypeCache(GenericStructContainer owner) {
         super(owner);
 
-        // Ignore abstract types. There can be multiple numeric types with the same name
-        // but different scale/precision properties
-        ignoredTypes.add("NUMBER");
-        ignoredTypes.add("NUMERIC");
+        if (IGNORE_NUMERIC_TYPES) {
+            // The code below was added for a long time ago. Perhaps it is still relevant for some databases.
+            // But there are databases like Netezza or Snowflake, which actually contain such data types as NUMBER and NUMERIC.
+
+            // Ignore abstract types. There can be multiple numeric types with the same name
+            // but different scale/precision properties
+            ignoredTypes.add("NUMBER");
+            ignoredTypes.add("NUMERIC");
+        }
     }
 
     @NotNull

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,8 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.*;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.model.DBIcon;
+import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
@@ -37,7 +39,7 @@ import org.jkiss.utils.CommonUtils;
 /**
  * StandardErrorDialog
  */
-public class StandardErrorDialog extends ErrorDialog {
+public class StandardErrorDialog extends ErrorDialog implements BlockingPopupDialog {
 
     private static final String DIALOG_ID = "DBeaver.StandardErrorDialog";//$NON-NLS-1$
     private Text messageText;
@@ -84,6 +86,8 @@ public class StandardErrorDialog extends ErrorDialog {
         } else {
             this.message = CommonUtils.cutExtraLines(JFaceResources.format("Reason", message, status.getMessage()), 20); //$NON-NLS-1$
         }
+        // Truncate message to 64kb
+        this.message = CommonUtils.truncateString(this.message, 64000);
     }
 
     @Override
@@ -154,11 +158,23 @@ public class StandardErrorDialog extends ErrorDialog {
             detailsVisible = false;
         });
         int itemCount = dropDownList.getItemCount();
-        if (itemCount > 1) {
+        if (itemCount > 1 && dropDownList.getItem(itemCount - 2).equals(dropDownList.getItem(itemCount - 1))) {
             // Remove last list item (dup)
             dropDownList.remove(itemCount - 1);
         }
         return dropDownList;
+    }
+
+    public Image getErrorImage() {
+        return DBeaverIcons.getImage(DBIcon.STATUS_ERROR);
+    }
+
+    public Image getWarningImage() {
+        return DBeaverIcons.getImage(DBIcon.STATUS_WARNING);
+    }
+
+    public Image getInfoImage() {
+        return DBeaverIcons.getImage(DBIcon.STATUS_INFO);
     }
 
     @Override

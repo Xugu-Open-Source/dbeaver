@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,11 +40,20 @@ public interface DBSDataManipulator extends DBSDataContainer {
     int DATA_DELETE         = 1 << 18;
     int DATA_TRUNCATE       = 1 << 19;
 
+    String INSERT_NONE_METHOD = "<None>";
+
+    String OPTION_USE_MULTI_INSERT = "data.manipulate.useMultiInsert";//$NON-NLS-1$
+    String OPTION_MULTI_INSERT_BATCH_SIZE = "data.manipulate.multiInsertBatchSize";//$NON-NLS-1$
+    String OPTION_SKIP_BIND_VALUES = "data.manipulate.skipBindValues";//$NON-NLS-1$
+    String OPTION_DISABLE_BATCHES = "data.manipulate.disableBatches";//$NON-NLS-1$
+    String OPTION_INSERT_REPLACE_METHOD = "data.manipulate.insertReplaceMethod";//$NON-NLS-1$
+    String OPTION_USE_CURRENT_DIALECT_SETTINGS = "data.manipulate.useCurrentDialect";//$NON-NLS-1$
+
     interface ExecuteBatch extends AutoCloseable {
         void add(@NotNull Object[] attributeValues) throws DBCException;
 
         @NotNull
-        DBCStatistics execute(@NotNull DBCSession session) throws DBCException;
+        DBCStatistics execute(@NotNull DBCSession session, Map<String, Object> options) throws DBCException;
 
         void generatePersistActions(@NotNull DBCSession session, @NotNull List<DBEPersistAction> actions, Map<String, Object> options) throws DBCException;
 
@@ -56,7 +65,8 @@ public interface DBSDataManipulator extends DBSDataContainer {
         @NotNull DBCSession session,
         @NotNull DBSAttributeBase[] attributes,
         @Nullable DBDDataReceiver keysReceiver,
-        @NotNull DBCExecutionSource source)
+        @NotNull DBCExecutionSource source,
+        Map<String, Object> options)
         throws DBCException;
 
     @NotNull

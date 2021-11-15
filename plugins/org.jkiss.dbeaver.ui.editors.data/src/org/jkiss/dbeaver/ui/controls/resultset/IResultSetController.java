@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import org.eclipse.jface.action.IMenuManager;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
-import org.eclipse.ui.IWorkbenchActionConstants;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
@@ -53,13 +52,22 @@ public interface IResultSetController extends IDataController, DBPContextProvide
     String MENU_ID_LAYOUT = "layout";
     String MENU_GROUP_EDIT = "edit";
     String MENU_GROUP_EXPORT = "results_export";
-    String MENU_GROUP_ADDITIONS = IWorkbenchActionConstants.MB_ADDITIONS;
+    String MENU_GROUP_ADDITIONS = "results_additions";//IWorkbenchActionConstants.MB_ADDITIONS;
+
+    enum ColumnOrder {
+        ASC,
+        DESC,
+        NONE
+    }
 
     @NotNull
     IResultSetContainer getContainer();
 
     @NotNull
     IResultSetDecorator getDecorator();
+
+    @NotNull
+    IResultSetLabelProvider getLabelProvider();
 
     @NotNull
     ResultSetModel getModel();
@@ -72,6 +80,12 @@ public interface IResultSetController extends IDataController, DBPContextProvide
     boolean isReadOnly();
 
     boolean isRecordMode();
+
+    int[] getSelectedRecords();
+
+    void setSelectedRecords(int[] indexes);
+
+    boolean isAllAttributesReadOnly();
 
     String getReadOnlyStatus();
 
@@ -99,7 +113,7 @@ public interface IResultSetController extends IDataController, DBPContextProvide
     
     void showDistinctFilter(DBDAttributeBinding curAttribute);
 
-    void toggleSortOrder(DBDAttributeBinding columnElement, boolean forceAscending, boolean forceDescending);
+    void toggleSortOrder(@NotNull DBDAttributeBinding columnElement, @Nullable ColumnOrder forceOrder);
 
     boolean checkForChanges();
 
@@ -142,6 +156,15 @@ public interface IResultSetController extends IDataController, DBPContextProvide
 
     @NotNull
     ResultSetRow addNewRow(final boolean copyCurrent, boolean afterCurrent, boolean updatePresentation);
+
+    /**
+     * Fills rows in current selection with values from row above/below it.
+     * <p>
+     * Depending on selection, source row may literally be the row before or
+     * after target row if selection covers only a single row. If selection spreads
+     * across several rows, source row is the first or last row inside selected region.
+     */
+    void copyRowValues(boolean copyFromRowAbove, boolean updatePresentation);
 
     ////////////////////////////////////////
     // Navigation & history
@@ -189,6 +212,8 @@ public interface IResultSetController extends IDataController, DBPContextProvide
     void updatePanelsContent(boolean forceRefresh);
 
     void setDataFilter(final DBDDataFilter dataFilter, boolean refreshData);
+
+    void setSegmentFetchSize(Integer segmentFetchSize);
 
     /**
      * Enable/disable viewer actions. May be used by editors to "lock" RSV actions like navigation, edit, etc.

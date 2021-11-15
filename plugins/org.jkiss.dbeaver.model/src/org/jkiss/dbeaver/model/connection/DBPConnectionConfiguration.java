@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,10 @@ package org.jkiss.dbeaver.model.connection;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPObject;
 import org.jkiss.dbeaver.model.auth.DBAAuthModel;
-import org.jkiss.dbeaver.model.impl.auth.DBAAuthDatabaseNative;
+import org.jkiss.dbeaver.model.impl.auth.AuthModelDatabaseNative;
 import org.jkiss.dbeaver.model.net.DBWHandlerConfiguration;
 import org.jkiss.dbeaver.model.net.DBWNetworkProfile;
 import org.jkiss.dbeaver.model.runtime.DBRShellCommand;
@@ -43,9 +44,13 @@ public class DBPConnectionConfiguration implements DBPObject {
     public static final String VARIABLE_USER = "user";
     public static final String VARIABLE_PASSWORD = "password";
     public static final String VARIABLE_URL = "url";
+    public static final String VARIABLE_CONN_TYPE = "connectionType";
+    public static final String VARIABLE_DATASOURCE = "datasource";
 
     public static final String VAR_PROJECT_PATH = "project.path";
     public static final String VAR_PROJECT_NAME = "project.name";
+
+    private static final Log log = Log.getLog(DBPConnectionConfiguration.class);
 
     private String hostName;
     private String hostPort;
@@ -58,13 +63,12 @@ public class DBPConnectionConfiguration implements DBPObject {
 
     private String configProfileName;
 
-    private String authModelId;
-    private Map<String, String> authProperties;
-
     @NotNull
     private final Map<String, String> properties;
     @NotNull
     private final Map<String, String> providerProperties;
+    @NotNull
+    private final Map<String, Object> runtimeAttributes;
     @NotNull
     private final Map<DBPConnectionEventType, DBRShellCommand> events;
     @NotNull
@@ -74,11 +78,15 @@ public class DBPConnectionConfiguration implements DBPObject {
     private String connectionColor;
     private int keepAliveInterval;
 
+    private String authModelId;
+    private Map<String, String> authProperties;
+
     public DBPConnectionConfiguration() {
         this.connectionType = DBPConnectionType.DEFAULT_TYPE;
         this.properties = new LinkedHashMap<>();
         this.providerProperties = new LinkedHashMap<>();
         this.events = new LinkedHashMap<>();
+        this.runtimeAttributes = new HashMap<>();
         this.handlers = new ArrayList<>();
         this.bootstrap = new DBPConnectionBootstrap();
         this.keepAliveInterval = 0;
@@ -99,6 +107,7 @@ public class DBPConnectionConfiguration implements DBPObject {
         this.connectionType = info.connectionType;
         this.properties = new LinkedHashMap<>(info.properties);
         this.providerProperties = new LinkedHashMap<>(info.providerProperties);
+        this.runtimeAttributes = new HashMap<>(info.runtimeAttributes);
         this.events = new LinkedHashMap<>(info.events.size());
         for (Map.Entry<DBPConnectionEventType, DBRShellCommand> entry : info.events.entrySet()) {
             this.events.put(entry.getKey(), new DBRShellCommand(entry.getValue()));
@@ -108,6 +117,7 @@ public class DBPConnectionConfiguration implements DBPObject {
             this.handlers.add(new DBWHandlerConfiguration(handler));
         }
         this.bootstrap = new DBPConnectionBootstrap(info.bootstrap);
+        this.connectionColor = info.connectionColor;
         this.keepAliveInterval = info.keepAliveInterval;
     }
 
@@ -178,6 +188,10 @@ public class DBPConnectionConfiguration implements DBPObject {
     ////////////////////////////////////////////////////
     // Properties (connection properties, usually used by driver)
 
+    public boolean hasProperty(String name) {
+        return properties.containsKey(name);
+    }
+
     public String getProperty(String name) {
         return properties.get(name);
     }
@@ -186,6 +200,10 @@ public class DBPConnectionConfiguration implements DBPObject {
         properties.put(name, value);
     }
 
+    public void removeProperty(String name) {
+        properties.remove(name);
+    }
+    
     @NotNull
     public Map<String, String> getProperties() {
         return properties;
@@ -219,6 +237,22 @@ public class DBPConnectionConfiguration implements DBPObject {
     public void setProviderProperties(@NotNull Map<String, String> properties) {
         this.providerProperties.clear();
         this.providerProperties.putAll(properties);
+    }
+
+    ////////////////////////////////////////////////////
+    // Runtime attributes
+
+    public Object getRuntimeAttribute(String name) {
+        return runtimeAttributes.get(name);
+    }
+
+    public void setRuntimeAttribute(String name, Object value) {
+        runtimeAttributes.put(name, value);
+    }
+
+    @NotNull
+    public Map<String, Object> getRuntimeAttribute() {
+        return runtimeAttributes;
     }
 
     ////////////////////////////////////////////////////
@@ -336,6 +370,10 @@ public class DBPConnectionConfiguration implements DBPObject {
         }
     }
 
+    ///////////////////////////////////////////////////////////
+    // Authentication
+
+    @Nullable
     public String getAuthModelId() {
         return authModelId;
     }
@@ -343,10 +381,18 @@ public class DBPConnectionConfiguration implements DBPObject {
     @NotNull
     public DBAAuthModel getAuthModel() {
         if (!CommonUtils.isEmpty(authModelId)) {
-            DBPAuthModelDescriptor authModelDesc = DBWorkbench.getPlatform().getDataSourceProviderRegistry().getAuthModel(authModelId);
-            return authModelDesc == null ? null : authModelDesc.getInstance();
+            DBPAuthModelDescriptor authModelDesc = getAuthModelDescriptor();
+            if (authModelDesc != null) {
+                return authModelDesc.getInstance();
+            } else {
+                log.error("Authentication model '" + authModelId + "' not found. Use default.");
+            }
         }
-        return DBAAuthDatabaseNative.INSTANCE;
+        return AuthModelDatabaseNative.INSTANCE;
+    }
+
+    public DBPAuthModelDescriptor getAuthModelDescriptor() {
+        return DBWorkbench.getPlatform().getDataSourceProviderRegistry().getAuthModel(authModelId);
     }
 
     public void setAuthModelId(String authModelId) {
@@ -371,6 +417,9 @@ public class DBPConnectionConfiguration implements DBPObject {
         }
         this.authProperties.put(name, value);
     }
+
+    ///////////////////////////////////////////////////////////
+    // Misc
 
     @Override
     public String toString() {

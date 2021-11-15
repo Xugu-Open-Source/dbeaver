@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,7 +116,12 @@ public class DBDAttributeBindingMeta extends DBDAttributeBinding {
 
     @Override
     public String getFullTypeName() {
-        return getAttribute().getFullTypeName();
+        if (entityAttribute != null) {
+            return entityAttribute.getFullTypeName();
+        } else {
+            // Resolve full type name using explicit datasource
+            return DBUtils.getFullTypeName(getDataSource(), metaAttribute);
+        }
     }
 
     @Override
@@ -144,6 +149,11 @@ public class DBDAttributeBindingMeta extends DBDAttributeBinding {
         return getAttribute().getMaxLength();
     }
 
+    @Override
+    public long getTypeModifiers() {
+        return getAttribute().getTypeModifiers();
+    }
+
     /**
      * Attribute label
      */
@@ -167,7 +177,7 @@ public class DBDAttributeBindingMeta extends DBDAttributeBinding {
     /**
      * Meta attribute (obtained from result set)
      */
-    @Nullable
+    @NotNull
     public DBCAttributeMetaData getMetaAttribute() {
         return metaAttribute;
     }
@@ -188,6 +198,7 @@ public class DBDAttributeBindingMeta extends DBDAttributeBinding {
         return rowIdentifier;
     }
 
+    @Nullable
     @Override
     public String getRowIdentifierStatus() {
         return rowIdentifierStatus;
@@ -234,7 +245,7 @@ public class DBDAttributeBindingMeta extends DBDAttributeBinding {
     public static boolean haveEqualsTypes(DBSTypedObject object1, DBSTypedObject object2) {
         return object1.getTypeID() == object2.getTypeID() &&
             object1.getDataKind() == object2.getDataKind() &&
-            object1.getTypeName().equalsIgnoreCase(object2.getTypeName());
+            object1.getTypeName() != null && object1.getTypeName().equalsIgnoreCase(object2.getTypeName());
     }
 
     public void setRowIdentifier(@Nullable DBDRowIdentifier rowIdentifier) {

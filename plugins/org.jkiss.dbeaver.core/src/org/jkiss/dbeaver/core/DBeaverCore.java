@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package org.jkiss.dbeaver.core;
 
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.Platform;
-import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.PlatformUI;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
@@ -42,6 +41,7 @@ import org.jkiss.dbeaver.runtime.qm.QMLogFileWriter;
 import org.jkiss.dbeaver.ui.resources.DefaultResourceHandlerImpl;
 import org.jkiss.dbeaver.utils.ContentUtils;
 import org.jkiss.dbeaver.utils.GeneralUtils;
+import org.jkiss.dbeaver.utils.SystemVariablesResolver;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.StandardConstants;
 import org.osgi.framework.Bundle;
@@ -49,6 +49,7 @@ import org.osgi.framework.Bundle;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 
 /**
  * DBeaverCore
@@ -126,11 +127,10 @@ public class DBeaverCore extends BasePlatformImpl {
         if (!PlatformUI.isWorkbenchRunning()) {
             return false;
         }
-        IWorkbench workbench = PlatformUI.getWorkbench();
-        return workbench == null || workbench.isClosing();
+        return false;
     }
 
-    private static void setClosing(boolean closing) {
+    static void setClosing(boolean closing) {
         isClosing = closing;
     }
 
@@ -163,8 +163,6 @@ public class DBeaverCore extends BasePlatformImpl {
         this.qmLogWriter = new QMLogFileWriter();
         this.queryManager.registerMetaListener(qmLogWriter);
 
-        installProxySelector();
-
         super.initialize();
 
         log.debug("Core initialized (" + (System.currentTimeMillis() - startTime) + "ms)");
@@ -175,6 +173,11 @@ public class DBeaverCore extends BasePlatformImpl {
         log.debug("Shutdown Core...");
 
         DBeaverCore.setClosing(true);
+        DBPApplication application = getApplication();
+        if (application instanceof DBPApplicationController) {
+            // Shutdown in headless mode
+            ((DBPApplicationController) application).setHeadlessMode(true);
+        }
 
         super.dispose();
 
@@ -191,7 +194,7 @@ public class DBeaverCore extends BasePlatformImpl {
         }
         DataSourceProviderRegistry.getInstance().dispose();
 
-        if (isStandalone() && workspace != null) {
+        if (isStandalone() && workspace != null && !application.isExclusiveMode()) {
             try {
                 workspace.save(new VoidProgressMonitor());
             } catch (DBException ex) {
@@ -284,7 +287,20 @@ public class DBeaverCore extends BasePlatformImpl {
             // Make temp folder
             monitor.subTask("Create temp folder");
             try {
-                final java.nio.file.Path tempDirectory = Files.createTempDirectory(TEMP_PROJECT_NAME);
+                String tempFolderPath = System.getProperty("dbeaver.io.tmpdir");
+                if (!CommonUtils.isEmpty(tempFolderPath)) {
+                    tempFolderPath = GeneralUtils.replaceVariables(tempFolderPath, new SystemVariablesResolver());
+
+                    File dbTempFolder = new File(tempFolderPath);
+                    if (!dbTempFolder.mkdirs()) {
+                        throw new IOException("Can't create temp directory '" + dbTempFolder.getAbsolutePath() + "'");
+                    }
+                } else {
+                    tempFolderPath = System.getProperty(StandardConstants.ENV_TMP_DIR);
+                }
+                final java.nio.file.Path tempDirectory = Files.createTempDirectory(
+                    Paths.get(tempFolderPath),
+                    TEMP_PROJECT_NAME);
                 tempFolder = tempDirectory.toFile();
             } catch (IOException e) {
                 final String sysTempFolder = System.getProperty(StandardConstants.ENV_TMP_DIR);

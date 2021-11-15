@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import org.eclipse.core.runtime.IConfigurationElement;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPImage;
 import org.jkiss.dbeaver.model.impl.AbstractDescriptor;
@@ -237,7 +238,11 @@ public abstract class DBXTreeNode
         return children;
     }
 
-    private boolean isVisible(DBNNode context)
+    public void clearChildren() {
+        children.clear();
+    }
+
+    protected boolean isVisible(DBNNode context)
     {
         try {
             return visibleIf == null || Boolean.TRUE.equals(visibleIf.evaluate(makeContext(context)));
@@ -260,8 +265,10 @@ public abstract class DBXTreeNode
         return recursiveLink;
     }
 
-    public DBPImage getDefaultIcon()
-    {
+    public DBPImage getDefaultIcon() {
+        if (defaultIcon == null && this instanceof DBXTreeFolder) {
+            return DBIcon.TREE_FOLDER;
+        }
         return defaultIcon;
     }
 

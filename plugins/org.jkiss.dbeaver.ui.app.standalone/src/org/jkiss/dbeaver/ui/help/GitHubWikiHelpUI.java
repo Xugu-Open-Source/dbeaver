@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,8 @@ import org.eclipse.help.IContext;
 import org.eclipse.help.IHelpResource;
 import org.eclipse.ui.help.AbstractHelpUI;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.ui.ShellUtils;
+import org.jkiss.dbeaver.utils.HelpUtils;
 
 /**
  * Lightweight help UI
@@ -28,7 +29,7 @@ import org.jkiss.dbeaver.ui.UIUtils;
 public class GitHubWikiHelpUI extends AbstractHelpUI {
 
     private static final Log log = Log.getLog(GitHubWikiHelpUI.class);
-    public static final String GITHUB_HELP_ROOT = "https://github.com/dbeaver/dbeaver/wiki/";
+    public static final String GITHUB_HELP_ROOT = HelpUtils.GLOBAL_HELP_PREFIX;
 
     @Override
     public void displayHelp()
@@ -67,7 +68,7 @@ public class GitHubWikiHelpUI extends AbstractHelpUI {
     }
 
     private void showHelpPage(String fileURL) {
-        UIUtils.launchProgram(fileURL);
+        ShellUtils.launchProgram(fileURL);
     }
 
     @Override

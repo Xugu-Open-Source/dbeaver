@@ -90,7 +90,7 @@ public class Charset extends BaseInformation {
 
 	@Nullable
 	@Override
-	@Property(viewable = true, multiline = true, order = 100)
+	@Property(viewable = true, order = 100)
 	public String getDescription() {
 		return name;
 	}

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,16 @@
  */
 package org.jkiss.dbeaver.ext.postgresql.model.impls.redshift;
 
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.ext.postgresql.PostgreConstants;
+import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataType;
+import org.jkiss.dbeaver.ext.postgresql.model.PostgreOid;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreTableColumn;
+import org.jkiss.dbeaver.ext.postgresql.model.data.type.PostgreTypeHandler;
+import org.jkiss.dbeaver.ext.postgresql.model.data.type.PostgreTypeHandlerProvider;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
+import org.jkiss.dbeaver.model.gis.GisConstants;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
@@ -26,9 +33,7 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 /**
  * RedshiftTableColumn base
  */
-public class RedshiftTableColumn extends PostgreTableColumn
-{
-
+public class RedshiftTableColumn extends PostgreTableColumn {
     private String columnEncoding;
     private boolean distKey;
     private int sortKey;
@@ -58,5 +63,32 @@ public class RedshiftTableColumn extends PostgreTableColumn
     @Property(viewable = false, order = 23)
     public int getSortKey() {
         return sortKey;
+    }
+
+    @Override
+    public int getAttributeGeometrySRID(DBRProgressMonitor monitor) {
+        return GisConstants.SRID_SIMPLE;
+    }
+
+    @Nullable
+    @Override
+    public String getAttributeGeometryType(DBRProgressMonitor monitor) {
+        return getTypeName();
+    }
+
+    @Override
+    @Property(viewable = true, editable = true, updatable = true, order = 20, listProvider = DataTypeListProvider.class)
+    public String getFullTypeName() {
+        PostgreDataType dataType = getDataType();
+        if (dataType != null && dataType.getObjectId() == PostgreOid.BPCHAR) {
+            // Redshift stores char columns with bpchar id in pg_type table for some reason.
+            // You can create bpchar column in Redshift but only without type modifiers.
+            final PostgreTypeHandler handler = PostgreTypeHandlerProvider.getTypeHandler(dataType);
+            if (handler != null) {
+                return PostgreConstants.TYPE_CHAR + handler.getTypeModifiersString(dataType, getTypeMod());
+            }
+            return PostgreConstants.TYPE_CHAR;
+        }
+        return super.getFullTypeName();
     }
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,7 +22,7 @@ import org.eclipse.ui.IWorkbenchWindow;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.mysql.model.MySQLCatalog;
 import org.jkiss.dbeaver.model.struct.DBSObject;
-import org.jkiss.dbeaver.tasks.ui.nativetool.ToolWizardDialog;
+import org.jkiss.dbeaver.tasks.ui.nativetool.NativeToolWizardDialog;
 import org.jkiss.dbeaver.ui.tools.IUserInterfaceTool;
 
 import java.util.Collection;
@@ -37,7 +37,7 @@ public class MySQLToolImport implements IUserInterfaceTool
     {
         for (DBSObject object : objects) {
             if (object instanceof MySQLCatalog) {
-                ToolWizardDialog dialog = new ToolWizardDialog(
+                NativeToolWizardDialog dialog = new NativeToolWizardDialog(
                     window,
                     new MySQLScriptExecuteWizard((MySQLCatalog) object, true));
                 dialog.open();

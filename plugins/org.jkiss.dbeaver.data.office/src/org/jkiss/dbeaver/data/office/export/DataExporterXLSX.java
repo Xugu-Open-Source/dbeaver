@@ -2,7 +2,7 @@
  * DBeaver - Universal Database Manager
  * Copyright (C) 2017 Andrew Khitrin (ahitrin@gmail.com)
  * Copyright (C) 2017 Adolfo Suarez  (agustavo@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,6 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.tools.transfer.stream.IStreamDataExporterSite;
 import org.jkiss.dbeaver.tools.transfer.stream.exporter.StreamExporterAbstract;
-import org.jkiss.dbeaver.ui.controls.resultset.ResultSetPreferences;
 import org.jkiss.dbeaver.utils.ContentUtils;
 import org.jkiss.utils.CommonUtils;
 
@@ -81,6 +80,7 @@ public class DataExporterXLSX extends StreamExporterAbstract {
     private static final String PROP_DATE_FORMAT = "dateFormat";
 
     private static final int EXCEL2007MAXROWS = 1048575;
+    private static final int EXCEL_MAX_CELL_CHARACTERS = 32767; // Total number of characters that a cell can contain - 32,767 characters
     private boolean showDescription;
 
     enum FontStyleProp {NONE, BOLD, ITALIC, STRIKEOUT, UNDERLINE}
@@ -114,8 +114,8 @@ public class DataExporterXLSX extends StreamExporterAbstract {
 
     private HashMap<Object, Worksheet> worksheets;
 
-    public static Map<Object, Object> getDefaultProperties() {
-        Map<Object, Object> properties = new HashMap<>();
+    public static Map<String, Object> getDefaultProperties() {
+        Map<String, Object> properties = new HashMap<>();
         properties.put(DataExporterXLSX.PROP_ROWNUMBER, false);
         properties.put(DataExporterXLSX.PROP_BORDER, "THIN");
         properties.put(DataExporterXLSX.PROP_HEADER, true);
@@ -133,7 +133,7 @@ public class DataExporterXLSX extends StreamExporterAbstract {
 
     @Override
     public void init(IStreamDataExporterSite site) throws DBException {
-        Map<Object, Object> properties = site.getProperties();
+        Map<String, Object> properties = site.getProperties();
         Object nullStringProp = properties.get(PROP_NULL_STRING);
         nullString = nullStringProp == null ? null : nullStringProp.toString();
 
@@ -338,12 +338,12 @@ public class DataExporterXLSX extends StreamExporterAbstract {
             log.error("Dispose error", e);
         }
         wb = null;
-        if (worksheets != null) {
+        if (!CommonUtils.isEmpty(worksheets)) {
             for (Worksheet w : worksheets.values()) {
                 w.dispose();
             }
+            worksheets.clear();
         }
-        worksheets.clear();
 
         super.dispose();
     }
@@ -352,8 +352,9 @@ public class DataExporterXLSX extends StreamExporterAbstract {
     public void exportHeader(DBCSession session) {
 
         columns = getSite().getAttributes();
+        // FIXME: we want to avoid UI component dependency. But still want to use its preferences
         showDescription = session.getDataSource().getContainer().getPreferenceStore()
-                .getBoolean(ResultSetPreferences.RESULT_SET_SHOW_DESCRIPTION);
+                .getBoolean("resultset.show.columnDescription");
     }
 
     private void printHeader(DBCResultSet resultSet, Worksheet wsh) throws DBException {
@@ -444,9 +445,7 @@ public class DataExporterXLSX extends StreamExporterAbstract {
                 }
                 sb.append(buffer, 0, count);
             }
-
-            cell.setCellValue(sb.toString());
-
+            cell.setCellValue(getPreparedString(sb.toString()));
         } finally {
             ContentUtils.close(reader);
         }
@@ -536,9 +535,8 @@ public class DataExporterXLSX extends StreamExporterAbstract {
                 cell.setCellStyle(styleDate);
 
             } else {
-
                 String stringValue = super.getValueDisplayString(column, row[i]);
-                cell.setCellValue(stringValue);
+                cell.setCellValue(getPreparedString(stringValue));
             }
 
         }
@@ -564,6 +562,15 @@ public class DataExporterXLSX extends StreamExporterAbstract {
         if (rowCount == 0) {
             exportRow(null, null, new Object[columns.length]);
         }
+    }
+
+    private String getPreparedString(String cellValue) {
+        if (cellValue.length() > EXCEL_MAX_CELL_CHARACTERS) {
+            // We must truncate long strings from our side, otherwise we get the error of the insertion from the apache.poi library
+            log.warn("The string value of the row " + (rowCount + 1) + " was more maximum length, so it was cropped.");
+            return CommonUtils.truncateString(cellValue, EXCEL_MAX_CELL_CHARACTERS);
+        }
+        return cellValue;
     }
 
 }

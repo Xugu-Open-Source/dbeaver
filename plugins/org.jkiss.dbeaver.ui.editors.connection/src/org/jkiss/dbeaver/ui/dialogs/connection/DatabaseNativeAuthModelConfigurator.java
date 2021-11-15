@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.*;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.ui.UIServiceSecurity;
@@ -36,8 +37,13 @@ import org.jkiss.utils.CommonUtils;
  */
 public class DatabaseNativeAuthModelConfigurator implements IObjectPropertyConfigurator<DBPDataSourceContainer> {
 
+    protected Label usernameLabel;
     protected Text usernameText;
+
+    protected Label passwordLabel;
+    protected Composite passPlaceholder;
     protected Text passwordText;
+
     protected Button savePasswordCheck;
     protected ToolBar userManagementToolbar;
 
@@ -45,7 +51,7 @@ public class DatabaseNativeAuthModelConfigurator implements IObjectPropertyConfi
 
     @Override
     public void createControl(Composite authPanel, Runnable propertyChangeListener) {
-        Label usernameLabel = UIUtils.createLabel(authPanel, UIConnectionMessages.dialog_connection_auth_label_username);
+        usernameLabel = UIUtils.createLabel(authPanel, UIConnectionMessages.dialog_connection_auth_label_username);
         usernameLabel.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING));
 
         createUserNameControls(authPanel, propertyChangeListener);
@@ -54,13 +60,19 @@ public class DatabaseNativeAuthModelConfigurator implements IObjectPropertyConfi
     }
 
     protected void createUserNameControls(Composite authPanel, Runnable propertyChangeListener) {
-        int fontHeight = UIUtils.getFontHeight(authPanel);
 
         usernameText = new Text(authPanel, SWT.BORDER);
+        usernameText.setLayoutData(makeAuthControlLayoutData(authPanel));
+        usernameText.addModifyListener(e -> propertyChangeListener.run());
+    }
+
+    @NotNull
+    private GridData makeAuthControlLayoutData(Composite authPanel) {
+        int fontHeight = UIUtils.getFontHeight(authPanel);
+
         GridData gd = new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING);
         gd.widthHint = fontHeight * 20;
-        usernameText.setLayoutData(gd);
-        usernameText.addModifyListener(e -> propertyChangeListener.run());
+        return gd;
     }
 
     @Override
@@ -73,6 +85,7 @@ public class DatabaseNativeAuthModelConfigurator implements IObjectPropertyConfi
         if (this.passwordText != null) {
             this.passwordText.setText(CommonUtils.notEmpty(dataSource.getConnectionConfiguration().getUserPassword()));
             this.savePasswordCheck.setSelection(dataSource.isSavePassword());
+            this.passwordText.setEnabled(dataSource.isSavePassword());
         }
     }
 
@@ -81,15 +94,21 @@ public class DatabaseNativeAuthModelConfigurator implements IObjectPropertyConfi
         if (this.usernameText != null) {
             dataSource.getConnectionConfiguration().setUserName(this.usernameText.getText());
         }
-        if (this.passwordText != null) {
+        if (this.passwordText != null && isPasswordApplicable()) {
             dataSource.getConnectionConfiguration().setUserPassword(this.passwordText.getText());
-            dataSource.setSavePassword(this.savePasswordCheck.getSelection());
+        } else {
+            dataSource.getConnectionConfiguration().setUserPassword(null);
         }
+        dataSource.setSavePassword(this.savePasswordCheck.getSelection());
     }
 
     @Override
     public void resetSettings(DBPDataSourceContainer dataSource) {
         loadSettings(dataSource);
+    }
+
+    protected boolean isPasswordApplicable() {
+        return this.passwordText != null;
     }
 
     @Override
@@ -102,27 +121,27 @@ public class DatabaseNativeAuthModelConfigurator implements IObjectPropertyConfi
             UIUtils.createControlLabel(parent, label);
         }
         Composite ph = UIUtils.createPlaceholder(parent, 1);
-        ph.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+        ph.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING));
         passwordText = new Text(ph, SWT.BORDER | SWT.PASSWORD);
-        passwordText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+        passwordText.setLayoutData(makeAuthControlLayoutData(ph));
         return passwordText;
     }
 
     protected void createPasswordControls(Composite parent, Runnable propertyChangeListener) {
-        Label passwordLabel = UIUtils.createLabel(parent, UIConnectionMessages.dialog_connection_auth_label_password);
+        passwordLabel = UIUtils.createLabel(parent, UIConnectionMessages.dialog_connection_auth_label_password);
         passwordLabel.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING));
 
-        Composite passPH = UIUtils.createComposite(parent, 2);
-        passPH.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+        passPlaceholder = UIUtils.createComposite(parent, 2);
+        passPlaceholder.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 
-        createPasswordText(passPH, null);
+        createPasswordText(passPlaceholder, null);
         passwordText.addModifyListener(e -> propertyChangeListener.run());
 
         // We don't support password preview in standard project secure storage (as we need password encryption)
         UIServiceSecurity serviceSecurity = DBWorkbench.getService(UIServiceSecurity.class);
         boolean supportsPasswordView = serviceSecurity != null;
 
-        Composite panel = UIUtils.createComposite(passPH, supportsPasswordView ? 2 : 1);
+        Composite panel = UIUtils.createComposite(passPlaceholder, supportsPasswordView ? 2 : 1);
         GridData gd = new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING);
         panel.setLayoutData(gd);
 
@@ -130,7 +149,12 @@ public class DatabaseNativeAuthModelConfigurator implements IObjectPropertyConfi
             UIConnectionMessages.dialog_connection_wizard_final_checkbox_save_password_locally,
             dataSource == null || dataSource.isSavePassword());
         savePasswordCheck.setToolTipText(UIConnectionMessages.dialog_connection_wizard_final_checkbox_save_password_locally);
-        //savePasswordCheck.setLayoutData(gd);
+        savePasswordCheck.addSelectionListener(new SelectionAdapter() {
+            @Override
+            public void widgetSelected(SelectionEvent e) {
+                passwordText.setEnabled(savePasswordCheck.getSelection());
+            }
+        });
 
         if (supportsPasswordView) {
             userManagementToolbar = new ToolBar(panel, SWT.HORIZONTAL);

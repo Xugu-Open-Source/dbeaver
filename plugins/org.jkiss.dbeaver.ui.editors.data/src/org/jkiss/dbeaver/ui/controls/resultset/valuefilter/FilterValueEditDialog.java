@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ public class FilterValueEditDialog extends BaseDialog{
     {
         Composite composite = super.createDialogArea(parent);
 
-        Label label = UIUtils.createControlLabel(composite, handler.getAttribute().getName() + " " + handler.getOperator().getStringValue());
+        Label label = UIUtils.createControlLabel(composite, handler.getAttribute().getName() + " " + handler.getOperator().getExpression());
         label.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 
         int argumentCount = handler.getOperator().getArgumentCount();
@@ -164,7 +164,7 @@ public class FilterValueEditDialog extends BaseDialog{
         };
         handler.addContextMenu(elements);
 
-        handler.addFilterTextbox(composite);
+        handler.addFilterText(composite);
 
         handler.setFilterPattern(null);
         handler.loadValues(null);
