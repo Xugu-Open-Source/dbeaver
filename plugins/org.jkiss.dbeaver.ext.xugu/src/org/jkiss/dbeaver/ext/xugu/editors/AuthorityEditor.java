@@ -19,6 +19,8 @@ package org.jkiss.dbeaver.ext.xugu.editors;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+
+import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
@@ -26,7 +28,10 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Shell;
 import org.jkiss.dbeaver.ext.xugu.Messages;
 import org.jkiss.dbeaver.ext.xugu.edit.RolePropertyHandler;
 import org.jkiss.dbeaver.ext.xugu.edit.UserPropertyHandler;
@@ -106,16 +111,16 @@ public class AuthorityEditor {
 		// 加载组件
 		//库级权限下拉框
 		databaseAuthorityCombo = UIUtils.createLabelCombo(parent1, Messages.editors_authority_editor_db_combo, 0);
-		databaseAuthorityCombo.setLayoutData(new GridData(400, 20));
+		databaseAuthorityCombo.setLayoutData(new GridData(375, 28));
 		//授予按钮
 		addDatabaseAuthority = UIUtils.createPushButton(parent1, Messages.editors_authority_editor_grant, null);
-		addDatabaseAuthority.setLayoutData(new GridData(420, 30));
+		addDatabaseAuthority.setLayoutData(new GridData(400, 28));
 		//回收按钮
 		removeDatabaseAuthority = UIUtils.createPushButton(parent1, Messages.editors_authority_editor_revoke, null);
-		removeDatabaseAuthority.setLayoutData(new GridData(420, 30));
+		removeDatabaseAuthority.setLayoutData(new GridData(400, 28));
 		//授予库级权限列表
 		databaseAuthorityList = new org.eclipse.swt.widgets.List(parent1, SWT.V_SCROLL | SWT.MULTI);
-		databaseAuthorityList.setLayoutData(new GridData(400, 180));
+		databaseAuthorityList.setLayoutData(new GridData(379, 200));
 		databaseAuthorityList.setEnabled(false);
 		if (editorType == 1) {
 			ControlPropertyCommandListener.create(userEditor, databaseAuthorityList,
@@ -530,10 +535,24 @@ public class AuthorityEditor {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
 				String schemaNameString = schemaCombo.getText();
+				String objectTypeString = objectTypeCombo.getText();
 				String objectNameString = objectCombo.getText();
 				String tableColumnString = subObjectCombo.getText();
 				String authorityText = objectAuthorityCombo.getText();
+				if (schemaNameString.isEmpty()) {
+					new WarningDialog(UIUtils.getActiveWorkbenchShell(), "请选择待授予权限的模式名称").open();
+					return;
+				}
+				if (objectTypeString.isEmpty()) {
+					new WarningDialog(UIUtils.getActiveWorkbenchShell(), "请选择待授予权限的对象类型").open();
+					return;
+				}
+				if (objectNameString.isEmpty()) {
+					new WarningDialog(UIUtils.getActiveWorkbenchShell(), "请选择待授予权限的对象名称").open();
+					return;
+				}
 				if (authorityText.isEmpty()) {
+					new WarningDialog(UIUtils.getActiveWorkbenchShell(), "请选择授予的权限名称").open();
 					return;
 				}
 				String authority = authorityText + ":" + "\"" + schemaNameString + "\"" + "." + "\"" + objectNameString + "\"";
@@ -655,5 +674,28 @@ public class AuthorityEditor {
 				// TODO 小部件默认已选择事件
 			}
 		});
+	}
+	
+	public static class WarningDialog extends Dialog {
+		private String warningInfo;
+
+		public WarningDialog(Shell parentShell, String info) {
+			super(parentShell);
+			this.warningInfo = info;
+		}
+
+		@Override
+		protected Control createDialogArea(Composite parent) {
+			getShell().setText("授予权限");
+
+			Control container = super.createDialogArea(parent);
+			Composite composite = UIUtils.createPlaceholder((Composite) container, 2, 5);
+			composite.setLayoutData(new GridData(GridData.FILL_BOTH));
+
+			Label infoText = UIUtils.createLabel(composite, this.warningInfo);
+			infoText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+
+			return parent;
+		}
 	}
 }

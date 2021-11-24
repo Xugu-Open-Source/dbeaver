@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,23 +18,23 @@
 package org.jkiss.dbeaver.ext.oracle.ui.views;
 
 import org.eclipse.jface.dialogs.IDialogPage;
-import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.*;
+import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.*;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.ext.oracle.model.OracleConstants;
+import org.jkiss.dbeaver.ext.oracle.model.auth.OracleAuthModelDatabaseNative;
 import org.jkiss.dbeaver.ext.oracle.model.auth.OracleAuthOS;
 import org.jkiss.dbeaver.ext.oracle.model.dict.OracleConnectionType;
 import org.jkiss.dbeaver.ext.oracle.oci.OCIUtils;
 import org.jkiss.dbeaver.ext.oracle.oci.OracleHomeDescriptor;
-import org.jkiss.dbeaver.ext.oracle.ui.internal.OracleUIActivator;
 import org.jkiss.dbeaver.ext.oracle.ui.internal.OracleUIMessages;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
-import org.jkiss.dbeaver.ui.ICompositeDialogPage;
+import org.jkiss.dbeaver.ui.IDialogPageProvider;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.TextWithOpenFolder;
 import org.jkiss.dbeaver.ui.dialogs.connection.ClientHomesSelector;
@@ -50,7 +50,7 @@ import java.util.Locale;
 /**
  * OracleConnectionPage
  */
-public class OracleConnectionPage extends ConnectionPageWithAuth implements ICompositeDialogPage {
+public class OracleConnectionPage extends ConnectionPageWithAuth implements IDialogPageProvider {
 
     private Text hostText;
     private Text portText;
@@ -64,22 +64,30 @@ public class OracleConnectionPage extends ConnectionPageWithAuth implements ICom
     private ControlsListener controlModifyListener;
     private OracleConstants.ConnectionType connectionType = OracleConstants.ConnectionType.BASIC;
 
-    private static ImageDescriptor logoImage = OracleUIActivator.getImageDescriptor("icons/oracle_logo.png"); //$NON-NLS-1$
     private TextWithOpenFolder tnsPathText;
 
     private boolean activated = false;
+    private Image logoImage;
+
+    public OracleConnectionPage() {
+        logoImage = createImage("icons/oracle_logo.png"); //$NON-NLS-1
+    }
 
     @Override
     public void dispose()
     {
         super.dispose();
+        UIUtils.dispose(logoImage);
+    }
+
+    @Override
+    public Image getImage() {
+        return logoImage;
     }
 
     @Override
     public void createControl(Composite composite)
     {
-        super.setImageDescriptor(logoImage);
-
         controlModifyListener = new ControlsListener();
 
         Composite addrGroup = new Composite(composite, SWT.NONE);
@@ -244,11 +252,14 @@ public class OracleConnectionPage extends ConnectionPageWithAuth implements ICom
         targetContainer.setLayoutData(new GridData(GridData.FILL_BOTH));
         protocolTabCustom.setControl(targetContainer);
 
-        final Label urlLabel = UIUtils.createControlLabel(targetContainer, "JDBC URL"); //$NON-NLS-1$
+        final Label urlLabel = UIUtils.createControlLabel(targetContainer, "JDBC URL Template"); //$NON-NLS-1$
         urlLabel.setLayoutData(new GridData(GridData.VERTICAL_ALIGN_BEGINNING));
 
         connectionUrlText = new Text(targetContainer, SWT.BORDER | SWT.MULTI | SWT.WRAP | SWT.V_SCROLL);
-        connectionUrlText.setLayoutData(new GridData(GridData.FILL_BOTH));
+        GridData gd = new GridData(GridData.FILL_BOTH);
+        gd.widthHint = UIUtils.getFontHeight(connectionUrlText) * 30;
+        gd.heightHint = UIUtils.getFontHeight(connectionUrlText) * 3;
+        connectionUrlText.setLayoutData(gd);
         connectionUrlText.addModifyListener(controlModifyListener);
     }
 
@@ -272,6 +283,9 @@ public class OracleConnectionPage extends ConnectionPageWithAuth implements ICom
     @Override
     public boolean isComplete()
     {
+        if (!super.isComplete()) {
+            return false;
+        }
 //        if (isOCI && CommonUtils.isEmpty(oraHomeSelector.getSelectedHome())) {
 //            return false;
 //        }
@@ -332,16 +346,22 @@ public class OracleConnectionPage extends ConnectionPageWithAuth implements ICom
 
         switch (connectionType) {
             case BASIC:
-                hostText.setText(CommonUtils.notEmpty(connectionInfo.getHostName()));
+                if (site.isNew() && CommonUtils.isEmpty(connectionInfo.getDatabaseName())) {
+                    hostText.setText("localhost");
+                } else {
+                    hostText.setText(CommonUtils.notEmpty(connectionInfo.getHostName()));
+                }
                 if (!CommonUtils.isEmpty(connectionInfo.getHostPort())) {
                     portText.setText(connectionInfo.getHostPort());
-                } else if (site.getDriver().getDefaultPort() != null) {
-                    portText.setText(site.getDriver().getDefaultPort());
                 } else {
-                    portText.setText("");
+                    portText.setText(CommonUtils.notEmpty(site.getDriver().getDefaultPort()));
                 }
 
-                serviceNameCombo.setText(CommonUtils.notEmpty(connectionInfo.getDatabaseName()));
+                if (site.isNew() && CommonUtils.isEmpty(connectionInfo.getDatabaseName())) {
+                    serviceNameCombo.setText(CommonUtils.notEmpty(site.getDriver().getDefaultDatabase()));
+                } else {
+                    serviceNameCombo.setText(CommonUtils.notEmpty(connectionInfo.getDatabaseName()));
+                }
                 break;
             case TNS: {
                 tnsNameCombo.setText(CommonUtils.notEmpty(connectionInfo.getDatabaseName()));
@@ -369,7 +389,7 @@ public class OracleConnectionPage extends ConnectionPageWithAuth implements ICom
         if (CommonUtils.toBoolean(dataSource.getConnectionConfiguration().getProviderProperty(OracleConstants.OS_AUTH_PROP))) {
             return OracleAuthOS.ID;
         }
-        return super.getDefaultAuthModelId(dataSource);
+        return OracleAuthModelDatabaseNative.ID;
     }
 
     @Override
@@ -387,12 +407,13 @@ public class OracleConnectionPage extends ConnectionPageWithAuth implements ICom
                 break;
             case TNS:
                 connectionInfo.setDatabaseName(tnsNameCombo.getText().trim());
-                connectionInfo.setProviderProperty(OracleConstants.PROP_TNS_PATH, tnsPathText.getText());
+                connectionInfo.setProviderProperty(OracleConstants.PROP_TNS_PATH, tnsPathText.getText().trim());
                 break;
             case CUSTOM:
-                connectionInfo.setUrl(connectionUrlText.getText());
+                connectionInfo.setUrl(connectionUrlText.getText().trim());
                 break;
         }
+        connectionInfo.setProviderProperty(OracleConstants.PROP_SID_SERVICE, OracleConnectionType.getTypeForTitle(sidServiceCombo.getText()).name());
 
         super.saveSettings(dataSource);
     }
@@ -420,7 +441,7 @@ public class OracleConnectionPage extends ConnectionPageWithAuth implements ICom
     }
 
     @Override
-    public IDialogPage[] getSubPages(boolean extrasOnly, boolean forceCreate)
+    public IDialogPage[] getDialogPages(boolean extrasOnly, boolean forceCreate)
     {
         return new IDialogPage[] {
             new OracleConnectionExtraPage(),

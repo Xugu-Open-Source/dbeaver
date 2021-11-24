@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  */
 package org.jkiss.dbeaver.model.impl.data.formatters;
 
+import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.data.DBDDataFormatterSample;
 
 import java.util.Collections;
@@ -25,19 +26,15 @@ import java.util.Map;
 
 public class TimeFormatSample implements DBDDataFormatterSample {
 
-    public static final String DEFAULT_TIME_PATTERN = "HH:mm:ss";
+    public static final String DEFAULT_TIME_PATTERN = DBConstants.DEFAULT_TIME_FORMAT;
 
     @Override
-    public Map<Object, Object> getDefaultProperties(Locale locale)
-    {
-//        SimpleDateFormat tmp = (SimpleDateFormat)DateFormat.getTimeInstance(DateFormat.MEDIUM, locale);
-//        String pattern = tmp.toPattern();
-        return Collections.singletonMap((Object)DateTimeDataFormatter.PROP_PATTERN, (Object)DEFAULT_TIME_PATTERN);
+    public Map<String, Object> getDefaultProperties(Locale locale) {
+        return Collections.singletonMap(DateTimeDataFormatter.PROP_PATTERN, DEFAULT_TIME_PATTERN);
     }
 
     @Override
-    public Object getSampleValue()
-    {
+    public Object getSampleValue() {
         return new Date();
     }
 

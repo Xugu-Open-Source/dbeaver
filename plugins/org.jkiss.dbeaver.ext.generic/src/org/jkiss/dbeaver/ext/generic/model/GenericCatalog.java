@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
+import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
@@ -35,7 +36,7 @@ import java.util.List;
  */
 public class GenericCatalog extends GenericObjectContainer implements DBSCatalog
 {
-    private String catalogName;
+    private final String catalogName;
     private List<GenericSchema> schemas;
     private boolean isInitialized = false;
 
@@ -63,6 +64,16 @@ public class GenericCatalog extends GenericObjectContainer implements DBSCatalog
         return this;
     }
 
+    public Collection<GenericSchema> getSchemaList(DBRProgressMonitor monitor)
+        throws DBException
+    {
+        if (getDataSource().isMergeEntities()) {
+            return null;
+        }
+        return getSchemas(monitor);
+    }
+
+    @Association
     public Collection<GenericSchema> getSchemas(DBRProgressMonitor monitor)
         throws DBException
     {
@@ -99,7 +110,7 @@ public class GenericCatalog extends GenericObjectContainer implements DBSCatalog
     @Override
     public DBSObject getParentObject()
     {
-        return getDataSource().getContainer();
+        return getDataSource();
     }
 
     @Override
@@ -133,11 +144,12 @@ public class GenericCatalog extends GenericObjectContainer implements DBSCatalog
         }
     }
 
+    @NotNull
     @Override
-    public Class<? extends DBSObject> getChildType(@NotNull DBRProgressMonitor monitor)
+    public Class<? extends DBSObject> getPrimaryChildType(@Nullable DBRProgressMonitor monitor)
         throws DBException
     {
-        if (!CommonUtils.isEmpty(getSchemas(monitor))) {
+        if (!CommonUtils.isEmpty(schemas) || (monitor != null && !CommonUtils.isEmpty(getSchemas(monitor)))) {
             return GenericSchema.class;
         } else {
             return GenericTable.class;

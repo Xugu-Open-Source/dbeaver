@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,8 @@ public class SQLEditorPropertyTester extends PropertyTester
     public static final String PROP_CAN_NAVIGATE = "canNavigate";
     public static final String PROP_CAN_EXPORT = "canExport";
     public static final String PROP_HAS_SELECTION = "hasSelection";
+    public static final String PROP_FOLDING_SUPPORTED = "foldingSupported";
+    public static final String PROP_FOLDING_ENABLED = "foldingEnabled";
 
     public SQLEditorPropertyTester() {
         super();
@@ -86,6 +88,10 @@ public class SQLEditorPropertyTester extends PropertyTester
                 ISelection selection = editor.getSelectionProvider().getSelection();
                 return selection instanceof ITextSelection && ((ITextSelection) selection).getLength() > 0;
             }
+            case PROP_FOLDING_ENABLED:
+                return editor.isFoldingEnabled();
+            case PROP_FOLDING_SUPPORTED:
+                return editor.getAnnotationModel() != null;
         }
         return false;
     }

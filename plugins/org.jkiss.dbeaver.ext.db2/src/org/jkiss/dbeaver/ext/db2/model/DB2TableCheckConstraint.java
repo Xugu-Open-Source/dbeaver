@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2013-2015 Denis Forveille (titou10.titou10@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import org.jkiss.dbeaver.ext.db2.DB2Constants;
 import org.jkiss.dbeaver.ext.db2.editors.DB2SourceObject;
 import org.jkiss.dbeaver.ext.db2.model.dict.DB2OwnerType;
 import org.jkiss.dbeaver.ext.db2.model.dict.DB2TableCheckConstraintType;
+import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.exec.DBCException;
@@ -34,6 +35,7 @@ import org.jkiss.dbeaver.model.sql.format.SQLFormatUtils;
 import org.jkiss.dbeaver.model.struct.DBSEntityAttributeRef;
 import org.jkiss.dbeaver.model.struct.DBSEntityConstraintType;
 import org.jkiss.dbeaver.model.struct.DBSObjectState;
+import org.jkiss.dbeaver.model.struct.rdb.DBSTableCheckConstraint;
 import org.jkiss.utils.CommonUtils;
 
 import java.sql.ResultSet;
@@ -46,7 +48,7 @@ import java.util.Map;
  * 
  * @author Denis Forveille
  */
-public class DB2TableCheckConstraint extends JDBCTableConstraint<DB2Table> implements DB2SourceObject {
+public class DB2TableCheckConstraint extends JDBCTableConstraint<DB2Table> implements DB2SourceObject, DBSTableCheckConstraint {
 
     private String owner;
     private DB2OwnerType ownerType;
@@ -202,7 +204,7 @@ public class DB2TableCheckConstraint extends JDBCTableConstraint<DB2Table> imple
         return fumcPath;
     }
 
-    @Property(viewable = false, editable = false, category = DB2Constants.CAT_STATS)
+    @Property(viewable = false, editable = false, category = DBConstants.CAT_STATISTICS)
     public Integer getPrecentValid()
     {
         return precentValid;
@@ -232,4 +234,13 @@ public class DB2TableCheckConstraint extends JDBCTableConstraint<DB2Table> imple
         return collationNameOrderBy;
     }
 
+    @Override
+    public String getCheckConstraintDefinition() {
+        return text;
+    }
+
+    @Override
+    public void setCheckConstraintDefinition(String expression) {
+        this.text = expression;
+    }
 }

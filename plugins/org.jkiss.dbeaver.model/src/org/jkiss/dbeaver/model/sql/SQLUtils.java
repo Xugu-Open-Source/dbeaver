@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -162,18 +162,55 @@ public final class SQLUtils {
         return like.indexOf('%') != -1 || like.indexOf('*') != -1 || like.indexOf('_') != -1 || like.indexOf('?') != -1;// || like.indexOf('_') != -1;
     }
 
-    public static String makeLikePattern(String like)
-    {
+    @NotNull
+    public static String makeLikePattern(@NotNull String like) {
         StringBuilder result = new StringBuilder();
+
         for (int i = 0; i < like.length(); i++) {
             char c = like.charAt(i);
             if (c == '*') result.append(".*");
             else if (c == '?' || c == '_') result.append(".");
             else if (c == '%') result.append(".*");
             else if (Character.isLetterOrDigit(c)) result.append(c);
-            else result.append("\\").append(c);
+            else if (c == '(' || c == ')' || c == '[' || c == ']') result.append('\\').append(c);
+            else if (c == '\\') {
+                if (i < like.length() - 1) {
+                    char nc = like.charAt(i + 1);
+                    if (nc == '_' || nc == '*' || nc == '?' || nc == '.' || nc == '%') {
+                        result.append("\\").append(nc);
+                        i++;
+                    } else {
+                        result.append("\\");
+                    }
+                }
+            }
+            else {
+                result.append(c);
+            }
         }
         return result.toString();
+    }
+
+    @NotNull
+    public static String makeRegexFromLike(@NotNull String clause) {
+        final StringBuilder sb = new StringBuilder();
+        for (int index = 0, length = clause.length(); index < length; index++) {
+            final char ch = clause.charAt(index);
+            if (ch == '%') {
+                if (index > 0 && index < length - 1) {
+                    sb.append(".*");
+                }
+            } else {
+                if (index == 0) {
+                    sb.append('^');
+                }
+                sb.append(ch == '_' ? '.' : ch);
+                if (index == length - 1) {
+                    sb.append('$');
+                }
+            }
+        }
+        return sb.toString();
     }
 
     public static String makeSQLLike(String like)
@@ -196,9 +233,8 @@ public final class SQLUtils {
         }
     }
 
-    public static boolean isStringQuoted(String string)
-    {
-        return string.length() > 1 && string.startsWith("'") && string.endsWith("'");
+    public static boolean isStringQuoted(DBSObject object, String string) {
+        return object.getDataSource().getSQLDialect().isQuotedString(string);
     }
 
     public static String quoteString(DBSObject object, String string)
@@ -208,7 +244,7 @@ public final class SQLUtils {
 
     public static String quoteString(DBPDataSource dataSource, String string)
     {
-        return "'" + escapeString(dataSource, string) + "'";
+        return dataSource.getSQLDialect().getQuotedString(string);
     }
 
     public static String escapeString(DBPDataSource dataSource, String string)
@@ -350,7 +386,7 @@ public final class SQLUtils {
                 String[][] blockBoundStrings = syntaxManager.getDialect().getBlockBoundStrings();
                 if (blockBoundStrings != null) {
                     for (String[] blocks : blockBoundStrings) {
-                        int endIndex = test.indexOf(blocks[1]);
+                        int endIndex = test.lastIndexOf(blocks[1]);
                         if (endIndex > 0) {
                             // This is a block query if it ends with 'END' or with 'END id'
                             if (test.endsWith(blocks[1])) {
@@ -358,7 +394,7 @@ public final class SQLUtils {
                                 break;
                             } else {
                                 String afterEnd = test.substring(endIndex + blocks[1].length()).trim();
-                                if (CommonUtils.isJavaIdentifier(afterEnd)) {
+                                if (afterEnd.chars().noneMatch(Character::isWhitespace)) {
                                     isBlockQuery = true;
                                     break;
                                 }
@@ -421,16 +457,21 @@ public final class SQLUtils {
         @NotNull StringBuilder query,
         boolean inlineCriteria)
     {
-        String operator = filter.isAnyConstraint() ? " OR " : " AND ";  //$NON-NLS-1$ $NON-NLS-2$
-        boolean hasWhere = false;
-        for (DBDAttributeConstraint constraint : filter.getConstraints()) {
-            String condition = getConstraintCondition(dataSource, constraint, inlineCriteria);
-            if (condition == null) {
-                continue;
-            }
+        final String operator = filter.isAnyConstraint() ? " OR " : " AND ";  //$NON-NLS-1$ $NON-NLS-2$
+        final DBDAttributeConstraint[] constraints = filter.getConstraints().stream()
+            .filter(x -> x.getCriteria() != null || x.getOperator() != null)
+            .toArray(DBDAttributeConstraint[]::new);
 
-            if (hasWhere) query.append(operator);
-            hasWhere = true;
+        for (int index = 0; index < constraints.length; index++) {
+            final DBDAttributeConstraint constraint = constraints[index];
+            if (index > 0) {
+                query.append(operator);
+            }
+            if (constraints.length > 1) {
+                // Add parenthesis for the sake of sanity
+                // Constraint may consist of several conditions and we don't want to break operator precedence
+                query.append('(');
+            }
             if (constraint.getEntityAlias() != null) {
                 query.append(constraint.getEntityAlias()).append('.');
             } else if (conditionTable != null) {
@@ -456,11 +497,16 @@ public final class SQLUtils {
             } else {
                 attrName = DBUtils.getQuotedIdentifier(dataSource, constraint.getAttributeName());
             }
-            query.append(attrName).append(' ').append(condition);
+            query.append(attrName).append(' ').append(getConstraintCondition(dataSource, constraint, conditionTable, inlineCriteria));
+            if (constraints.length > 1) {
+                query.append(')');
+            }
         }
 
         if (!CommonUtils.isEmpty(filter.getWhere())) {
-            if (hasWhere) query.append(operator);
+            if (constraints.length > 0) {
+                query.append(operator);
+            }
             query.append(filter.getWhere());
         }
     }
@@ -472,7 +518,7 @@ public final class SQLUtils {
         for (DBDAttributeConstraint co : filter.getOrderConstraints()) {
             if (hasOrder) query.append(',');
             String orderString = null;
-            if (co.getAttribute() == null || co.getAttribute() instanceof DBDAttributeBindingMeta || co.getAttribute() instanceof DBDAttributeBindingType) {
+            if (co.isPlainNameReference() || co.getAttribute() == null || co.getAttribute() instanceof DBDAttributeBindingMeta || co.getAttribute() instanceof DBDAttributeBindingType) {
                 String orderColumn = co.getAttributeName();
                 if (co.getAttribute() == null || PATTERN_SIMPLE_NAME.matcher(orderColumn).matches()) {
                     // It is a simple column.
@@ -505,7 +551,7 @@ public final class SQLUtils {
     }
 
     @Nullable
-    public static String getConstraintCondition(@NotNull DBPDataSource dataSource, @NotNull DBDAttributeConstraint constraint, boolean inlineCriteria) {
+    public static String getConstraintCondition(@NotNull DBPDataSource dataSource, @NotNull DBDAttributeConstraint constraint, @Nullable String conditionTable, boolean inlineCriteria) {
         String criteria = constraint.getCriteria();
         if (!CommonUtils.isEmpty(criteria)) {
             final char firstChar = criteria.trim().charAt(0);
@@ -520,7 +566,7 @@ public final class SQLUtils {
             Object value = constraint.getValue();
             if (DBUtils.isNullValue(value)) {
                 if (operator.getArgumentCount() == 0) {
-                    return operator.getStringValue();
+                    return operator.getExpression();
                 }
                 conString.append("IS ");
                 if (constraint.isReverseOperator()) {
@@ -533,16 +579,25 @@ public final class SQLUtils {
                 conString.append("NOT ");
             }
             if (operator.getArgumentCount() > 0) {
-                conString.append(operator.getStringValue());
+                conString.append(operator.getExpression());
                 for (int i = 0; i < operator.getArgumentCount(); i++) {
                     if (i > 0) {
                         conString.append(" AND");
                     }
-                    if (inlineCriteria) {
-                        conString.append(' ').append(convertValueToSQL(dataSource, constraint.getAttribute(), value));
+                    String strValue;
+                    if (constraint.getAttribute() == null) {
+                        // We have only attribute name
+                        if (value instanceof CharSequence) {
+                            strValue = dataSource.getSQLDialect().getQuotedString(value.toString());
+                        } else {
+                            strValue = CommonUtils.toString(value);
+                        }
+                    } else if (inlineCriteria) {
+                        strValue = convertValueToSQL(dataSource, constraint.getAttribute(), value);
                     } else {
-                        conString.append(" ").append(dataSource.getSQLDialect().getTypeCastClause(constraint.getAttribute(),"?"));
+                        strValue = dataSource.getSQLDialect().getTypeCastClause(constraint.getAttribute(), "?");
                     }
+                    conString.append(' ').append(strValue);
                 }
             } else if (operator.getArgumentCount() < 0) {
                 // Multiple arguments
@@ -561,10 +616,14 @@ public final class SQLUtils {
                     return "IS NULL";
                 }
                 if (hasNull) {
-                    conString.append("IS NULL OR ").append(DBUtils.getObjectFullName(dataSource, constraint.getAttribute(), DBPEvaluationContext.DML)).append(" ");
+                    conString.append("IS NULL OR ");
+                    if (conditionTable != null) {
+                        conString.append(conditionTable).append('.');
+                    }
+                    conString.append(DBUtils.getObjectFullName(dataSource, constraint.getAttribute(), DBPEvaluationContext.DML)).append(" ");
                 }
 
-                conString.append(operator.getStringValue());
+                conString.append(operator.getExpression());
                 conString.append(" (");
                 if (!value.getClass().isArray()) {
                     value = new Object[] {value};
@@ -593,15 +652,23 @@ public final class SQLUtils {
         }
     }
 
-    public static String convertValueToSQL(@NotNull DBPDataSource dataSource, @NotNull DBSAttributeBase attribute, @Nullable Object value) {
+    public static String convertValueToSQL(@NotNull DBPDataSource dataSource, @NotNull DBSTypedObject attribute, @Nullable Object value) {
         DBDValueHandler valueHandler = DBUtils.findValueHandler(dataSource, attribute);
+
+        return convertValueToSQL(dataSource, attribute, valueHandler, value, DBDDisplayFormat.NATIVE);
+    }
+
+    public static String convertValueToSQL(@NotNull DBPDataSource dataSource, @NotNull DBSTypedObject attribute, @NotNull DBDValueHandler valueHandler, @Nullable Object value, DBDDisplayFormat displayFormat) {
+        if (DBUtils.isNullValue(value)) {
+            return SQLConstants.NULL_VALUE;
+        }
 
         return dataSource.getSQLDialect().getTypeCastClause(
             attribute,
-            convertValueToSQL(dataSource, attribute, valueHandler, value));
+            convertValueToSQLFormat(dataSource, attribute, valueHandler, value, displayFormat));
     }
 
-    public static String convertValueToSQL(@NotNull DBPDataSource dataSource, @NotNull DBSAttributeBase attribute, @NotNull DBDValueHandler valueHandler, @Nullable Object value) {
+    private static String convertValueToSQLFormat(@NotNull DBPDataSource dataSource, @NotNull DBSTypedObject attribute, @NotNull DBDValueHandler valueHandler, @Nullable Object value, DBDDisplayFormat displayFormat) {
         if (DBUtils.isNullValue(value)) {
             return SQLConstants.NULL_VALUE;
         }
@@ -611,18 +678,12 @@ public final class SQLUtils {
         if (value instanceof DBDContent) {
             strValue = convertStreamToSQL(attribute, (DBDContent) value, valueHandler, dataSource);
         } else {
-            strValue = valueHandler.getValueDisplayString(attribute, value, DBDDisplayFormat.NATIVE);
-        }
-        if (value instanceof Number) {
-            return strValue;
+            strValue = valueHandler.getValueDisplayString(attribute, value, displayFormat);
         }
         SQLDialect sqlDialect = dataSource.getSQLDialect();
 
-        switch (attribute.getDataKind()) {
-            case BOOLEAN:
-            case DATETIME:
-            case NUMERIC:
-                return strValue;
+        DBPDataKind dataKind = attribute.getDataKind();
+        switch (dataKind) {
             case CONTENT:
                 if (value instanceof DBDContent) {
                     String contentType = ((DBDContent) value).getContentType();
@@ -634,12 +695,16 @@ public final class SQLUtils {
             case STRING:
             case ROWID:
                 if (sqlDialect != null) {
-                    strValue = sqlDialect.escapeString(strValue);
+                    if (!sqlDialect.isQuotedString(strValue)) {
+                        return sqlDialect.getQuotedString(strValue);
+                    } else {
+                        return strValue;
+                    }
                 }
-                if (!(strValue.startsWith("'") && strValue.endsWith("'"))) {
-                    strValue = '\'' + strValue + '\'';
-                }
-                return sqlDialect.getTypeCastClause(attribute, strValue);
+                return strValue;
+            case BOOLEAN:
+            case DATETIME:
+            case NUMERIC:
             default:
                 if (sqlDialect != null) {
                     return sqlDialect.escapeScriptValue(attribute, value, strValue);
@@ -648,14 +713,17 @@ public final class SQLUtils {
         }
     }
 
-    public static String convertStreamToSQL(DBSAttributeBase attribute, DBDContent content, DBDValueHandler valueHandler, DBPDataSource dataSource) {
+    public static String convertStreamToSQL(DBSTypedObject attribute, DBDContent content, DBDValueHandler valueHandler, DBPDataSource dataSource) {
         try {
             DBRProgressMonitor monitor = new VoidProgressMonitor();
-            if (ContentUtils.isTextContent(content)) {
+            if (!content.isNull() && ContentUtils.isTextContent(content)) {
                 String strValue = ContentUtils.getContentStringValue(monitor, content);
                 return dataSource.getSQLDialect().escapeString(strValue);
             } else {
                 byte[] binValue = ContentUtils.getContentBinaryValue(monitor, content);
+                if (binValue == null) {
+                    return SQLConstants.NULL_VALUE;
+                }
                 return dataSource.getSQLDialect().getNativeBinaryFormatter().toString(binValue, 0, binValue.length);
             }
         }
@@ -743,7 +811,13 @@ public final class SQLUtils {
             }
             prevChar = c;
         }
-        String alias = buf.toString().toLowerCase(Locale.ENGLISH);
+        String alias;
+        if(!CommonUtils.isEmpty(buf)) {
+            alias = buf.toString().toLowerCase(Locale.ENGLISH);
+        }
+        else{
+            alias = "t";
+        }
 
         String result = alias;
         for (int i = 2; i < 500; i++) {
@@ -757,17 +831,21 @@ public final class SQLUtils {
         return alias;
     }
 
-        @NotNull
-    public static String generateCommentLine(DBPDataSource dataSource, String comment)
-    {
-        String slComment = SQLConstants.ML_COMMENT_END;
+    @NotNull
+    public static String generateCommentLine(@Nullable DBPDataSource dataSource, @NotNull String comment) {
+        final String separator = GeneralUtils.getDefaultLineSeparator();
+        String slComment = SQLConstants.SL_COMMENT;
         if (dataSource != null) {
             String[] slComments = dataSource.getSQLDialect().getSingleLineComments();
             if (!ArrayUtils.isEmpty(slComments)) {
                 slComment = slComments[0];
             }
         }
-        return slComment + " " + comment + GeneralUtils.getDefaultLineSeparator();
+        final StringBuilder sb = new StringBuilder();
+        for (String line : comment.split("\n|\r|\r\n")) {
+            sb.append(slComment).append(" ").append(line).append(separator);
+        }
+        return sb.toString();
     }
 
     public static String generateParamList(int paramCount) {
@@ -907,8 +985,47 @@ public final class SQLUtils {
         return script.toString();
     }
 
+    @NotNull
+    public static String generateComments(DBPDataSource dataSource, DBEPersistAction[] persistActions, boolean addComments)
+    {
+        final SQLDialect sqlDialect = SQLUtils.getDialectFromDataSource(dataSource);
+        final String lineSeparator = GeneralUtils.getDefaultLineSeparator();
+
+        StringBuilder script = new StringBuilder(64);
+        if (addComments) {
+            script.append(DBEAVER_DDL_COMMENT).append(Platform.getProduct().getName()).append(lineSeparator)
+                .append(DBEAVER_DDL_WARNING).append(lineSeparator);
+        }
+        if (persistActions != null) {
+            String slComment;
+            String[] slComments = sqlDialect.getSingleLineComments();
+            if (ArrayUtils.isEmpty(slComments)) {
+                slComment = "--";
+            } else {
+                slComment = slComments[0];
+            }
+            for (DBEPersistAction action : persistActions) {
+                if (action.getType() != DBEPersistAction.ActionType.COMMENT) {
+                    String scriptLine = action.getTitle();
+                    if (CommonUtils.isEmpty(scriptLine)) {
+                        continue;
+                    }
+                    script.append(slComment).append(" ").append(scriptLine);
+                } else {
+                    String scriptLine = action.getScript();
+                    if (CommonUtils.isEmpty(scriptLine)) {
+                        continue;
+                    }
+                    script.append(scriptLine);
+                }
+                script.append(lineSeparator);
+            }
+        }
+        return script.toString();
+    }
+
     public static String getScriptLineDelimiter(SQLDialect sqlDialect) {
-        String delimiter = sqlDialect.getScriptDelimiter();
+        String delimiter = SQLUtils.getDefaultScriptDelimiter(sqlDialect);
         if (!delimiter.isEmpty() && Character.isLetterOrDigit(delimiter.charAt(0))) {
             delimiter = ' ' + delimiter;
         }
@@ -925,7 +1042,7 @@ public final class SQLUtils {
             return name.split(Pattern.quote(nameSeparator));
         }
         if (!name.contains(nameSeparator)) {
-            return new String[] { name };
+            return new String[] { DBUtils.getUnQuotedIdentifier(name, quoteStrings) };
         }
         List<String> nameList = new ArrayList<>();
         while (!name.isEmpty()) {
@@ -940,7 +1057,12 @@ public final class SQLUtils {
                         String partName = keepQuotes ?
                             name.substring(0, endPos + endQuote.length()) :
                             name.substring(startQuote.length(), endPos);
-                        nameList.add(partName);
+                        while (partName.endsWith(nameSeparator)) {
+                            partName = partName.substring(0, partName.length() - 1);
+                        }
+                        if (!partName.isEmpty()) {
+                            nameList.add(partName);
+                        }
                         name = name.substring(endPos + endQuote.length()).trim();
                         hadQuotedPart = true;
                         break;
@@ -961,7 +1083,7 @@ public final class SQLUtils {
                 name = name.substring(nameSeparator.length()).trim();
             }
         }
-        return nameList.toArray(new String[nameList.size()]);
+        return nameList.toArray(new String[0]);
     }
 
     public static String generateTableJoin(DBRProgressMonitor monitor, DBSEntity leftTable, String leftAlias, DBSEntity rightTable, String rightAlias) throws DBException {
@@ -1101,5 +1223,50 @@ public final class SQLUtils {
         }
         sqlStatement.setText(query);
         //sqlStatement.setOriginalText(query);
+    }
+
+    public static boolean needQueryDelimiter(SQLDialect sqlDialect, String query) {
+        String[] scriptDelimiters = sqlDialect.getScriptDelimiters();
+        for (String delimiter : scriptDelimiters) {
+            if (!delimiter.isEmpty()) {
+                if (Character.isLetterOrDigit(delimiter.charAt(0))) {
+                    if (query.toUpperCase().endsWith(delimiter.toUpperCase())) {
+                        if (!Character.isLetterOrDigit(query.charAt(query.length() - delimiter.length() - 1))) {
+                            return true;
+                        }
+                    }
+                } else {
+                    return !query.endsWith(delimiter);
+                }
+            }
+        }
+        return false;
+    }
+
+    public static String removeQueryDelimiter(SQLDialect sqlDialect, String query) {
+        String[] scriptDelimiters = sqlDialect.getScriptDelimiters();
+        for (String delimiter : scriptDelimiters) {
+            if (!delimiter.isEmpty() && query.contains(delimiter)) {
+                String queryWithoutDelimiter = query.substring(0, query.lastIndexOf(delimiter));
+                if (Character.isLetterOrDigit(delimiter.charAt(0))) {
+                    if (query.toUpperCase().endsWith(delimiter.toUpperCase())) {
+                        if (!Character.isLetterOrDigit(query.charAt(query.length() - delimiter.length() - 1))) {
+                            return queryWithoutDelimiter;
+                        }
+                    }
+                } else if (query.endsWith(delimiter)) {
+                    return queryWithoutDelimiter;
+                }
+            }
+        }
+        return query;
+    }
+
+    public static String getDefaultScriptDelimiter(SQLDialect sqlDialect) {
+        String[] scriptDelimiters = sqlDialect.getScriptDelimiters();
+        if (!ArrayUtils.isEmpty(scriptDelimiters)) {
+            return scriptDelimiters[0];
+        }
+        return SQLConstants.DEFAULT_STATEMENT_DELIMITER;
     }
 }

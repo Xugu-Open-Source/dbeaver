@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,10 +41,7 @@ import org.jkiss.dbeaver.model.task.DBTaskUtils;
 import org.jkiss.dbeaver.tools.sql.SQLScriptExecuteSettings;
 import org.jkiss.utils.IOUtils;
 
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.Writer;
+import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Locale;
@@ -60,7 +57,7 @@ public class SQLScriptExecuteHandler implements DBTTaskHandler {
         @NotNull DBTTask task,
         @NotNull Locale locale,
         @NotNull Log log,
-        @NotNull Writer logStream,
+        @NotNull PrintStream logStream,
         @NotNull DBTTaskExecutionListener listener) throws DBException
     {
         SQLScriptExecuteSettings settings = new SQLScriptExecuteSettings();
@@ -68,7 +65,7 @@ public class SQLScriptExecuteHandler implements DBTTaskHandler {
         executeWithSettings(runnableContext, task, locale, log, logStream, listener, settings);
     }
 
-    private void executeWithSettings(@NotNull DBRRunnableContext runnableContext, DBTTask task, @NotNull Locale locale, @NotNull Log log, Writer logStream, @NotNull DBTTaskExecutionListener listener, SQLScriptExecuteSettings settings) throws DBException {
+    private void executeWithSettings(@NotNull DBRRunnableContext runnableContext, DBTTask task, @NotNull Locale locale, @NotNull Log log, PrintStream logStream, @NotNull DBTTaskExecutionListener listener, SQLScriptExecuteSettings settings) throws DBException {
         log.debug("SQL Scripts Execute");
 
         // Start consumers
@@ -91,12 +88,12 @@ public class SQLScriptExecuteHandler implements DBTTaskHandler {
         if (error != null) {
             log.error(error);
         }
-        listener.taskFinished(settings, error);
+        listener.taskFinished(settings, null, error);
 
         log.debug("SQL script execute completed");
     }
 
-    private void runScripts(DBRProgressMonitor monitor, DBTTask task, SQLScriptExecuteSettings settings, Log log, Writer logStream) throws DBException {
+    private void runScripts(DBRProgressMonitor monitor, DBTTask task, SQLScriptExecuteSettings settings, Log log, PrintStream logStream) throws DBException {
         List<DBPDataSourceContainer> dataSources = settings.getDataSources();
 
         for (String filePath : settings.getScriptFiles()) {
@@ -141,9 +138,10 @@ public class SQLScriptExecuteHandler implements DBTTaskHandler {
         }
     }
 
-    private void processScript(DBRProgressMonitor monitor, DBTTask task, SQLScriptExecuteSettings settings, DBCExecutionContext executionContext, String filePath, String sqlScriptContent, Log log, Writer logStream) throws DBException {
-        List<SQLScriptElement> scriptElements = SQLScriptParser.parseScript(executionContext, sqlScriptContent);
-        SQLScriptContext scriptContext = new SQLScriptContext(null, () -> executionContext, null, logStream, null);
+    private void processScript(DBRProgressMonitor monitor, DBTTask task, SQLScriptExecuteSettings settings, DBCExecutionContext executionContext, String filePath, String sqlScriptContent, Log log, PrintStream logStream) throws DBException {
+        PrintWriter logWriter = new PrintWriter(logStream, true);
+        List<SQLScriptElement> scriptElements = SQLScriptParser.parseScript(executionContext.getDataSource(), sqlScriptContent);
+        SQLScriptContext scriptContext = new SQLScriptContext(null, () -> executionContext, null, logWriter, null);
         scriptContext.setVariables(DBTaskUtils.getVariables(task));
         SQLScriptDataReceiver dataReceiver = new SQLScriptDataReceiver();
         SQLScriptProcessor scriptProcessor = new SQLScriptProcessor(executionContext, scriptElements, scriptContext, dataReceiver, log);
@@ -151,7 +149,7 @@ public class SQLScriptExecuteHandler implements DBTTaskHandler {
         scriptProcessor.setCommitType(settings.isAutoCommit() ? SQLScriptCommitType.AUTOCOMMIT : SQLScriptCommitType.AT_END);
         scriptProcessor.setErrorHandling(settings.isIgnoreErrors() ? SQLScriptErrorHandling.IGNORE : SQLScriptErrorHandling.STOP_ROLLBACK);
         if (settings.isDumpQueryResultsToLog()) {
-            dataReceiver.setDumpWriter(logStream);
+            dataReceiver.setDumpWriter(logWriter);
         }
 
         scriptProcessor.runScript(monitor);

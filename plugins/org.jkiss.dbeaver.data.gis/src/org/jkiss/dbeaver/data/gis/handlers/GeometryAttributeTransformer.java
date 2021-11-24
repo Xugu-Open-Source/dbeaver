@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
 import org.jkiss.dbeaver.model.data.DBDAttributeTransformer;
+import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
 import org.jkiss.dbeaver.model.data.DBDValueHandler;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCResultSet;
@@ -44,6 +45,7 @@ public class GeometryAttributeTransformer implements DBDAttributeTransformer {
 
     private static final String PROP_SRID = "srid";
     private static final String PROP_INVERT_COORDINATES = "invertCoordinates";
+    private static final String PROP_LEADING_SRID = "leadingSrid";
 
     public static final String GIS_TYPE_NAME = "GIS.Transformed";
 
@@ -57,20 +59,19 @@ public class GeometryAttributeTransformer implements DBDAttributeTransformer {
             srid = GisConstants.SRID_4326;
         }
         boolean invertCoordinates = CommonUtils.toBoolean(options.get(PROP_INVERT_COORDINATES ));
-        attribute.setTransformHandler(new GISValueHandler(attribute.getValueHandler(), srid, invertCoordinates));
+        boolean leadingSrid = CommonUtils.toBoolean(options.get(PROP_LEADING_SRID));
+        attribute.setTransformHandler(new GISValueHandler(attribute.getValueHandler(), srid, invertCoordinates, leadingSrid));
     }
 
-    private class GISValueHandler extends ProxyValueHandler {
+    private static class GISValueHandler extends ProxyValueHandler {
         private final GISGeometryValueHandler realHandler;
 
-        private final int srid;
-
-        public GISValueHandler(DBDValueHandler target, int srid, boolean invertCoordinates) {
+        public GISValueHandler(DBDValueHandler target, int srid, boolean invertCoordinates, boolean leadingSrid) {
             super(target);
             this.realHandler = new GISGeometryValueHandler();
             this.realHandler.setDefaultSRID(srid);
             this.realHandler.setInvertCoordinates(invertCoordinates);
-            this.srid = srid;
+            this.realHandler.setLeadingSRID(leadingSrid);
         }
 
         @NotNull
@@ -91,6 +92,11 @@ public class GeometryAttributeTransformer implements DBDAttributeTransformer {
             return realHandler.getValueFromObject(session, type, object, copy, false);
         }
 
+        @NotNull
+        @Override
+        public String getValueDisplayString(@NotNull DBSTypedObject column, @Nullable Object value, @NotNull DBDDisplayFormat format) {
+            return realHandler.getValueDisplayString(column, value, format);
+        }
     }
 
 }

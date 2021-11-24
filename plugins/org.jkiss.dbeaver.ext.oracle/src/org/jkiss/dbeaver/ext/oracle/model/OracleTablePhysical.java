@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCSession;
@@ -50,8 +51,6 @@ public abstract class OracleTablePhysical extends OracleTableBase implements DBS
 {
     private static final Log log = Log.getLog(OracleTablePhysical.class);
 
-    public static final String CAT_STATISTICS = "Statistics";
-
     //private boolean valid;
     private long rowCount;
     private Long realRowCount;
@@ -78,13 +77,13 @@ public abstract class OracleTablePhysical extends OracleTableBase implements DBS
         this.partitionCache = partitioned ? new PartitionCache() : null;
     }
 
-    @Property(category = CAT_STATISTICS, viewable = true, order = 20)
+    @Property(category = DBConstants.CAT_STATISTICS, viewable = true, order = 20)
     public long getRowCount()
     {
         return rowCount;
     }
 
-    @Property(category = CAT_STATISTICS, viewable = false, expensive = true, order = 21)
+    @Property(category = DBConstants.CAT_STATISTICS, viewable = false, expensive = true, order = 21)
     public synchronized Long getRealRowCount(DBRProgressMonitor monitor)
     {
         if (realRowCount != null) {

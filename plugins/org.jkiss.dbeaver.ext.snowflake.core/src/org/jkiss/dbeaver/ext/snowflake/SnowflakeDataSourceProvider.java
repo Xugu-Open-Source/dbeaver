@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ public class SnowflakeDataSourceProvider extends JDBCDataSourceProvider {
     @Override
     public long getFeatures()
     {
-        return FEATURE_SCHEMAS;
+        return FEATURE_CATALOGS | FEATURE_SCHEMAS;
     }
 
     @Override
@@ -58,9 +58,19 @@ public class SnowflakeDataSourceProvider extends JDBCDataSourceProvider {
             url.append(":").append(connectionInfo.getHostPort());
         }
         url.append("/?");
+
+        String warehouse = connectionInfo.getServerName();
+        if (CommonUtils.isEmpty(warehouse)) {
+            warehouse = connectionInfo.getProviderProperty(SnowflakeConstants.PROP_WAREHOUSE);
+        }
+        String schemaName = connectionInfo.getProviderProperty(SnowflakeConstants.PROP_SCHEMA);
+        if (CommonUtils.isEmpty(schemaName)) {
+            schemaName = connectionInfo.getProviderProperty(SnowflakeConstants.PROP_SCHEMA2);
+        }
+
         boolean hasParam = addParameter(url, "db", connectionInfo.getDatabaseName(), false);
-        hasParam = addParameter(url, "warehouse", connectionInfo.getServerName(), hasParam);
-        hasParam = addParameter(url, "schema", connectionInfo.getProviderProperty(SnowflakeConstants.PROP_SCHEMA), hasParam);
+        hasParam = addParameter(url, "warehouse", warehouse, hasParam);
+        hasParam = addParameter(url, "schema", schemaName, hasParam);
         addParameter(url, "role", connectionInfo.getProviderProperty(SnowflakeConstants.PROP_ROLE), hasParam);
 
         return url.toString();

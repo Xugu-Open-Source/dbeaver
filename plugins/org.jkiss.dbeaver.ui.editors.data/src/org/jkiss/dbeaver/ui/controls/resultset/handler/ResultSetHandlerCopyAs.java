@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
 import org.jkiss.dbeaver.model.runtime.AbstractJob;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSDataManipulator;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.ui.UIServiceSQL;
 import org.jkiss.dbeaver.tools.transfer.IDataTransferConsumer;
@@ -53,6 +54,7 @@ import org.jkiss.dbeaver.ui.ActionUtils;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.resultset.*;
+import org.jkiss.dbeaver.ui.controls.resultset.internal.ResultSetMessages;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.*;
@@ -107,13 +109,9 @@ public class ResultSetHandlerCopyAs extends AbstractHandler implements IElementU
             for (ResultSetRow selectedRow : rsSelectedRows) {
                 selectedRows.add((long) selectedRow.getRowNumber());
             }
-            List<String> selectedAttributes = new ArrayList<>();
-            for (DBDAttributeBinding attributeBinding : rsSelectedAttributes) {
-                selectedAttributes.add(attributeBinding.getName());
-            }
 
             options.setSelectedRows(selectedRows);
-            options.setSelectedColumns(selectedAttributes);
+            options.setSelectedColumns(rsSelectedAttributes);
         }
         ResultSetDataContainer dataContainer = new ResultSetDataContainer(resultSet, options);
         if (dataContainer.getDataSource() == null) {
@@ -130,7 +128,9 @@ public class ResultSetHandlerCopyAs extends AbstractHandler implements IElementU
 
             @Override
             protected IStatus run(DBRProgressMonitor monitor) {
+                monitor.beginTask("Copy data as", 3);
                 try {
+                    monitor.subTask("Init");
                     IDataTransferProcessor processorInstance = processor.getInstance();
                     if (!(processorInstance instanceof IStreamDataExporter)) {
                         return Status.CANCEL_STATUS;
@@ -144,10 +144,15 @@ public class ResultSetHandlerCopyAs extends AbstractHandler implements IElementU
                     settings.setOutputEncodingBOM(false);
                     settings.setOpenFolderOnFinish(false);
 
-                    Map<Object, Object> properties = new HashMap<>();
-                    for (DBPPropertyDescriptor prop : processor.getProperties()) {
-                        properties.put(prop.getId(), prop.getDefaultValue());
+                    Map<DataTransferProcessorDescriptor, Map<String, Object>> propertiesMap = CopyAsConfigurationStorage.getProcessorProperties();
+                    Map<String, Object> properties = propertiesMap.get(processor);
+                    if (properties == null) {
+                        properties = new HashMap<>();
+                        for (DBPPropertyDescriptor prop : processor.getProperties()) {
+                            properties.put(prop.getId(), prop.getDefaultValue());
+                        }
                     }
+                    properties.put(DBSDataManipulator.OPTION_USE_CURRENT_DIALECT_SETTINGS, true);
 
                     consumer.initTransfer(
                         dataContainer,
@@ -172,12 +177,20 @@ public class ResultSetHandlerCopyAs extends AbstractHandler implements IElementU
                     producerSettings.setSelectedRowsOnly(!CommonUtils.isEmpty(options.getSelectedRows()));
                     producerSettings.setSelectedColumnsOnly(!CommonUtils.isEmpty(options.getSelectedColumns()));
 
-                    producer.transferData(monitor, consumer, null, producerSettings, null);
+                    monitor.worked(1);
+                    monitor.subTask("Export data");
 
+                    producer.transferData(monitor, consumer, null, producerSettings, null);
+                    monitor.worked(1);
+
+                    monitor.subTask("Finalize export");
                     consumer.finishTransfer(monitor, false);
                     consumer.finishTransfer(monitor, true);
+                    monitor.worked(1);
                 } catch (Exception e) {
                     DBWorkbench.getPlatformUI().showError("Error opening in " + processor.getAppName(), null, e);
+                } finally {
+                    monitor.done();
                 }
                 return Status.OK_STATUS;
             }
@@ -277,6 +290,14 @@ public class ResultSetHandlerCopyAs extends AbstractHandler implements IElementU
             params.parameters = parameters;
             copyAsMenu.add(new CommandContributionItem(params));
         }
-    }
 
+        copyAsMenu.add(new Separator());
+
+        copyAsMenu.add(new Action(ResultSetMessages.dialog_copy_as_configuration_name) {
+            @Override
+            public void run() {
+                new CopyAsConfigurationDialog(viewer).open();
+            }
+        });
+    }
 }

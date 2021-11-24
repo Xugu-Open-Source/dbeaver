@@ -16,13 +16,8 @@
  */
 package org.jkiss.dbeaver.ext.ui.locks.graph;
 
-import org.eclipse.draw2d.ColorConstants;
-import org.eclipse.draw2d.Figure;
-import org.eclipse.draw2d.Graphics;
-import org.eclipse.draw2d.Label;
-import org.eclipse.draw2d.RectangleFigure;
-import org.eclipse.draw2d.XYLayout;
-import org.eclipse.draw2d.geometry.Rectangle;
+import org.eclipse.draw2dl.*;
+import org.eclipse.draw2dl.geometry.Rectangle;
 
 
 public class LockGraphNodeFigure extends Figure {

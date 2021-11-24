@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,22 +16,13 @@
  */
 package org.jkiss.dbeaver.ui.navigator.database;
 
-import org.jkiss.dbeaver.model.access.DBAUser;
-import org.jkiss.dbeaver.model.navigator.DBNDatabaseItem;
-import org.jkiss.dbeaver.model.struct.DBSEntity;
-import org.jkiss.dbeaver.model.struct.DBSObject;
-import org.jkiss.dbeaver.model.struct.rdb.DBSPackage;
-import org.jkiss.dbeaver.model.struct.rdb.DBSProcedure;
-import org.jkiss.dbeaver.model.struct.rdb.DBSSequence;
-import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
 import org.jkiss.dbeaver.ui.navigator.INavigatorFilter;
-
-import java.util.Collections;
 
 /**
  * Default database navigator filter
  */
 public class DatabaseNavigatorTreeFilter implements INavigatorFilter {
+
     @Override
     public boolean filterFolders() {
         return false;
@@ -43,17 +34,14 @@ public class DatabaseNavigatorTreeFilter implements INavigatorFilter {
     }
 
     @Override
-    public boolean select(Object element) {
-        if (!(element instanceof DBNDatabaseItem)) {
-            return true;
-        }
-        DBSObject object = ((DBNDatabaseItem) element).getObject();
-        return
-            !(object instanceof DBSEntity) &&
-            !(object instanceof DBSProcedure) &&
-            !(object instanceof DBSTableIndex) &&
-            !(object instanceof DBSPackage) &&
-            !(object instanceof DBSSequence) &&
-            !(object instanceof DBAUser);
+    public boolean filterObjectByPattern(Object object) {
+        return false;
     }
+
+    @Override
+    public boolean select(Object element) {
+        return true;
+    }
+
+
 }

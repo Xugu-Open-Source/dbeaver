@@ -121,9 +121,9 @@ public class UserManager extends SQLObjectEditor<User, DataSource>
 			
 		private DBRProgressMonitor monitor;
 		
-		public CreateUserDialog(Shell shell,DataSource dataSource,DBRProgressMonitor monitor) {
+		public CreateUserDialog(Shell shell, DataSource dataSource, DBRProgressMonitor monitor) {
 			super(shell);
-			this.user = new User(dataSource,monitor);
+			this.user = new User(dataSource, monitor, false);
 			this.dataSource = dataSource;
 			this.monitor = monitor;
 		}
@@ -249,7 +249,7 @@ public class UserManager extends SQLObjectEditor<User, DataSource>
 			Object from, Map<String, Object> options) {
 		DataSource parent = (DataSource) container;
 		context.getUserParams();
-		User newUser = new User(parent, monitor);
+		User newUser = new User(parent, monitor, false);
 		
 		// 修改已存在用户
 		if (from instanceof User) {
@@ -258,6 +258,7 @@ public class UserManager extends SQLObjectEditor<User, DataSource>
 			newUser.setPassword(tplUser.getPassword());
 			newUser.setLocked(tplUser.isLocked());
 			newUser.setExpired(tplUser.isExpired());
+			newUser.setPersisted(true);
 		}
 		// 创建新用户
 		else {
@@ -268,7 +269,7 @@ public class UserManager extends SQLObjectEditor<User, DataSource>
 					if (dialog.open() != IDialogConstants.OK_ID) {
 						return null;
 					}
-					User newUser = new User(parent,dialog.getUserName());
+					User newUser = new User(parent,dialog.getUserName(), false);
 					return newUser;
 				}
 			}.execute();			
@@ -363,13 +364,6 @@ public class UserManager extends SQLObjectEditor<User, DataSource>
 		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop user sql: " + sql);
 		DBEPersistAction action = new SQLDatabasePersistAction("Drop User", sql);
 		actions.add(action);
-		String userNameString = command.getObject().getName();
-		//删除用户后从用户集合中移除该用户。
-		List<User> users = User.users;
-		for (int i = 0; i < users.size(); i++) {
-			if(users.get(i).getName().equals(userNameString));
-			User.users.remove(i);
-		}
 	}
 
 	@Override

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -106,20 +106,26 @@ public abstract class JDBCStructLookupCache<OWNER extends DBSObject, OBJECT exte
                 "Load object '" + objectName + "' from " + owner.getName() :
                 "Reload object '" + object + "' from " + owner.getName()))
         {
+            beforeCacheLoading(session, owner);
             try (JDBCStatement dbStat = prepareLookupStatement(session, owner, object, objectName)) {
                 dbStat.setFetchSize(1);
                 dbStat.executeStatement();
                 JDBCResultSet dbResult = dbStat.getResultSet();
                 if (dbResult != null) {
                     try {
-                        if (dbResult.next()) {
-                            return fetchObject(session, owner, dbResult);
+                        while (dbResult.next()) {
+                            OBJECT remoteObject = fetchObject(session, owner, dbResult);
+                            if (isValidObject(monitor, owner, remoteObject)) {
+                                return remoteObject;
+                            }
                         }
                     } finally {
                         dbResult.close();
                     }
                 }
                 return null;
+            } finally {
+                afterCacheLoading(session, owner);
             }
         } catch (SQLException ex) {
             throw new DBException("Error loading object metadata from database", ex, dataSource);

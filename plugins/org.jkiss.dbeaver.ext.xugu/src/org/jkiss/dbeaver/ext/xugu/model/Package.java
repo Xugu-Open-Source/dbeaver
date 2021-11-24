@@ -91,9 +91,19 @@ public class Package extends BaseSchemaObject implements SourceObject, DBPScript
 		this.sourceDeclaration = JDBCUtils.safeGetString(dbResult, "SPEC");
 		this.sourceDefinition = JDBCUtils.safeGetString(dbResult, "BODY");
 		this.packageName =  JDBCUtils.safeGetString(dbResult, "PACK_NAME");
-		
+		parseProduceAndFuntionBean();
+
+		if (this.sourceDeclaration == null) {
+			this.sourceDeclaration = "--Null Package header";
+		}
+		if (this.sourceDefinition == null) {
+			this.sourceDefinition = "-- Null Package header";
+		}
+	}
+	
+	private void parseProduceAndFuntionBean() {
 		try {
-			this.createPackageBean = XuguParserApi.parseCreatePackage(JDBCUtils.safeGetString(dbResult, "SPEC"));
+			this.createPackageBean = XuguParserApi.parseCreatePackage(this.sourceDeclaration);
 			this.procedureBeans = createPackageBean.getCreateProcedureBeans();
 			this.functionBeans = createPackageBean.getCreateFunctionBeans();
 			parametersList = new ArrayList<NewProcedureParameter>();
@@ -140,44 +150,28 @@ public class Package extends BaseSchemaObject implements SourceObject, DBPScript
 					newProcedurePackaged.setProcParams(parametersList);
 				}
 			}
-		}catch (ParserBusinessException e) {
+		} catch (ParserBusinessException e) {
 			this.createPackageBean = new CreatePackageBean();
 			this.createPackageBean.setCreateFunctionBeans(new ArrayList<>());
 			this.createPackageBean.setCreateProcedureBeans(new ArrayList<>());
-			
+
 			this.procedureBeans = new ArrayList<CreateProcedureBean>();
 			CreateProcedureBean createProcedureBean = new CreateProcedureBean();
 			createProcedureBean.setProcedureName("Package existing parser does not support syntax objects");
 			createProcedureBean.setParamSize(0);
 	        this.procedureBeans.add(createProcedureBean);
-	      
 	        
 	    	this.functionBeans = new ArrayList<CreateFunctionBean>();
 			CreateFunctionBean createFunctionBean = new CreateFunctionBean();
 			createFunctionBean.setFunctionName("Package existing parser does not support syntax objects");
 			createFunctionBean.setParamSize(0);
 	        this.functionBeans.add(createFunctionBean);
-	        
+
 		    DBeaverNotifications.showNotification(
                     DBeaverNotifications.NT_RECONNECT,
                     packageName,
                      e.getMessage(),
-                    DBPMessageType.INFORMATION,new Runnable() {
-		
-						@Override
-						public void run() {
-							// TODO Auto-generated method stub
-							
-						}
-					});
-	       
-		}
-
-		if (this.sourceDeclaration == null) {
-			this.sourceDeclaration = "--Null Package header";
-		}
-		if (this.sourceDefinition == null) {
-			this.sourceDefinition = "-- Null Package header";
+                    DBPMessageType.INFORMATION, ()->{});
 		}
 	}
 	
@@ -390,7 +384,7 @@ public class Package extends BaseSchemaObject implements SourceObject, DBPScript
 	}
 
 	@Override
-	public Class<? extends DBSObject> getChildType(@NotNull DBRProgressMonitor monitor) throws DBException {
+	public Class<? extends DBSObject> getPrimaryChildType(DBRProgressMonitor monitor) throws DBException {
 		return ProcedurePackaged.class;
 	}
 
@@ -402,6 +396,8 @@ public class Package extends BaseSchemaObject implements SourceObject, DBPScript
 	@Override
 	public DBSObject refreshObject(@NotNull DBRProgressMonitor monitor) throws DBException {
 		this.proceduresCache.clearCache();
+		this.proceduresCache.getAllObjects(monitor, this);
+		parseProduceAndFuntionBean();
 		return this;
 	}
 
@@ -473,8 +469,4 @@ public class Package extends BaseSchemaObject implements SourceObject, DBPScript
 		// TODO Auto-generated method stub
 		return null;
 	}
- 
-	
-	
-	
 }

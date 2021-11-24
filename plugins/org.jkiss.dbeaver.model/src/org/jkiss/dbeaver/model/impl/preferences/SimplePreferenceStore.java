@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ public abstract class SimplePreferenceStore extends AbstractPreferenceStore {
 
     public void setProperties(Map<String, String> properties)
     {
-        this.properties = properties;
+        this.properties = new HashMap<>(properties);
     }
 
     public Map<String, String> getDefaultProperties()
@@ -75,7 +75,7 @@ public abstract class SimplePreferenceStore extends AbstractPreferenceStore {
 
     public void setDefaultProperties(Map<String, String> defaultProperties)
     {
-        this.defaultProperties = defaultProperties;
+        this.defaultProperties = new HashMap<>(defaultProperties);
     }
 
     public void clear()
@@ -98,8 +98,7 @@ public abstract class SimplePreferenceStore extends AbstractPreferenceStore {
     @Override
     public boolean contains(String name)
     {
-        return (properties.containsKey(name) || defaultProperties
-            .containsKey(name));
+        return properties.containsKey(name);
     }
 
     @Override

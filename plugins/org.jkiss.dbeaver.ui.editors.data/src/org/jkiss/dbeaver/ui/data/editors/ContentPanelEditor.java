@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPMessageType;
 import org.jkiss.dbeaver.model.DBUtils;
@@ -37,6 +36,7 @@ import org.jkiss.dbeaver.model.data.DBDContent;
 import org.jkiss.dbeaver.model.data.DBDContentCached;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.impl.data.StringContent;
+import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.load.AbstractLoadService;
@@ -54,11 +54,12 @@ import org.jkiss.dbeaver.ui.data.IValueController;
 import org.jkiss.dbeaver.ui.data.registry.StreamValueManagerDescriptor;
 import org.jkiss.dbeaver.ui.data.registry.ValueManagerRegistry;
 import org.jkiss.dbeaver.utils.MimeTypes;
+import org.jkiss.dbeaver.utils.PrefUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.*;
 import java.util.List;
+import java.util.*;
 
 /**
 * ControlPanelEditor
@@ -66,6 +67,8 @@ import java.util.List;
 public class ContentPanelEditor extends BaseValueEditor<Control> implements IAdaptable {
 
     private static final Log log = Log.getLog(ContentPanelEditor.class);
+
+    private static final String PROP_VALUE_MANAGER = "valueManager";
 
     private static Map<String, String> valueToManagerMap = new HashMap<>();
 
@@ -78,6 +81,15 @@ public class ContentPanelEditor extends BaseValueEditor<Control> implements IAda
 
     public ContentPanelEditor(IValueController controller) {
         super(controller);
+
+        // Load manager setting for current attribute
+        if (controller.getExecutionContext() != null) {
+            final DBPPreferenceStore store = controller.getExecutionContext().getDataSource().getContainer().getPreferenceStore();
+            final String managerId = store.getString(PROP_VALUE_MANAGER + '.' + makeValueId(false));
+            if (CommonUtils.isNotEmpty(managerId)) {
+                valueToManagerMap.put(makeValueId(true), managerId);
+            }
+        }
     }
 
     @Override
@@ -105,12 +117,11 @@ public class ContentPanelEditor extends BaseValueEditor<Control> implements IAda
         }
         if (isStringValue()) {
             // It is a string
-            DBPDataSource dataSource = valueController.getExecutionContext() == null ? null : valueController.getExecutionContext().getDataSource();
             streamEditor.primeEditorValue(
                 new VoidProgressMonitor(),
                 control,
                 new StringContent(
-                    dataSource, CommonUtils.toString(content)));
+                    valueController.getExecutionContext(), CommonUtils.toString(content)));
         } else if (content instanceof DBDContent) {
             loadInService = !(content instanceof DBDContentCached);
             if (loadInService) {
@@ -142,7 +153,7 @@ public class ContentPanelEditor extends BaseValueEditor<Control> implements IAda
         final Object content = valueController.getValue();
         if (isStringValue()) {
             StringContent stringContent = new StringContent(
-                valueController.getExecutionContext().getDataSource(), null);
+                valueController.getExecutionContext(), null);
             streamEditor.extractEditorValue(new VoidProgressMonitor(), control, stringContent);
             return stringContent.getRawValue();
         } else {
@@ -230,7 +241,7 @@ public class ContentPanelEditor extends BaseValueEditor<Control> implements IAda
 
     private void loadStringStreamManagers() throws DBException {
         streamManagers = ValueManagerRegistry.getInstance().getStreamManagersByMimeType(MimeTypes.TEXT, MimeTypes.TEXT_PLAIN);
-        String savedManagerId = valueToManagerMap.get(makeValueId());
+        String savedManagerId = valueToManagerMap.get(makeValueId(true));
         detectCurrentStreamManager(savedManagerId);
     }
 
@@ -266,14 +277,21 @@ public class ContentPanelEditor extends BaseValueEditor<Control> implements IAda
 
         if (curStreamManager != null) {
             // Save manager setting for current attribute
-            String valueId = makeValueId();
-            valueToManagerMap.put(valueId, curStreamManager.getId());
+            final String valueId = makeValueId(true);
+            final String managerId = curStreamManager.getId();
 
+            if (valueController.getExecutionContext() != null) {
+                final DBPPreferenceStore store = valueController.getExecutionContext().getDataSource().getContainer().getPreferenceStore();
+                store.setValue(PROP_VALUE_MANAGER + '.' + makeValueId(false), managerId);
+                PrefUtils.savePreferenceStore(store);
+            }
+
+            valueToManagerMap.put(valueId, managerId);
             valueController.refreshEditor();
         }
     }
 
-    private String makeValueId() {
+    private String makeValueId(boolean includeDataSource) {
         String valueId;
         DBSTypedObject valueType = valueController.getValueType();
         if (valueType instanceof DBDAttributeBinding) {
@@ -289,11 +307,14 @@ public class ContentPanelEditor extends BaseValueEditor<Control> implements IAda
         } else {
             valueId = valueController.getValueName();
         }
-        String dsId = "unknown";
-        if (valueController.getExecutionContext() != null) {
-            dsId = valueController.getExecutionContext().getDataSource().getContainer().getId();
+        if (includeDataSource) {
+            String dsId = "unknown";
+            if (valueController.getExecutionContext() != null) {
+                dsId = valueController.getExecutionContext().getDataSource().getContainer().getId();
+            }
+            return dsId + ":" + valueId;
         }
-        return dsId + ":" + valueId;
+        return valueId;
     }
 
     private StreamValueManagerDescriptor findManager(String id) {
@@ -329,7 +350,7 @@ public class ContentPanelEditor extends BaseValueEditor<Control> implements IAda
 
     private void detectStreamManager(DBRProgressMonitor monitor, DBDContent content) throws DBException {
         streamManagers = ValueManagerRegistry.getInstance().getApplicableStreamManagers(monitor, valueController.getValueType(), content);
-        String savedManagerId = valueToManagerMap.get(makeValueId());
+        String savedManagerId = valueToManagerMap.get(makeValueId(true));
         detectCurrentStreamManager(savedManagerId);
     }
 
@@ -496,9 +517,16 @@ public class ContentPanelEditor extends BaseValueEditor<Control> implements IAda
             monitor.beginTask("Detect appropriate editor", 1);
             try {
                 monitor.subTask("Prime LOB value");
-                streamEditor.primeEditorValue(monitor, control, content);
-            } catch (Exception e) {
-                valueController.showMessage(e.getMessage(), DBPMessageType.ERROR);
+                UIUtils.syncExec(() -> {
+                    try {
+                        if (!control.isDisposed()) {
+                            streamEditor.primeEditorValue(monitor, control, content);
+                        }
+                    } catch (Exception e) {
+                        valueController.showMessage(e.getMessage(), DBPMessageType.ERROR);
+                        DBWorkbench.getPlatformUI().showError("Value panel", "Error loading contents", e);
+                    }
+                });
             } finally {
                 monitor.done();
             }

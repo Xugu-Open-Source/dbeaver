@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,8 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.*;
 import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.connection.DBPDataSourceProviderDescriptor;
+import org.jkiss.dbeaver.model.connection.DBPDriver;
 import org.jkiss.dbeaver.registry.DataSourceProviderDescriptor;
 import org.jkiss.dbeaver.registry.DataSourceProviderRegistry;
 import org.jkiss.dbeaver.registry.DataSourceRegistry;
@@ -84,10 +86,10 @@ public class DriverManagerDialog extends HelpEnabledDialog implements ISelection
 
     @Override
     protected Control createDialogArea(Composite parent) {
-        List<DataSourceProviderDescriptor> enabledProviders = DataSourceProviderRegistry.getInstance().getEnabledDataSourceProviders();
+        List<DBPDataSourceProviderDescriptor> enabledProviders = DataSourceProviderRegistry.getInstance().getEnabledDataSourceProviders();
         {
-            DataSourceProviderDescriptor manProvider = null;
-            for (DataSourceProviderDescriptor provider : DataSourceProviderRegistry.getInstance().getEnabledDataSourceProviders()) {
+            DBPDataSourceProviderDescriptor manProvider = null;
+            for (DBPDataSourceProviderDescriptor provider : DataSourceProviderRegistry.getInstance().getEnabledDataSourceProviders()) {
                 if (provider.isDriversManagable()) {
                     if (manProvider != null) {
                         manProvider = null;
@@ -97,7 +99,7 @@ public class DriverManagerDialog extends HelpEnabledDialog implements ISelection
                 }
             }
             if (manProvider != null) {
-                onlyManagableProvider = manProvider;
+                onlyManagableProvider = (DataSourceProviderDescriptor) manProvider;
             }
         }
 
@@ -110,7 +112,7 @@ public class DriverManagerDialog extends HelpEnabledDialog implements ISelection
         group.setLayoutData(new GridData(GridData.FILL_BOTH));
 
         {
-            treeControl = new DriverSelectViewer(group, this, enabledProviders, false, true);
+            treeControl = new DriverSelectViewer(group, this, enabledProviders, false, DriverSelectViewer.SelectorViewType.tree);
             GridData gd = new GridData(GridData.FILL_BOTH);
             gd.heightHint = 300;
             gd.widthHint = 300;
@@ -401,8 +403,8 @@ public class DriverManagerDialog extends HelpEnabledDialog implements ISelection
                 Table driverTable = new Table(composite, SWT.CHECK | SWT.FULL_SELECTION | SWT.BORDER);
                 driverTable.setLayoutData(new GridData(GridData.FILL_BOTH));
 
-                for (DataSourceProviderDescriptor dspd : DataSourceProviderRegistry.getInstance().getEnabledDataSourceProviders()) {
-                    for (DriverDescriptor dd : dspd.getDrivers()) {
+                for (DBPDataSourceProviderDescriptor dspd : DataSourceProviderRegistry.getInstance().getEnabledDataSourceProviders()) {
+                    for (DBPDriver dd : dspd.getDrivers()) {
                         if (dd.isDisabled()) {
                             TableItem item = new TableItem(driverTable, SWT.NONE);
                             item.setImage(DBeaverIcons.getImage(dd.getIcon()));

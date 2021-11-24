@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,11 +18,15 @@
 package org.jkiss.dbeaver.ext.mysql.edit;
 
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.mysql.model.MySQLEngine;
 import org.jkiss.dbeaver.ext.mysql.model.MySQLTable;
+import org.jkiss.dbeaver.ext.mysql.model.MySQLTableConstraint;
 import org.jkiss.dbeaver.ext.mysql.model.MySQLTableForeignKey;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
+import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCException;
+import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.impl.sql.edit.struct.SQLForeignKeyManager;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
@@ -30,6 +34,7 @@ import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.model.struct.rdb.DBSForeignKeyModifyRule;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -62,12 +67,18 @@ public class MySQLForeignKeyManager extends SQLForeignKeyManager<MySQLTableForei
             table,
             "",
             null,
-            null,
+            getReferencedKey(monitor, table, MySQLTableConstraint.class, options),
             DBSForeignKeyModifyRule.NO_ACTION,
             DBSForeignKeyModifyRule.NO_ACTION,
             false);
         foreignKey.setName(getNewConstraintName(monitor, foreignKey));
         return foreignKey;
+    }
+
+    @Override
+    protected void addObjectModifyActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, List<DBEPersistAction> actions, ObjectChangeCommand command, Map<String, Object> options) throws DBException {
+        addObjectDeleteActions(monitor, executionContext, actions, new ObjectDeleteCommand(command.getObject(), command.getTitle()), options);
+        addObjectCreateActions(monitor, executionContext, actions, makeCreateCommand(command.getObject(), options), options);
     }
 
     @Override

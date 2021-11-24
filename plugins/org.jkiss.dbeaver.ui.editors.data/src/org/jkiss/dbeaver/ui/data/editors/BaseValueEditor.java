@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.events.FocusEvent;
 import org.eclipse.swt.events.FocusListener;
 import org.eclipse.swt.graphics.Font;
+import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.*;
 import org.eclipse.ui.themes.ITheme;
 import org.jkiss.code.NotNull;
@@ -38,12 +40,14 @@ import org.jkiss.dbeaver.ui.data.IValueController;
 import org.jkiss.dbeaver.ui.data.IValueEditor;
 import org.jkiss.dbeaver.ui.editors.EditorUtils;
 import org.jkiss.dbeaver.ui.editors.TextEditorUtils;
+import org.jkiss.dbeaver.utils.RuntimeUtils;
+
+import java.util.function.Consumer;
 
 /**
 * BaseValueEditor
 */
 public abstract class BaseValueEditor<T extends Control> implements IValueEditor {
-
     private static final String RESULTS_EDIT_CONTEXT_ID = "org.jkiss.dbeaver.ui.context.resultset.edit";
 
     private static final Log log = Log.getLog(BaseValueEditor.class);
@@ -56,6 +60,10 @@ public abstract class BaseValueEditor<T extends Control> implements IValueEditor
     protected BaseValueEditor(final IValueController valueController)
     {
         this.valueController = valueController;
+    }
+
+    public IValueController getValueController() {
+        return valueController;
     }
 
     public void createControl() {
@@ -100,9 +108,10 @@ public abstract class BaseValueEditor<T extends Control> implements IValueEditor
 //                inlineControl.setBackground(valueController.getEditPlaceholder().getBackground());
 //            }
 
-        EditorUtils.trackControlContext(valueController.getValueSite(), inlineControl, RESULTS_EDIT_CONTEXT_ID);
 
         if (isInline) {
+            EditorUtils.trackControlContext(valueController.getValueSite(), inlineControl, RESULTS_EDIT_CONTEXT_ID);
+
             //inlineControl.setFont(valueController.getEditPlaceholder().getFont());
             //inlineControl.setFocus();
 
@@ -150,6 +159,7 @@ public abstract class BaseValueEditor<T extends Control> implements IValueEditor
     }
 
     private void addAutoSaveSupport(final Control inlineControl) {
+        BaseValueEditor<?> editor = this;
         // Do not use focus listener in dialogs (because dialog has controls like Ok/Cancel buttons)
         inlineControl.addFocusListener(new FocusListener() {
             @Override
@@ -158,16 +168,34 @@ public abstract class BaseValueEditor<T extends Control> implements IValueEditor
 
             @Override
             public void focusLost(FocusEvent e) {
-                // Check new focus control in async mode
-                // (because right now focus is still on edit control)
-                if (!valueController.isReadOnly()) {
-                    saveValue(false);
+                // It feels like on Linux editor's control is 'invisible' for GTK and mouse clicks
+                // 'go through' the control and reach underlying spreadsheet. Workaround:
+                // check that in reality we clicked on editor by checking that cursor is in control's
+                // bounds. See [dbeaver#10561].
+                Rectangle controlBounds = editor.control.getBounds();
+                Point relativeCursorLocation = editor.control.toControl(e.display.getCursorLocation());
+                if (controlBounds.contains(relativeCursorLocation)) {
+                    return;
                 }
-                if (valueController instanceof IMultiController) {
-                    ((IMultiController) valueController).closeInlineEditor();
-                }
+
+                onFocusLost(valueController::updateSelectionValue);
             }
         });
+
+        // Unfortunately, focusLost events on macOS never reach the listener above.
+        // However, we rely on them to save the value when the user clicks somewhere on the grid and LightGrid forces focus on itself.
+        // The solution is to add dispose listener. But here is a catch: when inline control is about to be disposed of, the selection is already
+        // on some other cell on the grid. Hence, we need to use updateValue() on valueController, not updateSelectionValue().
+        UIUtils.installMacOSFocusLostSubstitution(inlineControl, () -> onFocusLost(value -> valueController.updateValue(value, true)));
+    }
+
+    private void onFocusLost(@NotNull Consumer<Object> valueSaver) {
+        if (!valueController.isReadOnly()) {
+            saveValue(false, valueSaver);
+        }
+        if (valueController instanceof IMultiController) {
+            ((IMultiController) valueController).closeInlineEditor();
+        }
     }
 
     protected void saveValue() {
@@ -175,11 +203,15 @@ public abstract class BaseValueEditor<T extends Control> implements IValueEditor
     }
 
     protected void saveValue(boolean showError) {
+        saveValue(showError, valueController::updateSelectionValue);
+    }
+
+    private void saveValue(boolean showError, @NotNull Consumer<Object> valueUpdater) {
         try {
             Object newValue = extractEditorValue();
             if (dirty || control instanceof Combo || control instanceof CCombo || control instanceof List) {
                 // Combos are always dirty (because drop-down menu sets a selection)
-                valueController.updateSelectionValue(newValue);
+                valueUpdater.accept(newValue);
             }
         } catch (DBException e) {
             if (valueController instanceof IMultiController) {

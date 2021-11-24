@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@ import org.jkiss.dbeaver.model.navigator.*;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.*;
 import org.jkiss.dbeaver.ui.controls.ViewerColumnController;
-import org.jkiss.dbeaver.ui.navigator.database.NavigatorViewBase;
 import org.jkiss.dbeaver.ui.project.PrefPageProjectResourceSettings;
 import org.jkiss.utils.CommonUtils;
 
@@ -44,7 +43,7 @@ import java.util.Date;
 /**
  * ProjectExplorerView
  */
-public class ProjectExplorerView extends NavigatorViewBase implements DBPProjectListener {
+public class ProjectExplorerView extends DecoratedProjectView implements DBPProjectListener {
 
     //static final Log log = Log.getLog(ProjectExplorerView.class);
 
@@ -81,6 +80,16 @@ public class ProjectExplorerView extends NavigatorViewBase implements DBPProject
             createColumns(viewer);
             updateTitle();
         });
+        // Remove all non-resource nodes
+        getNavigatorTree().getViewer().addFilter(new ViewerFilter() {
+            @Override
+            public boolean select(Viewer viewer, Object parentElement, Object element) {
+                if (parentElement == viewer.getInput() && !(element instanceof DBNResource)) {
+                    return false;
+                }
+                return true;
+            }
+        });
     }
 
     private void createColumns(final TreeViewer viewer) {
@@ -97,7 +106,11 @@ public class ProjectExplorerView extends NavigatorViewBase implements DBPProject
 
             @Override
             public Image getImage(Object element) {
-                return mainLabelProvider.getImage(element);
+                Image image = mainLabelProvider.getImage(element);
+                if (element instanceof DBNResource) {
+                    image = labelDecorator.decorateImage(image, element);
+                }
+                return image;
             }
 
             @Override

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,5 +20,10 @@ package org.jkiss.dbeaver.ext.oracle.tasks;
 public class OracleTasks {
 
     public static final String TASK_SCRIPT_EXECUTE = "oracleScriptExecute";
+    public static final String TASK_TABLE_VALIDATE_STRUCTURE = "oracleToolValidateStructure";
+    public static final String TASK_TABLE_TRUNCATE = "oracleToolTableTruncate";
+    public static final String TASK_TABLE_GATHER_STATISTICS = "oracleToolTableGatherStatistics";
+    public static final String TASK_INDEX_GATHER_STATISTICS = "oracleToolIndexGatherStatistics";
+    public static final String TASK_MVIEW_REFRESH = "oracleToolMViewRefresh";
 
 }

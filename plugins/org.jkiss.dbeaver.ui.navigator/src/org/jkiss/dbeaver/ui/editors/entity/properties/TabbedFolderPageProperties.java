@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.jface.action.IContributionManager;
 import org.eclipse.jface.action.IMenuManager;
+import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.viewers.ColumnLabelProvider;
 import org.eclipse.jface.viewers.IFontProvider;
 import org.eclipse.jface.viewers.ISelection;
@@ -145,14 +146,16 @@ public class TabbedFolderPageProperties extends TabbedFolderPage implements IRef
     }
 
     @Override
-    public void refreshPart(Object source, boolean force) {
+    public RefreshResult refreshPart(Object source, boolean force) {
         if (force) {
             curPropertySource = input.getPropertySource();
             if (propertyTree != null) {
                 propertyTree.loadProperties(curPropertySource);
                 refreshProperties();
+                return RefreshResult.REFRESHED;
             }
         }
+        return RefreshResult.IGNORED;
     }
 
     @Override
@@ -165,7 +168,7 @@ public class TabbedFolderPageProperties extends TabbedFolderPage implements IRef
 
     public List<String> getExtraCategories() {
         List<String> extraCategories = new ArrayList<>();
-        for (DBPPropertyDescriptor prop : input.getPropertySource().getPropertyDescriptors2()) {
+        for (DBPPropertyDescriptor prop : input.getPropertySource().getProperties()) {
             String category = prop.getCategory();
             if (!CommonUtils.isEmpty(category)) {
                 if (!extraCategories.contains(category)) {
@@ -251,6 +254,10 @@ public class TabbedFolderPageProperties extends TabbedFolderPage implements IRef
             super.fillCustomActions(contributionManager);
             if (part != null) {
                 DatabaseEditorUtils.contributeStandardEditorActions(part.getSite(), contributionManager);
+                if (part instanceof ObjectPropertiesEditor) {
+                    contributionManager.add(new Separator());
+                    ((ObjectPropertiesEditor) part).createPropertyRefreshAction(contributionManager);
+                }
             }
         }
 

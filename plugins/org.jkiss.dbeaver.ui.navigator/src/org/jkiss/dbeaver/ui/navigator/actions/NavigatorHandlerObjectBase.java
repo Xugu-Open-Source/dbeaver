@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,10 @@ import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IEditorReference;
+import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBUtils;
@@ -41,6 +44,7 @@ import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.folders.ITabbedFolderContainer;
 import org.jkiss.dbeaver.ui.editors.IDatabaseEditor;
 import org.jkiss.dbeaver.ui.editors.IDatabaseEditorInput;
+import org.jkiss.dbeaver.ui.editors.IDatabaseModellerEditor;
 import org.jkiss.dbeaver.ui.editors.SimpleCommandContext;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
 
@@ -80,9 +84,10 @@ public abstract class NavigatorHandlerObjectBase extends AbstractHandler {
     }
 
     protected static CommandTarget getCommandTarget(
-        IWorkbenchWindow workbenchWindow,
-        DBNNode container,
-        Class<?> childType,
+        @NotNull IWorkbenchWindow workbenchWindow,
+        @NotNull DBNNode container,
+        @Nullable DBNDatabaseNode editorNode,
+        @NotNull Class<?> childType,
         boolean openEditor)
         throws DBException
     {
@@ -93,24 +98,37 @@ public abstract class NavigatorHandlerObjectBase extends AbstractHandler {
             final DBEStructEditor parentStructEditor = DBWorkbench.getPlatform().getEditorsRegistry().getObjectManager(parentObject.getClass(), DBEStructEditor.class);
             if (parentStructEditor != null && RuntimeUtils.isTypeSupported(childType, parentStructEditor.getChildTypes())) {
                 objectToSeek = (DBSObject) parentObject;
+            } else if (editorNode != null) {
+                objectToSeek = editorNode.getObject();
             }
         }
         if (objectToSeek != null) {
-            for (final IEditorReference editorRef : workbenchWindow.getActivePage().getEditorReferences()) {
+            IWorkbenchPage activePage = workbenchWindow.getActivePage();
+            IEditorPart activeEditor = activePage.getActiveEditor();
+            if (activeEditor instanceof IDatabaseEditor) {
+                IDatabaseModellerEditor modellerEditor = activeEditor.getAdapter(IDatabaseModellerEditor.class);
+                if (modellerEditor != null && modellerEditor.isModelEditEnabled() && modellerEditor.containsModelObject(objectToSeek)) {
+                    return new CommandTarget((IDatabaseEditor) activeEditor);
+                }
+            }
+            for (final IEditorReference editorRef : activePage.getEditorReferences()) {
                 final IEditorPart editor = editorRef.getEditor(false);
                 if (editor instanceof IDatabaseEditor) {
                     final IDatabaseEditorInput editorInput = (IDatabaseEditorInput) editor.getEditorInput();
                     if (editorInput.getDatabaseObject() == objectToSeek) {
-                        workbenchWindow.getActivePage().activate(editor);
-                        switchEditorFolder(container, editor);
+                        activePage.activate(editor);
+                        if (editor.getAdapter(IDatabaseModellerEditor.class) == null) {
+                            // Switch to folder unless we are already in modelling mode
+                            switchEditorFolder(container, editor);
+                        }
                         return new CommandTarget((IDatabaseEditor) editor);
                     }
                 }
             }
 
-            if (openEditor && container instanceof DBNDatabaseNode) {
+            if (openEditor) {
                 final IDatabaseEditor editor = (IDatabaseEditor) NavigatorHandlerObjectOpen.openEntityEditor(
-                    (DBNDatabaseNode) container,
+                    container,
                     null,
                     workbenchWindow);
                 if (editor != null) {
@@ -198,6 +216,12 @@ public abstract class NavigatorHandlerObjectBase extends AbstractHandler {
                             SQLUtils.generateScript(commandContext.getExecutionContext().getDataSource(),
                                 persistActions,
                                 false));
+                        if (script.length() == 0) {
+                            script.append(
+                                SQLUtils.generateComments(commandContext.getExecutionContext().getDataSource(),
+                                    persistActions,
+                                    false));
+                        }
                     }
                 } catch (DBException e) {
                     throw new InvocationTargetException(e);
@@ -208,10 +232,14 @@ public abstract class NavigatorHandlerObjectBase extends AbstractHandler {
         } catch (InterruptedException e) {
             return false;
         }
-        UIServiceSQL serviceSQL = DBWorkbench.getService(UIServiceSQL.class);
-        if (serviceSQL != null) {
-            return serviceSQL.openSQLViewer(
-                commandContext.getExecutionContext(), dialogTitle, UIIcon.SQL_PREVIEW, script.toString(), true, false) == IDialogConstants.PROCEED_ID;
+        if (script.length() > 0) {
+            UIServiceSQL serviceSQL = DBWorkbench.getService(UIServiceSQL.class);
+            if (serviceSQL != null) {
+                return serviceSQL.openSQLViewer(
+                    commandContext.getExecutionContext(), dialogTitle, UIIcon.SQL_PREVIEW, script.toString(), true, false) == IDialogConstants.PROCEED_ID;
+            }
+        } else {
+            return UIUtils.confirmAction(workbenchWindow.getShell(), dialogTitle, "No SQL script available.\nAre you sure you want to proceed?");
         }
 
         return false;

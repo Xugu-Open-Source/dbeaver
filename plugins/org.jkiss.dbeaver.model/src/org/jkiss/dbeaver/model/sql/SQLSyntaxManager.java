@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package org.jkiss.dbeaver.model.sql;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.ModelPreferences;
-import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPIdentifierCase;
 import org.jkiss.dbeaver.model.impl.sql.BasicSQLDialect;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
@@ -133,10 +132,6 @@ public class SQLSyntaxManager {
         return variablesEnabled;
     }
 
-    public void init(@NotNull DBPDataSource dataSource) {
-        init(SQLUtils.getDialectFromObject(dataSource), dataSource.getContainer().getPreferenceStore());
-    }
-
     public void init(@NotNull SQLDialect dialect, @NotNull DBPPreferenceStore preferenceStore)
     {
         this.statementDelimiters = new String[0];
@@ -148,7 +143,11 @@ public class SQLSyntaxManager {
         this.catalogSeparator = sqlDialect.getCatalogSeparator();
         this.escapeChar = dialect.getStringEscapeCharacter();
         if (!preferenceStore.getBoolean(ModelPreferences.SCRIPT_IGNORE_NATIVE_DELIMITER)) {
-            this.statementDelimiters = new String[] { sqlDialect.getScriptDelimiter().toLowerCase() };
+            String[] scriptDelimiters = sqlDialect.getScriptDelimiters();
+            this.statementDelimiters = new String[scriptDelimiters.length];
+            for (int i = 0; i < scriptDelimiters.length; i++) {
+                this.statementDelimiters[i] = scriptDelimiters[i].toLowerCase();
+            }
         }
 
         String extraDelimiters = preferenceStore.getString(ModelPreferences.SCRIPT_STATEMENT_DELIMITER);
@@ -191,11 +190,7 @@ public class SQLSyntaxManager {
             // Database specific
             return sqlDialect.storesUnquotedCase();
         } else {
-            try {
-                return DBPIdentifierCase.valueOf(caseName.toUpperCase());
-            } catch (IllegalArgumentException e) {
-                return DBPIdentifierCase.MIXED;
-            }
+            return CommonUtils.valueOf(DBPIdentifierCase.class, caseName.toUpperCase(), DBPIdentifierCase.MIXED);
         }
     }
 }

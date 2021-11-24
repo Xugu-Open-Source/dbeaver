@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,9 @@ import org.jkiss.dbeaver.ui.dialogs.BaseDialog;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * PostgreCreateDatabaseDialog
@@ -79,7 +81,7 @@ public class PostgreCreateDatabaseDialog extends BaseDialog
 
         final Text nameText = UIUtils.createLabelText(groupGeneral, PostgreMessages.dialog_create_db_label_db_name, ""); //$NON-NLS-2$
         nameText.addModifyListener(e -> {
-            name = nameText.getText();
+            name = nameText.getText().trim();
             getButton(IDialogConstants.OK_ID).setEnabled(!name.isEmpty());
         });
 
@@ -132,12 +134,15 @@ public class PostgreCreateDatabaseDialog extends BaseDialog
 
             @Override
             protected IStatus run(DBRProgressMonitor monitor) {
+                monitor.beginTask("Create database", 1);
                 try {
                     PostgreDatabase database = dataSource.getDefaultInstance();
                     allUsers = supportsRoles ? new ArrayList<>(database.getUsers(monitor)) : null;
                     allEncodings = supportsEncodings ? new ArrayList<>(database.getEncodings(monitor)) : null;
                     allTablespaces = supportsTablespaces ? new ArrayList<>(database.getTablespaces(monitor)) : null;
                     allTemplates = new ArrayList<>(dataSource.getTemplateDatabases(monitor));
+                    allTemplates.addAll(dataSource.getDatabases().stream().map(PostgreDatabase::getName).collect(Collectors.toList()));
+                    allTemplates.sort(Comparator.naturalOrder());
 
                     final PostgreRole dba = supportsRoles ? database.getDBA(monitor) : null;
                     final String defUserName = dba == null ? "" : dba.getName();
@@ -188,6 +193,8 @@ public class PostgreCreateDatabaseDialog extends BaseDialog
                     });
                 } catch (DBException e) {
                     return GeneralUtils.makeExceptionStatus(e);
+                } finally {
+                    monitor.done();
                 }
                 return Status.OK_STATUS;
             }

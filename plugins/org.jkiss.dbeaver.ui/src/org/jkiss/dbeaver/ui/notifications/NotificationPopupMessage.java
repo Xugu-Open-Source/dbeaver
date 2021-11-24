@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,9 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.ui.PlatformUI;
+import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 
 public class NotificationPopupMessage extends DatabaseNotificationPopup {
@@ -47,7 +49,15 @@ public class NotificationPopupMessage extends DatabaseNotificationPopup {
     @Override
     protected Image getPopupShellImage(int maximumHeight) {
         boolean hasIcon = iconType == SWT.ICON_ERROR || iconType == SWT.ICON_WARNING || iconType == SWT.ICON_QUESTION;
-        return hasIcon ? getShell().getDisplay().getSystemImage(iconType) : null;
+        if (hasIcon) {
+            switch (iconType) {
+                case SWT.ICON_ERROR: return DBeaverIcons.getImage(DBIcon.STATUS_ERROR);
+                case SWT.ICON_WARNING: return DBeaverIcons.getImage(DBIcon.STATUS_WARNING);
+                default:
+                    return DBeaverIcons.getImage(DBIcon.STATUS_INFO);
+            }
+        }
+        return null;
     }
 
     @Override

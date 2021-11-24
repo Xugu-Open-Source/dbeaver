@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,14 @@
 package org.jkiss.dbeaver.ext.postgresql.model;
 
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.model.DBConstants;
+import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
-import org.jkiss.dbeaver.model.auth.DBAAuthModel;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
+import org.jkiss.dbeaver.model.exec.DBCException;
+import org.jkiss.dbeaver.model.impl.auth.AuthModelDatabaseNative;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
@@ -32,25 +34,53 @@ import org.jkiss.utils.IOUtils;
 import java.io.*;
 import java.util.Properties;
 
-public class AuthModelPgPass implements DBAAuthModel {
-
+public class AuthModelPgPass extends AuthModelDatabaseNative<AuthModelPgPassCredentials> {
     private static final Log log = Log.getLog(AuthModelPgPass.class);
+
     public static final String PGPASSFILE_ENV_VARIABLE = "PGPASSFILE";
 
+    @NotNull
     @Override
-    public void initAuthentication(@NotNull DBRProgressMonitor monitor, @NotNull DBPDataSourceContainer dataSource, @NotNull DBPConnectionConfiguration configuration, @NotNull Properties connProperties) throws DBException {
-        loadPasswordFromPgPass(configuration, connProperties);
+    public AuthModelPgPassCredentials createCredentials() {
+        return new AuthModelPgPassCredentials();
+    }
+
+    @NotNull
+    @Override
+    public AuthModelPgPassCredentials loadCredentials(@NotNull DBPDataSourceContainer dataSource, @NotNull DBPConnectionConfiguration configuration) {
+        AuthModelPgPassCredentials credentials = super.loadCredentials(dataSource, configuration);
+        try {
+            loadPasswordFromPgPass(credentials, dataSource, configuration);
+            credentials.setParseError(null);
+        } catch (DBException e) {
+            credentials.setParseError(e);
+        }
+        return credentials;
     }
 
     @Override
-    public void endAuthentication(@NotNull DBPDataSourceContainer dataSource, @NotNull DBPConnectionConfiguration configuration, @NotNull Properties connProperties) {
-
+    public Object initAuthentication(@NotNull DBRProgressMonitor monitor, @NotNull DBPDataSource dataSource, AuthModelPgPassCredentials credentials, DBPConnectionConfiguration configuration, @NotNull Properties connectProps) throws DBException {
+        if (credentials.getParseError() != null) {
+            throw new DBCException("Couldn't get password from PGPASS file", credentials.getParseError());
+        }
+        return super.initAuthentication(monitor, dataSource, credentials, configuration, connectProps);
     }
 
-    private void loadPasswordFromPgPass(DBPConnectionConfiguration configuration, Properties connProperties) throws DBException {
+    private void loadPasswordFromPgPass(AuthModelPgPassCredentials credentials, DBPDataSourceContainer dataSource, DBPConnectionConfiguration configuration) throws DBException {
+        // Take database name from original config. Because it may change when user switch between databases.
+        DBPConnectionConfiguration originalConfiguration = dataSource.getConnectionConfiguration();
+        String conHostName = configuration.getHostName();
+        String conHostPort = originalConfiguration.getHostPort();
+        String conDatabaseName = originalConfiguration.getDatabaseName();
+        String conUserName = originalConfiguration.getUserName();
+
+        if (CommonUtils.isEmpty(conHostPort)) {
+            conHostPort = dataSource.getDriver().getDefaultPort();
+        }
+
         String pgPassPath = System.getenv(PGPASSFILE_ENV_VARIABLE);
         if (CommonUtils.isEmpty(pgPassPath)) {
-            if (RuntimeUtils.isPlatformWindows()) {
+            if (RuntimeUtils.isWindows()) {
                 String appData = System.getenv("AppData");
                 if (appData == null) {
                     appData = System.getProperty("user.home");
@@ -73,8 +103,9 @@ public class AuthModelPgPass implements DBAAuthModel {
                 if (line.isEmpty() || line.startsWith("#")) {
                     continue;
                 }
-                String[] params = line.split(":");
-                if (params.length < 5) {
+                // Escape colons
+                String[] params = splitPassLine(line);
+                if (params == null) {
                     continue;
                 }
                 String host = params[0];
@@ -83,16 +114,23 @@ public class AuthModelPgPass implements DBAAuthModel {
                 String user = params[3];
                 String password = params[4];
 
-                if (matchParam(configuration.getHostName(), host) &&
-                    matchParam(configuration.getHostPort(), port) &&
-                    matchParam(configuration.getDatabaseName(), database) &&
-                    matchParam(configuration.getUserName(), user))
-                {
-                    if (!user.equals("*")) {
-                        configuration.setUserName(user);
+                if (matchParam(conHostName, host) &&
+                    matchParam(conHostPort, port) &&
+                    matchParam(conDatabaseName, database)) {
+                    if (CommonUtils.isEmpty(conUserName)) {
+                        // No user name specified. Get the first matched params
+                        //configuration.setUserName(user);
+                        //configuration.setUserPassword(password);
+                        credentials.setUserName(user);
+                        credentials.setUserPassword(password);
+                        return;
+                    } else if (matchParam(conUserName, user)) {
+                        if (!user.equals("*")) {
+                            configuration.setUserName(user);
+                        }
+                        credentials.setUserPassword(password);
+                        return;
                     }
-                    connProperties.put(DBConstants.DATA_SOURCE_PROPERTY_PASSWORD, password);
-                    return;
                 }
             }
         } catch (IOException e) {
@@ -102,9 +140,21 @@ public class AuthModelPgPass implements DBAAuthModel {
         throw new DBException("No matches in pgpass");
     }
 
+    @Nullable
+    private static String[] splitPassLine(String line) {
+        line = line.replace("\\\\", "@BSESC@").replace("\\:", "@CESC@");
+        String[] params = line.split(":");
+        if (params.length < 5) {
+            return null;
+        }
+        // Unescape colons
+        for (int i = 0; i < params.length; i++) {
+            params[i] = params[i].replace("@CESC@", ":").replace("@BSESC@", "\\");
+        }
+        return params;
+    }
+
     private static boolean matchParam(String cfgParam, String passParam) {
         return passParam.equals("*") || passParam.equalsIgnoreCase(cfgParam);
     }
-
-
 }

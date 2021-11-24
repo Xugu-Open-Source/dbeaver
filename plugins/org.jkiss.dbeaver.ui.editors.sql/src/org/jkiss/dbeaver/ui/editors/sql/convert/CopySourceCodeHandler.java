@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -221,7 +221,7 @@ public class CopySourceCodeHandler extends AbstractHandler implements IElementUp
         private void saveOptions() {
             if (propertySource != null && curFormat != null) {
                 IDialogSettings formatSettings = UIUtils.getSettingsSection(getDialogBoundsSettings(), curFormat.getId());
-                for (Map.Entry<Object, Object> entry : propertySource.getPropertiesWithDefaults().entrySet()) {
+                for (Map.Entry<String, Object> entry : propertySource.getPropertiesWithDefaults().entrySet()) {
                     options.put(CommonUtils.toString(entry.getKey()), entry.getValue());
                     formatSettings.put(CommonUtils.toString(entry.getKey()), CommonUtils.toString(entry.getValue()));
                 }

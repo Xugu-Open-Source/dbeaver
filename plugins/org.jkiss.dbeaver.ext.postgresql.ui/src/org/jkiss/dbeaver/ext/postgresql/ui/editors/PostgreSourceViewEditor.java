@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,10 @@ package org.jkiss.dbeaver.ext.postgresql.ui.editors;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IContributionManager;
 import org.eclipse.jface.action.Separator;
-import org.jkiss.dbeaver.ext.postgresql.PostgreConstants;
-import org.jkiss.dbeaver.ext.postgresql.model.*;
+import org.jkiss.dbeaver.ext.postgresql.model.PostgreProcedure;
+import org.jkiss.dbeaver.ext.postgresql.model.PostgreScriptObject;
+import org.jkiss.dbeaver.ext.postgresql.model.PostgreTrigger;
+import org.jkiss.dbeaver.ext.postgresql.model.PostgreViewBase;
 import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.DBPScriptObject;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
@@ -37,14 +39,6 @@ import java.util.Map;
  */
 public class PostgreSourceViewEditor extends SQLSourceViewer<PostgreScriptObject> {
 
-    private static final String PROP_SHOW_PERMISSIONS = "pg.source.editor.showPermissions";
-    private static final String PROP_COLUMN_COMMENTS = "pg.source.editor.showColumnComments";
-    private static final String PROP_FULL_DDL = "pg.source.editor.showFullDDL";
-
-    private Boolean showPermissions;
-    private Boolean showColumnComments;
-    private Boolean showFullDDL;
-
     public PostgreSourceViewEditor() {
 
     }
@@ -57,27 +51,6 @@ public class PostgreSourceViewEditor extends SQLSourceViewer<PostgreScriptObject
             return false;
         }
         return true;
-    }
-
-    private boolean getShowPermissions() {
-        if (showPermissions == null) {
-            showPermissions = getPreferenceStore().getBoolean(PROP_SHOW_PERMISSIONS);
-        }
-        return showPermissions;
-    }
-
-    private Boolean getShowColumnComments() {
-        if (showColumnComments == null) {
-            showColumnComments = getPreferenceStore().getBoolean(PROP_COLUMN_COMMENTS);
-        }
-        return showColumnComments;
-    }
-
-    private Boolean getShowFullDDL() {
-        if (showFullDDL == null) {
-            showFullDDL = getPreferenceStore().getBoolean(PROP_FULL_DDL);
-        }
-        return showFullDDL;
     }
 
     @Override
@@ -96,22 +69,6 @@ public class PostgreSourceViewEditor extends SQLSourceViewer<PostgreScriptObject
     {
         super.contributeEditorCommands(contributionManager);
         PostgreScriptObject sourceObject = getSourceObject();
-        if (sourceObject instanceof PostgreSchema) {
-            contributionManager.add(ActionUtils.makeActionContribution(
-                new Action("Show full DDL", Action.AS_CHECK_BOX) {
-                    {
-                        setImageDescriptor(DBeaverIcons.getImageDescriptor(DBIcon.TREE_TABLE_EXTERNAL));
-                        setToolTipText("Show DDL for all schema objects");
-                        setChecked(getShowFullDDL());
-                    }
-                    @Override
-                    public void run() {
-                        showFullDDL = isChecked();
-                        getPreferenceStore().setValue(PROP_FULL_DDL, showFullDDL);
-                        refreshPart(PostgreSourceViewEditor.this, true);
-                    }
-                }, true));
-        }
 
         if (sourceObject instanceof PostgreProcedure) {
             contributionManager.add(new Separator());
@@ -129,48 +86,12 @@ public class PostgreSourceViewEditor extends SQLSourceViewer<PostgreScriptObject
                     }
                 }, true));
         }
-        if (sourceObject instanceof PostgrePrivilegeOwner) {
-            contributionManager.add(ActionUtils.makeActionContribution(
-                new Action("Show permissions", Action.AS_CHECK_BOX) {
-                {
-                    setImageDescriptor(DBeaverIcons.getImageDescriptor(DBIcon.TREE_PERMISSIONS));
-                    setToolTipText("Shows object permission grants");
-                    setChecked(getShowPermissions());
-                }
-                @Override
-                public void run() {
-                    showPermissions = isChecked();
-                    getPreferenceStore().setValue(PROP_SHOW_PERMISSIONS, showPermissions);
-                    refreshPart(PostgreSourceViewEditor.this, true);
-                }
-            }, true));
-        }
-        if (sourceObject instanceof PostgreTableBase || sourceObject instanceof PostgreSchema) {
-            contributionManager.add(ActionUtils.makeActionContribution(
-                new Action("Show comments", Action.AS_CHECK_BOX) {
-                    {
-                        setImageDescriptor(DBeaverIcons.getImageDescriptor(DBIcon.TYPE_TEXT));
-                        setToolTipText("Show column comments in table definition");
-                        setChecked(getShowColumnComments());
-                    }
-                    @Override
-                    public void run() {
-                        showColumnComments = isChecked();
-                        getPreferenceStore().setValue(PROP_COLUMN_COMMENTS, showPermissions);
-                        refreshPart(PostgreSourceViewEditor.this, true);
-                    }
-                }, true));
-        }
     }
 
     @Override
     protected Map<String, Object> getSourceOptions() {
         Map<String, Object> options = super.getSourceOptions();
-        boolean inDebug = isInDebugMode();
-        options.put(DBPScriptObject.OPTION_DEBUGGER_SOURCE, inDebug);
-        options.put(PostgreConstants.OPTION_DDL_SHOW_PERMISSIONS, getShowPermissions());
-        options.put(PostgreConstants.OPTION_DDL_SHOW_COLUMN_COMMENTS, getShowColumnComments());
-        options.put(PostgreConstants.OPTION_DDL_SHOW_FULL, getShowFullDDL());
+        options.put(DBPScriptObject.OPTION_DEBUGGER_SOURCE, isInDebugMode());
         return options;
     }
 

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  */
 package org.jkiss.utils;
 
+import java.text.DecimalFormat;
 import java.text.FieldPosition;
 import java.text.NumberFormat;
 import java.text.ParsePosition;
@@ -26,16 +27,11 @@ import java.text.ParsePosition;
 public class ByteNumberFormat extends NumberFormat {
     private static final long serialVersionUID = 1;
 
-    private static final String B = "B";
-    private static final String KB = "KB";
-    private static final String MB = "MB";
-    private static final String GB = "GB";
-    private static final String TB = "TB";
-    private static final String PB = "PB";
+    public static final Unit[] UNITS = Unit.values();
 
-    public static final String[] BYTES = {
-        B, KB, MB, GB, TB, PB
-    };
+    private static final DecimalFormat fpFormat = new DecimalFormat("#.#");
+
+    private boolean useLongUnitNames = false;
 
     /**
      * Creates a new formatter.
@@ -47,19 +43,19 @@ public class ByteNumberFormat extends NumberFormat {
     public static int computeIndex(double bytes) {
         int index = 0;
 
-        for (int i = 0; i < BYTES.length; i++) {
+        for (int i = 0; i < UNITS.length; i++) {
             int result = (int)(bytes / 1024);
             if (result == 0) {
                 break;
             } else {
                 bytes /= 1024;
-                if (bytes < 10) {
+                if (bytes < 1) {
                     break;
                 }
                 index++;
             }
         }
-        
+
         return index;
     }
 
@@ -73,8 +69,11 @@ public class ByteNumberFormat extends NumberFormat {
     public String getBytes(double bytes) {
 
         int index = computeIndex(bytes);
+        if (index >= UNITS.length) {
+            index = UNITS.length - 1;
+        }
 
-        long intBytes = (long) bytes;
+        double intBytes = bytes;
         if (intBytes == 0) {
             return String.valueOf(0);
         }
@@ -83,12 +82,15 @@ public class ByteNumberFormat extends NumberFormat {
             intBytes /= 1024;
         }
 
-        String str = String.valueOf(intBytes);
-        if (index == 0) {
-            return str;
+
+        String str;
+        if ((long)intBytes >= 10) {
+            str = String.valueOf((long)intBytes);
         } else {
-            return str + BYTES[index];
+            str = fpFormat.format(intBytes);
         }
+        final Unit unit = UNITS[index];
+        return str + (useLongUnitNames ? unit.fullName : unit.shortName);
     }
 
     /**
@@ -135,14 +137,30 @@ public class ByteNumberFormat extends NumberFormat {
         return null;
     }
 
-    public static void main(String[] args) {
-        System.out.println(new ByteNumberFormat().format(100));
-        System.out.println(new ByteNumberFormat().format(1000));
-        System.out.println(new ByteNumberFormat().format(10000));
-        System.out.println(new ByteNumberFormat().format(11000));
-        System.out.println(new ByteNumberFormat().format(100000));
-        System.out.println(new ByteNumberFormat().format(1000000));
-        System.out.println(new ByteNumberFormat().format(10000000));
+    /**
+     * Sets whether this formatter should use long names for units.
+     * Note that this formatter uses ISO 80000 compliant names
+     *
+     * @param useLongUnitNames <code>true</code> if formatter should use long names for units, <code>false</code> otherwise
+     */
+    public void setUseLongUnitNames(boolean useLongUnitNames) {
+        this.useLongUnitNames = useLongUnitNames;
     }
 
+    private enum Unit {
+        BYTE("B", "B"),
+        KILOBYTE("K", "KiB"),
+        MEGABYTE("M", "MiB"),
+        GIGABYTE("G", "GiB"),
+        TERABYTE("T", "TiB"),
+        PETABYTE("P", "PiB");
+
+        private final String shortName;
+        private final String fullName;
+
+        Unit(String shortName, String fullName) {
+            this.shortName = shortName;
+            this.fullName = fullName;
+        }
+    }
 }

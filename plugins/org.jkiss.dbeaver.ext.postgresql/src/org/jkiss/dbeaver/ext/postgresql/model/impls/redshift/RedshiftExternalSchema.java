@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCStructLookupCache;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
 
@@ -47,7 +48,7 @@ public class RedshiftExternalSchema extends PostgreSchema {
     private static final Log log = Log.getLog(RedshiftExternalSchema.class);
 
     private String esOptions;
-    public final ExternalTableCache externalTableCache = new ExternalTableCache();
+    private final ExternalTableCache externalTableCache = new ExternalTableCache();
 
     public RedshiftExternalSchema(PostgreDatabase database, String name, String esOptions, ResultSet dbResult) throws SQLException {
         super(database, name, dbResult);
@@ -58,9 +59,23 @@ public class RedshiftExternalSchema extends PostgreSchema {
         super(database, name, owner);
     }
 
+    public ExternalTableCache getExternalTableCache() {
+        return externalTableCache;
+    }
+
     @Override
     public boolean isExternal() {
         return true;
+    }
+
+    @Override
+    public boolean isStatisticsCollected() {
+        return true;
+    }
+
+    @Override
+    public void collectObjectStatistics(DBRProgressMonitor monitor, boolean totalSizeOnly, boolean forceRefresh) throws DBException {
+        // Not supported
     }
 
 /*
@@ -74,7 +89,7 @@ public class RedshiftExternalSchema extends PostgreSchema {
     }
 */
 
-    @Property(viewable = true, editable = false, updatable = false, multiline = true, order = 50)
+    @Property(viewable = true, editable = false, updatable = false, length = PropertyLength.MULTILINE, order = 50)
     public String getExternalOptions() {
         return esOptions;
     }
@@ -104,8 +119,9 @@ public class RedshiftExternalSchema extends PostgreSchema {
         return externalTableCache.getObject(monitor, this, childName);
     }
 
+    @NotNull
     @Override
-    public Class<? extends DBSEntity> getChildType(@NotNull DBRProgressMonitor monitor) throws DBException {
+    public Class<? extends DBSEntity> getPrimaryChildType(@Nullable DBRProgressMonitor monitor) throws DBException {
         return RedshiftExternalTable.class;
     }
 

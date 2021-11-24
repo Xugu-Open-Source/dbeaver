@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,6 +53,24 @@ public class DBDAttributeValue {
     public String toString()
     {
         return attribute.getName() + "=" + value;
+    }
+
+    @NotNull
+    public static DBSAttributeBase[] getAttributes(@NotNull DBDAttributeValue[] attrValues) {
+        final DBSAttributeBase[] attributes = new DBSAttributeBase[attrValues.length];
+        for (int i = 0; i < attributes.length; i++) {
+            attributes[i] = attrValues[i].getAttribute();
+        }
+        return attributes;
+    }
+
+    @NotNull
+    public static Object[] getValues(@NotNull DBDAttributeValue[] attrValues) {
+        final Object[] values = new Object[attrValues.length];
+        for (int i = 0; i < values.length; i++) {
+            values[i] = attrValues[i].getValue();
+        }
+        return values;
     }
 
     public static DBSAttributeBase[] getAttributes(List<DBDAttributeValue> attrValues)

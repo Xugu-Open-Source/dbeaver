@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.jkiss.dbeaver.ext.postgresql.model.*;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPRefreshableObject;
 import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.Property;
@@ -33,6 +34,7 @@ import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -174,15 +176,15 @@ public class RedshiftExternalTable extends PostgreTable implements DBPRefreshabl
      * @param monitor progress monitor
      */
     @Override
-    public Collection<RedshiftExternalTableColumn> getAttributes(@NotNull DBRProgressMonitor monitor)
+    public List<RedshiftExternalTableColumn> getAttributes(@NotNull DBRProgressMonitor monitor)
         throws DBException
     {
-        return getContainer().externalTableCache.getChildren(monitor, getContainer(), this);
+        return getContainer().getExternalTableCache().getChildren(monitor, getContainer(), this);
     }
 
     public List<RedshiftExternalTableColumn> getCachedAttributes()
     {
-        final DBSObjectCache<RedshiftExternalTable, RedshiftExternalTableColumn> childrenCache = getContainer().externalTableCache.getChildrenCache(this);
+        final DBSObjectCache<RedshiftExternalTable, RedshiftExternalTableColumn> childrenCache = getContainer().getExternalTableCache().getChildrenCache(this);
         if (childrenCache != null) {
             return childrenCache.getCachedObjects();
         }
@@ -193,7 +195,7 @@ public class RedshiftExternalTable extends PostgreTable implements DBPRefreshabl
     public RedshiftExternalTableColumn getAttribute(@NotNull DBRProgressMonitor monitor, @NotNull String attributeName)
         throws DBException
     {
-        return getContainer().externalTableCache.getChild(monitor, getContainer(), this, attributeName);
+        return getContainer().getExternalTableCache().getChild(monitor, getContainer(), this, attributeName);
     }
 
     @Override
@@ -236,7 +238,7 @@ public class RedshiftExternalTable extends PostgreTable implements DBPRefreshabl
     @Override
     public DBSObject refreshObject(@NotNull DBRProgressMonitor monitor) throws DBException
     {
-        return getContainer().externalTableCache.refreshObject(monitor, getContainer(), this);
+        return getContainer().getExternalTableCache().refreshObject(monitor, getContainer(), this);
     }
 
     @Override
@@ -247,5 +249,10 @@ public class RedshiftExternalTable extends PostgreTable implements DBPRefreshabl
     @Override
     public String getObjectDefinitionText(DBRProgressMonitor monitor, Map<String, Object> options) throws DBException {
         return null;
+    }
+
+    @Override
+    protected void readTableStatistics(JDBCSession session) throws SQLException {
+        // Not supported
     }
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  */
 package org.jkiss.dbeaver.ext.postgresql.edit;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.postgresql.PostgreUtils;
@@ -68,7 +69,7 @@ public class PostgreProcedureManager extends SQLObjectEditor<PostgreProcedure, P
     }
 
     @Override
-    protected void validateObjectProperties(ObjectChangeCommand command, Map<String, Object> options)
+    protected void validateObjectProperties(DBRProgressMonitor monitor, ObjectChangeCommand command, Map<String, Object> options)
         throws DBException
     {
         if (CommonUtils.isEmpty(command.getObject().getName())) {
@@ -131,8 +132,8 @@ public class PostgreProcedureManager extends SQLObjectEditor<PostgreProcedure, P
     }
 
     @Override
-    public void renameObject(DBECommandContext commandContext, PostgreProcedure object, String newName) throws DBException {
-        processObjectRename(commandContext, object, newName);
+    public void renameObject(@NotNull DBECommandContext commandContext, @NotNull PostgreProcedure object, @NotNull Map<String, Object> options, @NotNull String newName) throws DBException {
+        processObjectRename(commandContext, object, options, newName);
     }
 
     @Override

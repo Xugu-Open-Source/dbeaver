@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,7 +74,9 @@ public class SQLQueryParameterBindDialog extends StatusDialog {
     public SQLQueryParameterBindDialog(IWorkbenchPartSite site, SQLQuery query, List<SQLQueryParameter> parameters)
     {
         super(site.getShell());
-        setShellStyle(SWT.CLOSE | SWT.TITLE | SWT.BORDER | SWT.RESIZE | getDefaultOrientation());
+        if (!UIUtils.isInDialog()) {
+            setShellStyle(SWT.CLOSE | SWT.TITLE | SWT.BORDER | SWT.RESIZE | getDefaultOrientation());
+        }
         this.site = site;
         StringWriter dummyWriter = new StringWriter();
         this.queryContext = new SQLScriptContext(null, new DataSourceContextProvider(query.getDataSource()), null, dummyWriter, null);
@@ -183,6 +185,7 @@ public class SQLQueryParameterBindDialog extends StatusDialog {
                         if (dups != null) {
                             for (SQLQueryParameter dup : dups) {
                                 dup.setValue(newValue);
+                                dup.setVariableSet(!CommonUtils.isEmpty(newValue));
                             }
                         }
                         queryContext.setVariable(param.getVarName(), param.getValue());

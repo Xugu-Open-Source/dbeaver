@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,17 +55,6 @@ public class ContentUtils {
     private static final String LOB_DIR = ".lob"; //$NON-NLS-1$
 
     private static final Log log = Log.getLog(ContentUtils.class);
-
-    static {
-        GeneralUtils.BOM_MAP.put(GeneralUtils.DEFAULT_ENCODING, new byte[] {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF} );
-        GeneralUtils.BOM_MAP.put("UTF-16", new byte[] {(byte) 0xFE, (byte) 0xFF} );
-        GeneralUtils.BOM_MAP.put("UTF-16BE", new byte[] {(byte) 0xFE, (byte) 0xFF} );
-        GeneralUtils.BOM_MAP.put("UTF-16LE", new byte[] {(byte) 0xFF, (byte) 0xFE} );
-        GeneralUtils.BOM_MAP.put("UTF-32", new byte[] { 0x0, 0x0, (byte) 0xFE, (byte) 0xFF} );
-        GeneralUtils.BOM_MAP.put("UTF-32BE", new byte[] { 0x0, 0x0, (byte) 0xFE, (byte) 0xFF} );
-        GeneralUtils.BOM_MAP.put("UTF-32LE", new byte[] { (byte) 0xFE, (byte) 0xFF, 0x0, 0x0} );
-    }
-
 
     public static File getLobFolder(DBRProgressMonitor monitor, DBPPlatform application)
         throws IOException
@@ -368,6 +357,11 @@ public class ContentUtils {
         return contentType != null && contentType.toLowerCase(Locale.ENGLISH).startsWith("text");
     }
 
+    public static boolean isTextMime(String mimeType)
+    {
+        return mimeType != null && mimeType.toLowerCase(Locale.ENGLISH).startsWith("text");
+    }
+
     public static boolean isTextValue(Object value)
     {
         if (value == null) {
@@ -396,8 +390,11 @@ public class ContentUtils {
         return MimeTypes.TEXT_JSON.equalsIgnoreCase(content.getContentType());
     }
 
-    @NotNull
+    @Nullable
     public static String getContentStringValue(@NotNull DBRProgressMonitor monitor, @NotNull DBDContent object) throws DBCException {
+        if (object.isNull()) {
+            return null;
+        }
         DBDContentStorage data = object.getContents(monitor);
         if (data != null) {
             if (data instanceof DBDContentCached) {
@@ -424,7 +421,7 @@ public class ContentUtils {
         return object.toString();
     }
 
-    @NotNull
+    @Nullable
     public static byte[] getContentBinaryValue(@NotNull DBRProgressMonitor monitor, @NotNull DBDContent object) throws DBCException {
         DBDContentStorage data = object.getContents(monitor);
         if (data != null) {
@@ -516,4 +513,29 @@ public class ContentUtils {
             log.error("Error creating backup copy of " + file.getFullPath(), e);
         }
     }
+
+    public static void makeFileBackup(File file) {
+        if (!file.exists()) {
+            return;
+        }
+        String backupFileName = file.getName() + ".bak";
+        if (!backupFileName.startsWith(".")) {
+            backupFileName = "." + backupFileName;
+        }
+        File backupFile = new File(file.getParent(), backupFileName);
+        if (backupFile.exists()) {
+            Date backupTime = new Date(backupFile.lastModified());
+            if (CommonUtils.isSameDay(backupTime, new Date())) {
+                return;
+            }
+        }
+        try (InputStream fis = new FileInputStream(file)) {
+            try (OutputStream fos = new FileOutputStream(backupFile)) {
+                IOUtils.copyStream(fis, fos);
+            }
+        } catch (Exception e) {
+            log.error("Error creating backup copy of " + file.getAbsolutePath(), e);
+        }
+    }
+
 }

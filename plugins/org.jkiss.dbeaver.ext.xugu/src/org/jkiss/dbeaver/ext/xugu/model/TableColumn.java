@@ -169,7 +169,7 @@ public class TableColumn extends JDBCTableColumn<BaseTable>
 					this.typeName = "CHAR";
 				}
 			}
-			this.type = new DataType(this, this.typeName, true);
+			this.type = (DataType) table.getDataSource().getLocalDataType(this.typeName);
 
 			if (this.type != null) {
 				this.typeName = type.getFullyQualifiedName(DBPEvaluationContext.DDL);
@@ -180,9 +180,6 @@ public class TableColumn extends JDBCTableColumn<BaseTable>
 					this.maxLength = this.precision;
 				} else if (typeChar.equals(this.typeName) || typeVarchar.equals(this.typeName)) {
 					this.precision = JDBCUtils.safeGetInt(dbResult, "SCALE");
-					if (precision <= 0) {
-						this.precision = null;
-					}
 					this.scale = null;
 				} else if (this.typeName.matches(typeIntervalRegex)) {
 					this.scale = JDBCUtils.safeGetInt(dbResult, "SCALE") % 65536;
@@ -206,7 +203,7 @@ public class TableColumn extends JDBCTableColumn<BaseTable>
 				setPrecision(this.precision);
 			} else {
 				setScale(this.scale == null || this.scale == 0 ? null : this.scale);
-				setPrecision(this.precision == null || this.precision == 0 ? null : this.precision);
+				setPrecision(this.precision);
 			}
 		}
 
@@ -349,7 +346,7 @@ public class TableColumn extends JDBCTableColumn<BaseTable>
 		}
 	}
 
-	@Property(viewable = true, editable = true, updatable = true, multiline = true, order = 100)
+	@Property(viewable = true, editable = true, updatable = true, order = 100)
 	@LazyProperty(cacheValidator = CommentLoadValidator.class)
 	public String getComment(DBRProgressMonitor monitor) {
 		if (comment == null) {

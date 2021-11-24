@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,11 +30,14 @@ import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCColumnKeyType;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTableColumn;
 import org.jkiss.dbeaver.model.meta.IPropertyValueListProvider;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLConstants;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.DBSDataType;
 import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
+import org.jkiss.dbeaver.model.struct.DBSTypedObject;
+import org.jkiss.dbeaver.model.struct.DBSTypedObjectExt3;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableColumn;
 import org.jkiss.utils.CommonUtils;
 
@@ -45,7 +48,7 @@ import java.util.List;
 /**
  * MySQLTableColumn
  */
-public class MySQLTableColumn extends JDBCTableColumn<MySQLTableBase> implements DBSTableColumn, DBPNamedObject2, DBPOrderedObject
+public class MySQLTableColumn extends JDBCTableColumn<MySQLTableBase> implements DBSTableColumn, DBSTypedObjectExt3, DBPNamedObject2, DBPOrderedObject
 {
     private static final Log log = Log.getLog(MySQLTableColumn.class);
 
@@ -73,6 +76,7 @@ public class MySQLTableColumn extends JDBCTableColumn<MySQLTableBase> implements
     private KeyType keyType;
     private String extraInfo;
     private String genExpression;
+    private long modifiers;
 
     private String fullTypeName;
     private List<String> enumValues;
@@ -119,8 +123,8 @@ public class MySQLTableColumn extends JDBCTableColumn<MySQLTableBase> implements
     private void loadInfo(ResultSet dbResult)
         throws DBException
     {
-        setName(JDBCUtils.safeGetString(dbResult, MySQLConstants.COL_COLUMN_NAME));
-        setOrdinalPosition(JDBCUtils.safeGetInt(dbResult, MySQLConstants.COL_ORDINAL_POSITION));
+        name = JDBCUtils.safeGetString(dbResult, MySQLConstants.COL_COLUMN_NAME);
+        ordinalPosition = JDBCUtils.safeGetInt(dbResult, MySQLConstants.COL_ORDINAL_POSITION);
         String typeName = JDBCUtils.safeGetString(dbResult, MySQLConstants.COL_DATA_TYPE);
         assert typeName != null;
         String keyTypeName = JDBCUtils.safeGetString(dbResult, MySQLConstants.COL_COLUMN_KEY);
@@ -144,15 +148,15 @@ public class MySQLTableColumn extends JDBCTableColumn<MySQLTableBase> implements
         }
         this.comment = JDBCUtils.safeGetString(dbResult, MySQLConstants.COL_COLUMN_COMMENT);
         this.required = !"YES".equals(JDBCUtils.safeGetString(dbResult, MySQLConstants.COL_IS_NULLABLE));
-        this.scale = JDBCUtils.safeGetInteger(dbResult, MySQLConstants.COL_NUMERIC_SCALE);
-        this.precision = JDBCUtils.safeGetInteger(dbResult, MySQLConstants.COL_NUMERIC_PRECISION);
+        this.setScale(JDBCUtils.safeGetInteger(dbResult, MySQLConstants.COL_NUMERIC_SCALE));
+        this.setPrecision(JDBCUtils.safeGetInteger(dbResult, MySQLConstants.COL_NUMERIC_PRECISION));
         String defaultValue = JDBCUtils.safeGetString(dbResult, MySQLConstants.COL_COLUMN_DEFAULT);
         if (defaultValue != null) {
             switch (getDataKind()) {
                 case STRING:
                     // Escape if it is not NULL (#1913)
                     // Although I didn't reproduce that locally - perhaps depends on server config.
-                    if (!SQLConstants.NULL_VALUE.equals(defaultValue) && !SQLUtils.isStringQuoted(defaultValue)) {
+                    if (!SQLConstants.NULL_VALUE.equals(defaultValue) && !SQLUtils.isStringQuoted(getDataSource(), defaultValue)) {
                         defaultValue = SQLUtils.quoteString(getDataSource(), defaultValue);
                     }
                     break;
@@ -176,7 +180,18 @@ public class MySQLTableColumn extends JDBCTableColumn<MySQLTableBase> implements
         }
 
         if (!getDataSource().isMariaDB() && getDataSource().isServerVersionAtLeast(5, 7)) {
-            genExpression = JDBCUtils.safeGetString(dbResult, "GENERATION_EXPRESSION");
+            genExpression = JDBCUtils.safeGetString(dbResult, MySQLConstants.COL_COLUMN_GENERATION_EXPRESSION);
+        }
+
+        for (String modifier : CommonUtils.notEmpty(fullTypeName).toLowerCase().split(" ")) {
+            switch (modifier) {
+                case "zerofill":
+                    modifiers |= DBSTypedObject.TYPE_MOD_NUMBER_LEADING_ZEROES;
+                    break;
+                case "unsigned":
+                    modifiers |= DBSTypedObject.TYPE_MOD_NUMBER_UNSIGNED;
+                    break;
+            }
         }
     }
 
@@ -226,14 +241,10 @@ public class MySQLTableColumn extends JDBCTableColumn<MySQLTableBase> implements
         return fullTypeName;
     }
 
-    public void setFullTypeName(String fullTypeName) {
+    @Override
+    public void setFullTypeName(String fullTypeName) throws DBException {
+        super.setFullTypeName(fullTypeName);
         this.fullTypeName = fullTypeName;
-        int divPos = fullTypeName.indexOf('(');
-        if (divPos != -1) {
-            super.setTypeName(fullTypeName.substring(0, divPos).trim());
-        } else {
-            super.setTypeName(fullTypeName);
-        }
     }
 
     @Override
@@ -248,6 +259,11 @@ public class MySQLTableColumn extends JDBCTableColumn<MySQLTableBase> implements
 
     public boolean isTypeEnum() {
         return typeName.equalsIgnoreCase(MySQLConstants.TYPE_NAME_ENUM);
+    }
+
+    @Override
+    public long getTypeModifiers() {
+        return super.getTypeModifiers() | modifiers;
     }
 
     //@Property(viewable = true, editable = true, updatable = true, order = 40)
@@ -357,7 +373,7 @@ public class MySQLTableColumn extends JDBCTableColumn<MySQLTableBase> implements
         this.collation = collation;
     }
 
-    @Property(viewable = true, editable = true, updatable = true, multiline = true, order = 100)
+    @Property(viewable = true, editable = true, updatable = true, length = PropertyLength.MULTILINE, order = 100)
     public String getComment()
     {
         return comment;

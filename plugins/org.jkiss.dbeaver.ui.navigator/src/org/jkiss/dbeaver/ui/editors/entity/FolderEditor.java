@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorSite;
 import org.eclipse.ui.IWorkbenchCommandConstants;
-import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.menus.CommandContributionItem;
 import org.eclipse.ui.part.EditorPart;
 import org.jkiss.code.Nullable;
@@ -36,10 +35,10 @@ import org.jkiss.dbeaver.model.navigator.*;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.*;
-import org.jkiss.dbeaver.ui.navigator.itemlist.ItemListControl;
 import org.jkiss.dbeaver.ui.editors.INavigatorEditorInput;
 import org.jkiss.dbeaver.ui.editors.NodeEditorInput;
 import org.jkiss.dbeaver.ui.navigator.INavigatorModelView;
+import org.jkiss.dbeaver.ui.navigator.itemlist.ItemListControl;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -53,7 +52,7 @@ public class FolderEditor extends EditorPart implements INavigatorModelView, IRe
     private static final Log log = Log.getLog(FolderEditor.class);
 
     private FolderListControl itemControl;
-    private List<String> history = new ArrayList<>();
+    private final List<String> history = new ArrayList<>();
     private int historyPosition = 0;
 
     @Override
@@ -88,7 +87,7 @@ public class FolderEditor extends EditorPart implements INavigatorModelView, IRe
     }
 
     @Override
-    public void init(IEditorSite site, IEditorInput input) throws PartInitException {
+    public void init(IEditorSite site, IEditorInput input) {
         setSite(site);
         setInput(input);
         if (input != null) {
@@ -121,16 +120,14 @@ public class FolderEditor extends EditorPart implements INavigatorModelView, IRe
     }
 
     @Override
-    public void refreshPart(Object source, boolean force)
+    public RefreshResult refreshPart(Object source, boolean force)
     {
-        UIUtils.asyncExec(new Runnable() {
-            @Override
-            public void run() {
-                if (!itemControl.isDisposed()) {
-                    itemControl.loadData(false);
-                }
+        UIUtils.asyncExec(() -> {
+            if (!itemControl.isDisposed()) {
+                itemControl.loadData(false);
             }
         });
+        return RefreshResult.REFRESHED;
     }
 
     @Override
@@ -187,7 +184,7 @@ public class FolderEditor extends EditorPart implements INavigatorModelView, IRe
         }
 
         @Override
-        protected void setListData(Collection<DBNNode> items, boolean append) {
+        protected void setListData(Collection<DBNNode> items, boolean append, boolean forUpdate) {
             if (!append) {
                 // Add parent node reference (we actually add DBNRoot to avoid unneeded parent properties columns loading)
                 final DBNNode rootNode = getRootNode();
@@ -198,7 +195,7 @@ public class FolderEditor extends EditorPart implements INavigatorModelView, IRe
                     items = nodesWithParent;
                 }
             }
-            super.setListData(items, append);
+            super.setListData(items, append, forUpdate);
         }
 
         @Nullable

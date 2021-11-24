@@ -24,6 +24,7 @@ import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.data.DBDContentStorage;
 import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
 import org.jkiss.dbeaver.model.exec.DBCException;
+import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.data.storage.BytesContentStorage;
@@ -47,8 +48,8 @@ public class ContentBfile extends JDBCContentLOB {
 	private String name;
 	private boolean opened;
 
-	public ContentBfile(DBPDataSource dataSource, Object bfile) {
-		super(dataSource);
+	public ContentBfile(DBCExecutionContext executionContext, Object bfile) {
+        super(executionContext);
 		this.bfile = bfile;
 		if (this.bfile != null) {
 			try {
@@ -72,7 +73,7 @@ public class ContentBfile extends JDBCContentLOB {
 					return ((Number) length).longValue();
 				}
 			} catch (Throwable e) {
-				throw new DBCException("Error when reading BFILE length", e, dataSource);
+				throw new DBCException("Error when reading BFILE length", e, executionContext);
 			} finally {
 				if (openLocally) {
 					closeFile();
@@ -90,7 +91,7 @@ public class ContentBfile extends JDBCContentLOB {
 			BeanUtils.invokeObjectMethod(bfile, "openFile");
 			opened = true;
 		} catch (Throwable e) {
-			throw new DBCException(e, dataSource);
+			throw new DBCException(e, executionContext);
 		}
 	}
 
@@ -102,7 +103,7 @@ public class ContentBfile extends JDBCContentLOB {
 			BeanUtils.invokeObjectMethod(bfile, "closeFile");
 			opened = false;
 		} catch (Throwable e) {
-			throw new DBCException(e, dataSource);
+			throw new DBCException(e, executionContext);
 		}
 	}
 
@@ -110,7 +111,7 @@ public class ContentBfile extends JDBCContentLOB {
 		try {
 			return (InputStream) BeanUtils.invokeObjectMethod(bfile, "getBinaryStream");
 		} catch (Throwable e) {
-			throw new DBCException("Error when reading BFILE length", e, dataSource);
+			throw new DBCException("Error when reading BFILE length", e, executionContext);
 		}
 	}
 
@@ -126,7 +127,7 @@ public class ContentBfile extends JDBCContentLOB {
 			try {
 				openFile();
 				long contentLength = getContentLength();
-				DBPPlatform platform = dataSource.getContainer().getPlatform();
+                DBPPlatform platform = executionContext.getDataSource().getContainer().getPlatform();
 				if (contentLength < platform.getPreferenceStore().getInt(ModelPreferences.MEMORY_CONTENT_MAX_SIZE)) {
 					try {
 						try (InputStream bs = getInputStream()) {
@@ -154,9 +155,9 @@ public class ContentBfile extends JDBCContentLOB {
 						throw new DBCException("IO error while copying stream", e);
 					} catch (Throwable e) {
 						ContentUtils.deleteTempFile(tempFile);
-						throw new DBCException(e, dataSource);
-					}
-					this.storage = new TemporaryContentStorage(platform, tempFile, getDefaultEncoding());
+                        throw new DBCException(e, executionContext);
+                    }
+                    this.storage = new TemporaryContentStorage(platform, tempFile, getDefaultEncoding(), true);
 				}
 				/**
 				 * Free blob - we don't need it anymore
@@ -199,7 +200,7 @@ public class ContentBfile extends JDBCContentLOB {
 
 	@Override
 	protected JDBCContentLOB createNewContent() {
-		return new ContentBfile(dataSource, null);
+		return new ContentBfile(executionContext, null);
 	}
 
 	@Override

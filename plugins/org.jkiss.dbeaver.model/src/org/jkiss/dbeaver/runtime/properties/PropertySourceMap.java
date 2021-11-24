@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,15 @@ package org.jkiss.dbeaver.runtime.properties;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
 import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Map-based property source
@@ -34,10 +38,10 @@ public class PropertySourceMap implements DBPPropertySource {
 
     private Map<?, ?> items;
 
-    public PropertySourceMap(Map<?, ?> map)
+    public PropertySourceMap(Map<String, ?> map)
     {
         items = new LinkedHashMap<>(map);
-        for (Map.Entry<?, ?> entry : map.entrySet()) {
+        for (Map.Entry<String, ?> entry : map.entrySet()) {
             props.add(new ItemPropertyDescriptor(entry.getKey(), entry.getValue()));
         }
     }
@@ -49,46 +53,41 @@ public class PropertySourceMap implements DBPPropertySource {
     }
 
     @Override
-    public DBPPropertyDescriptor[] getPropertyDescriptors2() {
+    public DBPPropertyDescriptor[] getProperties() {
         return props.toArray(new DBPPropertyDescriptor[props.size()]);
     }
 
     @Override
-    public Object getPropertyValue(@Nullable DBRProgressMonitor monitor, Object id)
+    public Object getPropertyValue(@Nullable DBRProgressMonitor monitor, String id)
     {
         return items.get(id);
     }
 
     @Override
-    public boolean isPropertySet(Object id)
+    public boolean isPropertySet(String id)
     {
         return false;
     }
 
     @Override
-    public boolean isPropertyResettable(Object id) {
+    public boolean isPropertyResettable(String id) {
         return false;
     }
 
     @Override
-    public void resetPropertyValue(@Nullable DBRProgressMonitor monitor, Object id)
+    public void resetPropertyValue(@Nullable DBRProgressMonitor monitor, String id)
     {
 
     }
 
     @Override
-    public void resetPropertyValueToDefault(Object id) {
+    public void resetPropertyValueToDefault(String id) {
 
     }
 
     @Override
-    public void setPropertyValue(@Nullable DBRProgressMonitor monitor, Object id, Object value)
+    public void setPropertyValue(@Nullable DBRProgressMonitor monitor, String id, Object value)
     {
-    }
-
-    @Override
-    public boolean isDirty(Object id) {
-        return false;
     }
 
     @Override
@@ -96,11 +95,11 @@ public class PropertySourceMap implements DBPPropertySource {
         return "<...>";
     }
 
-    private class ItemPropertyDescriptor implements DBPPropertyDescriptor {
-        private Object name;
-        private Object value;
+    private static class ItemPropertyDescriptor implements DBPPropertyDescriptor {
+        private final String name;
+        private final Object value;
 
-        public ItemPropertyDescriptor(Object name, Object value) {
+        ItemPropertyDescriptor(String name, Object value) {
             this.name = name;
             this.value = value;
         }
@@ -126,11 +125,6 @@ public class PropertySourceMap implements DBPPropertySource {
         }
 
         @Override
-        public boolean isRemote() {
-            return false;
-        }
-
-        @Override
         public Object getDefaultValue() {
             return null;
         }
@@ -142,13 +136,30 @@ public class PropertySourceMap implements DBPPropertySource {
 
         @NotNull
         @Override
+        public PropertyLength getLength() {
+            return PropertyLength.LONG;
+        }
+
+        @Nullable
+        @Override
+        public String[] getFeatures() {
+            return null;
+        }
+
+        @Override
+        public boolean hasFeature(@NotNull String feature) {
+            return false;
+        }
+
+        @NotNull
+        @Override
         public String getDisplayName() {
             return DBUtils.getObjectShortName(name);
         }
 
         @NotNull
         @Override
-        public Object getId() {
+        public String getId() {
             return name;
         }
     }

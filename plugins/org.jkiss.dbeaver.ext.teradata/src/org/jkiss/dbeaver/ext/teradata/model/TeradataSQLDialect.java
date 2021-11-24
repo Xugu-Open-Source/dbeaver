@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.jkiss.dbeaver.ext.teradata.model;
 
 import org.jkiss.dbeaver.ext.generic.model.GenericSQLDialect;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCDatabaseMetaData;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSource;
 
 import java.util.Arrays;
@@ -25,11 +26,11 @@ import java.util.Arrays;
 public class TeradataSQLDialect extends GenericSQLDialect {
 
     public TeradataSQLDialect() {
-        super("Teradata");
+        super("Teradata", "teradata");
     }
 
-    public void initDriverSettings(JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
-        super.initDriverSettings(dataSource, metaData);
+    public void initDriverSettings(JDBCSession session, JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
+        super.initDriverSettings(session, dataSource, metaData);
         addSQLKeywords(
             Arrays.asList(
                 "QUALIFY"
@@ -38,6 +39,12 @@ public class TeradataSQLDialect extends GenericSQLDialect {
 
     @Override
     public boolean supportsAliasInSelect() {
+        return true;
+    }
+
+    @Override
+    public boolean isCRLFBroken() {
+        // #11985 Teradata returns DDL of views/procedures/triggers with extra break lines, when they are created in the SQL Editor
         return true;
     }
 

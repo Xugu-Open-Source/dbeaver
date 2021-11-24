@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
+import org.jkiss.dbeaver.model.struct.rdb.DBSForeignKeyModifyRule;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableForeignKey;
 import org.jkiss.utils.CommonUtils;
 
@@ -48,6 +49,11 @@ public abstract class SQLForeignKeyManager<OBJECT_TYPE extends JDBCTableConstrai
     extends SQLObjectEditor<OBJECT_TYPE, TABLE_TYPE>
 {
 
+    public static final String OPTION_REF_TABLE = "refTable";
+    public static final String OPTION_REF_CONSTRAINT = "refConstraint";
+    public static final String OPTION_REF_ATTRIBUTES = "refAttributes";
+    public static final String OPTION_OWN_ATTRIBUTES = "ownAttributes";
+
     @Override
     public long getMakerOptions(DBPDataSource dataSource)
     {
@@ -61,7 +67,7 @@ public abstract class SQLForeignKeyManager<OBJECT_TYPE extends JDBCTableConstrai
         actions.add(
             new SQLDatabasePersistAction(
                 ModelMessages.model_jdbc_create_new_foreign_key,
-                "ALTER TABLE " + table.getFullyQualifiedName(DBPEvaluationContext.DDL) + " ADD " + getNestedDeclaration(monitor, table, command, options)) //$NON-NLS-1$ //$NON-NLS-2$
+                "ALTER TABLE " + table.getFullyQualifiedName(DBPEvaluationContext.DDL) + " ADD " + getNestedDeclarationScript(table, command, options)) //$NON-NLS-1$ //$NON-NLS-2$
         );
     }
 
@@ -78,16 +84,21 @@ public abstract class SQLForeignKeyManager<OBJECT_TYPE extends JDBCTableConstrai
     }
 
     @Override
-    protected StringBuilder getNestedDeclaration(DBRProgressMonitor monitor, TABLE_TYPE owner, DBECommandAbstract<OBJECT_TYPE> command, Map<String, Object> options)
+    protected StringBuilder getNestedDeclaration(DBRProgressMonitor monitor, TABLE_TYPE owner, DBECommandAbstract<OBJECT_TYPE> command, Map<String, Object> options) {
+        return getNestedDeclarationScript(owner, command, options);
+    }
+
+    private StringBuilder getNestedDeclarationScript(TABLE_TYPE owner, DBECommandAbstract<OBJECT_TYPE> command, Map<String, Object> options)
     {
         OBJECT_TYPE foreignKey = command.getObject();
         boolean legacySyntax = isLegacyForeignKeySyntax(owner);
+        boolean constraintDuplicated = isFKConstraintDuplicated(owner);
 
         // Create column
         String constraintName = DBUtils.getQuotedIdentifier(foreignKey.getDataSource(), foreignKey.getName());
 
         StringBuilder decl = new StringBuilder(40);
-        if (!legacySyntax || !foreignKey.isPersisted()) {
+        if (!legacySyntax || !foreignKey.isPersisted() || constraintDuplicated) {
             decl.append("CONSTRAINT ");
         }
         if (!legacySyntax) {
@@ -133,17 +144,23 @@ public abstract class SQLForeignKeyManager<OBJECT_TYPE extends JDBCTableConstrai
             }
         }
         decl.append(")"); //$NON-NLS-1$
-        if (foreignKey.getDeleteRule() != null && !CommonUtils.isEmpty(foreignKey.getDeleteRule().getClause())) {
-            decl.append(" ON DELETE ").append(foreignKey.getDeleteRule().getClause()); //$NON-NLS-1$
-        }
-        if (foreignKey.getUpdateRule() != null && !CommonUtils.isEmpty(foreignKey.getUpdateRule().getClause())) {
-            decl.append(" ON UPDATE ").append(foreignKey.getUpdateRule().getClause()); //$NON-NLS-1$
-        }
+        appendUpdateDeleteRule(foreignKey, decl);
 
         if (legacySyntax) {
             decl.append(" CONSTRAINT ").append(constraintName); //$NON-NLS-1$
         }
         return decl;
+    }
+
+    protected void appendUpdateDeleteRule(OBJECT_TYPE foreignKey, StringBuilder decl) {
+        DBSForeignKeyModifyRule deleteRule = foreignKey.getDeleteRule();
+        if (deleteRule != null && !CommonUtils.isEmpty(deleteRule.getClause())) {
+            decl.append(" ON DELETE ").append(deleteRule.getClause()); //$NON-NLS-1$
+        }
+        DBSForeignKeyModifyRule updateRule = foreignKey.getUpdateRule();
+        if (updateRule != null && !CommonUtils.isEmpty(updateRule.getClause())) {
+            decl.append(" ON UPDATE ").append(updateRule.getClause()); //$NON-NLS-1$
+        }
     }
 
     protected String getDropForeignKeyPattern(OBJECT_TYPE constraint)
@@ -173,7 +190,36 @@ public abstract class SQLForeignKeyManager<OBJECT_TYPE extends JDBCTableConstrai
         }
     }
 
+    protected <T extends DBSEntityConstraint> T getReferencedKey(DBRProgressMonitor monitor, TABLE_TYPE table, Class<T> refKeyClass, Map<String, Object> options) {
+        Object refConstraint = options.get(OPTION_REF_CONSTRAINT);
+        if (refKeyClass.isInstance(refConstraint)) {
+            return refKeyClass.cast(refConstraint);
+        }
+        Object refTable = options.get(OPTION_REF_TABLE);
+        if (refTable instanceof DBSEntity) {
+            Object refAttrs = options.get(OPTION_REF_ATTRIBUTES);
+            if (refAttrs instanceof Collection) {
+                try {
+                    DBSEntityConstraint entityConstraint = DBUtils.findEntityConstraint(
+                        monitor,
+                        (DBSEntity) refTable,
+                        (Collection<? extends DBSEntityAttribute>) refAttrs);
+                    if (refKeyClass.isInstance(entityConstraint)) {
+                        return refKeyClass.cast(entityConstraint);
+                    }
+                } catch (DBException e) {
+                    log.debug("Error searchign constraint by attributes", e);
+                }
+            }
+        }
+        return null;
+    }
+
     protected boolean isLegacyForeignKeySyntax(TABLE_TYPE owner) {
+        return false;
+    }
+
+    protected boolean isFKConstraintDuplicated(TABLE_TYPE owner) {
         return false;
     }
 }

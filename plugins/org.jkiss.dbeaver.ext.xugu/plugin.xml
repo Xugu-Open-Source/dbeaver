@@ -80,17 +80,8 @@
                         <folder type="org.jkiss.dbeaver.ext.xugu.model.View" label="%tree.views.node.name" icon="#folder_view" description="Views">
                             <items label="%tree.view.node.name" path="view" property="views" icon="#view">
                                 <!--列-->
-                                <folder type="org.jkiss.dbeaver.ext.xugu.model.TableColumn" label="%tree.columns.node.name" icon="#columns" description="View columns">
-                                    <items label="%tree.columns.node.name" itemLabel="%tree.column.node.name" path="column" property="attributes" icon="#column">
-                                    </items>
-                                </folder>
-                                <!--触发器                            
-                                	<folder type="org.jkiss.dbeaver.ext.xugu.model.Trigger" label="%tree.triggers.node.name" icon="#triggers" description="Triggers">
-                                    	<items label="%tree.trigger.node.name" path="trigger" property="triggers" icon="#trigger">
-                                        	<items label="%tree.columns.node.name" itemLabel="%tree.column.node.name" path="column" property="columns" navigable="false" inline="false">
-                                        	</items>
-                                    	</items>
-                                	</folder> -->
+                                <items label="%tree.columns.node.name" itemLabel="%tree.column.node.name" path="column" property="attributes" icon="#column">
+                                </items>
                             </items>
                         </folder>
                         <!--序列-->
@@ -104,22 +95,13 @@
                                 <!--存储过程-->
                                 <folder type="org.jkiss.dbeaver.ext.xugu.model.NewProcedurePackaged" label="%tree.procedures.node.name" icon="#procedures" description="Procedures">
                                     <items label="%tree.procedures.node.name" itemLabel="%tree.procedure.node.name" path="procedure" property="NewProcedures" icon="#procedure" id="Procedure">
-                           				
-                           				<folder type="org.jkiss.dbeaver.ext.xugu.model.NewProcedureParameter" label="%tree.scheduler.job.parameters.node.name" icon="#procedures" description="parameters">
-                                       			 <items label="%tree.scheduler.job.parameters.node.name" itemLabel="%tree.scheduler.job.parameter.node.name" path="argument" property="parameters" icon="#procedure"/>
-                              		 	</folder>
-                              		 	
+                                        <items label="%tree.scheduler.job.parameters.node.name" itemLabel="%tree.scheduler.job.parameter.node.name" path="argument" property="parameters" icon="#procedure"/>
                               	 	</items>
                                 </folder>
                                 <!--存储函数-->
                                 <folder type="org.jkiss.dbeaver.ext.xugu.model.NewProcedurePackaged" label="%tree.functions.node.name" icon="#functions" description="Functions">
                                     <items label="%tree.functions.node.name" itemLabel="%tree.function.node.name" path="function" property="NewFunctions" icon="#function" id="Functions">                
-                                  	
-                                  	    
-                                  		 <folder type="org.jkiss.dbeaver.ext.xugu.model.NewProcedureParameter" label="%tree.scheduler.job.parameters.node.name" icon="#procedures" description="parameters">
-                                       			 <items label="%tree.scheduler.job.parameters.node.name" itemLabel="%tree.scheduler.job.parameter.node.name" path="argument" property="parameters" icon="#procedure"/>
-                              		 	 </folder>
-                              		
+                                  	    <items label="%tree.scheduler.job.parameters.node.name" itemLabel="%tree.scheduler.job.parameter.node.name" path="argument" property="parameters" icon="#procedure"/>
                               	 	</items>
                                 </folder>
                             </items>
@@ -137,7 +119,7 @@
                             </items>
                         </folder>
                         <!--触发器-->
-                        <folder type="org.jkiss.dbeaver.ext.xugu.model.NewTrigger" label="%tree.triggers.node.name" icon="#triggers" description="triggers">
+                        <folder type="org.jkiss.dbeaver.ext.xugu.model.Trigger" label="%tree.triggers.node.name" icon="#triggers" description="triggers">
                             <items label="%tree.trigger.node.name" path="trigger" property="Triggers" icon="#trigger">
                                 <items label="%tree.columns.node.name" itemLabel="%tree.column.node.name" path="column" property="columns" navigable="false" inline="false" virtual="true">
                                 </items>
@@ -163,12 +145,12 @@
                                 </folder>
                             </items>
                         </folder>
-                        <!--作业-->
-                        <!--  <folder type="org.jkiss.dbeaver.ext.xugu.model.SchedulerJob" label="%tree.scheduler.jobs.node.name" icon="#scheduler_job_folder" description="Scheduler jobs">
-                                <items label="%tree.scheduler.job.node.name" path="schedulerJob" property="schedulerJobs" icon="icons/scheduled_job.png">
-                                    <items label="%tree.scheduler.job.parameters.node.name" itemLabel="%tree.scheduler.job.parameter.node.name" path="argument" property="parameters" icon="#argument"/>
-                                </items>
-	                        </folder>-->
+                    </items>
+                </folder>
+                <!--作业-->
+                <folder type="org.jkiss.dbeaver.ext.xugu.model.SchedulerJob" label="%tree.scheduler.jobs.node.name" icon="#scheduler_job_folder" description="Scheduler jobs">
+                    <items label="%tree.scheduler.job.node.name" path="schedulerJob" property="schedulerJobs" icon="icons/scheduled_job.png">
+                        <items label="%tree.scheduler.job.arguments.node.name" itemLabel="%tree.scheduler.job.argument.node.name" path="argument" property="arguments" icon="#argument"/>
                     </items>
                 </folder>
                 <!--存储管理-->
@@ -194,7 +176,7 @@
                     <folder type="org.jkiss.dbeaver.ext.xugu.model.DataType" label="%tree.types.node.name" icon="#data_types" description="Types">
                         <items label="%tree.data_type.node.name" path="type" property="localDataTypes" icon="#data_type"/>
                     </folder>
-                    <folder type="org.jkiss.dbeaver.ext.xugu.model.Synonym" label="%tree.synonyms.node.name" icon="#synonyms" description="Public synonyms">
+                    <folder type="org.jkiss.dbeaver.ext.xugu.model.PublicSynonym" label="%tree.synonyms.node.name" icon="#synonyms" description="Public synonyms">
                         <items label="%tree.synonym.node.name" path="synonym" property="publicSynonyms" icon="#synonym"/>
                     </folder>
                 </folder>
@@ -250,10 +232,10 @@
      	<manager class="org.jkiss.dbeaver.ext.xugu.edit.ViewManager" objectType="org.jkiss.dbeaver.ext.xugu.model.View"/> 
         <manager class="org.jkiss.dbeaver.ext.xugu.edit.ProcedureManager" objectType="org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone"/>
         <manager class="org.jkiss.dbeaver.ext.xugu.edit.PackageManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Package"/>
-      	<manager class="org.jkiss.dbeaver.ext.xugu.edit.NewTriggerManager" objectType="org.jkiss.dbeaver.ext.xugu.model.NewTrigger"/>
-        <!--<manager class="org.jkiss.dbeaver.ext.xugu.edit.TriggerManager" objectType="org.jkiss.dbeaver.ext.xugu.model.NewTrigger"/>-->
+      	<manager class="org.jkiss.dbeaver.ext.xugu.edit.TriggerManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Trigger"/>
         <manager class="org.jkiss.dbeaver.ext.xugu.edit.SequenceManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Sequence"/>
       <!--  <manager class="org.jkiss.dbeaver.ext.xugu.edit.SynonymManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Synonym"/> -->
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.SchedulerJobManager" objectType="org.jkiss.dbeaver.ext.xugu.model.SchedulerJob"/>
         <manager class="org.jkiss.dbeaver.ext.xugu.edit.TablespaceManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Tablespace"/>
         <manager class="org.jkiss.dbeaver.ext.xugu.edit.RoleManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Role"/>
         <manager class="org.jkiss.dbeaver.ext.xugu.edit.UdtManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Udt"/>
@@ -268,7 +250,7 @@
             <objectType name="org.jkiss.dbeaver.ext.xugu.model.View"/>
             <objectType name="org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone"/>
             <objectType name="org.jkiss.dbeaver.ext.xugu.model.Package"/>
-            <objectType name="org.jkiss.dbeaver.ext.xugu.model.NewTrigger"/>
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.Trigger"/>
             <objectType name="org.jkiss.dbeaver.ext.xugu.model.Udt"/>
         </editor>
         <editor id="source.definition" class="org.jkiss.dbeaver.ext.xugu.editors.SourceDefinitionEditor" label="%editor.package.body.name" description="%editor.package.body.description" icon="#sql_text" position="additions_middle" contributor="org.jkiss.dbeaver.ui.editors.sql.SQLEditorContributorNested" type="folder" embeddable="false">
@@ -298,93 +280,47 @@
                 label="Table Maintenance"
                 icon="#tools"/>
             <tool
-                class="org.jkiss.dbeaver.ext.xugu.tasks.TableExport"	
-                description="Export Tables"
-                id="org.jkiss.dbeaver.ext.xugu.tasks.TableExport"
-                label="Dump Tables"
+                class="org.jkiss.dbeaver.ext.xugu.tasks.ExportTool"	
+                description="Export Object DDL"
+                id="org.jkiss.dbeaver.ext.xugu.tasks.ExportTool"
+                label="导出对象定义"
                 icon="#export"
                 singleton="false">
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
-            </tool>
-            <tool
-                class="org.jkiss.dbeaver.ext.xugu.tasks.ViewExport"	
-                description="Export Views"
-                id="org.jkiss.dbeaver.ext.xugu.tasks.ViewExport"
-                label="Dump Views"
-                icon="#export"
-                singleton="false">
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Role"/>
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.User"/>
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.View"/>
-            </tool>
-            <tool
-                class="org.jkiss.dbeaver.ext.xugu.tasks.SequenceExport"	
-                description="Export Sequences"
-                id="org.jkiss.dbeaver.ext.xugu.tasks.SequenceExport"
-                label="Dump Sequences"
-                icon="#export"
-                singleton="false">
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.Sequence"/>
-            </tool>
-            <tool
-                class="org.jkiss.dbeaver.ext.xugu.tasks.PackageExport"	
-                description="Export packages"
-                id="org.jkiss.dbeaver.ext.xugu.tasks.PackageExport"
-                label="Dump Packages"
-                icon="#export"
-                singleton="false">
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.Package"/>
-            </tool>
-            <tool
-                class="org.jkiss.dbeaver.ext.xugu.tasks.ProcedureExport"	
-                description="Export Procedures"
-                id="org.jkiss.dbeaver.ext.xugu.tasks.ProcedureExport"
-                label="Dump Procedures"
-                icon="#export"
-                singleton="false">
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone"/>
-            </tool>
-            <tool
-                class="org.jkiss.dbeaver.ext.xugu.tasks.FunctionExport"	
-                description="Export Procedures"
-                id="org.jkiss.dbeaver.ext.xugu.tasks.FunctionExport"
-                label="Dump Functions"
-                icon="#export"
-                singleton="false">
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone"/>
-            </tool>
-            <tool
-                class="org.jkiss.dbeaver.ext.xugu.tasks.TriggerExport"	
-                description="Export Triggers"
-                id="org.jkiss.dbeaver.ext.xugu.tasks.TriggerExport"
-                label="Dump Triggers"
-                icon="#export"
-                singleton="false">
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.NewTrigger"/>
-            </tool>
-            <tool
-                class="org.jkiss.dbeaver.ext.xugu.tasks.SynonymExport"	
-                description="Export Synonyms"
-                id="org.jkiss.dbeaver.ext.xugu.tasks.SynonymExport"
-                label="Dump Synonyms"
-                icon="#export"
-                singleton="false">
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Trigger"/>
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.Synonym"/>
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Udt"/>
             </tool>
             <tool
-                class="org.jkiss.dbeaver.ext.xugu.tasks.UdtExport"	
-                description="Export Udts"
-                id="org.jkiss.dbeaver.ext.xugu.tasks.UdtExport"
-                label="Dump Udts"
-                icon="#export"
-                singleton="false">
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Udt"/>
+                class="org.jkiss.dbeaver.ext.xugu.tasks.BackupTool"	
+                description="Backup Tool"
+                id="org.jkiss.dbeaver.ext.xugu.tasks.BackupTool"
+                label="备份数据库对象"
+                singleton="true">
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
+            </tool>
+            <tool
+                class="org.jkiss.dbeaver.ext.xugu.tasks.RestoreTool"	
+                description="Restore Tool"
+                id="org.jkiss.dbeaver.ext.xugu.tasks.RestoreTool"
+                label="恢复数据库对象"
+                singleton="true">
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
+            </tool>
+            <tool
+                class="org.jkiss.dbeaver.ext.xugu.tasks.TransactionKiller"	
+                description="Transaction Killer"
+                id="org.jkiss.dbeaver.ext.xugu.tasks.TransactionKiller"
+                label="查杀数据库事务"
+                singleton="true">
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
             </tool>
         </tools>
      </extension>

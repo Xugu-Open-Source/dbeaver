@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import org.eclipse.jface.dialogs.IDialogSettings;
 import org.eclipse.jface.viewers.DelegatingStyledCellLabelProvider;
 import org.eclipse.jface.viewers.LabelProvider;
 import org.eclipse.jface.viewers.StyledString;
+import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
@@ -61,15 +62,13 @@ import java.util.regex.Pattern;
  * GotoObjectDialog
  */
 public class GotoObjectDialog extends FilteredItemsSelectionDialog {
-
     private static final String DIALOG_ID = "GotoObjectDialog";
-
     private static final boolean SHOW_OBJECT_TYPES = true;
     private static final int MAX_RESULT_COUNT = 1000;
 
     private final DBCExecutionContext context;
-    private DBSObject container;
-    private Map<String, Boolean> enabledTypes = new HashMap<>();
+    private final DBSObject container;
+    private final Map<String, Boolean> enabledTypes = new HashMap<>();
     private boolean hasMoreResults;
 
     public GotoObjectDialog(Shell shell, DBCExecutionContext context, DBSObject container) {
@@ -77,7 +76,7 @@ public class GotoObjectDialog extends FilteredItemsSelectionDialog {
         this.context = context;
         this.container = container;
 
-        setTitle(UINavigatorMessages.dialog_project_goto_object_title + " '" + context.getDataSource().getContainer().getName() + "'");
+        setTitle(NLS.bind(UINavigatorMessages.dialog_project_goto_object_title, context.getDataSource().getContainer().getName()));
         setListLabelProvider(new ObjectLabelProvider());
         setDetailsLabelProvider(new DetailsLabelProvider());
     }
@@ -90,7 +89,7 @@ public class GotoObjectDialog extends FilteredItemsSelectionDialog {
         IDialogSettings driverSettings = DialogSettings.getOrCreateSection(
             getDialogSettings(), context.getDataSource().getContainer().getDriver().getId());
 
-        DBSStructureAssistant structureAssistant = DBUtils.getAdapter(DBSStructureAssistant.class, context.getDataSource());
+        DBSStructureAssistant<?> structureAssistant = DBUtils.getAdapter(DBSStructureAssistant.class, context.getDataSource());
         if (structureAssistant == null) {
             return null;
         }
@@ -104,45 +103,48 @@ public class GotoObjectDialog extends FilteredItemsSelectionDialog {
             }
             typesToSearch.add(type);
         }
-        if (!CommonUtils.isEmpty(typesToSearch)) {
-            Group cbGroup = new Group(parent, SWT.NONE);
-            cbGroup.setText("Objects:");
-            RowLayout rowLayout = new RowLayout(SWT.HORIZONTAL);
-            rowLayout.wrap = true;
-            cbGroup.setLayout(rowLayout);
-            cbGroup.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-            for (DBSObjectType type : typesToSearch) {
-                if (!isValidObjectType(type)) {
-                    continue;
-                }
-
-                Button cb = new Button(cbGroup, SWT.CHECK);
-                cb.setData(type);
-                String typeName = CommonUtils.notEmpty(type.getTypeName());
-                cb.setText(typeName);
-
-                boolean enabled;
-                if (driverSettings.get(typeName) != null) {
-                    enabled = driverSettings.getBoolean(typeName);
-                } else {
-                    enabled = true;
-                }
-                cb.setSelection(enabled);
-                enabledTypes.put(typeName, enabled);
-                cb.addSelectionListener(new SelectionAdapter() {
-                    @Override
-                    public void widgetSelected(SelectionEvent e) {
-                        enabledTypes.put(typeName, cb.getSelection());
-                        driverSettings.put(typeName, cb.getSelection());
-                        applyFilter();
-                        //scheduleRefresh();
-                    }
-                });
+        if (CommonUtils.isEmpty(typesToSearch)) {
+            return null;
+        }
+        Group cbGroup = new Group(parent, SWT.NONE);
+        cbGroup.setText("Objects:");
+        RowLayout rowLayout = new RowLayout(SWT.HORIZONTAL);
+        rowLayout.wrap = true;
+        cbGroup.setLayout(rowLayout);
+        cbGroup.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+        for (DBSObjectType type : typesToSearch) {
+            if (!isValidObjectType(type)) {
+                continue;
             }
 
-            return cbGroup;
+            Button cb = new Button(cbGroup, SWT.CHECK);
+            cb.setData(type);
+            String typeName = CommonUtils.notEmpty(type.getTypeName());
+            cb.setText(typeName);
+
+            boolean enabled;
+            if (driverSettings.get(typeName) != null) {
+                enabled = driverSettings.getBoolean(typeName);
+            } else {
+                enabled = true;
+            }
+            cb.setSelection(enabled);
+            enabledTypes.put(typeName, enabled);
+            cb.addSelectionListener(new SelectionAdapter() {
+                @Override
+                public void widgetSelected(SelectionEvent e) {
+                    enabledTypes.put(typeName, cb.getSelection());
+                    driverSettings.put(typeName, cb.getSelection());
+                    applyFilter();
+                }
+            });
         }
 
+        return cbGroup;
+    }
+
+    @Override
+    protected IDialogSettings getDialogBoundsSettings() {
         return null;
     }
 
@@ -365,14 +367,14 @@ public class GotoObjectDialog extends FilteredItemsSelectionDialog {
         @Override
         public void run(DBRProgressMonitor param) throws InvocationTargetException, InterruptedException {
             try {
-                result = structureAssistant.findObjectsByMask(
-                    monitor,
-                    executionContext,
-                    container,
-                    typesToSearch.toArray(new DBSObjectType[0]),
-                    nameMask,
-                    false,
-                    true, MAX_RESULT_COUNT);
+                DBSStructureAssistant.ObjectsSearchParams params = new DBSStructureAssistant.ObjectsSearchParams(
+                        typesToSearch.toArray(new DBSObjectType[0]),
+                        nameMask
+                );
+                params.setParentObject(container);
+                params.setGlobalSearch(true);
+                params.setMaxResults(MAX_RESULT_COUNT);
+                result = structureAssistant.findObjectsByMask(monitor, executionContext, params);
                 hasMoreResults = result.size() >= MAX_RESULT_COUNT;
             } catch (Exception e) {
                 throw new InvocationTargetException(e);

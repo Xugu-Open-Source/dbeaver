@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,32 +17,44 @@
 package org.jkiss.dbeaver.ext.hana.model;
 
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.generic.model.GenericSQLDialect;
 import org.jkiss.dbeaver.model.DBPDataKind;
 import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.data.DBDBinaryFormatter;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCDatabaseMetaData;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
+import org.jkiss.dbeaver.model.impl.data.formatters.BinaryFormatterHexString;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSource;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLConstants;
+import org.jkiss.dbeaver.model.sql.parser.rules.SQLVariableRule;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
+import org.jkiss.dbeaver.model.text.parser.TPRule;
+import org.jkiss.dbeaver.model.text.parser.TPRuleProvider;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 
-public class HANASQLDialect extends GenericSQLDialect {
+public class HANASQLDialect extends GenericSQLDialect implements TPRuleProvider {
 
     private static final Log log = Log.getLog(HANASQLDialect.class);
 
-    public static final String[][] HANA_BEGIN_END_BLOCK = new String[][]{
+    private static final String[][] HANA_BEGIN_END_BLOCK = new String[][]{
         {SQLConstants.BLOCK_BEGIN, SQLConstants.BLOCK_END},
-        {"IF", SQLConstants.BLOCK_END},
+        {"IF", SQLConstants.BLOCK_END + " IF"},
+        {SQLConstants.KEYWORD_CASE, SQLConstants.BLOCK_END},
+        {"FOR", SQLConstants.BLOCK_END + " FOR"},
+        {"WHILE", SQLConstants.BLOCK_END + " WHILE"}
     };
 
     public HANASQLDialect() {
-        super("HANA");
+        super("HANA", "sap_hana");
     }
 
     @Override
@@ -50,8 +62,8 @@ public class HANASQLDialect extends GenericSQLDialect {
         return HANA_BEGIN_END_BLOCK;
     }
 
-    public void initDriverSettings(JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
-        super.initDriverSettings(dataSource, metaData);
+    public void initDriverSettings(JDBCSession session, JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
+        super.initDriverSettings(session, dataSource, metaData);
         // TODO: check if obsolete
         addSQLKeywords(
                 Arrays.asList(
@@ -63,6 +75,11 @@ public class HANASQLDialect extends GenericSQLDialect {
         return true;
     }
 
+    @Override
+    public boolean validIdentifierStart(char c) {
+        return super.validIdentifierStart(c) || c == '_';
+    }
+    
     /*
      * expression evaluation
      */
@@ -88,4 +105,23 @@ public class HANASQLDialect extends GenericSQLDialect {
         return super.getColumnTypeModifiers(dataSource, column, ucTypeName, dataKind);
     }
 
+    @NotNull
+    @Override
+    public DBDBinaryFormatter getNativeBinaryFormatter() {
+        return BinaryFormatterHexString.INSTANCE;
+    }
+
+    @NotNull
+    @Override
+    public String getSearchStringEscape() {
+        // https://github.com/dbeaver/dbeaver/issues/9998#issuecomment-805710837
+        return "\\";
+    }
+
+    @Override
+    public void extendRules(@Nullable DBPDataSourceContainer dataSource, @NotNull List<TPRule> rules, @NotNull RulePosition position) {
+        if (position == RulePosition.FINAL) {
+            rules.add(new SQLVariableRule(this));
+        }
+    }
 }

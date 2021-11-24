@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2013-2016 Denis Forveille (titou10.titou10@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,6 @@
  */
 package org.jkiss.dbeaver.ext.db2.model;
 
-import java.sql.ResultSet;
-import java.sql.Timestamp;
-import java.util.Collection;
-import java.util.Map;
-
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
@@ -33,12 +28,18 @@ import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.format.SQLFormatUtils;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectState;
 import org.jkiss.dbeaver.model.struct.rdb.DBSView;
 import org.jkiss.utils.CommonUtils;
+
+import java.sql.ResultSet;
+import java.sql.Timestamp;
+import java.util.Collection;
+import java.util.Map;
 
 /**
  * Base class for view-like objects (Views, MQT)
@@ -136,7 +137,7 @@ public abstract class DB2ViewBase extends DB2TableBase implements DB2SourceObjec
 
     @Nullable
     @Override
-    @Property(viewable = false, editable = false, updatable = false, multiline = true)
+    @Property(viewable = false, editable = false, updatable = false, length = PropertyLength.MULTILINE)
     public String getDescription()
     {
         return super.getDescription();

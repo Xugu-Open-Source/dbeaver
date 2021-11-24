@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,10 +37,12 @@ import org.jkiss.dbeaver.model.navigator.meta.DBXTreeFolder;
 import org.jkiss.dbeaver.model.navigator.meta.DBXTreeNode;
 import org.jkiss.dbeaver.model.navigator.meta.DBXTreeNodeHandler;
 import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
+import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSWrapper;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.dbeaver.runtime.properties.ObjectPropertyDescriptor;
 import org.jkiss.dbeaver.runtime.properties.PropertySourceAbstract;
 import org.jkiss.dbeaver.runtime.properties.PropertySourceEditable;
 import org.jkiss.dbeaver.ui.UIUtils;
@@ -59,7 +61,6 @@ import org.jkiss.utils.CommonUtils;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 /**
  * NodeListControl
@@ -320,11 +321,14 @@ public abstract class NodeListControl extends ObjectListControl<DBNNode> impleme
             return;
         }
         if (event.getNode().isChildOf(getRootNode())) {
-            if (event.getAction() != DBNEvent.Action.UPDATE) {
-                // Add or remove - just reload list content
-                loadData(false);
-            } else {
-                getItemsViewer().update(event.getNode(), null);
+            switch (event.getAction()) {
+                case ADD:
+                case REMOVE:
+                    loadData(false, true);
+                    break;
+                case UPDATE:
+                    getItemsViewer().update(event.getNode(), null);
+                    break;
             }
         }
     }
@@ -395,12 +399,15 @@ public abstract class NodeListControl extends ObjectListControl<DBNNode> impleme
         }
 
         @Override
-        public DBPPropertyDescriptor[] getPropertyDescriptors2()
-        {
-            Set<DBPPropertyDescriptor> props = getAllProperties();
-            return props.toArray(new DBPPropertyDescriptor[0]);
+        public DBPPropertyDescriptor[] getProperties() {
+            return getAllProperties().toArray(new DBPPropertyDescriptor[0]);
         }
 
+        @Override
+        public void setPropertyValue(@Nullable DBRProgressMonitor monitor, Object editableValue, ObjectPropertyDescriptor prop, Object newValue) throws IllegalArgumentException {
+            super.setPropertyValue(monitor, editableValue, prop, newValue);
+            resetLazyPropertyCache(getCurrentListObject(), prop.getId());
+        }
     }
 
 

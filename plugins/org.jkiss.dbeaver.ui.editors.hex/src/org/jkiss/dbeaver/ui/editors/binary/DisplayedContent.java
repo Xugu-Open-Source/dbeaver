@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -109,7 +109,7 @@ public class DisplayedContent implements StyledTextContent {
     public String getTextRange(int start, int length)
     {
         int dataLength = data.length();
-        if (start > dataLength)
+        if (start > dataLength || start < 0)
             return "";
 
         return data.substring(start, Math.min(dataLength, start + length));
@@ -159,7 +159,7 @@ public class DisplayedContent implements StyledTextContent {
     public void setText(String text)
     {
         data.setLength(0);
-        data.append(text.substring(0, Math.min(text.length(), linesTimesColumns)));
+        data.append(text, 0, Math.min(text.length(), Math.max(0, linesTimesColumns)));
 
         TextChangedEvent changedEvent = new TextChangedEvent(this);
         for (TextChangeListener textListener : textListeners) {

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,14 +21,15 @@ import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPImage;
 import org.jkiss.dbeaver.model.DBPNamedObjectLocalized;
-import org.jkiss.dbeaver.model.impl.AbstractContextDescriptor;
+import org.jkiss.dbeaver.model.DBPObject;
 import org.jkiss.dbeaver.model.impl.PropertyDescriptor;
 import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
+import org.jkiss.dbeaver.model.struct.DBSEntityElement;
 import org.jkiss.dbeaver.model.task.DBTTaskCategory;
 import org.jkiss.dbeaver.model.task.DBTTaskHandler;
 import org.jkiss.dbeaver.model.task.DBTTaskType;
+import org.jkiss.dbeaver.registry.DataSourceBindingDescriptor;
 import org.jkiss.dbeaver.registry.RegistryConstants;
-import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.ArrayList;
@@ -37,12 +38,13 @@ import java.util.List;
 /**
  * TaskTypeDescriptor
  */
-public class TaskTypeDescriptor extends AbstractContextDescriptor implements DBTTaskType, DBPNamedObjectLocalized {
+public class TaskTypeDescriptor extends DataSourceBindingDescriptor implements DBTTaskType, DBPNamedObjectLocalized {
 
     private final TaskCategoryDescriptor category;
     private final IConfigurationElement config;
     private final ObjectType handlerImplType;
     private final DBPPropertyDescriptor[] properties;
+    private Boolean matchesEntityElements;
 
     TaskTypeDescriptor(TaskCategoryDescriptor category, IConfigurationElement config) {
         super(config);
@@ -52,11 +54,7 @@ public class TaskTypeDescriptor extends AbstractContextDescriptor implements DBT
 
         this.handlerImplType = new ObjectType(config, "handler");
 
-        List<DBPPropertyDescriptor> props = new ArrayList<>();
-        for (IConfigurationElement prop : ArrayUtils.safeArray(config.getChildren(PropertyDescriptor.TAG_PROPERTY_GROUP))) {
-            props.addAll(PropertyDescriptor.extractProperties(prop));
-        }
-        this.properties = props.toArray(new DBPPropertyDescriptor[0]);
+        this.properties = PropertyDescriptor.extractPropertyGroups(config);
     }
 
     @NotNull
@@ -120,6 +118,32 @@ public class TaskTypeDescriptor extends AbstractContextDescriptor implements DBT
     @Override
     public DBTTaskHandler createHandler() throws DBException {
         return handlerImplType.createInstance(DBTTaskHandler.class);
+    }
+
+    @Override
+    public Class<? extends DBTTaskHandler> getHandlerClass() {
+        return handlerImplType.getObjectClass(DBTTaskHandler.class);
+    }
+
+    @Override
+    public boolean isObjectApplicable(Object object) {
+        return object instanceof DBPObject && appliesTo((DBPObject) object);
+    }
+
+    public synchronized boolean matchesEntityElements() {
+        if (matchesEntityElements != null) {
+            return matchesEntityElements;
+        }
+        for (ObjectType ot : getObjectTypes()) {
+            if (DBSEntityElement.class.isAssignableFrom(ot.getObjectClass())) {
+                matchesEntityElements = true;
+                break;
+            }
+        }
+        if (matchesEntityElements == null) {
+            matchesEntityElements = false;
+        }
+        return matchesEntityElements;
     }
 
     @Override

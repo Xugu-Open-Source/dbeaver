@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,11 @@ public class SQLConstants {
 
     public static final String STR_QUOTE_SINGLE = "'";
     public static final String STR_QUOTE_DOUBLE = "\"";
+    public static final String[][] DOUBLE_QUOTE_STRINGS = {{ STR_QUOTE_DOUBLE, STR_QUOTE_DOUBLE }};
+
+    public static final String DEFAULT_STATEMENT_DELIMITER = ";";
+    public static final String[] DEFAULT_SCRIPT_DELIMITER = { DEFAULT_STATEMENT_DELIMITER };
+
     public static final String STR_QUOTE_APOS = "`";
     public static final String ML_COMMENT_START = "/*";
     public static final String ML_COMMENT_END = "*/";
@@ -51,11 +56,18 @@ public class SQLConstants {
     public static final String KEYWORD_NULL = "NULL";
     public static final String KEYWORD_IN = "IN";
 
+    public static final String KEYWORD_LIKE = "LIKE";
+    public static final String KEYWORD_ILIKE = "ILIKE";
+
     public static final String KEYWORD_FUNCTION = "FUNCTION";
     public static final String KEYWORD_PROCEDURE = "PROCEDURE";
 
     public static final String KEYWORD_COMMIT = "COMMIT";
     public static final String KEYWORD_ROLLBACK = "ROLLBACK";
+
+    public static final String KEYWORD_EXPLAIN = "EXPLAIN";
+
+    public static final String KEYWORD_CASE = "CASE";
 
     public static final String[] TABLE_KEYWORDS = {
         KEYWORD_FROM,
@@ -111,7 +123,7 @@ public class SQLConstants {
         "CARDINALITY",
         "CASCADE",
         "CASCADED",
-        "CASE",
+        KEYWORD_CASE,
         "CAST",
         "CEIL",
         "CEILING",
@@ -202,12 +214,11 @@ public class SQLConstants {
         "LANGUAGE",
         "LARGE",
         "LATERAL",
+        "LEADING",
         "LEFT",
         "LIKE",
         "LN",
         "LOCAL",
-        "LOCALTIME",
-        "LOCALTIMESTAMP",
         "MATCH",
         "MEMBER",
         KEYWORD_MERGE,
@@ -560,16 +571,17 @@ public class SQLConstants {
         "CHAR_LENGTH",
         "CHARACTER_LENGTH",
         "COUNT",
-        "CURRENT_DATE",
-        "CURRENT_DEFAULT_TRANSFORM_GROUP",
-        "CURRENT_PATH",
-        "CURRENT_ROLE",
-        "CURRENT_TIME",
-        "CURRENT_TIMESTAMP",
-        "CURRENT_TRANSFORM_GROUP_FOR_TYPE",
-        "CURRENT_USER",
+        "LOCALTIME",
+        "LOCALTIMESTAMP",
+//        "CURRENT_DATE",
+//        "CURRENT_DEFAULT_TRANSFORM_GROUP",
+//        "CURRENT_PATH",
+//        "CURRENT_ROLE",
+//        "CURRENT_TIME",
+//        "CURRENT_TIMESTAMP",
+//        "CURRENT_TRANSFORM_GROUP_FOR_TYPE",
+//        "CURRENT_USER",
         "FLOOR",
-        "LEADING",
         "LOWER",
         "MAX",
         "MIN",
@@ -633,7 +645,6 @@ public class SQLConstants {
     };
 
     public static final char STRUCT_SEPARATOR = '.'; //$NON-NLS-1$
-    public static final String DEFAULT_STATEMENT_DELIMITER = ";";
     public static final String CONFIG_COLOR_KEYWORD = "org.jkiss.dbeaver.sql.editor.color.keyword.foreground";
     public static final String CONFIG_COLOR_DATATYPE = "org.jkiss.dbeaver.sql.editor.color.datatype.foreground";
     public static final String CONFIG_COLOR_STRING = "org.jkiss.dbeaver.sql.editor.color.string.foreground";
@@ -654,4 +665,6 @@ public class SQLConstants {
     public static final String DEFAULT_CONTROL_COMMAND_PREFIX = "@";
 
     public final static char[] BRACKETS = {'{', '}', '(', ')', '[', ']', '<', '>'};
+
+
 }

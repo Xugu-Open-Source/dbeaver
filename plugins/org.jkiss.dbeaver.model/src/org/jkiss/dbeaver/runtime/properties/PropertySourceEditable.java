@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,9 +55,16 @@ public class PropertySourceEditable extends PropertySourceAbstract implements DB
         //this.objectManager = editorInput.getObjectManager(DBEObjectEditor.class);
     }
 
-    @Override
-    public boolean isEditable(Object object)
+    public PropertySourceEditable(Object sourceObject, Object object)
     {
+        super(sourceObject, object, true);
+    }
+
+    @Override
+    public boolean isEditable(Object object) {
+        if (commandContext == null) {
+            return true;
+        }
         DBEObjectEditor objectEditor = getObjectEditor(DBEObjectEditor.class);
         return objectEditor != null &&
             object instanceof DBPObject && objectEditor.canEditObject((DBPObject) object);
@@ -74,7 +81,7 @@ public class PropertySourceEditable extends PropertySourceAbstract implements DB
             managerType);
     }
 
-    @Override
+    //@Override
     public DBECommandContext getCommandContext()
     {
         return commandContext;
@@ -177,8 +184,10 @@ public class PropertySourceEditable extends PropertySourceAbstract implements DB
             if (e instanceof InvocationTargetException) {
                 e = ((InvocationTargetException) e).getTargetException();
             }
-            log.error("Can't write property '" + prop.getDisplayName() + "' value", e);
-            return false;
+            if (e instanceof IllegalArgumentException) {
+                throw (IllegalArgumentException) e;
+            }
+            throw new IllegalArgumentException("Can't write property '" + prop.getDisplayName() + "' value", e);
         }
     }
 

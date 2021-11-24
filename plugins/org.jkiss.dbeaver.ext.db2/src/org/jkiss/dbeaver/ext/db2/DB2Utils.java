@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2013-2017 Denis Forveille (titou10.titou10@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
+import org.jkiss.dbeaver.model.sql.SQLConstants;
 import org.jkiss.dbeaver.model.sql.format.SQLFormatUtils;
 import org.jkiss.utils.CommonUtils;
 
@@ -94,15 +95,14 @@ public class DB2Utils {
     private static final String SEL_XMLSTRINGS = "SELECT * FROM SYSCAT.XMLSTRINGS ORDER BY STRINGID WITH UR";
 
     // APPLICATIONS
-    private static final String SEL_APP        = "SELECT * FROM SYSIBMADM.APPLICATIONS WITH UR";
+    public static final String SEL_APP        = "SELECT * FROM SYSIBMADM.APPLICATIONS WITH UR";
 
     private static final String GET_MSG        = "VALUES (SYSPROC.SQLERRM(?))";
 
     // ------------------------
     // Admin Command
     // ------------------------
-    public static void callAdminCmd(DBRProgressMonitor monitor, DB2DataSource dataSource, String command) throws SQLException
-    {
+    public static void callAdminCmd(DBRProgressMonitor monitor, DB2DataSource dataSource, String command) throws SQLException, DBCException {
         LOG.debug("Call admin_cmd with '" + command + "'");
         String sql = String.format(CALL_ADMIN_CMD, command);
 
@@ -215,8 +215,7 @@ public class DB2Utils {
     // Error Message
     // ------------------------
 
-    public static String getMessageFromCode(DB2DataSource db2DataSource, Integer sqlErrorCode) throws SQLException
-    {
+    public static String getMessageFromCode(DB2DataSource db2DataSource, Integer sqlErrorCode) throws SQLException, DBCException {
         try (JDBCSession session = DBUtils.openUtilSession(new VoidProgressMonitor(), db2DataSource, "Get Error Code")) {
             return JDBCUtils.queryString(session, GET_MSG, sqlErrorCode);
         }
@@ -252,7 +251,7 @@ public class DB2Utils {
         try (JDBCSession session = DBUtils.openMetaSession(monitor, dataSource, "Verify EXPLAIN tables")) {
             // First Check with given schema
             try (JDBCCallableStatement stmtSP = session.prepareCall(CALL_INST_OBJ)) {
-                stmtSP.setString(1, "EXPLAIN"); // EXPLAIN
+                stmtSP.setString(1, SQLConstants.KEYWORD_EXPLAIN); // EXPLAIN
                 stmtSP.setString(2, "V"); // Verify
                 stmtSP.setString(3, ""); // Tablespace
                 stmtSP.setString(4, explainTableSchemaName); // Schema
@@ -282,7 +281,7 @@ public class DB2Utils {
 
         try (JDBCSession session = DBUtils.openMetaSession(monitor, dataSource, "Create EXPLAIN tables")) {
             try (JDBCCallableStatement stmtSP = session.prepareCall(CALL_INST_OBJ)) {
-                stmtSP.setString(1, "EXPLAIN"); // EXPLAIN
+                stmtSP.setString(1, SQLConstants.KEYWORD_EXPLAIN); // EXPLAIN
                 stmtSP.setString(2, "C"); // Create
                 stmtSP.setString(3, tablespaceName); // Tablespace
                 stmtSP.setString(4, explainTableSchemaName); // Schema

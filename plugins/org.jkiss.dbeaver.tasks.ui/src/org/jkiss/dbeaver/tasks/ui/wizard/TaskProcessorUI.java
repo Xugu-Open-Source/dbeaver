@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import org.jkiss.dbeaver.model.task.DBTTaskExecutionListener;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.DBeaverNotifications;
 import org.jkiss.dbeaver.runtime.ui.DBPPlatformUI;
+import org.jkiss.dbeaver.tasks.ui.internal.TaskUIMessages;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
 
@@ -74,7 +75,7 @@ public class TaskProcessorUI implements DBRRunnableContext, DBTTaskExecutionList
     }
 
     @Override
-    public void taskFinished(@NotNull Object task, @Nullable Throwable error) {
+    public void taskFinished(@NotNull Object task, @Nullable Object result, @Nullable Throwable error) {
         this.started = false;
 
         long elapsedTime = System.currentTimeMillis() - startTime;
@@ -85,7 +86,7 @@ public class TaskProcessorUI implements DBRRunnableContext, DBTTaskExecutionList
             // Notify agent
             boolean hasErrors = error != null;
             DBPPlatformUI platformUI = DBWorkbench.getPlatformUI();
-            String completeMessage = this.task.getType().getName() + " task completed (" + RuntimeUtils.formatExecutionTime(elapsedTime) + ")";
+            String completeMessage = this.task.getType().getName() + " " + TaskUIMessages.task_processor_ui_message_task_completed + " (" + RuntimeUtils.formatExecutionTime(elapsedTime) + ")";
             if (elapsedTime > platformUI.getLongOperationTimeout() * 1000) {
                 platformUI.notifyAgent(
                     completeMessage, !hasErrors ? IStatus.INFO : IStatus.ERROR);

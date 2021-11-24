@@ -2,7 +2,7 @@
 <feature
         id="org.jkiss.dbeaver.appstore.feature"
         label="%featureName"
-        version="7.0.2.qualifier"
+        version="21.2.4.qualifier"
         provider-name="%providerName"
         plugin="org.jkiss.dbeaver.ui.app.standalone">
 
@@ -32,6 +32,7 @@
 
     <includes id="org.jkiss.dbeaver.runtime.feature" version="0.0.0"/>
     <includes id="org.jkiss.dbeaver.ui.feature" version="0.0.0"/>
+    <includes id="org.jkiss.dbeaver.ui.extra.feature" version="0.0.0"/>
     <includes id="org.jkiss.dbeaver.db.feature" version="0.0.0"/>
     <includes id="org.jkiss.dbeaver.db.ui.feature" version="0.0.0"/>
 

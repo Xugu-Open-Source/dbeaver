@@ -351,8 +351,8 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 	}
 
 	@Override
-	public void renameObject(DBECommandContext commandContext, Table object, String newName) throws DBException {
-		processObjectRename(commandContext, object, newName);
+	public void renameObject(DBECommandContext commandContext, Table object, Map<String, Object> options,
+			String newName) throws DBException {
+		processObjectRename(commandContext, object, options, newName);
 	}
-
 }

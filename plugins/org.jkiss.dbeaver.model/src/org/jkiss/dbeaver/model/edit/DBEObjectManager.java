@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,20 @@ import org.jkiss.dbeaver.model.exec.DBCSession;
  * DBEObjectManager
  */
 public interface DBEObjectManager<OBJECT_TYPE extends DBPObject> {
+
+    /**
+     * New object container.
+     * Usually it is a navigator node (DBNNode).
+     */
+    String OPTION_CONTAINER = "container";
+    /**
+     * Object type (class)
+     */
+    String OPTION_OBJECT_TYPE = "objectType";
+    String OPTION_DELETE_CASCADE = "deleteCascade";
+    String OPTION_CLOSE_EXISTING_CONNECTIONS = "closeExistingConnections";
+    String OPTION_UI_SOURCE = "uiSource";
+    String OPTION_ACTIVE_EDITOR = "activeEditor";
 
     void executePersistAction(
         DBCSession session,

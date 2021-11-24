@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,10 +31,7 @@ import org.jkiss.utils.CommonUtils;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.Reader;
+import java.io.*;
 import java.util.Map;
 
 /**
@@ -42,7 +39,8 @@ import java.util.Map;
  */
 public class DataExporterHTML extends StreamExporterAbstract {
 
-    private static final String PROP_HEADER = "header";
+    private static final String PROP_HEADER = "tableHeader";
+    private static final String PROP_COLUMN_HEADERS = "columnHeaders";
 
     private String name;
     private static final int IMAGE_FRAME_SIZE = 200;
@@ -51,13 +49,15 @@ public class DataExporterHTML extends StreamExporterAbstract {
     private int rowCount = 0;
 
     private boolean outputHeader = true;
+    private boolean outputColumnHeaders = true;
 
     @Override
     public void init(IStreamDataExporterSite site) throws DBException {
         super.init(site);
 
-        Map<Object, Object> properties = site.getProperties();
+        Map<String, Object> properties = site.getProperties();
         outputHeader = CommonUtils.getBoolean(properties.get(PROP_HEADER), outputHeader);
+        outputColumnHeaders = CommonUtils.getBoolean(properties.get(PROP_COLUMN_HEADERS), outputColumnHeaders);
     }
 
     @Override
@@ -85,33 +85,33 @@ public class DataExporterHTML extends StreamExporterAbstract {
             "border: thin solid #6495ed;" +
 //              "width: 50%;" +
             "padding: 5px;" +
-            "background-color: #D0E3FA;" +
-            "background-image: url(sky.jpg);}" +
+            "background-color: #D0E3FA;}" +
             "td{font-family: sans-serif;" +
             "border: thin solid #6495ed;" +
 //              "width: 50%;" +
             "padding: 5px;" +
-            "text-align: center;" +
-            "background-color: #ffffff;}" +
+            "text-align: center;}" +
             ".odd{background:#e8edff;}" +
             "img{padding:5px; border:solid; border-color: #dddddd #aaaaaa #aaaaaa #dddddd; border-width: 1px 2px 2px 1px; background-color:white;}" +
             "</style>\n</head>\n");
         out.write("<body>\n<table>");
 
-        out.write("<tr>");
         if (outputHeader) {
+            out.write("<tr>");
             writeTableTitle(name, columns.length);
+            out.write("</tr>");
+            out.write("<tr>");
         }
-        out.write("</tr>");
-        out.write("<tr>");
-        for (DBDAttributeBinding column : columns) {
-            String colName = column.getLabel();
-            if (CommonUtils.isEmpty(colName)) {
-                colName = column.getName();
+        if (outputColumnHeaders) {
+            for (DBDAttributeBinding column : columns) {
+                String colName = column.getLabel();
+                if (CommonUtils.isEmpty(colName)) {
+                    colName = column.getName();
+                }
+                writeTextCell(colName, true);
             }
-            writeTextCell(colName, true);
+            out.write("</tr>");
         }
-        out.write("</tr>");
     }
 
     @Override
@@ -161,24 +161,14 @@ public class DataExporterHTML extends StreamExporterAbstract {
     private void writeTableTitle(String value, int columns) {
         PrintWriter out = getWriter();
         out.write(String.format("<th colspan=\"%d\">", columns));
-        if (value == null) {
-            out.write("&nbsp;");
-        } else {
-            value = value.replace("<", "&lt;").replace(">", "&gt;").replace("&", "&amp;");
-            out.write(value);
-        }
+        out.write(CommonUtils.escapeHtml(value));
         out.write("</th>");
     }
 
     private void writeTextCell(String value, boolean header) {
         PrintWriter out = getWriter();
         out.write(header ? "<th>" : "<td>");
-        if (value == null) {
-            out.write("&nbsp;");
-        } else {
-            value = value.replace("<", "&lt;").replace(">", "&gt;").replace("&", "&amp;");
-            out.write(value);
-        }
+        out.write(CommonUtils.escapeHtml(value));
         out.write(header ? "</th>" : "</td>");
     }
 
@@ -225,33 +215,16 @@ public class DataExporterHTML extends StreamExporterAbstract {
     }
 
     private void writeCellValue(Reader reader) throws IOException {
-        try {
+        try (BufferedReader bufferedReader = new BufferedReader(reader)) {
             PrintWriter out = getWriter();
-            // Copy reader
-            char[] buffer = new char[2000];
-            for (; ; ) {
-                int count = reader.read(buffer);
-                if (count <= 0) {
-                    break;
-                }
-                for (int i = 0; i < count; i++) {
-                    if (buffer[i] == '<') {
-                        out.write("&lt;");
-                    } else if (buffer[i] == '>') {
-                        out.write("&gt;");
-                    }
-                    if (buffer[i] == '&') {
-                        out.write("&amp;");
-                    }
-                    out.write(buffer[i]);
+            String line = bufferedReader.readLine();
+            while (line != null) {
+                out.write(CommonUtils.escapeHtml(line));
+                line = bufferedReader.readLine();
+                if (line != null) {
+                    out.write("<br>");
                 }
             }
-        } finally {
-            ContentUtils.close(reader);
         }
-    }
-
-    public boolean saveBinariesAsImages() {
-        return true;
     }
 }

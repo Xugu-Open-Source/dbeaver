@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,15 +30,14 @@ import org.jkiss.dbeaver.ui.IHelpContextIds;
 import org.jkiss.dbeaver.ui.UIExecutionQueue;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.navigator.NavigatorPreferences;
-import org.jkiss.dbeaver.ui.navigator.NavigatorStatePersistor;
+import org.jkiss.dbeaver.ui.navigator.NavigatorStatePersister;
 import org.jkiss.dbeaver.ui.navigator.NavigatorUtils;
-import org.jkiss.dbeaver.ui.navigator.database.NavigatorViewBase;
 import org.jkiss.dbeaver.ui.project.PrefPageProjectResourceSettings;
 
 /**
  * ProjectNavigatorView
  */
-public class ProjectNavigatorView extends NavigatorViewBase // CommonNavigator
+public class ProjectNavigatorView extends DecoratedProjectView
 {
 
     private static final Log log = Log.getLog(ProjectNavigatorView.class);
@@ -53,13 +52,13 @@ public class ProjectNavigatorView extends NavigatorViewBase // CommonNavigator
     @Override
     public void saveState(IMemento memento) {
         if (DBWorkbench.getPlatform().getPreferenceStore().getInt(NavigatorPreferences.NAVIGATOR_RESTORE_STATE_DEPTH) > 0)
-            new NavigatorStatePersistor().saveState(getNavigatorViewer().getExpandedElements(), memento);
+            NavigatorStatePersister.saveExpandedState(getNavigatorViewer().getExpandedElements(), memento);
     }
 
     private void restoreState() {
         int maxDepth = DBWorkbench.getPlatform().getPreferenceStore().getInt(NavigatorPreferences.NAVIGATOR_RESTORE_STATE_DEPTH);
         if (maxDepth > 0)
-            new NavigatorStatePersistor().restoreState(getNavigatorViewer(), getRootNode(), maxDepth, memento);
+            NavigatorStatePersister.restoreExpandedState(getNavigatorViewer(), getRootNode(), maxDepth, memento);
     }
 
     @Override
@@ -79,8 +78,11 @@ public class ProjectNavigatorView extends NavigatorViewBase // CommonNavigator
     public void createPartControl(Composite parent)
     {
         super.createPartControl(parent);
+
         UIUtils.setHelp(parent, IHelpContextIds.CTX_PROJECT_NAVIGATOR);
         UIExecutionQueue.queueExec(this::restoreState);
+
+        getNavigatorTree().setLabelDecorator(labelDecorator);
     }
 
     @Override

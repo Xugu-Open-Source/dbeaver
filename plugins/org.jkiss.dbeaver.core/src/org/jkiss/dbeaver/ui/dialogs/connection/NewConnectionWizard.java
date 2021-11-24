@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,14 +19,20 @@ package org.jkiss.dbeaver.ui.dialogs.connection;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.wizard.IWizardPage;
 import org.eclipse.ui.IWorkbench;
+import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.core.CoreMessages;
 import org.jkiss.dbeaver.model.app.DBPDataSourceRegistry;
 import org.jkiss.dbeaver.model.app.DBPProject;
+import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
+import org.jkiss.dbeaver.model.connection.DBPDataSourceProviderDescriptor;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
 import org.jkiss.dbeaver.model.navigator.DBNBrowseSettings;
 import org.jkiss.dbeaver.model.navigator.DBNLocalFolder;
-import org.jkiss.dbeaver.registry.*;
+import org.jkiss.dbeaver.registry.DataSourceDescriptor;
+import org.jkiss.dbeaver.registry.DataSourceProviderRegistry;
+import org.jkiss.dbeaver.registry.DataSourceViewDescriptor;
+import org.jkiss.dbeaver.registry.DataSourceViewRegistry;
 import org.jkiss.dbeaver.registry.driver.DriverDescriptor;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.IActionConstants;
@@ -42,21 +48,22 @@ import java.util.Map;
 
 public class NewConnectionWizard extends ConnectionWizard
 {
-    private DBPDriver initialDriver;
+    private final DBPDriver initialDriver;
+    private final DBPConnectionConfiguration initialConfiguration;
     private IStructuredSelection selection;
-    private List<DataSourceProviderDescriptor> availableProvides = new ArrayList<>();
+    private final List<DBPDataSourceProviderDescriptor> availableProvides = new ArrayList<>();
     private ConnectionPageDriver pageDrivers;
-    private Map<DataSourceProviderDescriptor, ConnectionPageSettings> settingsPages = new HashMap<>();
+    private final Map<DBPDataSourceProviderDescriptor, ConnectionPageSettings> settingsPages = new HashMap<>();
     private ConnectionPageGeneral pageGeneral;
 
-
     public NewConnectionWizard() {
-        this(null);
+        this(null, null);
     }
 
-    public NewConnectionWizard(DBPDriver initialDriver) {
+    public NewConnectionWizard(@Nullable DBPDriver initialDriver, @Nullable DBPConnectionConfiguration initialConfiguration) {
         setWindowTitle(CoreMessages.dialog_new_connection_wizard_title);
         this.initialDriver = initialDriver;
+        this.initialConfiguration = initialConfiguration;
     }
 
     @Override
@@ -65,7 +72,7 @@ public class NewConnectionWizard extends ConnectionWizard
         return project == null ? null : project.getDataSourceRegistry();
     }
 
-    List<DataSourceProviderDescriptor> getAvailableProvides()
+    List<DBPDataSourceProviderDescriptor> getAvailableProvides()
     {
         return availableProvides;
     }
@@ -75,7 +82,7 @@ public class NewConnectionWizard extends ConnectionWizard
         return pageDrivers;
     }
 
-    ConnectionPageSettings getPageSettings(DriverDescriptor driver)
+    ConnectionPageSettings getPageSettings(DBPDriver driver)
     {
         return this.settingsPages.get(driver.getProviderDescriptor());
     }
@@ -112,12 +119,16 @@ public class NewConnectionWizard extends ConnectionWizard
     @Override
     public void addPages()
     {
-        if (initialDriver == null) {
+        /*if (initialDriver == null) */{
+            // We need drivers page always as it contains some settings
             pageDrivers = new ConnectionPageDriver(this);
+            if (initialDriver != null) {
+                pageDrivers.setSelectedDriver(initialDriver);
+            }
             addPage(pageDrivers);
         }
 
-        for (DataSourceProviderDescriptor provider : DataSourceProviderRegistry.getInstance().getEnabledDataSourceProviders()) {
+        for (DBPDataSourceProviderDescriptor provider : DataSourceProviderRegistry.getInstance().getEnabledDataSourceProviders()) {
             availableProvides.add(provider);
             DataSourceViewDescriptor view = DataSourceViewRegistry.getInstance().findView(provider, IActionConstants.NEW_CONNECTION_POINT);
             if (view != null) {
@@ -220,4 +231,12 @@ public class NewConnectionWizard extends ConnectionWizard
         return true;
     }
 
+    @NotNull
+    @Override
+    protected DBPConnectionConfiguration getDefaultConnectionConfiguration() {
+        if (initialConfiguration != null) {
+            return initialConfiguration;
+        }
+        return super.getDefaultConnectionConfiguration();
+    }
 }

@@ -19,13 +19,22 @@ package org.jkiss.dbeaver.ext.xugu.model;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPRefreshableObject;
+import org.jkiss.dbeaver.model.DBPScriptObject;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.access.DBARole;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.ext.xugu.Utils;
+import org.jkiss.dbeaver.ext.xugu.model.DataSource.UserRoleFlag;
+
+import com.xugu.parser.DatabaseParsing;
+import com.xugu.parser.Parsing;
+import com.xugu.parser.Parsing.TableType;
 import com.xugu.permission.LoadPermission;
 
 import java.sql.Connection;
@@ -34,18 +43,20 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Vector;
 
 /**
  * 角色信息类，包含名称、角色权限等具体信息
  */
-public class Role extends BaseGlobalObject implements DBARole, DBPRefreshableObject {
+public class Role extends BaseGlobalObject implements DBARole, DBPRefreshableObject, DBPScriptObject {
 	private String name;
 	private int id;
 	private String authentication;
 	private Collection<RoleAuthority> roleAuthorities;
 	private String userDesc;
 	private Connection conn;
+	private Database parent;
 	DBRProgressMonitor monitor;
 
 	public Role(DataSource dataSource, DBRProgressMonitor monitor, ResultSet resultSet) {
@@ -74,67 +85,13 @@ public class Role extends BaseGlobalObject implements DBARole, DBPRefreshableObj
 					this.id = JDBCUtils.safeGetInt(resultSet, "USER_ID");
 					this.authentication = JDBCUtils.safeGetString(resultSet, "PASSWORD");
 				}
-//				LoadPermission loadPermission = new LoadPermission();
-//				//库级权限
-//				Object databaseAuthorities = loadPermission.getDatabasePermission(conn, this.name);
-//				//对象级权限
-//				Object objectAuthorities = loadPermission.getObjectPermission(conn, this.name);
-//				//二级对象权限
-//				Object subObjectAuthorities = loadPermission.getSubObjectPermisson(conn, this.name);
-//				
-//				roleAuthorities = new ArrayList<>();
-//				if(databaseAuthorities!=null) {
-//					String[] databaseAuthStrings = databaseAuthorities.toString().split("\\r\\n");
-//					RoleAuthority roleAuthority;
-//					 for(int i = 0 ; i< databaseAuthStrings.length;i++) {
-//						 roleAuthority = new RoleAuthority(this, databaseAuthStrings[i], name, true,false, true);
-//						 roleAuthorities.add(roleAuthority);					
-//					 }
-//				}
-//				if(objectAuthorities!=null) {
-//					String[] objectAuthStrings = objectAuthorities.toString().split("\\r\\n");
-//					RoleAuthority roleAuthority;
-//					 for(int i = 0 ; i< objectAuthStrings.length;i++) {
-//						 roleAuthority = new RoleAuthority(this, objectAuthStrings[i], name, false,false, true);
-//						 roleAuthorities.add(roleAuthority);					
-//					 }
-//				}
-//				if(subObjectAuthorities!=null) {
-//					String[] subObjectAuthStrings = subObjectAuthorities.toString().split("\\r\\n");
-//					RoleAuthority roleAuthority;
-//					 for(int i = 0 ; i< subObjectAuthStrings.length;i++) {
-//						 roleAuthority = new RoleAuthority(this, subObjectAuthStrings[i], name, false,true, false);
-//						 roleAuthorities.add(roleAuthority);					
-//					 }
-//				}
-				
-				
-				
-				
-				
-				 //加载权限
-				Vector<Object> authorities = new LoadPermission().loadPermission(conn, this.name, 0);
-				Iterator<Object> it = authorities.iterator();
-				roleAuthorities = new ArrayList<>();
-				while (it.hasNext()) {
-					String temp = it.next().toString();
-					// 对象级权限
-					if (temp.indexOf("\"") != -1) {
-						String targetName = temp.substring(temp.indexOf("\""));
-						RoleAuthority one = new RoleAuthority(this, temp, targetName, false, true);
-						roleAuthorities.add(one);
-					}
-					// 库级权限
-					else {
-						RoleAuthority one = new RoleAuthority(this, temp, null, true, true);
-						roleAuthorities.add(one);
-					}
-				}
+				this.reloadAuthrities();
 			}
 			
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
+		this.parent = dataSource.getDatabase();
 	}
 
 	@NotNull
@@ -167,11 +124,40 @@ public class Role extends BaseGlobalObject implements DBARole, DBPRefreshableObj
 	@Nullable
 	@Override
 	public DBSObject refreshObject(@NotNull DBRProgressMonitor monitor) throws DBException {
-		return this;
+		Role role = this.getDataSource().roleCache.refreshObject(monitor, this.getDataSource(), this);
+		role.reloadAuthrities();
+		return role;
 	}
 
 	public String getObjectList(String schemaName, String type, String tableName) {
 		return Utils.getObjectList(this.getDataSource(), monitor, schemaName, type, tableName);
+	}
+
+	public void reloadAuthrities() {
+		// 加载权限
+		Connection conn;
+		try {
+			conn = this.getDataSource().getDefaultInstance().getDefaultContext(true).getConnection(new LoggingProgressMonitor());
+		} catch (SQLException e) {
+			throw new RuntimeException("获取用户权限查询连接失败", e);
+		}
+		Vector<Object> authorities = new LoadPermission().loadPermission(conn, this.name, 0);
+		Iterator<Object> it = authorities.iterator();
+		roleAuthorities = new ArrayList<>();
+		while (it.hasNext()) {
+			String temp = it.next().toString();
+			// 对象级权限
+			if (temp.indexOf("\"") != -1) {
+				String targetName = temp.substring(temp.indexOf("\""));
+				RoleAuthority one = new RoleAuthority(this, temp, targetName, false, true);
+				roleAuthorities.add(one);
+			}
+			// 库级权限
+			else {
+				RoleAuthority one = new RoleAuthority(this, temp, null, true, true);
+				roleAuthorities.add(one);
+			}
+		}
 	}
 
 	public Collection<RoleAuthority> getRoleAuthorities() {
@@ -222,5 +208,21 @@ public class Role extends BaseGlobalObject implements DBARole, DBPRefreshableObj
 			}
 		}
 		return res;
+	}
+
+	public Database getParent() {
+		return parent;
+	}
+
+	@Override
+	public String getObjectDefinitionText(DBRProgressMonitor monitor, Map<String, Object> options) throws DBException {
+		String objectFullName = DBUtils.getObjectFullName(this, DBPEvaluationContext.DDL);
+		monitor.beginTask("Load sources for role '" + objectFullName + "'...", 1);
+		try (Connection conn = DBUtils.openUtilSession(monitor, this, "Get " + this.name + "DDL")) {
+			Parsing parsing = new Parsing();
+			return parsing.loadTheRoleDDL(conn, getName());
+		} catch (SQLException e) {
+			throw new DBException("Close connection of DDL failed", e);
+		}
 	}
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,8 @@
 
 package org.jkiss.dbeaver.ui.controls.resultset;
 
-import org.eclipse.jface.action.IContributionManager;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
-import org.jkiss.dbeaver.ui.controls.resultset.IResultSetPresentation;
 import org.jkiss.dbeaver.ui.editors.IActionContributor;
 
 /**
@@ -36,6 +34,8 @@ public interface IResultSetPanel extends IActionContributor {
     void activatePanel();
 
     void deactivatePanel();
+
+    void setFocus();
 
     void refresh(boolean force);
 

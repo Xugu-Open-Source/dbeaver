@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,9 +27,11 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTableIndex;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.rdb.DBSIndexType;
 import org.jkiss.utils.ByteNumberFormat;
+import org.jkiss.utils.CommonUtils;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -102,6 +104,30 @@ public class PostgreIndex extends JDBCTableIndex<PostgreSchema, PostgreTableBase
     public PostgreIndex(PostgreTableBase parent, String name, DBSIndexType indexType, boolean unique) {
         super(parent.getContainer().getSchema(), parent, name, indexType, false);
         this.isUnique = unique;
+    }
+
+    public PostgreIndex(DBRProgressMonitor monitor, PostgreTable owner, PostgreIndex srcIndex) throws DBException {
+        super(owner.getSchema(), owner, srcIndex, false);
+        this.isUnique = srcIndex.isUnique;
+        this.isPrimary = srcIndex.isPrimary;
+        this.isExclusion = srcIndex.isExclusion;
+        this.isImmediate = srcIndex.isImmediate;
+        this.isClustered = srcIndex.isClustered;
+        this.isValid = srcIndex.isValid;
+        this.isCheckXMin = srcIndex.isCheckXMin;
+        this.isReady = srcIndex.isReady;
+        this.description = srcIndex.description;
+
+        // Make index name unique
+        int postfix = 1;
+        while (owner.getSchema().getIndexCache().getObject(monitor, owner.getSchema(), getName()) != null) {
+            setName(srcIndex.getName() + "_" + postfix);
+            postfix++;
+        }
+
+        for (PostgreIndexColumn sourceColumn : CommonUtils.safeCollection(srcIndex.getAttributeReferences(monitor))) {
+            this.columns.add(new PostgreIndexColumn(monitor, this, sourceColumn));
+        }
     }
 
     @NotNull
@@ -188,7 +214,7 @@ public class PostgreIndex extends JDBCTableIndex<PostgreSchema, PostgreTableBase
 
     @Nullable
     @Override
-    @Property(viewable = true, multiline = true, order = 100)
+    @Property(viewable = true, length = PropertyLength.MULTILINE, order = 100)
     public String getDescription() {
         return description;
     }

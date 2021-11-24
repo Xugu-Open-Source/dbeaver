@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.jkiss.dbeaver.model.impl.sql.edit;
 
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPObject;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.edit.*;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.messages.ModelMessages;
@@ -80,6 +81,11 @@ public abstract class SQLStructEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
                 SQLObjectEditor<DBSObject, ?> nestedEditor = getObjectEditor(editorsRegistry, childType);
                 if (nestedEditor != null) {
                     for (DBSObject child : children) {
+                        if (!isIncludeChildObjectReference(monitor, child)) {
+                            // We need to skip some objects as they are automatically created by main commands.
+                            // E.g. primary key indexes
+                            continue;
+                        }
                         ObjectCreateCommand childCreateCommand = (ObjectCreateCommand) nestedEditor.makeCreateCommand(child, createCommand.getOptions());
                         //((StructCreateCommand)createCommand).aggregateCommand(childCreateCommand);
                         commandContext.addCommand(childCreateCommand, null, false);
@@ -92,6 +98,10 @@ public abstract class SQLStructEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
     protected  <T extends DBSObject> SQLObjectEditor<T, OBJECT_TYPE> getObjectEditor(DBERegistry editorsRegistry, Class<T> type) {
         final Class<? extends T> childType = getChildType(type);
         return childType == null ? null : editorsRegistry.getObjectManager(childType, SQLObjectEditor.class);
+    }
+
+    protected boolean isIncludeChildObjectReference(DBRProgressMonitor monitor, DBSObject childObject) throws DBException {
+        return true;
     }
 
     protected <T> Class<? extends T> getChildType(Class<T> type) {
@@ -111,7 +121,7 @@ public abstract class SQLStructEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
     public class StructCreateCommand extends ObjectCreateCommand
         implements DBECommandAggregator<OBJECT_TYPE> {
 
-        private final Map<DBPObject, NestedObjectCommand> objectCommands = new LinkedHashMap<>();
+        private final Map<DBPObject, NestedObjectCommand<?, ?>> objectCommands = new LinkedHashMap<>();
 
         public StructCreateCommand(OBJECT_TYPE object, String table, Map<String, Object> options)
         {
@@ -119,7 +129,7 @@ public abstract class SQLStructEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
             objectCommands.put(getObject(), this);
         }
 
-        public Map<DBPObject, NestedObjectCommand> getObjectCommands()
+        public Map<DBPObject, NestedObjectCommand<?, ?>> getObjectCommands()
         {
             return objectCommands;
         }
@@ -128,11 +138,13 @@ public abstract class SQLStructEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
         public boolean aggregateCommand(DBECommand<?> command)
         {
             if (command instanceof NestedObjectCommand) {
-                objectCommands.put(command.getObject(), (NestedObjectCommand) command);
-                return true;
-            } else {
-                return false;
+                final DBPObject object = command.getObject();
+                if (object instanceof DBSObject && DBUtils.isParentOf((DBSObject) object, getObject())) {
+                    objectCommands.put(object, (NestedObjectCommand<?, ?>) command);
+                    return true;
+                }
             }
+            return false;
         }
 
         @Override
@@ -147,7 +159,7 @@ public abstract class SQLStructEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
             List<DBEPersistAction> actions = new ArrayList<>();
             addStructObjectCreateActions(monitor, executionContext, actions, this, options);
             addObjectExtraActions(monitor, executionContext, actions, this, options);
-            return actions.toArray(new DBEPersistAction[actions.size()]);
+            return actions.toArray(new DBEPersistAction[0]);
         }
     }
 

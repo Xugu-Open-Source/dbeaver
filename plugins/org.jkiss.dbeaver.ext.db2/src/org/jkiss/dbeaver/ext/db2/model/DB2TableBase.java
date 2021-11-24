@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2013-2016 Denis Forveille (titou10.titou10@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.jkiss.dbeaver.ext.db2.model.cache.DB2TableIndexCache;
 import org.jkiss.dbeaver.ext.db2.model.dict.DB2OwnerType;
 import org.jkiss.dbeaver.ext.db2.model.fed.DB2Nickname;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
+import org.jkiss.dbeaver.model.DBPObjectStatistics;
 import org.jkiss.dbeaver.model.DBPRefreshableObject;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.exec.DBCException;
@@ -34,6 +35,8 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTable;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
+import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.utils.CommonUtils;
@@ -43,6 +46,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 
 /**
  * Super class for DB2 Tables, Views, Nicknames
@@ -50,7 +54,7 @@ import java.util.Collections;
  * @author Denis Forveille
  */
 public abstract class DB2TableBase extends JDBCTable<DB2DataSource, DB2Schema>
-    implements DBPRefreshableObject, DB2StatefulObject {
+    implements DBPRefreshableObject, DB2StatefulObject, DBPObjectStatistics {
 
     private DB2TableIndexCache tableIndexCache = new DB2TableIndexCache();
 
@@ -62,6 +66,7 @@ public abstract class DB2TableBase extends JDBCTable<DB2DataSource, DB2Schema>
     private Timestamp createTime;
 
     private String remarks;
+    private volatile Long tableTotalSize;
 
     // -----------------
     // Constructors
@@ -124,6 +129,8 @@ public abstract class DB2TableBase extends JDBCTable<DB2DataSource, DB2Schema>
             }
         }
 
+        tableTotalSize = null;
+
         return this;
     }
 
@@ -132,7 +139,7 @@ public abstract class DB2TableBase extends JDBCTable<DB2DataSource, DB2Schema>
     // -----------------
 
     @Override
-    public Collection<DB2TableColumn> getAttributes(@NotNull DBRProgressMonitor monitor) throws DBException
+    public List<DB2TableColumn> getAttributes(@NotNull DBRProgressMonitor monitor) throws DBException
     {
         if (this instanceof DB2Table) {
             return getContainer().getTableCache().getChildren(monitor, getContainer(), (DB2Table) this);
@@ -257,7 +264,7 @@ public abstract class DB2TableBase extends JDBCTable<DB2DataSource, DB2Schema>
 
     @Nullable
     @Override
-    @Property(viewable = false, order = 99, editable = true, updatable = true, multiline = true)
+    @Property(viewable = false, order = 99, editable = true, updatable = true, length = PropertyLength.MULTILINE)
     public String getDescription()
     {
         return remarks;
@@ -266,6 +273,30 @@ public abstract class DB2TableBase extends JDBCTable<DB2DataSource, DB2Schema>
     public void setDescription(String description)
     {
         this.remarks = description;
+    }
+
+    // -------------------------
+    // Stats
+    // -------------------------
+
+    @Override
+    public boolean hasStatistics() {
+        return tableTotalSize != null;
+    }
+
+    @Override
+    public long getStatObjectSize() {
+        return tableTotalSize == null ? 0 : tableTotalSize;
+    }
+
+    void setTableTotalSize(long tableTotalSize) {
+        this.tableTotalSize = tableTotalSize;
+    }
+
+    @Nullable
+    @Override
+    public DBPPropertySource getStatProperties() {
+        return null;
     }
 
 }

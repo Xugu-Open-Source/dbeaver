@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package org.jkiss.dbeaver.model.connection;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.model.DBPImage;
 import org.jkiss.dbeaver.model.DBPNamedObject;
-import org.jkiss.dbeaver.model.navigator.meta.DBXTreeNode;
+import org.jkiss.dbeaver.model.navigator.meta.DBXTreeDescriptor;
 import org.jkiss.dbeaver.model.sql.SQLDialectMetadata;
 
 import java.util.List;
@@ -41,11 +41,15 @@ public interface DBPDataSourceProviderDescriptor extends DBPNamedObject {
 
     String getPluginId();
 
-    DBXTreeNode getTreeDescriptor();
+    DBXTreeDescriptor getTreeDescriptor();
 
     @NotNull
     SQLDialectMetadata getScriptDialect();
 
     boolean isTemporary();
+
+    List<? extends DBPDriver> getDrivers();
+
+    DBPDataSourceProviderDescriptor getParentProvider();
 
 }

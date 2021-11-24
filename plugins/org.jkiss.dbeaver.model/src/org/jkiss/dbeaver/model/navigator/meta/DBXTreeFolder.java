@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,12 +21,14 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.DBPImage;
 import org.jkiss.dbeaver.model.connection.DBPDataSourceProviderRegistry;
 import org.jkiss.dbeaver.model.connection.DBPEditorContribution;
 import org.jkiss.dbeaver.model.impl.AbstractDescriptor;
 import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
 import org.jkiss.dbeaver.model.navigator.DBNNode;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.ArrayList;
@@ -39,14 +41,64 @@ public class DBXTreeFolder extends DBXTreeNode {
     private String type;
     private String label;
     private String description;
+    private String optionalItem;
+
+    private boolean isOptional;
 
     private List<String> contributedCategories = null;
+    private ItemType[] itemTypes = null;
 
-    public DBXTreeFolder(AbstractDescriptor source, DBXTreeNode parent, IConfigurationElement config, String type, boolean navigable, boolean virtual, String visibleIf) {
+    public static class ItemType {
+        private String className;
+        private String itemType;
+        private DBPImage itemIcon;
+
+        private ItemType(String className, String itemType, DBPImage itemIcon) {
+            this.className = className;
+            this.itemType = itemType;
+            this.itemIcon = itemIcon;
+        }
+
+        public String getClassName() {
+            return className;
+        }
+
+        public String getItemType() {
+            return itemType;
+        }
+
+        public DBPImage getItemIcon() {
+            return itemIcon;
+        }
+    }
+
+    public DBXTreeFolder(AbstractDescriptor source, DBXTreeNode parent, IConfigurationElement config, String type, boolean navigable, boolean virtual, String visibleIf, boolean isOptional) {
         super(source, parent, config, navigable, false, virtual, false, visibleIf, null);
         this.type = type;
         this.label = config.getAttribute("label");
         this.description = config.getAttribute("description");
+        this.optionalItem = config.getAttribute("optionalItem");
+        this.isOptional = isOptional;
+
+        IConfigurationElement[] itemTypesConfig = config.getChildren("itemType");
+        if (!ArrayUtils.isEmpty(itemTypesConfig)) {
+            List<ItemType> objectCreateTypes = null;
+            for (IConfigurationElement it : itemTypesConfig) {
+                String itemTypeName = it.getAttribute("type");
+                if (!CommonUtils.isEmpty(itemTypeName)) {
+                    if (objectCreateTypes == null) {
+                        objectCreateTypes = new ArrayList<>();
+                    }
+                    objectCreateTypes.add(new ItemType(
+                        itemTypeName,
+                        it.getAttribute("label"),
+                        source.iconToImage(it.getAttribute("icon"))));
+                }
+            }
+            if (objectCreateTypes != null) {
+                itemTypes = objectCreateTypes.toArray(new ItemType[0]);
+            }
+        }
     }
 
     DBXTreeFolder(AbstractDescriptor source, DBXTreeNode parent, DBXTreeFolder folder) {
@@ -62,6 +114,19 @@ public class DBXTreeFolder extends DBXTreeNode {
 
     public void setType(String type) {
         this.type = type;
+    }
+
+    public String getIdOrType() {
+        String id = getId();
+        return !CommonUtils.isEmpty(id) ? id : type;
+    }
+
+    public String getOptionalItem() {
+        return optionalItem;
+    }
+
+    public boolean isOptional() {
+        return isOptional;
     }
 
     @Override
@@ -116,6 +181,29 @@ public class DBXTreeFolder extends DBXTreeNode {
         return children;
     }
 
+    public DBXTreeItem getChildByPath(String path) {
+        for (DBXTreeNode node : getChildren()) {
+            if (node instanceof DBXTreeItem && path.equals(((DBXTreeItem) node).getPath())) {
+                return (DBXTreeItem) node;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    protected boolean isVisible(DBNNode context) {
+        if (!super.isVisible(context)) {
+            return false;
+        }
+        // If child nodes are only folders and all non visible then parent folder is also not visible
+        for (DBXTreeNode childNode : getChildren(context)) {
+            if (childNode.isVisible(context)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public String toString() {
         return "Folder " + label;
@@ -138,5 +226,9 @@ public class DBXTreeFolder extends DBXTreeNode {
             contributedCategories = new ArrayList<>();
         }
         contributedCategories.add(category);
+    }
+
+    public ItemType[] getItemTypes() {
+        return itemTypes;
     }
 }

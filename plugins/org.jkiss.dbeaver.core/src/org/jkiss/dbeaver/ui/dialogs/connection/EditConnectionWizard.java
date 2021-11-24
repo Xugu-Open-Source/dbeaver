@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,23 +30,22 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.core.CoreMessages;
 import org.jkiss.dbeaver.model.app.DBPDataSourceRegistry;
 import org.jkiss.dbeaver.model.app.DBPProject;
+import org.jkiss.dbeaver.model.connection.DBPDriver;
 import org.jkiss.dbeaver.model.navigator.DBNBrowseSettings;
 import org.jkiss.dbeaver.registry.DataSourceDescriptor;
 import org.jkiss.dbeaver.registry.DataSourceViewDescriptor;
 import org.jkiss.dbeaver.registry.DataSourceViewRegistry;
-import org.jkiss.dbeaver.registry.driver.DriverDescriptor;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.IActionConstants;
-import org.jkiss.dbeaver.ui.ICompositeDialogPage;
+import org.jkiss.dbeaver.ui.IDialogPageProvider;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.actions.datasource.DataSourceHandler;
 import org.jkiss.dbeaver.ui.dialogs.BaseAuthDialog;
-import org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageDataFormat;
-import org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetEditors;
-import org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetMain;
-import org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetPresentation;
+import org.jkiss.dbeaver.ui.editors.data.preferences.*;
+import org.jkiss.dbeaver.ui.editors.sql.preferences.PrefPageSQLCompletion;
 import org.jkiss.dbeaver.ui.editors.sql.preferences.PrefPageSQLEditor;
 import org.jkiss.dbeaver.ui.editors.sql.preferences.PrefPageSQLExecute;
+import org.jkiss.dbeaver.ui.editors.sql.preferences.PrefPageSQLFormat;
 import org.jkiss.dbeaver.ui.preferences.*;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
@@ -77,7 +76,7 @@ public class EditConnectionWizard extends ConnectionWizard
     public EditConnectionWizard(@NotNull DataSourceDescriptor dataSource)
     {
         this.originalDataSource = dataSource;
-        this.dataSource = new DataSourceDescriptor(dataSource);
+        this.dataSource = new DataSourceDescriptor(dataSource, dataSource.getRegistry());
         if (!this.dataSource.isSavePassword()) {
             this.dataSource.getConnectionConfiguration().setUserPassword(null);
         }
@@ -103,7 +102,7 @@ public class EditConnectionWizard extends ConnectionWizard
     }
 
     @Override
-    public DriverDescriptor getSelectedDriver()
+    public DBPDriver getSelectedDriver()
     {
         return dataSource.getDriver();
     }
@@ -155,7 +154,7 @@ public class EditConnectionWizard extends ConnectionWizard
         }
 
         if (!embedded && pageSettings != null) {
-            PrefPageConnections pageClientSettings = new PrefPageConnections();
+            PrefPageConnectionClient pageClientSettings = new PrefPageConnectionClient();
             pageSettings.addSubPage(
                 createPreferencePage(pageClientSettings, CoreMessages.dialog_connection_edit_wizard_connections, CoreMessages.dialog_connection_edit_wizard_connections_description));
         }
@@ -170,8 +169,12 @@ public class EditConnectionWizard extends ConnectionWizard
         WizardPrefPage rsPage = addPreferencePage(new PrefPageResultSetMain(), CoreMessages.dialog_connection_edit_wizard_resultset,  CoreMessages.dialog_connection_edit_wizard_resultset_description);
         rsPage.addSubPage(new PrefPageResultSetEditors(), CoreMessages.dialog_connection_edit_wizard_editors, CoreMessages.dialog_connection_edit_wizard_editors_description);
         rsPage.addSubPage(new PrefPageDataFormat(), CoreMessages.dialog_connection_edit_wizard_data_format, CoreMessages.dialog_connection_edit_wizard_data_format_description);
-        rsPage.addSubPage(new PrefPageResultSetPresentation(), CoreMessages.dialog_connection_edit_wizard_presentation, CoreMessages.dialog_connection_edit_wizard_presentation_description);
+        WizardPrefPage pagePresentation = rsPage.addSubPage(PrefPageResultSetPresentation.PAGE_ID, EditConnectionWizard.class, new PrefPageResultSetPresentation());
+        pagePresentation.addSubPage(PrefPageResultSetPresentationGrid.PAGE_ID, EditConnectionWizard.class, new PrefPageResultSetPresentationGrid());
+        pagePresentation.addSubPage(PrefPageResultSetPresentationPlainText.PAGE_ID, EditConnectionWizard.class, new PrefPageResultSetPresentationPlainText());
         WizardPrefPage sqlPage = addPreferencePage(new PrefPageSQLEditor(), CoreMessages.dialog_connection_edit_wizard_sql_editor, CoreMessages.dialog_connection_edit_wizard_sql_editor_description);
+        sqlPage.addSubPage(new PrefPageSQLCompletion(), CoreMessages.dialog_connection_edit_wizard_sql_code_completion, CoreMessages.dialog_connection_edit_wizard_sql_code_completion_description);
+        sqlPage.addSubPage(new PrefPageSQLFormat(), CoreMessages.dialog_connection_edit_wizard_sql_formatting, CoreMessages.dialog_connection_edit_wizard_sql_formatting_description);
         sqlPage.addSubPage(new PrefPageSQLExecute(), CoreMessages.dialog_connection_edit_wizard_sql_processing, CoreMessages.dialog_connection_edit_wizard_sql_processing_description);
     }
 
@@ -186,8 +189,8 @@ public class EditConnectionWizard extends ConnectionWizard
             if (pageName.equals(name)) {
                 return page;
             }
-            if (page instanceof ICompositeDialogPage) {
-                final IDialogPage[] subPages = ((ICompositeDialogPage) page).getSubPages(false, true);
+            if (page instanceof IDialogPageProvider) {
+                final IDialogPage[] subPages = ((IDialogPageProvider) page).getDialogPages(false, true);
                 if (subPages != null) {
                     for (IDialogPage subPage : subPages) {
                         if (subPage instanceof IWizardPage && ((IWizardPage) subPage).getName().equals(name)) {
@@ -208,8 +211,8 @@ public class EditConnectionWizard extends ConnectionWizard
     @Override
     public boolean performFinish()
     {
-        DataSourceDescriptor dsCopy = new DataSourceDescriptor(originalDataSource);
-        DataSourceDescriptor dsChanged = new DataSourceDescriptor(dataSource);
+        DataSourceDescriptor dsCopy = new DataSourceDescriptor(originalDataSource, originalDataSource.getRegistry());
+        DataSourceDescriptor dsChanged = new DataSourceDescriptor(dataSource, dataSource.getRegistry());
         saveSettings(dsChanged);
 
         if (dsCopy.equalSettings(dsChanged)) {
@@ -296,13 +299,12 @@ public class EditConnectionWizard extends ConnectionWizard
         pageInit.saveSettings(dataSource);
         pageEvents.saveSettings(dataSource);
         for (IDialogPage page : getPages()) {
-            if (page instanceof WizardPrefPage) {
-                page = ((WizardPrefPage) page).getPreferencePage();
-            }
-            if (page instanceof IWorkbenchPropertyPage) {
-                ((IWorkbenchPropertyPage) page).setElement(dataSource);
-            }
+            setPageDataSourceElement(dataSource, page);
         }
+        for (WizardPrefPage wpp : getPrefPages()) {
+            setPageDataSourceElement(dataSource, wpp);
+        }
+
         super.savePrefPageSettings();
 
         // Reset password if "Save password" was disabled
@@ -311,12 +313,35 @@ public class EditConnectionWizard extends ConnectionWizard
         }
     }
 
+    private void setPageDataSourceElement(DataSourceDescriptor dataSource, IDialogPage page) {
+        if (page instanceof WizardPrefPage) {
+            WizardPrefPage[] subPages = ((WizardPrefPage)page).getDialogPages(false, true);
+            if (subPages != null) {
+                for (IDialogPage dp : subPages) {
+                    setPageDataSourceElement(dataSource, dp);
+                }
+            }
+
+            page = ((WizardPrefPage) page).getPreferencePage();
+        } else if (page instanceof IDialogPageProvider) {
+            IDialogPage[] subPages = ((IDialogPageProvider)page).getDialogPages(false, true);
+            if (subPages != null) {
+                for (IDialogPage dp : subPages) {
+                    setPageDataSourceElement(dataSource, dp);
+                }
+            }
+        }
+        if (page instanceof IWorkbenchPropertyPage) {
+            ((IWorkbenchPropertyPage) page).setElement(dataSource);
+        }
+    }
+
     private void savePageSettings(WizardPrefPage prefPage) {
         if (isPageActive(prefPage)) {
             prefPage.performFinish();
         }
 /*
-        final WizardPrefPage[] subPages = prefPage.getSubPages();
+        final WizardPrefPage[] subPages = prefPage.getDialogPages();
         if (subPages != null) {
             for (WizardPrefPage subPage : subPages) {
                 if (isPageActive(subPage)) {

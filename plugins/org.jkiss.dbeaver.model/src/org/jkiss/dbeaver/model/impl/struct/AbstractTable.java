@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,21 @@
 package org.jkiss.dbeaver.model.impl.struct;
 
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
+import org.jkiss.dbeaver.model.DBPNamedObject2;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSEntityType;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTable;
+import org.jkiss.dbeaver.model.struct.rdb.DBSTrigger;
+
+import java.util.List;
 
 /**
  * AbstractTable
@@ -31,7 +39,7 @@ import org.jkiss.dbeaver.model.struct.rdb.DBSTable;
 public abstract class AbstractTable<
     DATASOURCE extends DBPDataSource,
     CONTAINER extends DBSObject>
-    implements DBSTable
+    implements DBSTable, DBPNamedObject2
 {
     private CONTAINER container;
     private String tableName;
@@ -64,7 +72,7 @@ public abstract class AbstractTable<
     @Override
     public DBSEntityType getEntityType()
     {
-        return isView() ? DBSEntityType.VIEW : DBSEntityType.TABLE;
+        return DBUtils.isView(this) ? DBSEntityType.VIEW : DBSEntityType.TABLE;
     }
 
     @NotNull
@@ -75,6 +83,7 @@ public abstract class AbstractTable<
         return tableName;
     }
 
+    @Override
     public void setName(String tableName)
     {
         this.tableName = tableName;
@@ -105,4 +114,9 @@ public abstract class AbstractTable<
         return getFullyQualifiedName(DBPEvaluationContext.UI);
     }
 
+    @Nullable
+    @Override
+    public List<? extends DBSTrigger> getTriggers(@NotNull DBRProgressMonitor monitor) throws DBException {
+        return null;
+    }
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,7 +48,6 @@ import java.lang.reflect.InvocationTargetException;
  * Active status label
  */
 abstract class ActiveStatusMessage extends Composite {
-
     private static final Log log = Log.getLog(ActiveStatusMessage.class);
 
     private final ResultSetViewer viewer;
@@ -86,7 +85,7 @@ abstract class ActiveStatusMessage extends Composite {
         });
 
         messageText = new Text(this, SWT.READ_ONLY);
-        if (RuntimeUtils.isPlatformWindows()) {
+        if (RuntimeUtils.isWindows()) {
             messageText.setBackground(null);
         } else {
             messageText.setBackground(parent.getBackground());
@@ -135,6 +134,7 @@ abstract class ActiveStatusMessage extends Composite {
     }
 
     protected abstract boolean isActionEnabled();
+
     protected abstract ILoadService<String> createLoadService();
 
     private class LoadVisualizer implements ILoadVisualizer<String> {
@@ -157,7 +157,7 @@ abstract class ActiveStatusMessage extends Composite {
         @Override
         public void completeLoading(String message) {
             completed = true;
-            if (!CommonUtils.equalObjects(getMessage(), message)) {
+            if (!CommonUtils.isEmpty(message) && !CommonUtils.equalObjects(getMessage(), message)) {
                 setMessage(message);
                 getParent().layout(true, true);
             }

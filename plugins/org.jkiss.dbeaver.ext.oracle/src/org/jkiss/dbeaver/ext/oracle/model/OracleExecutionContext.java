@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCExecutionContext;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCRemoteInstance;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.rdb.DBSCatalog;
 import org.jkiss.utils.CommonUtils;
 
@@ -112,7 +113,8 @@ public class OracleExecutionContext extends JDBCExecutionContext implements DBCE
         try (JDBCSession session = openSession(monitor, DBCExecutionPurpose.META, "Query active schema")) {
             if (useBootstrapSettings) {
                 DBPConnectionBootstrap bootstrap = getBootstrapSettings();
-                if (!CommonUtils.isEmpty(bootstrap.getDefaultSchemaName())) {
+                String bootstrapSchemaName = bootstrap.getDefaultSchemaName();
+                if (!CommonUtils.isEmpty(bootstrapSchemaName) && !bootstrapSchemaName.equals(activeSchemaName)) {
                     setCurrentSchema(monitor, bootstrap.getDefaultSchemaName());
                 }
             }
@@ -139,12 +141,14 @@ public class OracleExecutionContext extends JDBCExecutionContext implements DBCE
     }
 
     private void setCurrentSchema(DBRProgressMonitor monitor, String activeSchemaName) throws DBCException {
-        try (JDBCSession session = openSession(monitor, DBCExecutionPurpose.UTIL, "Set active schema")) {
+        DBSObject oldDefaultSchema = getDefaultSchema();
+        try (JDBCSession session = openSession(monitor, DBCExecutionPurpose.UTIL, TASK_TITLE_SET_SCHEMA)) {
             OracleUtils.setCurrentSchema(session, activeSchemaName);
             this.activeSchemaName = activeSchemaName;
+            DBSObject newDefaultSchema = getDefaultSchema();
+            DBUtils.fireObjectSelectionChange(oldDefaultSchema, newDefaultSchema);
         } catch (SQLException e) {
             throw new DBCException(e, this);
         }
     }
-
 }

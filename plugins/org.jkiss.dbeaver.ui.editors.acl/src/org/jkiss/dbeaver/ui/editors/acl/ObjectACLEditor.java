@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,13 +51,13 @@ import org.jkiss.dbeaver.ui.LoadingJob;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.ListContentProvider;
 import org.jkiss.dbeaver.ui.controls.ProgressPageControl;
-import org.jkiss.dbeaver.ui.navigator.itemlist.ObjectListControl;
 import org.jkiss.dbeaver.ui.editors.AbstractDatabaseObjectEditor;
 import org.jkiss.dbeaver.ui.editors.DatabaseEditorUtils;
 import org.jkiss.dbeaver.ui.navigator.NavigatorUtils;
 import org.jkiss.dbeaver.ui.navigator.database.DatabaseNavigatorLabelProvider;
 import org.jkiss.dbeaver.ui.navigator.database.DatabaseNavigatorTree;
 import org.jkiss.dbeaver.ui.navigator.database.DatabaseNavigatorTreeFilter;
+import org.jkiss.dbeaver.ui.navigator.itemlist.ObjectListControl;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 
@@ -155,7 +155,7 @@ public abstract class ObjectACLEditor<PRIVILEGE extends DBAPrivilege, PRIVILEGE_
                 }
 
                 @Override
-                protected LoadingJob<Collection<DBAPrivilege>> createLoadService() {
+                protected LoadingJob<Collection<DBAPrivilege>> createLoadService(boolean forUpdate) {
                     return null;
                 }
             };
@@ -425,7 +425,7 @@ public abstract class ObjectACLEditor<PRIVILEGE extends DBAPrivilege, PRIVILEGE_
     }
 
     @Override
-    public void refreshPart(Object source, boolean force)
+    public RefreshResult refreshPart(Object source, boolean force)
     {
         if (force ||
             (source instanceof DBNEvent && ((DBNEvent) source).getSource() == DBNEvent.UPDATE_ON_SAVE) ||
@@ -434,7 +434,9 @@ public abstract class ObjectACLEditor<PRIVILEGE extends DBAPrivilege, PRIVILEGE_
             isLoaded = false;
             UIUtils.syncExec(() -> updateObjectPermissions(null));
             activatePart();
+            return RefreshResult.REFRESHED;
         }
+        return RefreshResult.IGNORED;
     }
 
     private static class DatabaseObjectFilter extends DatabaseNavigatorTreeFilter {

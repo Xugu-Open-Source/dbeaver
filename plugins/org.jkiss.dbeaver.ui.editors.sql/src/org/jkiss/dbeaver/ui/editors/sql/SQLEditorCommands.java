@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,15 +31,18 @@ public interface SQLEditorCommands
     String CMD_EXECUTE_ALL_ROWS = "org.jkiss.dbeaver.ui.editors.sql.run.all.rows"; //$NON-NLS-1$
     String CMD_EXPLAIN_PLAN = "org.jkiss.dbeaver.ui.editors.sql.run.explain"; //$NON-NLS-1$
     String CMD_LOAD_PLAN = "org.jkiss.dbeaver.ui.editors.sql.load.plan"; //$NON-NLS-1$
+    String CMD_SQL_EDITOR_DEF_COMMAND = "org.jkiss.dbeaver.core.sql.editor.defaultCommand";
     String CMD_SQL_EDITOR_OPEN = "org.jkiss.dbeaver.core.sql.editor.open";
     String CMD_SQL_EDITOR_NEW = "org.jkiss.dbeaver.core.sql.editor.create";
     String CMD_SQL_EDITOR_RECENT = "org.jkiss.dbeaver.core.sql.editor.recent";
+    String CMD_SQL_EDITOR_CONSOLE = "org.jkiss.dbeaver.core.sql.editor.console";
     String CMD_SQL_QUERY_NEXT = "org.jkiss.dbeaver.ui.editors.sql.query.next";
     String CMD_SQL_QUERY_PREV = "org.jkiss.dbeaver.ui.editors.sql.query.prev";
     String CMD_SQL_GOTO_MATCHING_BRACKET = "org.jkiss.dbeaver.ui.editors.sql.gotoMatchingBracket";
     String CMD_SQL_SWITCH_PANEL = "org.jkiss.dbeaver.ui.editors.sql.switch.panel";
     String CMD_SQL_SHOW_OUTPUT = "org.jkiss.dbeaver.ui.editors.sql.show.output";
     String CMD_SQL_SHOW_LOG = "org.jkiss.dbeaver.ui.editors.sql.show.log";
+    String CMD_SQL_SHOW_VARIABLES = "org.jkiss.dbeaver.ui.editors.sql.show.variables";
     String CMD_SQL_EDITOR_MAXIMIZE_PANEL = "org.jkiss.dbeaver.ui.editors.sql.maximize.result.panel";
     String CMD_SQL_EDITOR_CLOSE_TAB = "org.jkiss.dbeaver.ui.editors.sql.close.tab";
     String CMD_SQL_ASSIST_TEMPLATES = "org.jkiss.dbeaver.ui.editors.sql.assist.templates"; //$NON-NLS-1$

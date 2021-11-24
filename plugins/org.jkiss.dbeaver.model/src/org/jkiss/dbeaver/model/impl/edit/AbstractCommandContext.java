@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,7 +68,12 @@ public abstract class AbstractCommandContext implements DBECommandContext {
     public boolean isDirty()
     {
         synchronized (commands) {
-            return !getCommandQueues().isEmpty();
+            for (CommandQueue queue : getCommandQueues()) {
+                if (!queue.isEmpty()) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 
@@ -96,8 +101,13 @@ public abstract class AbstractCommandContext implements DBECommandContext {
             useAutoCommit = CommonUtils.getOption(validateOptions, OPTION_AVOID_TRANSACTIONS);
         }
 
+        if (!executionContext.getDataSource().getInfo().supportsTransactionsForDDL()) {
+            // Use transaction mode of the session instead
+            txnManager = null;
+        }
+
         boolean oldAutoCommit = false;
-        if (txnManager != null) {
+        if (txnManager != null && txnManager.isSupportsTransactions()) {
             oldAutoCommit = txnManager.isAutoCommit();
             if (oldAutoCommit != useAutoCommit) {
                 try {
@@ -108,22 +118,15 @@ public abstract class AbstractCommandContext implements DBECommandContext {
             }
         }
         try {
-            executeCommands(monitor, options);
+            executeCommands(monitor, options, useAutoCommit ? null : txnManager);
 
-            // Commit changes
-            if (txnManager != null && !useAutoCommit) {
-                try (DBCSession session = executionContext.openSession(monitor, DBCExecutionPurpose.UTIL, "Commit script transaction")) {
-                    txnManager.commit(session);
-                } catch (DBCException e1) {
-                    log.warn("Can't commit script transaction", e1);
-                }
-            }
             // Clear commands. We can't undo after save
             clearCommandQueues();
         } catch (Throwable e) {
             // Rollback changes
-            if (txnManager != null && !useAutoCommit) {
+            if (txnManager != null && txnManager.isSupportsTransactions() && !txnManager.isAutoCommit()) {
                 try (DBCSession session = executionContext.openSession(monitor, DBCExecutionPurpose.UTIL, "Rollback script transaction")) {
+                    session.enableLogging(false);
                     txnManager.rollback(session, null);
                 } catch (DBCException e1) {
                     log.warn("Can't rollback transaction after error", e);
@@ -131,17 +134,26 @@ public abstract class AbstractCommandContext implements DBECommandContext {
             }
             throw e;
         } finally {
-            if (txnManager != null && oldAutoCommit != useAutoCommit) {
+            if (txnManager != null && txnManager.isSupportsTransactions()) {
                 try {
-                    txnManager.setAutoCommit(monitor, oldAutoCommit);
+                    try (DBCSession session = executionContext.openSession(monitor, DBCExecutionPurpose.UTIL, "Commit script transaction")) {
+                        if (!txnManager.isAutoCommit()) {
+                            session.enableLogging(false);
+                            txnManager.commit(session);
+                        }
+                    } finally {
+                        if (oldAutoCommit != useAutoCommit) {
+                            txnManager.setAutoCommit(monitor, oldAutoCommit);
+                        }
+                    }
                 } catch (DBCException e) {
-                    log.warn("Can't switch back to auto-commit mode", e);
+                    log.warn("Can't commit changes", e);
                 }
             }
         }
     }
 
-    private void executeCommands(DBRProgressMonitor monitor, Map<String, Object> options) throws DBException {
+    private void executeCommands(DBRProgressMonitor monitor, Map<String, Object> options, DBCTransactionManager txnManager) throws DBException {
         List<CommandQueue> commandQueues = getCommandQueues();
 
         // Execute commands
@@ -186,7 +198,14 @@ public abstract class AbstractCommandContext implements DBECommandContext {
                                     }
                                     try {
                                         if (error == null || actionType == DBEPersistAction.ActionType.FINALIZER) {
+                                            boolean disableSessionLogging = session.isLoggingEnabled() && cmd.command.isDisableSessionLogging();
+                                            if (disableSessionLogging) {
+                                                session.enableLogging(false);
+                                            }
                                             queue.objectManager.executePersistAction(session, cmd.command, persistInfo.action);
+                                            if (disableSessionLogging) {
+                                                session.enableLogging(true);
+                                            }
                                         }
                                         persistInfo.executed = true;
                                     } catch (DBException e) {
@@ -199,6 +218,10 @@ public abstract class AbstractCommandContext implements DBECommandContext {
                                 }
                                 if (error != null) {
                                     throw error;
+                                }
+                                if (txnManager != null && txnManager.isSupportsTransactions() && !txnManager.isAutoCommit()) {
+                                    // Commit all processed changes
+                                    txnManager.commit(session);
                                 }
                             }
                             cmd.executed = true;
@@ -746,6 +769,11 @@ public abstract class AbstractCommandContext implements DBECommandContext {
         {
             this.command = command;
             this.reflector = reflector;
+        }
+
+        @Override
+        public String toString() {
+            return command.toString() + " [executed=" + executed + ";merged by: " + mergedBy + "]";
         }
     }
 

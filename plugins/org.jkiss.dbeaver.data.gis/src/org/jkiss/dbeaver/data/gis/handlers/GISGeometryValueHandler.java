@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 package org.jkiss.dbeaver.data.gis.handlers;
 
 import org.jkiss.code.NotNull;
+import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCSession;
@@ -24,10 +26,15 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.gis.DBGeometry;
+import org.jkiss.dbeaver.model.impl.jdbc.data.JDBCContentBytes;
 import org.jkiss.dbeaver.model.impl.jdbc.data.handlers.JDBCAbstractValueHandler;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.*;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.sql.SQLException;
 
 /**
@@ -35,16 +42,16 @@ import java.sql.SQLException;
  */
 public class GISGeometryValueHandler extends JDBCAbstractValueHandler {
 
+    private static final Log log = Log.getLog(GISGeometryValueHandler.class);
+
     private int defaultSRID;
     private boolean invertCoordinates;
 
-    public GISGeometryValueHandler() {
-        this(false);
-    }
-
-    public GISGeometryValueHandler(boolean invertCoordinates) {
-        this.invertCoordinates = invertCoordinates;
-    }
+    /**
+     * This is mostly MySQL-specific thing because it has a special spatial data format [SRID] [WKB]
+     * http://www.dev-garden.org/2011/11/27/loading-mysql-spatial-data-with-jdbc-and-jts-wkbreader/
+     */
+    private boolean leadingSRID;
 
     public boolean isFlipCoordinates() {
         return invertCoordinates;
@@ -60,6 +67,14 @@ public class GISGeometryValueHandler extends JDBCAbstractValueHandler {
 
     public void setInvertCoordinates(boolean invertCoordinates) {
         this.invertCoordinates = invertCoordinates;
+    }
+
+    public boolean isLeadingSRID() {
+        return leadingSRID;
+    }
+
+    public void setLeadingSRID(boolean leadingSRID) {
+        this.leadingSRID = leadingSRID;
     }
 
     @Override
@@ -107,15 +122,29 @@ public class GISGeometryValueHandler extends JDBCAbstractValueHandler {
             }
         } else if (object instanceof Geometry) {
             geometry = new DBGeometry((Geometry)object);
-        } else if (object instanceof byte[]) {
-            Geometry jtsGeometry = convertGeometryFromBinaryFormat(session, (byte[]) object);
+        } else if (object instanceof byte[] || (object instanceof JDBCContentBytes && !DBUtils.isNullValue(object))) {
+            byte[] bytes;
+            if (object instanceof JDBCContentBytes) {
+                bytes = ((JDBCContentBytes) object).getRawValue();
+            } else {
+                bytes = (byte[]) object;
+            }
+            try {
+                Geometry jtsGeometry = convertGeometryFromBinaryFormat(session, bytes);
 //            if (invertCoordinates) {
 //                jtsGeometry.apply(GeometryConverter.INVERT_COORDINATE_FILTER);
 //            }
-            geometry = new DBGeometry(jtsGeometry);
+                geometry = new DBGeometry(jtsGeometry);
+            } catch (DBCException e) {
+                throw new DBCException("Error parsing geometry value from binary", e);
+            }
         } else if (object instanceof String) {
-            Geometry jtsGeometry = GeometryConverter.getInstance().fromWKT((String) object);
-            geometry = new DBGeometry(jtsGeometry);
+            try {
+                Geometry jtsGeometry = new WKTReader().read((String) object);
+                geometry = new DBGeometry(jtsGeometry);
+            } catch (Exception e) {
+                throw new DBCException("Error parsing geometry value from string", e);
+            }
         } else {
             throw new DBCException("Unsupported geometry value: " + object);
         }
@@ -126,11 +155,53 @@ public class GISGeometryValueHandler extends JDBCAbstractValueHandler {
     }
 
     protected Geometry convertGeometryFromBinaryFormat(DBCSession session, byte[] object) throws DBCException {
-        return GeometryConverter.getInstance().fromWKB(object);
+        try (ByteArrayInputStream is = new ByteArrayInputStream(object)) {
+            int srid = 0;
+
+            if (leadingSRID) {
+                // Read SRID with little endian order (the least significant bytes come first)
+                srid |= is.read();
+                srid |= is.read() << 8;
+                srid |= is.read() << 16;
+                srid |= is.read() << 24;
+            }
+
+            final Geometry geometry = new WKBReader().read(new InputStreamInStream(is));
+
+            if (leadingSRID && srid > 0) {
+                geometry.setSRID(srid);
+            }
+
+            return geometry;
+        } catch (Exception e) {
+            throw new DBCException("Error reading geometry from binary data", e);
+        }
     }
 
     protected byte[] convertGeometryToBinaryFormat(DBCSession session, Geometry geometry) throws DBCException {
-        return GeometryConverter.getInstance().toWKB(geometry);
+        try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
+            final int srid = geometry.getSRID();
+
+            if (leadingSRID) {
+                // Write SRID with little endian order (the least significant bytes come first)
+                os.write((byte) (srid));
+                os.write((byte) (srid >> 8));
+                os.write((byte) (srid >> 16));
+                os.write((byte) (srid >> 24));
+            }
+
+            final WKBWriter writer = new WKBWriter(
+                2 /* default */,
+                !leadingSRID ? ByteOrderValues.BIG_ENDIAN : ByteOrderValues.LITTLE_ENDIAN,
+                !leadingSRID && srid > 0
+            );
+
+            writer.write(geometry, new OutputStreamOutStream(os));
+
+            return os.toByteArray();
+        } catch (IOException e) {
+            throw new DBCException("Error writing geometry to binary data", e);
+        }
     }
 
     @NotNull
@@ -138,6 +209,16 @@ public class GISGeometryValueHandler extends JDBCAbstractValueHandler {
     public String getValueDisplayString(@NotNull DBSTypedObject column, Object value, @NotNull DBDDisplayFormat format) {
         if (value instanceof DBGeometry && format == DBDDisplayFormat.NATIVE) {
             return "'" + value.toString() + "'";
+        } else if (value instanceof JDBCContentBytes && !DBUtils.isNullValue(value)) {
+            byte[] bytes = ((JDBCContentBytes) value).getRawValue();
+            if (bytes.length != 0) {
+                try {
+                    Geometry geometry = convertGeometryFromBinaryFormat(null, bytes);
+                    return geometry.toString();
+                } catch (DBCException e) {
+                    log.debug("Error parsing string geometry value from binary");
+                }
+            }
         }
         return super.getValueDisplayString(column, value, format);
     }

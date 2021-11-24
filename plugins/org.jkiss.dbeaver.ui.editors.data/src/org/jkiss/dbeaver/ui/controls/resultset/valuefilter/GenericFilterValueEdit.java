@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,10 +34,7 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataKind;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.DBValueFormatting;
-import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
-import org.jkiss.dbeaver.model.data.DBDAttributeConstraint;
-import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
-import org.jkiss.dbeaver.model.data.DBDLabelValuePair;
+import org.jkiss.dbeaver.model.data.*;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.exec.DBCLogicalOperator;
 import org.jkiss.dbeaver.model.exec.DBCSession;
@@ -68,9 +65,7 @@ class GenericFilterValueEdit {
     private TableViewer tableViewer;
     private String filterPattern;
 
-    private KeyLoadJob loadJob;
     private IValueEditor editor;
-    private Text textControl;
 
     @NotNull
     private final ResultSetViewer viewer;
@@ -83,12 +78,18 @@ class GenericFilterValueEdit {
 
     private boolean isCheckedTable;
 
+    private static final int INPUT_DELAY_BEFORE_LOAD = 300;
     private static final int MAX_MULTI_VALUES = 1000;
     private static final String MULTI_KEY_LABEL = "...";
     private Composite buttonsPanel;
     private Button toggleButton;
 
     private transient final Set<Object> savedValues = new HashSet<>();
+    private boolean queryDatabase = true;
+    private boolean showRowCount;
+    private boolean caseInsensitiveSearch;
+
+    private transient volatile KeyLoadJob loadJob;
 
     GenericFilterValueEdit(@NotNull ResultSetViewer viewer, @NotNull DBDAttributeBinding attribute, @NotNull ResultSetRow[] rows, @NotNull DBCLogicalOperator operator) {
         this.viewer = viewer;
@@ -173,7 +174,7 @@ class GenericFilterValueEdit {
                     updateToggleButton(toggleButton);
                 }
             });
-            toggleButton.setData(true);
+            updateToggleButton(toggleButton);
             GridData gd = new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING);
             gd.widthHint = 120;
             toggleButton.setLayoutData(gd);
@@ -223,7 +224,17 @@ class GenericFilterValueEdit {
         return (Collection<DBDLabelValuePair>) tableViewer.getInput();
     }
 
-    Text addFilterTextbox(Composite composite) {
+    Text addFilterText(Composite composite) {
+        // Create job which will load values after specified delay
+        final AbstractJob loadValuesJob = new AbstractJob("Load values timeout") {
+            @Override
+            protected IStatus run(DBRProgressMonitor monitor) {
+                UIUtils.asyncExec(() -> loadValues(null));
+                return Status.OK_STATUS;
+            }
+        };
+        loadValuesJob.setSystem(true);
+        loadValuesJob.setUser(false);
 
         // Create filter text
         final Text valueFilterText = new Text(composite, SWT.BORDER);
@@ -233,24 +244,48 @@ class GenericFilterValueEdit {
             if (filterPattern.isEmpty()) {
                 filterPattern = null;
             }
-            loadValues(null);
+            if (!loadValuesJob.isCanceled()) {
+                loadValuesJob.cancel();
+            }
+            loadValuesJob.schedule(INPUT_DELAY_BEFORE_LOAD);
+        });
+        valueFilterText.addDisposeListener(e -> {
+            KeyLoadJob curLoadJob = this.loadJob;
+            if (curLoadJob != null) {
+                if (!curLoadJob.isCanceled()) {
+                    curLoadJob.cancel();
+                }
+            }
+            if (!loadValuesJob.isCanceled()) {
+                loadValuesJob.cancel();
+            }
         });
         return valueFilterText;
     }
 
     void loadValues(Runnable onFinish) {
-        if (loadJob != null) {
-            loadJob.schedule(200);
+        KeyLoadJob curLoadJob = this.loadJob;
+        if (curLoadJob != null) {
+            if (!curLoadJob.isCanceled()) {
+                curLoadJob.cancel();
+            }
+            curLoadJob.schedule(200);
             return;
         }
-        // Load values
-        final DBSEntityReferrer enumerableConstraint = ResultSetUtils.getEnumerableConstraint(attribute);
-        if (enumerableConstraint != null) {
-            loadConstraintEnum(enumerableConstraint, onFinish);
-        } else if (attribute.getEntityAttribute() instanceof DBSAttributeEnumerable) {
-            loadAttributeEnum((DBSAttributeEnumerable) attribute.getEntityAttribute(), onFinish);
-        } else {
+        if (!queryDatabase) {
             loadMultiValueList(Collections.emptyList(), true);
+        } else {
+            // Load values
+            final DBSEntityReferrer enumerableConstraint = ResultSetUtils.getEnumerableConstraint(attribute);
+            if (enumerableConstraint != null) {
+                loadConstraintEnum(enumerableConstraint, onFinish);
+            } else if (attribute.getEntityAttribute() instanceof DBSAttributeEnumerable) {
+                loadAttributeEnum((DBSAttributeEnumerable) attribute.getEntityAttribute(), onFinish);
+            } else if (attribute.getDataContainer() instanceof DBSDocumentAttributeEnumerable) {
+                loadDictionaryEnum((DBSDocumentAttributeEnumerable) attribute.getDataContainer(), onFinish);
+            } else {
+                loadMultiValueList(Collections.emptyList(), true);
+            }
         }
     }
 
@@ -287,6 +322,7 @@ class GenericFilterValueEdit {
                         null,
                         true,
                         true,
+                        caseInsensitiveSearch,
                         MAX_MULTI_VALUES);
                 }
                 return null;
@@ -297,9 +333,6 @@ class GenericFilterValueEdit {
     }
 
     private void loadAttributeEnum(final DBSAttributeEnumerable attributeEnumerable, Runnable onFinish) {
-
-        if (tableViewer.getTable().getColumns().length > 1)
-            tableViewer.getTable().getColumn(1).setText("Count");
         loadJob = new KeyLoadJob("Load '" + attribute.getName() + "' values", onFinish) {
 
             private List<DBDLabelValuePair> result;
@@ -308,7 +341,39 @@ class GenericFilterValueEdit {
             List<DBDLabelValuePair> readEnumeration(DBRProgressMonitor monitor) throws DBException {
                 DBExecUtils.tryExecuteRecover(monitor, attributeEnumerable.getDataSource(), param -> {
                     try (DBCSession session = DBUtils.openUtilSession(monitor, attributeEnumerable, "Read value enumeration")) {
-                        result = attributeEnumerable.getValueEnumeration(session, filterPattern, MAX_MULTI_VALUES, true);
+                        result = attributeEnumerable.getValueEnumeration(
+                            session,
+                            filterPattern,
+                            MAX_MULTI_VALUES,
+                            showRowCount,
+                            true,
+                            caseInsensitiveSearch);
+                    } catch (DBException e) {
+                        throw new InvocationTargetException(e);
+                    }
+                });
+                return result;
+            }
+        };
+        loadJob.schedule();
+    }
+
+    private void loadDictionaryEnum(@NotNull DBSDocumentAttributeEnumerable dictionaryEnumerable, @Nullable Runnable onFinish) {
+        loadJob = new KeyLoadJob("Load '" + attribute.getName() + "' values", onFinish) {
+            @NotNull
+            @Override
+            List<DBDLabelValuePair> readEnumeration(DBRProgressMonitor monitor) throws DBException {
+                final List<DBDLabelValuePair> result = new ArrayList<>();
+                DBExecUtils.tryExecuteRecover(monitor, dictionaryEnumerable.getDataSource(), param -> {
+                    try (DBCSession session = DBUtils.openUtilSession(monitor, dictionaryEnumerable, "Read value enumeration")) {
+                        result.addAll(dictionaryEnumerable.getValueEnumeration(
+                            session,
+                            attribute,
+                            filterPattern,
+                            showRowCount,
+                            caseInsensitiveSearch,
+                            MAX_MULTI_VALUES
+                        ));
                     } catch (DBException e) {
                         throw new InvocationTargetException(e);
                     }
@@ -353,9 +418,13 @@ class GenericFilterValueEdit {
                     hasNulls = true;
                     continue;
                 }
-                if (!keyPresents(rowData, cellValue)) {
-                    String itemString = attribute.getValueHandler().getValueDisplayString(attribute, cellValue, DBDDisplayFormat.UI);
-                    rowData.put(cellValue, new DBDLabelValuePair(itemString, cellValue));
+                DBDLabelValuePair dictValue = findValue(rowData, cellValue);
+                if (dictValue == null) {
+                    //String itemString = attribute.getValueHandler().getValueDisplayString(attribute, cellValue, DBDDisplayFormat.UI);
+                    rowData.put(cellValue, new DBDLabelValuePairExt(null, cellValue, 1));
+                } else if (values.isEmpty() && dictValue instanceof DBDLabelValuePairExt) {
+                    // Inc local items count (only if we didn't read count from server, i.e. values are empty)
+                    ((DBDLabelValuePairExt)dictValue).incCount();
                 }
             }
         }
@@ -382,7 +451,7 @@ class GenericFilterValueEdit {
             }
         }
         try {
-            Collections.sort(sortedList);
+            sortedList.sort(DBDLabelValuePair::compareTo);
         } catch (Exception e) {
             // FIXME: This may happen in some crazy cases -
             // FIXME: error "Comparison method violates its general contract!" happens in case of long strings sorting
@@ -448,17 +517,31 @@ class GenericFilterValueEdit {
                 tableViewer.getTable().showItem((TableItem) item);
             }
         }
+        updateToggleButton(toggleButton);
     }
 
-    private boolean keyPresents(Map<Object, DBDLabelValuePair> rowData, Object cellValue) {
+    private DBDLabelValuePair findValue(Map<Object, DBDLabelValuePair> rowData, Object cellValue) {
+        final DBDLabelValuePair value = rowData.get(cellValue);
+        if (value != null) {
+            // If we managed to found something at this point - return right away
+            return value;
+        }
+        // Otherwise try to match values manually
         if (cellValue instanceof Number) {
-            for (Object key : rowData.keySet()) {
-                if (key instanceof Number && CommonUtils.compareNumbers((Number) key, (Number) cellValue) == 0) {
-                    return true;
+            for (Map.Entry<Object, DBDLabelValuePair> pair : rowData.entrySet()) {
+                if (pair.getKey() instanceof Number && CommonUtils.compareNumbers((Number) pair.getKey(), (Number) cellValue) == 0) {
+                    return pair.getValue();
                 }
             }
         }
-        return rowData.containsKey(cellValue);
+        if (cellValue instanceof String) {
+            for (Map.Entry<Object, DBDLabelValuePair> pair : rowData.entrySet()) {
+                if (!DBUtils.isNullValue(pair.getKey()) && CommonUtils.toString(pair.getKey()).equals(cellValue)) {
+                    return pair.getValue();
+                }
+            }
+        }
+        return null;
     }
 
     @Nullable
@@ -483,7 +566,28 @@ class GenericFilterValueEdit {
         return null;
     }
 
-    public Button createFilterButton(String label, SelectionAdapter selectionAdapter) {
+    @Nullable
+    public Object getSelectedFilterValue() {
+        if (tableViewer != null) {
+            final Object selection = tableViewer.getStructuredSelection().getFirstElement();
+            if (selection instanceof DBDLabelValuePair) {
+                return new Object[]{((DBDLabelValuePair) selection).getValue()};
+            }
+        } else if (editor != null) {
+            try {
+                return editor.extractEditorValue();
+            } catch (DBException e) {
+                log.error("Can't get editor value", e);
+            }
+        }
+        return null;
+    }
+
+    public Composite getButtonsPanel() {
+        return buttonsPanel;
+    }
+
+    Button createFilterButton(String label, SelectionAdapter selectionAdapter) {
         if (isCheckedTable) {
             Button button = UIUtils.createDialogButton(buttonsPanel, label, selectionAdapter);
             ((GridLayout) buttonsPanel.getLayout()).numColumns++;
@@ -491,6 +595,22 @@ class GenericFilterValueEdit {
         } else {
             return null;
         }
+    }
+
+    boolean isDictionarySelector() {
+        return ResultSetUtils.getEnumerableConstraint(attribute) != null;
+    }
+
+    void setQueryDatabase(boolean queryDatabase) {
+        this.queryDatabase = queryDatabase;
+    }
+
+    void setShowRowCount(boolean showRowCount) {
+        this.showRowCount = showRowCount;
+    }
+
+    public void setCaseInsensitiveSearch(boolean caseInsensitiveSearch) {
+        this.caseInsensitiveSearch = caseInsensitiveSearch;
     }
 
     private abstract class KeyLoadJob extends AbstractJob {
@@ -502,13 +622,17 @@ class GenericFilterValueEdit {
 
         @Override
         protected IStatus run(DBRProgressMonitor monitor) {
+            monitor.beginTask("Read filter values", 1);
             final DBCExecutionContext executionContext = viewer.getExecutionContext();
             if (executionContext == null) {
                 return Status.OK_STATUS;
             }
+            UIUtils.syncExec(() -> tableViewer.getTable().setEnabled(false));
             try {
+                monitor.subTask("Read enumeration");
                 final List<DBDLabelValuePair> valueEnumeration = readEnumeration(monitor);
                 if (valueEnumeration == null) {
+                    populateValues(Collections.emptyList());
                     return Status.OK_STATUS;
                 } else {
                     populateValues(valueEnumeration);
@@ -519,7 +643,10 @@ class GenericFilterValueEdit {
             } catch (Throwable e) {
                 populateValues(Collections.emptyList());
                 log.error(e);
+            } finally {
+                monitor.done();
             }
+            loadJob = null;
             return Status.OK_STATUS;
         }
 
@@ -533,6 +660,7 @@ class GenericFilterValueEdit {
         void populateValues(@NotNull final Collection<DBDLabelValuePair> values) {
             UIUtils.asyncExec(() -> {
                 loadMultiValueList(values, mergeResultsWithData());
+                tableViewer.getTable().setEnabled(true);
             });
         }
     }

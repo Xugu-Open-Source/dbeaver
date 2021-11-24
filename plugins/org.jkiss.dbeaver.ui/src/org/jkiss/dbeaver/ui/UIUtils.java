@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,9 +30,9 @@ import org.eclipse.jface.resource.ColorRegistry;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.jface.viewers.AbstractTreeViewer;
-import org.eclipse.jface.viewers.CellEditor;
 import org.eclipse.jface.viewers.ISelectionProvider;
 import org.eclipse.jface.window.IShellProvider;
+import org.eclipse.jface.wizard.IWizardContainer;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CLabel;
 import org.eclipse.swt.custom.CTabFolder;
@@ -59,25 +59,21 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.DBPImage;
-import org.jkiss.dbeaver.model.DBPNamedObject;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPConnectionType;
-import org.jkiss.dbeaver.model.meta.IPropertyValueListProvider;
-import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
-import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
 import org.jkiss.dbeaver.model.runtime.*;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.DummyRunnableContext;
 import org.jkiss.dbeaver.runtime.RunnableContextDelegate;
-import org.jkiss.dbeaver.runtime.properties.ObjectPropertyDescriptor;
-import org.jkiss.dbeaver.ui.controls.*;
+import org.jkiss.dbeaver.ui.controls.CustomSashForm;
 import org.jkiss.dbeaver.ui.dialogs.EditTextDialog;
+import org.jkiss.dbeaver.ui.dialogs.MessageBoxBuilder;
+import org.jkiss.dbeaver.ui.dialogs.Reply;
 import org.jkiss.dbeaver.ui.internal.UIActivator;
 import org.jkiss.dbeaver.ui.internal.UIMessages;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.ArrayUtils;
-import org.jkiss.utils.BeanUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.lang.reflect.InvocationTargetException;
@@ -92,13 +88,15 @@ import java.util.SortedMap;
  * UI Utils
  */
 public class UIUtils {
-
     private static final Log log = Log.getLog(UIUtils.class);
 
-    public static final String INLINE_WIDGET_EDITOR_ID = "org.jkiss.dbeaver.ui.InlineWidgetEditor";
-
-    private static SharedTextColors sharedTextColors = new SharedTextColors();
-    private static SharedFonts sharedFonts = new SharedFonts();
+    private static final String INLINE_WIDGET_EDITOR_ID = "org.jkiss.dbeaver.ui.InlineWidgetEditor";
+    private static final Color COLOR_BLACK = new Color(null, 0, 0, 0);
+    private static final Color COLOR_WHITE = new Color(null, 255, 255, 255);
+    private static final Color COLOR_WHITE_DARK = new Color(null, 208, 208, 208);
+    private static final SharedTextColors SHARED_TEXT_COLORS = new SharedTextColors();
+    private static final SharedFonts SHARED_FONTS = new SharedFonts();
+    private static final String MAX_LONG_STRING = String.valueOf(Long.MAX_VALUE);
 
     public static VerifyListener getIntegerVerifyListener(Locale locale)
     {
@@ -133,29 +131,39 @@ public class UIUtils {
         };
     }
 
-    public static VerifyListener getLongVerifyListener(Text text) {
+    public static VerifyListener getUnsignedLongOrEmptyTextVerifyListener(Text text) {
         return e -> {
-
-            // get old text and create new text by using the VerifyEvent.text
-            final String oldS = text.getText();
-            String newS = oldS.substring(0, e.start) + e.text + oldS.substring(e.end);
-
-            boolean isLong = true;
-            try {
-                Long.parseLong(newS);
+            if (e.text.isEmpty()) {
+                e.doit = true;
+                return;
             }
-            catch(NumberFormatException ex) {
-                isLong = false;
+            for (int i = 0; i < e.text.length(); i++) {
+                if (!Character.isDigit(e.text.charAt(i))) {
+                    e.doit = false;
+                    return;
+                }
             }
-
-            if(!isLong)
+            String newText = text.getText().substring(0, e.start) + e.text + text.getText().substring(e.end);
+            if (newText.length() < MAX_LONG_STRING.length()) {
+                e.doit = true;
+                return;
+            }
+            if (newText.length() > MAX_LONG_STRING.length()) {
                 e.doit = false;
+                return;
+            }
+            e.doit = newText.compareTo(MAX_LONG_STRING) <= 0;
         };
     }
 
     public static void createToolBarSeparator(Composite toolBar, int style) {
         Label label = new Label(toolBar, SWT.NONE);
         label.setImage(DBeaverIcons.getImage((style & SWT.HORIZONTAL) == SWT.HORIZONTAL ? UIIcon.SEPARATOR_H : UIIcon.SEPARATOR_V));
+    }
+
+    public static void createLabelSeparator(Composite toolBar, int style) {
+        Label label = new Label(toolBar, SWT.SEPARATOR | style);
+        label.setLayoutData(new GridData(style == SWT.HORIZONTAL ? GridData.FILL_HORIZONTAL : GridData.FILL_VERTICAL));
     }
 
     public static void createToolBarSeparator(ToolBar toolBar, int style) {
@@ -424,41 +432,62 @@ public class UIUtils {
         }
     }
 
-    public static void showMessageBox(final Shell shell, final String title, final String info, final int messageType)
-    {
-        Runnable runnable = () -> {
-            Shell activeShell = shell != null ? shell : getActiveWorkbenchShell();
-            MessageBox messageBox = new MessageBox(activeShell, messageType | SWT.OK);
-            messageBox.setMessage(info);
-            messageBox.setText(title);
-            messageBox.open();
-        };
-        syncExec(runnable);
+    public static void showMessageBox(final Shell shell, final String title, final String info, final int messageType) {
+        DBPImage icon = null;
+        if (messageType == SWT.ICON_ERROR) {
+            icon = DBIcon.STATUS_ERROR;
+        } else if (messageType == SWT.ICON_WARNING) {
+            icon = DBIcon.STATUS_WARNING;
+        } else if (messageType == SWT.ICON_QUESTION) {
+            icon = DBIcon.STATUS_QUESTION;
+        } else if (messageType == SWT.ICON_INFORMATION) {
+            icon = DBIcon.STATUS_INFO;
+        }
+
+        Runnable messageBoxRunnable;
+        if (icon != null)  {
+            final DBPImage finalIcon = icon;
+            messageBoxRunnable = () -> MessageBoxBuilder.builder(shell != null ? shell : getActiveWorkbenchShell())
+                .setTitle(title)
+                .setMessage(info)
+                .setReplies(Reply.OK)
+                .setDefaultReply(Reply.OK)
+                .setPrimaryImage(finalIcon)
+                .showMessageBox();
+        } else {
+            //show legacy message box
+            messageBoxRunnable = () -> {
+                Shell activeShell = shell != null ? shell : getActiveWorkbenchShell();
+                MessageBox messageBox = new MessageBox(activeShell, messageType | SWT.OK);
+                messageBox.setMessage(info);
+                messageBox.setText(title);
+                messageBox.open();
+            };
+        }
+
+        syncExec(messageBoxRunnable);
     }
 
-    public static boolean confirmAction(final String title, final String question)
-    {
+    public static boolean confirmAction(final String title, final String question) {
         return confirmAction(null, title, question);
     }
 
-    public static boolean confirmAction(final Shell shell, final String title, final String question)
-    {
-        return confirmAction(shell, title, question, SWT.ICON_QUESTION);
+    public static boolean confirmAction(@Nullable Shell shell, final String title, final String question) {
+        return confirmAction(shell, title, question, DBIcon.STATUS_QUESTION);
     }
 
-    public static boolean confirmAction(final Shell shell, final String title, final String question, int iconType)
-    {
-        return new UIConfirmation() {
-            @Override
-            public Boolean runTask() {
-                Shell activeShell = shell != null ? shell : getActiveWorkbenchShell();
-                MessageBox messageBox = new MessageBox(activeShell, iconType | SWT.YES | SWT.NO);
-                messageBox.setMessage(question);
-                messageBox.setText(title);
-                int response = messageBox.open();
-                return (response == SWT.YES);
-            }
-        }.confirm();
+    public static boolean confirmAction(@Nullable Shell shell, String title, String message, @NotNull DBPImage image) {
+        final Reply[] reply = {null};
+        syncExec(() -> reply[0] = MessageBoxBuilder.builder(shell != null ? shell : getActiveWorkbenchShell())
+            .setTitle(title)
+            .setMessage(message)
+            .setReplies(Reply.YES, Reply.NO)
+            .setDefaultReply(Reply.NO)
+            .setPrimaryImage(image)
+            .showMessageBox()
+        );
+
+        return reply[0] == Reply.YES;
     }
 
     public static int getFontHeight(Control control) {
@@ -765,6 +794,14 @@ public class UIUtils {
         return createToolItem(parent, text, icon != null ? DBeaverIcons.getImage(icon) : null, selectionListener);
     }
 
+    public static ToolItem createToolItem(ToolBar parent, String title, String text, DBPImage icon, SelectionListener selectionListener) {
+        ToolItem toolItem = createToolItem(parent, text, icon != null ? DBeaverIcons.getImage(icon) : null, selectionListener);
+        if (title != null) {
+            toolItem.setText(title);
+        }
+        return toolItem;
+    }
+
     public static ToolItem createToolItem(ToolBar parent, String text, Image icon, SelectionListener selectionListener) {
         ToolItem button = new ToolItem(parent, SWT.PUSH);
         button.setToolTipText(text);
@@ -1015,11 +1052,21 @@ public class UIUtils {
     }
 
     @NotNull
-    public static Button createDialogButton(@NotNull Composite parent, @Nullable String label, @Nullable SelectionListener selectionListener)
-    {
+    public static Button createDialogButton(@NotNull Composite parent, @Nullable String label, @Nullable SelectionListener selectionListener) {
+        return createDialogButton(parent, label, null, null, selectionListener);
+    }
+
+    @NotNull
+    public static Button createDialogButton(@NotNull Composite parent, @Nullable String label, @Nullable DBPImage icon, @Nullable String toolTip, @Nullable SelectionListener selectionListener) {
         Button button = new Button(parent, SWT.PUSH);
         button.setText(label);
         button.setFont(JFaceResources.getDialogFont());
+        if (icon != null) {
+            button.setImage(DBeaverIcons.getImage(icon));
+        }
+        if (toolTip != null) {
+            button.setToolTipText(toolTip);
+        }
 
         // Dialog settings
         GridData gd = new GridData(GridData.HORIZONTAL_ALIGN_FILL);
@@ -1122,24 +1169,13 @@ public class UIUtils {
             focusService = UIUtils.getActiveWorkbenchWindow().getService(IFocusService.class);
         }
         if (focusService != null) {
-            focusService.addFocusTracker(control, controlID);
-        } else {
-            log.debug("Focus service not found in " + serviceLocator);
-        }
-    }
+            IFocusService finalFocusService = focusService;
+            finalFocusService.addFocusTracker(control, controlID);
 
-    public static void removeFocusTracker(IServiceLocator serviceLocator, Control control)
-    {
-        if (PlatformUI.getWorkbench().isClosing()) {
-            // TODO: it is a bug in eclipse. During workbench shutdown disposed service returned.
-            return;
-        }
-        IFocusService focusService = serviceLocator.getService(IFocusService.class);
-        if (focusService == null) {
-            focusService = UIUtils.getActiveWorkbenchWindow().getService(IFocusService.class);
-        }
-        if (focusService != null) {
-            focusService.removeFocusTracker(control);
+            control.addDisposeListener(e -> {
+                // Unregister from focus service
+                finalFocusService.removeFocusTracker(control);
+            });
         } else {
             log.debug("Focus service not found in " + serviceLocator);
         }
@@ -1147,10 +1183,6 @@ public class UIUtils {
 
     public static void addDefaultEditActionsSupport(final IServiceLocator site, final Control control) {
         UIUtils.addFocusTracker(site, UIUtils.INLINE_WIDGET_EDITOR_ID, control);
-        control.addDisposeListener(e -> {
-            // Unregister from focus service
-            UIUtils.removeFocusTracker(site, control);
-        });
     }
 
 
@@ -1336,11 +1368,27 @@ public class UIUtils {
         });
     }
 
-    public static TreeItem getTreeItem(Tree tree, Object data)
-    {
+    public static TreeItem getTreeItem(Tree tree, Object data) {
         for (TreeItem item : tree.getItems()) {
             if (item.getData() == data) {
                 return item;
+            }
+            TreeItem child = getTreeItem(item, data);
+            if (child != null) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    private static TreeItem getTreeItem(TreeItem parent, Object data) {
+        for (TreeItem item : parent.getItems()) {
+            if (item.getData() == data) {
+                return item;
+            }
+            TreeItem child = getTreeItem(item, data);
+            if (child != null) {
+                return child;
             }
         }
         return null;
@@ -1382,74 +1430,15 @@ public class UIUtils {
         return control.getShell().getData() instanceof org.eclipse.jface.dialogs.Dialog;
     }
 
+    public static boolean isInWizard(Control control) {
+        return control.getShell().getData() instanceof IWizardContainer;
+    }
+
     public static Link createLink(Composite parent, String text, SelectionListener listener) {
         Link link = new Link(parent, SWT.NONE);
         link.setText(text);
         link.addSelectionListener(listener);
         return link;
-    }
-
-    public static CellEditor createPropertyEditor(final IServiceLocator serviceLocator, Composite parent, DBPPropertySource source, DBPPropertyDescriptor property, int style)
-    {
-        if (source == null) {
-            return null;
-        }
-        final Object object = source.getEditableValue();
-        if (!property.isEditable(object)) {
-            return null;
-        }
-        CellEditor cellEditor = UIUtils.createCellEditor(parent, object, property, style);
-        if (cellEditor != null) {
-            final Control editorControl = cellEditor.getControl();
-            addDefaultEditActionsSupport(serviceLocator, editorControl);
-        }
-        return cellEditor;
-    }
-
-    public static CellEditor createCellEditor(Composite parent, Object object, DBPPropertyDescriptor property, int style)
-    {
-        // List
-        if (property instanceof IPropertyValueListProvider) {
-            final IPropertyValueListProvider listProvider = (IPropertyValueListProvider) property;
-            final Object[] items = listProvider.getPossibleValues(object);
-            if (items != null) {
-                final String[] strings = new String[items.length];
-                for (int i = 0, itemsLength = items.length; i < itemsLength; i++) {
-                    strings[i] = items[i] instanceof DBPNamedObject ? ((DBPNamedObject)items[i]).getName() : CommonUtils.toString(items[i]);
-                }
-                final CustomComboBoxCellEditor editor = new CustomComboBoxCellEditor(
-                    parent,
-                    strings,
-                    SWT.DROP_DOWN | (listProvider.allowCustomValue() ? SWT.NONE : SWT.READ_ONLY));
-                return editor;
-            }
-        }
-        Class<?> propertyType = property.getDataType();
-        if (propertyType == null || CharSequence.class.isAssignableFrom(propertyType)) {
-            if (property instanceof ObjectPropertyDescriptor && ((ObjectPropertyDescriptor) property).isMultiLine()) {
-                return new AdvancedTextCellEditor(parent);
-            } else {
-                return new CustomTextCellEditor(parent, SWT.SINGLE | ((style & SWT.PASSWORD) != 0 ? SWT.PASSWORD : SWT.NONE));
-            }
-        } else if (BeanUtils.isNumericType(propertyType)) {
-            return new CustomNumberCellEditor(parent, propertyType);
-        } else if (BeanUtils.isBooleanType(propertyType)) {
-            return new CustomCheckboxCellEditor(parent, style);
-            //return new CheckboxCellEditor(parent);
-        } else if (propertyType.isEnum()) {
-            final Object[] enumConstants = propertyType.getEnumConstants();
-            final String[] strings = new String[enumConstants.length];
-            for (int i = 0, itemsLength = enumConstants.length; i < itemsLength; i++) {
-                strings[i] = ((Enum)enumConstants[i]).name();
-            }
-            return new CustomComboBoxCellEditor(
-                parent,
-                strings,
-                SWT.DROP_DOWN | SWT.READ_ONLY);
-        } else {
-            log.warn("Unsupported property type: " + propertyType.getName());
-            return null;
-        }
     }
 
     public static void postEvent(Control ownerControl, final Event event) {
@@ -1472,12 +1461,6 @@ public class UIUtils {
             offset += ext.y;
         }
     }
-
-    public static boolean launchProgram(String path)
-    {
-        return Program.launch(path);
-    }
-
 
     public static void createTableContextMenu(@NotNull final Table table, @Nullable DBRCreator<Boolean, IContributionManager> menuCreator) {
         MenuManager menuMgr = new MenuManager();
@@ -1540,7 +1523,23 @@ public class UIUtils {
     }
 
     public static void fillDefaultTreeContextMenu(IContributionManager menu, final Tree tree) {
-        menu.add(new Action("Copy selection") {
+        if (tree.getColumnCount() > 1) {
+            menu.add(new Action("Copy " + tree.getColumn(0).getText()) {
+                @Override
+                public void run() {
+                    StringBuilder text = new StringBuilder();
+                    for (TreeItem item : tree.getSelection()) {
+                        if (text.length() > 0) text.append("\n");
+                        text.append(item.getText(0));
+                    }
+                    if (text.length() == 0) {
+                        return;
+                    }
+                    UIUtils.setClipboardContents(tree.getDisplay(), TextTransfer.getInstance(), text.toString());
+                }
+            });
+        }
+        menu.add(new Action("Copy All") {
             @Override
             public void run() {
                 StringBuilder text = new StringBuilder();
@@ -1596,11 +1595,11 @@ public class UIUtils {
     }
 
     public static SharedTextColors getSharedTextColors() {
-        return sharedTextColors;
+        return SHARED_TEXT_COLORS;
     }
 
     public static SharedFonts getSharedFonts() {
-        return sharedFonts;
+        return SHARED_FONTS;
     }
 
     public static void run(
@@ -1636,8 +1635,8 @@ public class UIUtils {
         return job;
     }
 
-    @NotNull
-    public static IWorkbenchWindow getActiveWorkbenchWindow() {
+    @Nullable
+    public static IWorkbenchWindow findActiveWorkbenchWindow() {
         IWorkbench workbench = PlatformUI.getWorkbench();
         IWorkbenchWindow window = workbench.getActiveWorkbenchWindow();
         if (window != null) {
@@ -1647,7 +1646,16 @@ public class UIUtils {
         if (windows.length > 0) {
             return windows[0];
         }
-        throw new IllegalStateException("No workbench window");
+        return null;
+    }
+
+    @NotNull
+    public static IWorkbenchWindow getActiveWorkbenchWindow() {
+        IWorkbenchWindow workbenchWindow = findActiveWorkbenchWindow();
+        if (workbenchWindow == null) {
+            throw new IllegalStateException("No workbench window");
+        }
+        return workbenchWindow;
     }
 
     public static IWorkbenchWindow getParentWorkbenchWindow(Control control) {
@@ -1659,6 +1667,7 @@ public class UIUtils {
         return null;
     }
 
+    @Nullable
     public static Shell getActiveWorkbenchShell() {
         IWorkbench workbench = PlatformUI.getWorkbench();
         IWorkbenchWindow window = workbench.getActiveWorkbenchWindow();
@@ -1737,6 +1746,17 @@ public class UIUtils {
         }
     }
 
+    public static void timerExec(int milliseconds, @NotNull Runnable runnable) {
+        try {
+            Display display = getDisplay();
+            if (!display.isDisposed()) {
+                display.timerExec(milliseconds, runnable);
+            }
+        } catch (Exception e) {
+            log.debug(e);
+        }
+    }
+
     public static void asyncExec(Runnable runnable) {
         try {
             Display display = getDisplay();
@@ -1774,7 +1794,7 @@ public class UIUtils {
         if (CommonUtils.isEmpty(rgbString)) {
             return null;
         }
-        return sharedTextColors.getColor(rgbString);
+        return SHARED_TEXT_COLORS.getColor(rgbString);
     }
 
     @Nullable
@@ -1782,7 +1802,7 @@ public class UIUtils {
         if (rgb == null) {
             return null;
         }
-        return sharedTextColors.getColor(rgb);
+        return SHARED_TEXT_COLORS.getColor(rgb);
     }
 
     public static Color getConnectionColor(DBPConnectionConfiguration connectionInfo) {
@@ -1793,17 +1813,7 @@ public class UIUtils {
         if (CommonUtils.isEmpty(rgbString)) {
             return null;
         }
-        return getColorByRGB(rgbString);
-    }
-
-    public static Color getColorByRGB(String rgbString) {
-        Color connectionColor = sharedTextColors.getColor(rgbString);
-        if (connectionColor.getBlue() == 255 && connectionColor.getRed() == 255 && connectionColor.getGreen() == 255) {
-            // For white color return just null to avoid explicit color set.
-            // It is important for dark themes
-            return null;
-        }
-        return connectionColor;
+        return getConnectionColorByRGB(rgbString);
     }
 
     public static Color getConnectionTypeColor(DBPConnectionType connectionType) {
@@ -1811,7 +1821,26 @@ public class UIUtils {
         if (CommonUtils.isEmpty(rgbString)) {
             return null;
         }
-        return getColorByRGB(rgbString);
+        return getConnectionColorByRGB(rgbString);
+    }
+
+    public static Color getConnectionColorByRGB(String rgbStringOrId) {
+        if (rgbStringOrId.isEmpty()) {
+            return null;
+        }
+        if (Character.isAlphabetic(rgbStringOrId.charAt(0))) {
+            // Some color constant
+            RGB rgb = getActiveWorkbenchWindow().getWorkbench().getThemeManager().getCurrentTheme().getColorRegistry().getRGB(rgbStringOrId);
+            return SHARED_TEXT_COLORS.getColor(rgb);
+        } else {
+            Color connectionColor = SHARED_TEXT_COLORS.getColor(rgbStringOrId);
+            if (connectionColor.getBlue() == 255 && connectionColor.getRed() == 255 && connectionColor.getGreen() == 255) {
+                // For white color return just null to avoid explicit color set.
+                // It is important for dark themes
+                return null;
+            }
+            return connectionColor;
+        }
     }
 
     public static Shell createCenteredShell(Shell parent) {
@@ -1825,6 +1854,14 @@ public class UIUtils {
         shell.setBounds( x, y, 0, 0 );
 
         return shell;
+    }
+
+    public static void disposeCenteredShell(Shell shell) {
+        Composite parentShell = shell.getParent();
+        shell.dispose();
+        if (parentShell instanceof Shell) {
+            ((Shell) parentShell).setActive();
+        }
     }
 
     public static void centerShell(Shell parent, Shell shell) {
@@ -1914,7 +1951,7 @@ public class UIUtils {
     public static void fixReadonlyTextBackground(Text textField) {
         // There is still no good workaround: https://bugs.eclipse.org/bugs/show_bug.cgi?id=340889
         if (false) {
-            if (GeneralUtils.isWindows()) {
+            if (RuntimeUtils.isWindows()) {
                 // On Windows everything is fine
                 return;
             }
@@ -1973,16 +2010,18 @@ public class UIUtils {
     /**
      * Calculate the Contrast color based on Luma(brightness)
      * https://en.wikipedia.org/wiki/Luma_(video)
+     *
+     * Do not dispose returned color.
      */
     public static Color getContrastColor(Color color) {
-        if (color == null)
-            return new Color(null, 0, 0, 0);
-
+        if (color == null) {
+            return COLOR_BLACK;
+        }
         double luminance = 1 - (0.299 * color.getRed() + 0.587 * color.getGreen() + 0.114 * color.getBlue()) / 255;
-
-        int c = (luminance > 0.5) ? 255 : 0;
-
-        return new Color(null, c, c, c);
+        if (luminance > 0.5) {
+            return UIStyles.isDarkTheme() ? COLOR_WHITE_DARK : COLOR_WHITE;
+        }
+        return COLOR_BLACK;
     }  
 
     public static void openWebBrowser(String url)
@@ -2014,7 +2053,7 @@ public class UIUtils {
             @Override
             public void paintControl(PaintEvent e) {
                 String tip = tipProvider.getValue(control);
-                if (tip != null && (control.isEnabled() && isEmptyTextControl(control) && !control.isFocusControl())) {
+                if (tip != null && (isEmptyTextControl(control) && !control.isFocusControl())) {
                     e.gc.setForeground(getDisplay().getSystemColor(SWT.COLOR_WIDGET_NORMAL_SHADOW));
                     e.gc.setFont(hintFont);
                     e.gc.drawText(tip, 2, 0, true);
@@ -2025,9 +2064,9 @@ public class UIUtils {
     }
 
     private static boolean isEmptyTextControl(Control control) {
-        return control instanceof Text ?
-            ((Text) control).getCharCount() == 0 :
-            control instanceof StyledText && ((StyledText) control).getCharCount() == 0;
+        return (control instanceof Text && ((Text) control).getCharCount() == 0) ||
+            (control instanceof StyledText && ((StyledText) control).getCharCount() == 0) ||
+            (control instanceof Combo && ((Combo) control).getText().isEmpty());
     }
 
     public static void expandAll(AbstractTreeViewer treeViewer) {
@@ -2055,4 +2094,24 @@ public class UIUtils {
         return null;
     }
 
+    public static Object normalizePropertyValue(Object text) {
+        if (text instanceof String) {
+            return CommonUtils.toString(text).trim();
+        }
+        return text;
+    }
+
+    public static void setControlVisible(Control control, boolean visible) {
+        control.setVisible(visible);
+        Object gd = control.getLayoutData();
+        if (gd instanceof GridData) {
+            ((GridData) gd).exclude = !visible;
+        }
+    }
+
+    public static void installMacOSFocusLostSubstitution(@NotNull Widget widget, @NotNull Runnable onFocusLost) {
+        if (RuntimeUtils.isMacOS()) {
+            widget.addDisposeListener(e -> onFocusLost.run());
+        }
+    }
 }

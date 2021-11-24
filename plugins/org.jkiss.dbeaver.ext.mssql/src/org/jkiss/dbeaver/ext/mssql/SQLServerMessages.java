@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package org.jkiss.dbeaver.ext.mssql;
 
 import org.eclipse.osgi.util.NLS;
-import org.jkiss.dbeaver.model.struct.rdb.DBSIndexType;
 
 public class SQLServerMessages extends NLS {
     static final String BUNDLE_NAME = "org.jkiss.dbeaver.ext.mssql.SQLServerMessages"; //$NON-NLS-1$
@@ -30,6 +29,8 @@ public class SQLServerMessages extends NLS {
     public static String authentication_ad_password_description;
     public static String authentication_ad_msi_title;
     public static String authentication_ad_msi_description;
+    public static String authentication_ad_interactive_title;
+    public static String authentication_ad_interactive_description;
     public static String authentication_ad_integrated_title;
     public static String authentication_ad_integrated_description;
     public static String authentication_kerberos_title;
@@ -39,6 +40,7 @@ public class SQLServerMessages extends NLS {
 
     public static String index_type_Heap;
     public static String index_type_NonClustered;
+    public static String index_type_Default;
     public static String index_type_XML;
     public static String index_type_Spatial;
 
@@ -49,6 +51,4 @@ public class SQLServerMessages extends NLS {
 
     private SQLServerMessages() {
     }
-
-
 }

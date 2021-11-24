@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.jkiss.dbeaver.ui.controls;
 
 import org.eclipse.jface.resource.JFaceColors;
+import org.eclipse.jface.util.IPropertyChangeListener;
 import org.eclipse.jface.viewers.AbstractTreeViewer;
 import org.eclipse.jface.viewers.ColumnViewer;
 import org.eclipse.jface.viewers.TableViewer;
@@ -25,21 +26,25 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.*;
 import org.eclipse.swt.graphics.*;
 import org.eclipse.swt.widgets.*;
+import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBPNamedObject;
 import org.jkiss.dbeaver.model.DBPNamedValueObject;
-import org.jkiss.dbeaver.ui.ImageUtils;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.dbeaver.ui.DBeaverIcons;
+import org.jkiss.dbeaver.ui.UIElementAlignment;
 import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.ui.controls.bool.BooleanMode;
+import org.jkiss.dbeaver.ui.controls.bool.BooleanStyle;
+import org.jkiss.dbeaver.ui.controls.bool.BooleanStyleSet;
 import org.jkiss.dbeaver.utils.GeneralUtils;
+import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.CommonUtils;
 
 /**
  * ObjectListControl
  */
 public abstract class ObjectViewerRenderer {
-
-    public static final int ES_CENTERED = 1;
-    public static final int ES_LEFT = 2;
 
     private boolean isTree;
     // Current selection coordinates
@@ -53,9 +58,20 @@ public abstract class ObjectViewerRenderer {
     private final Cursor linkCursor;
     private final Cursor arrowCursor;
     private final Color selectionBackgroundColor;
+    private BooleanStyleSet booleanStyles;
+
+    // Cache
+    private transient int booleanValueWith;
 
     public ObjectViewerRenderer(
         ColumnViewer viewer)
+    {
+        this(viewer, true);
+    }
+
+    protected ObjectViewerRenderer(
+        ColumnViewer viewer,
+        boolean trackInput)
     {
         itemsViewer = viewer;
         this.isTree = (itemsViewer instanceof AbstractTreeViewer);
@@ -68,22 +84,31 @@ public abstract class ObjectViewerRenderer {
 
         itemsViewer.getControl().setCursor(arrowCursor);
 
-        final CellTrackListener actionsListener = new CellTrackListener();
-        SelectionAdapter selectionAdapter = new SelectionAdapter() {
-            @Override
-            public void widgetSelected(SelectionEvent e) {
-                selectedItem = lastClickItem = (Item) e.item;
+        if (trackInput) {
+            final CellTrackListener actionsListener = new CellTrackListener();
+            SelectionAdapter selectionAdapter = new SelectionAdapter() {
+                @Override
+                public void widgetSelected(SelectionEvent e) {
+                    selectedItem = lastClickItem = (Item) e.item;
+                }
+            };
+            if (isTree) {
+                getTree().addSelectionListener(selectionAdapter);
+            } else {
+                getTable().addSelectionListener(selectionAdapter);
             }
-        };
-        if (isTree) {
-            getTree().addSelectionListener(selectionAdapter);
-        } else {
-            getTable().addSelectionListener(selectionAdapter);
+            itemsViewer.getControl().addMouseListener(new MouseListener());
+            itemsViewer.getControl().addMouseTrackListener(actionsListener);
+            itemsViewer.getControl().addMouseMoveListener(actionsListener);
+            itemsViewer.getControl().addKeyListener(actionsListener);
         }
-        itemsViewer.getControl().addMouseListener(new MouseListener());
-        itemsViewer.getControl().addMouseTrackListener(actionsListener);
-        itemsViewer.getControl().addMouseMoveListener(actionsListener);
-        itemsViewer.getControl().addKeyListener(actionsListener);
+
+        final IPropertyChangeListener styleChangeListener = event -> {
+            booleanStyles = BooleanStyleSet.getDefaultStyles(DBWorkbench.getPlatform().getPreferenceStore());
+        };
+
+        BooleanStyleSet.installStyleChangeListener(viewer.getControl(), styleChangeListener);
+        styleChangeListener.propertyChange(null);
     }
 
     public boolean isTree()
@@ -153,19 +178,44 @@ public abstract class ObjectViewerRenderer {
     private Rectangle getCellLinkBounds(Item item, int column, Object cellValue) {
         prepareLinkStyle(cellValue, null);
 
-        Rectangle itemBounds;
-        if (isTree) {
-            itemBounds = ((TreeItem)item).getTextBounds(column);
+        if (cellValue instanceof Boolean && booleanValueWith > 0) {
+            Rectangle itemBounds;
+            if (isTree) {
+                itemBounds = ((TreeItem)item).getBounds(column);
+            } else {
+                itemBounds = ((TableItem) item).getBounds(column);
+            }
+
+            switch (getBooleanAlignment((Boolean) cellValue)) {
+                case LEFT:
+                    itemBounds.x += 4;
+                    break;
+                case CENTER:
+                    itemBounds.x += (itemBounds.width - booleanValueWith) / 2;
+                    break;
+                case RIGHT:
+                    itemBounds.x += itemBounds.width - booleanValueWith - 4;
+                    break;
+            }
+
+            itemBounds.width = booleanValueWith;
+
+            return itemBounds;
         } else {
-            itemBounds = ((TableItem)item).getTextBounds(column);
+            Rectangle itemBounds;
+            if (isTree) {
+                itemBounds = ((TreeItem)item).getTextBounds(column);
+            } else {
+                itemBounds = ((TableItem)item).getTextBounds(column);
+            }
+
+            Rectangle linkBounds = linkLayout.getBounds();
+            linkBounds.x += itemBounds.x;
+            linkBounds.y += itemBounds.y + 1;
+            linkBounds.height -= 2;
+
+            return linkBounds;
         }
-
-        Rectangle linkBounds = linkLayout.getBounds();
-        linkBounds.x += itemBounds.x;
-        linkBounds.y += itemBounds.y + 1;
-        linkBounds.height -= 2;
-
-        return linkBounds;
     }
 
     //////////////////////////////////////////////////////
@@ -175,18 +225,60 @@ public abstract class ObjectViewerRenderer {
         {
             GC gc = event.gc;
             if (Boolean.class == propDataType || Boolean.TYPE == propDataType) {
-                boolean boolValue = CommonUtils.getBoolean(cellValue, false);
-                Image image = editable ?
-                    (boolValue ? ImageUtils.getImageCheckboxEnabledOn() : ImageUtils.getImageCheckboxEnabledOff()) :
-                    (boolValue ? ImageUtils.getImageCheckboxDisabledOn() : ImageUtils.getImageCheckboxDisabledOff());
-                final Rectangle imageBounds = image.getBounds();
-
-                Rectangle columnBounds = isTree ? ((TreeItem)item).getBounds(columnIndex) : ((TableItem)item).getBounds(columnIndex);
-
-                if (getBooleanEditStyle() == ES_CENTERED) {
-                    gc.drawImage(image, event.x + (columnBounds.width - imageBounds.width) / 2, event.y);
+                booleanValueWith = -1;
+                Boolean value;
+                if (cellValue == null) {
+                    value = null;
+                } else if (cellValue instanceof Boolean) {
+                    value = (Boolean)cellValue;
                 } else {
-                    gc.drawImage(image, event.x/* + 4*/, event.y + (columnBounds.height - imageBounds.height) / 2);
+                    value = CommonUtils.toBoolean(cellValue);
+                }
+                final BooleanStyle booleanStyle = booleanStyles.getStyle(value);
+                if (booleanStyles.getMode() == BooleanMode.TEXT) {
+                    String cellText = item instanceof TreeItem ? ((TreeItem) item).getText(columnIndex) : "";
+                    if (cellText.isEmpty()) {
+                        // Paint only if item text is empty
+                        String strValue = booleanStyle.getText();
+                        Point textExtent = gc.textExtent(strValue);
+                        booleanValueWith = textExtent.x;
+                        Rectangle columnBounds = isTree ? ((TreeItem) item).getBounds(columnIndex) : ((TableItem) item).getBounds(columnIndex);
+                        //gc.setBackground(getControl().getBackground());
+                        gc.setForeground(UIUtils.getSharedColor(booleanStyle.getColor()));
+                        switch (getBooleanAlignment(value)) {
+                            case LEFT:
+                                gc.drawString(strValue, event.x + 4, event.y + (columnBounds.height - textExtent.y) / 2, true);
+                                break;
+                            case CENTER:
+                                gc.drawString(strValue, event.x + (columnBounds.width - textExtent.x) / 2, event.y + (columnBounds.height - textExtent.y) / 2, true);
+                                break;
+                            case RIGHT:
+                                gc.drawString(strValue, event.x + columnBounds.width - textExtent.x - 4, event.y + (columnBounds.height - textExtent.y) / 2, true);
+                                break;
+                        }
+                    }
+                } else {
+//                    Image image = editable ?
+//                        (boolValue ? ImageUtils.getImageCheckboxEnabledOn() : ImageUtils.getImageCheckboxEnabledOff()) :
+//                        (boolValue ? ImageUtils.getImageCheckboxDisabledOn() : ImageUtils.getImageCheckboxDisabledOff());
+                    Image image = DBeaverIcons.getImage(booleanStyle.getIcon());
+                    final Rectangle imageBounds = image.getBounds();
+                    booleanValueWith = imageBounds.width;
+
+                    Rectangle columnBounds = isTree ? ((TreeItem)item).getBounds(columnIndex) : ((TableItem)item).getBounds(columnIndex);
+
+                    gc.setBackground(getControl().getBackground());
+                    switch (getBooleanAlignment(value)) {
+                        case LEFT:
+                            gc.drawImage(image, event.x + 4, event.y + (columnBounds.height - imageBounds.height) / 2);
+                            break;
+                        case CENTER:
+                            gc.drawImage(image, event.x + (columnBounds.width - imageBounds.width) / 2, event.y);
+                            break;
+                        case RIGHT:
+                            gc.drawImage(image, event.x + columnBounds.width - imageBounds.width - 4, event.y + (columnBounds.height - imageBounds.height) / 2);
+                            break;
+                    }
                 }
 
                 event.doit = false;
@@ -205,8 +297,14 @@ public abstract class ObjectViewerRenderer {
         }
     }
 
-    protected int getBooleanEditStyle() {
-        return ES_CENTERED;
+    @NotNull
+    public BooleanStyleSet getBooleanStyles() {
+        return booleanStyles;
+    }
+
+    @NotNull
+    protected UIElementAlignment getBooleanAlignment(@Nullable Boolean value) {
+        return booleanStyles.getStyle(value).getAlignment();
     }
 
     class CellTrackListener implements MouseTrackListener, MouseMoveListener, KeyListener {
@@ -257,8 +355,9 @@ public abstract class ObjectViewerRenderer {
                     resetCursor();
                 } else {
                     //tip = getCellString(cellValue);
-                    boolean ctrlPRessed = (stateMask & SWT.CTRL) != 0 || (stateMask & SWT.ALT) != 0;
-                    if (ctrlPRessed && isHyperlink(cellValue) && getCellLinkBounds(hoverItem, checkColumn, cellValue).contains(x, y)) {
+                    boolean ctrlPressed = (stateMask & SWT.CTRL) != 0 || (stateMask & SWT.ALT) != 0;
+                    boolean isHyperlink = cellValue instanceof Boolean || (ctrlPressed && isHyperlink(cellValue));
+                    if (isHyperlink && getCellLinkBounds(hoverItem, checkColumn, cellValue).contains(x, y)) {
                         getItemsViewer().getControl().setCursor(linkCursor);
                     } else {
                         resetCursor();
@@ -316,7 +415,12 @@ public abstract class ObjectViewerRenderer {
                 value = ((DBPNamedObject) value).getName();
             }
         }
-        return GeneralUtils.makeDisplayString(value).toString();
+        String displayString = GeneralUtils.makeDisplayString(value).toString();
+        if (RuntimeUtils.isLinux()) {
+            // If we don't do that, cells might be stretched to enormous dimensions.
+            displayString = CommonUtils.getSingleLineString(displayString);
+        }
+        return displayString;
     }
 
     private class MouseListener extends MouseAdapter {

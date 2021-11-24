@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,8 +37,7 @@ import java.util.*;
 /**
  * SQLServerView
  */
-public class SQLServerView extends SQLServerTableBase implements DBSView
-{
+public class SQLServerView extends SQLServerTableBase implements DBSView {
     private static final Log log = Log.getLog(SQLServerView.class);
 
     private String ddl;
@@ -48,15 +47,7 @@ public class SQLServerView extends SQLServerTableBase implements DBSView
         super(schema);
     }
 
-    // Copy constructor
-    public SQLServerView(DBRProgressMonitor monitor, SQLServerSchema schema, SQLServerView source) throws DBException {
-        super(monitor, schema, source);
-    }
-
-    public SQLServerView(
-        SQLServerSchema catalog,
-        ResultSet dbResult)
-    {
+    public SQLServerView(SQLServerSchema catalog, ResultSet dbResult) {
         super(catalog, dbResult);
     }
 
@@ -157,12 +148,18 @@ public class SQLServerView extends SQLServerTableBase implements DBSView
 
     @Override
     public DBSObject refreshObject(@NotNull DBRProgressMonitor monitor) throws DBException {
+        this.ddl = null;
 
-        return getContainer().getTableCache().refreshObject(monitor, getContainer(), this);
+        return super.refreshObject(monitor);
     }
 
     @Override
     public boolean supportsObjectDefinitionOption(String option) {
         return false;
+    }
+
+    @Override
+    boolean supportsTriggers() {
+        return true;
     }
 }

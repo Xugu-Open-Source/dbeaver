@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import org.jkiss.dbeaver.model.DBPIdentifierCase;
 import org.jkiss.dbeaver.model.DBPKeywordType;
 import org.jkiss.dbeaver.model.sql.SQLConstants;
 import org.jkiss.dbeaver.model.sql.SQLStateType;
-import org.jkiss.dbeaver.model.struct.DBSAttributeBase;
+import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 
@@ -52,9 +52,18 @@ public class BasicSQLDialect extends AbstractSQLDialect implements RelationalSQL
             SQLConstants.BLOCK_END
         }
     };
-    protected static final String[] NON_TRANSACTIONAL_KEYWORDS = new String[]{
+
+    protected static final String[] NON_TRANSACTIONAL_KEYWORDS = {
         SQLConstants.KEYWORD_SELECT,
-        "EXPLAIN", "DESCRIBE", "DESC", "USE", "SET", "COMMIT", "ROLLBACK"};
+        SQLConstants.KEYWORD_EXPLAIN,
+        "DESCRIBE",
+        "DESC",
+        "USE",
+        "SET",
+        SQLConstants.KEYWORD_COMMIT,
+        SQLConstants.KEYWORD_ROLLBACK
+    };
+
     private static final String[] CORE_NON_TRANSACTIONAL_KEYWORDS = new String[]{
         SQLConstants.KEYWORD_SELECT,
     };
@@ -73,6 +82,12 @@ public class BasicSQLDialect extends AbstractSQLDialect implements RelationalSQL
 
     protected BasicSQLDialect() {
         loadStandardKeywords();
+    }
+
+    @NotNull
+    @Override
+    public String getDialectId() {
+        return ID;
     }
 
     @NotNull
@@ -148,12 +163,6 @@ public class BasicSQLDialect extends AbstractSQLDialect implements RelationalSQL
         return SQLStateType.SQL99;
     }
 
-    @NotNull
-    @Override
-    public String getScriptDelimiter() {
-        return ";"; //$NON-NLS-1$
-    }
-
     @Nullable
     @Override
     public String getScriptDelimiterRedefiner() {
@@ -212,7 +221,7 @@ public class BasicSQLDialect extends AbstractSQLDialect implements RelationalSQL
 
     @NotNull
     @Override
-    public String escapeScriptValue(DBSAttributeBase attribute, @NotNull Object value, @NotNull String strValue) {
+    public String escapeScriptValue(DBSTypedObject attribute, @NotNull Object value, @NotNull String strValue) {
         if (value instanceof UUID) {
             return '\'' + escapeString(strValue) + '\'';
         }

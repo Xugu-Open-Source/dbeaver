@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ package org.jkiss.dbeaver.ext.mysql.data;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.ext.mysql.MySQLConstants;
-import org.jkiss.dbeaver.model.data.DBDDataFormatterProfile;
 import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
+import org.jkiss.dbeaver.model.data.DBDFormatSettings;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCResultSet;
 import org.jkiss.dbeaver.model.exec.DBCSession;
@@ -47,26 +47,31 @@ public class MySQLDateTimeValueHandler extends JDBCDateTimeValueHandler {
     private static final String ZERO_DATE_STRING = "0000-00-00";
     private static final String ZERO_TIMESTAMP_STRING = "0000-00-00 00:00:00";
 
-    public MySQLDateTimeValueHandler(DBDDataFormatterProfile formatterProfile)
+    public MySQLDateTimeValueHandler(DBDFormatSettings formatSettings)
     {
-        super(formatterProfile);
+        super(formatSettings);
     }
 
     @Override
     public Object fetchValueObject(@NotNull DBCSession session, @NotNull DBCResultSet resultSet, @NotNull DBSTypedObject type, int index) throws DBCException {
-        if (MySQLConstants.TYPE_YEAR.equalsIgnoreCase(type.getTypeName()) && resultSet instanceof JDBCResultSet) {
+        if (resultSet instanceof JDBCResultSet) {
             JDBCResultSet dbResults = (JDBCResultSet) resultSet;
             try {
-                int year = dbResults.getInt(index + 1);
-                if (dbResults.wasNull()) {
-                    return null;
-                } else {
+                if (MySQLConstants.TYPE_YEAR.equalsIgnoreCase(type.getTypeName())) {
+                    int year = dbResults.getInt(index + 1);
+                    if (dbResults.wasNull()) {
+                        return null;
+                    }
                     return year;
                 }
+                if (type.getTypeID() == Types.TIME) {
+                    return dbResults.getString(index + 1);
+                }
             } catch (SQLException e) {
-                log.debug("Error reading year value", e);
+                log.debug("Exception caught when fetching date/time value", e);
             }
         }
+
         return super.fetchValueObject(session, resultSet, type, index);
     }
 

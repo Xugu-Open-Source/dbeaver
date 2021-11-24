@@ -114,7 +114,7 @@ public enum ObjectType implements DBSObjectType {
 	}),
 	TABLE_PARTITION("TABLE PARTITION", null, DBSObject.class, null),
 	// trigger的OBJ_TYPE为11
-	TRIGGER("TRIGGER", DBIcon.TREE_TRIGGER, NewTrigger.class, null),
+	TRIGGER("TRIGGER", DBIcon.TREE_TRIGGER, Trigger.class, null),
 	// view的OBJ_TYPE为9
 	VIEW("VIEW", DBIcon.TREE_VIEW, View.class, new ObjectFinder() {
 		@Override

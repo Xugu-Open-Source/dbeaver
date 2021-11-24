@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,9 +26,9 @@ import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.ui.INewWizard;
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.core.CoreMessages;
-import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.app.DBPDataSourceRegistry;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
@@ -40,12 +40,10 @@ import org.jkiss.dbeaver.registry.DataSourceDescriptor;
 import org.jkiss.dbeaver.registry.driver.DriverDescriptor;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.jobs.ConnectionTestJob;
-import org.jkiss.dbeaver.ui.DBeaverIcons;
-import org.jkiss.dbeaver.ui.ICompositeDialogPage;
 import org.jkiss.dbeaver.ui.IDataSourceConnectionTester;
+import org.jkiss.dbeaver.ui.IDialogPageProvider;
 import org.jkiss.dbeaver.ui.dialogs.ActiveWizard;
 import org.jkiss.dbeaver.utils.GeneralUtils;
-import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.ArrayUtils;
 
 import java.lang.reflect.InvocationTargetException;
@@ -68,6 +66,7 @@ public abstract class ConnectionWizard extends ActiveWizard implements INewWizar
 
     protected ConnectionWizard() {
         setNeedsProgressMonitor(true);
+        //setDefaultPageImageDescriptor(DBeaverActivator.getImageDescriptor("icons/driver-logo.png"));
     }
 
     @Override
@@ -82,8 +81,9 @@ public abstract class ConnectionWizard extends ActiveWizard implements INewWizar
 
     @Override
     public Image getDefaultPageImage() {
-        DBPDriver selectedDriver = getSelectedDriver();
-        return DBeaverIcons.getImage(selectedDriver == null ? DBIcon.DATABASE_DEFAULT : selectedDriver.getIcon());
+        return super.getDefaultPageImage();
+//        DBPDriver selectedDriver = getSelectedDriver();
+//        return DBeaverIcons.getImage(selectedDriver == null ? DBIcon.DATABASE_DEFAULT : selectedDriver.getIcon());
     }
 
     @Override
@@ -95,6 +95,7 @@ public abstract class ConnectionWizard extends ActiveWizard implements INewWizar
         super.dispose();
     }
 
+    @Nullable
     abstract public DBPDataSourceRegistry getDataSourceRegistry();
 
     abstract DBPDriver getSelectedDriver();
@@ -111,11 +112,15 @@ public abstract class ConnectionWizard extends ActiveWizard implements INewWizar
     public DataSourceDescriptor getActiveDataSource() {
         DriverDescriptor driver = (DriverDescriptor) getSelectedDriver();
         DataSourceDescriptor info = infoMap.get(driver);
+        DBPDataSourceRegistry registry = getDataSourceRegistry();
+        if (registry == null) {
+            throw new IllegalStateException("No active project");
+        }
         if (info == null) {
-            DBPConnectionConfiguration connectionInfo = new DBPConnectionConfiguration();
+            DBPConnectionConfiguration connectionInfo = getDefaultConnectionConfiguration();
             info = new DataSourceDescriptor(
-                getDataSourceRegistry(),
-                DataSourceDescriptor.generateNewId(getSelectedDriver()),
+                registry,
+                DataSourceDescriptor.generateNewId(driver),
                 driver,
                 connectionInfo);
             DBPNativeClientLocation defaultClientLocation = driver.getDefaultClientLocation();
@@ -135,7 +140,7 @@ public abstract class ConnectionWizard extends ActiveWizard implements INewWizar
 
     public void testConnection() {
         DataSourceDescriptor dataSource = getPageSettings().getActiveDataSource();
-        DataSourceDescriptor testDataSource = new DataSourceDescriptor(dataSource);
+        DataSourceDescriptor testDataSource = new DataSourceDescriptor(dataSource, dataSource.getRegistry());
 
         saveSettings(testDataSource);
         testDataSource.setTemporary(true);
@@ -153,9 +158,9 @@ public abstract class ConnectionWizard extends ActiveWizard implements INewWizar
             });
 
             try {
-                getContainer().run(true, true, monitor -> {
+                getRunnableContext().run(true, true, monitor -> {
                     // Wait for job to finish
-                    op.setOwnerMonitor(RuntimeUtils.makeMonitor(monitor));
+                    op.setOwnerMonitor(monitor);
                     op.schedule();
                     while (op.getState() == Job.WAITING || op.getState() == Job.RUNNING) {
                         if (monitor.isCanceled()) {
@@ -178,6 +183,7 @@ public abstract class ConnectionWizard extends ActiveWizard implements INewWizar
 
                 new ConnectionTestDialog(
                     getShell(),
+                    dataSource,
                     op.getServerVersion(),
                     op.getClientVersion(),
                     op.getConnectTime()).open();
@@ -213,8 +219,8 @@ public abstract class ConnectionWizard extends ActiveWizard implements INewWizar
                 ((IDataSourceConnectionTester) page).testConnection(session);
             }
         }
-        if (page instanceof ICompositeDialogPage && isPageActive(page)) {
-            for (IDialogPage subPage : ArrayUtils.safeArray(((ICompositeDialogPage) page).getSubPages(false, false))) {
+        if (page instanceof IDialogPageProvider && isPageActive(page)) {
+            for (IDialogPage subPage : ArrayUtils.safeArray(((IDialogPageProvider) page).getDialogPages(false, false))) {
                 testInPage(session, subPage);
             }
         }
@@ -234,8 +240,13 @@ public abstract class ConnectionWizard extends ActiveWizard implements INewWizar
         final IWizardPage page = getPage(pageId);
         if (page != null) {
             getContainer().showPage(page);
+            return true;
         }
         return false;
     }
 
+    @NotNull
+    protected DBPConnectionConfiguration getDefaultConnectionConfiguration() {
+        return new DBPConnectionConfiguration();
+    }
 }

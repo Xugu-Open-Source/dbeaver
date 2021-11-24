@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package org.jkiss.dbeaver.ext.postgresql.model;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.generic.model.GenericStructContainer;
 import org.jkiss.dbeaver.ext.generic.model.GenericTableBase;
-import org.jkiss.dbeaver.ext.generic.model.GenericTrigger;
+import org.jkiss.dbeaver.ext.generic.model.GenericTableTrigger;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 
@@ -29,7 +29,7 @@ import java.util.Map;
  * PostgreGenericTrigger
  */
 @Deprecated
-public class PostgreGenericTrigger extends GenericTrigger {
+public class PostgreGenericTrigger extends GenericTableTrigger {
 
     private String manipulation;
     private String orientation;
@@ -37,7 +37,7 @@ public class PostgreGenericTrigger extends GenericTrigger {
     private String source;
 
     public PostgreGenericTrigger(GenericStructContainer container, GenericTableBase table, String name, String description, String manipulation, String orientation, String timing, String statement) {
-        super(container, table, name, description);
+        super(table, name, description);
         this.manipulation = manipulation;
         this.orientation = orientation;
         this.timing = timing;

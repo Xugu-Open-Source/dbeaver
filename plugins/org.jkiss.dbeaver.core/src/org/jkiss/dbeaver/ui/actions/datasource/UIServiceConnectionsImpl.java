@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 
 package org.jkiss.dbeaver.ui.actions.datasource;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
@@ -35,27 +36,32 @@ public class UIServiceConnectionsImpl implements DBServiceConnections, UIService
     private static final Log log = Log.getLog(UIServiceConnectionsImpl.class);
 
     @Override
-    public void openConnectionEditor(DBPDataSourceContainer dataSourceContainer) {
-        EditConnectionDialog.openEditConnectionDialog(UIUtils.getActiveWorkbenchWindow(), dataSourceContainer);
+    public void openConnectionEditor(@NotNull DBPDataSourceContainer dataSourceContainer, String defaultPageName) {
+        EditConnectionDialog.openEditConnectionDialog(UIUtils.getActiveWorkbenchWindow(), dataSourceContainer, defaultPageName);
     }
 
     @Override
-    public void connectDataSource(DBPDataSourceContainer dataSourceContainer, DBRProgressListener onFinish) {
+    public void connectDataSource(@NotNull DBPDataSourceContainer dataSourceContainer, DBRProgressListener onFinish) {
         DataSourceHandler.connectToDataSource(null, dataSourceContainer, onFinish);
     }
 
     @Override
-    public void disconnectDataSource(DBPDataSourceContainer dataSourceContainer) {
+    public void disconnectDataSource(@NotNull DBPDataSourceContainer dataSourceContainer) {
         DataSourceHandler.disconnectDataSource(dataSourceContainer, null);
     }
 
     @Override
-    public void closeActiveTransaction(DBRProgressMonitor monitor, DBCExecutionContext context, boolean commitTxn) {
+    public void closeActiveTransaction(@NotNull DBRProgressMonitor monitor, @NotNull DBCExecutionContext context, boolean commitTxn) {
         DataSourceHandler.closeActiveTransaction(monitor, context, commitTxn);
     }
 
     @Override
-    public boolean checkAndCloseActiveTransaction(DBCExecutionContext[] contexts) {
+    public boolean confirmTransactionsClose(@NotNull DBCExecutionContext[] contexts) {
+        return DataSourceHandler.confirmTransactionsClose(contexts);
+    }
+
+    @Override
+    public boolean checkAndCloseActiveTransaction(@NotNull DBCExecutionContext[] contexts) {
         return DataSourceHandler.checkAndCloseActiveTransaction(contexts);
     }
 

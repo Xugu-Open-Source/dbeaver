@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
+import org.jkiss.dbeaver.model.data.DBDContent;
 import org.jkiss.dbeaver.model.data.DBDValue;
 import org.jkiss.dbeaver.model.impl.data.DBDValueError;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
@@ -47,6 +48,8 @@ import org.jkiss.dbeaver.ui.data.IValueEditor;
 import org.jkiss.dbeaver.ui.data.IValueManager;
 import org.jkiss.dbeaver.ui.data.editors.BaseValueEditor;
 import org.jkiss.dbeaver.ui.data.editors.ReferenceValueEditor;
+import org.jkiss.dbeaver.ui.data.managers.ContentValueManager;
+import org.jkiss.dbeaver.utils.ContentUtils;
 import org.jkiss.utils.CommonUtils;
 
 /**
@@ -143,6 +146,11 @@ public class ValueViewerPanel implements IResultSetPanel, IAdaptable {
     }
 
     @Override
+    public void setFocus() {
+        viewPlaceholder.setFocus();
+    }
+
+    @Override
     public void refresh(boolean force) {
         refreshValue(force);
     }
@@ -186,6 +194,17 @@ public class ValueViewerPanel implements IResultSetPanel, IAdaptable {
             previewController.setCurRow(row);
             previewController.setBinding(attr);
         }
+        if (!force && (valueManager == null || valueEditor == null)) {
+            force = true;
+        }
+        if (!force && valueManager instanceof ContentValueManager) {
+            final Object value = previewController.getValue();
+            if (value instanceof DBDContent && !ContentUtils.isTextContent((DBDContent) value)) {
+                // Always perform refresh for non-textual data
+                force = true;
+                updateActions = true;
+            }
+        }
         viewValue(force);
         if (updateActions) {
             presentation.getController().updatePanelActions();
@@ -196,9 +215,6 @@ public class ValueViewerPanel implements IResultSetPanel, IAdaptable {
     {
         if (valueSaving) {
             return;
-        }
-        if (valueManager == null || valueEditor == null) {
-            forceRefresh = true;
         }
         if (forceRefresh) {
             cleanupPanel();

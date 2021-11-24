@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,10 +25,9 @@ import org.eclipse.swt.widgets.Display;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.navigator.DBNDataSource;
-import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
 import org.jkiss.dbeaver.model.navigator.DBNNode;
+import org.jkiss.dbeaver.model.navigator.DBNResource;
 import org.jkiss.dbeaver.model.navigator.DBNUtils;
-import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.struct.DBSWrapper;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
@@ -47,6 +46,7 @@ public class DatabaseNavigatorLabelProvider extends ColumnLabelProvider implemen
     //private Font boldItalicFont;
     protected Color lockedForeground;
     protected Color transientForeground;
+    private ILabelDecorator labelDecorator;
 
     public DatabaseNavigatorLabelProvider(Viewer viewer)
     {
@@ -69,6 +69,14 @@ public class DatabaseNavigatorLabelProvider extends ColumnLabelProvider implemen
 //        UIUtils.dispose(boldItalicFont);
 //        boldItalicFont = null;
         super.dispose();
+    }
+
+    ILabelDecorator getLabelDecorator() {
+        return labelDecorator;
+    }
+
+    void setLabelDecorator(ILabelDecorator labelDecorator) {
+        this.labelDecorator = labelDecorator;
     }
 
     @Override
@@ -104,14 +112,17 @@ public class DatabaseNavigatorLabelProvider extends ColumnLabelProvider implemen
     @Override
     public Image getImage(Object obj)
     {
+        Image image = null;
         if (obj instanceof ILabelProvider) {
-            return ((ILabelProvider)obj).getImage(obj);
+            image = ((ILabelProvider)obj).getImage(obj);
+        } else if (obj instanceof DBNNode) {
+            image = DBeaverIcons.getImage(((DBNNode) obj).getNodeIconDefault());
         }
-        if (obj instanceof DBNNode) {
-            return DBeaverIcons.getImage(((DBNNode) obj).getNodeIconDefault());
-        } else {
-            return null;
+
+        if (labelDecorator != null && obj instanceof DBNResource) {
+            image = labelDecorator.decorateImage(image, obj);
         }
+        return image;
     }
 
     @Override
@@ -135,6 +146,11 @@ public class DatabaseNavigatorLabelProvider extends ColumnLabelProvider implemen
     {
         if (element instanceof DBNNode) {
             DBNNode node = (DBNNode)element;
+            if (node instanceof DBNDataSource) {
+                DBPDataSourceContainer ds = ((DBNDataSource) element).getDataSourceContainer();
+                Color bgColor = UIUtils.getConnectionColor(ds.getConnectionConfiguration());
+                return bgColor == null ? null : UIUtils.getContrastColor(bgColor);
+            }
             if (node.isLocked()) {
                 return lockedForeground;
             }
@@ -148,16 +164,10 @@ public class DatabaseNavigatorLabelProvider extends ColumnLabelProvider implemen
     @Override
     public Color getBackground(Object element)
     {
-        if (element instanceof DBNDatabaseNode) {
-            DBPDataSourceContainer ds = ((DBNDatabaseNode) element).getDataSourceContainer();
+        if (element instanceof DBNDataSource) {
+            DBPDataSourceContainer ds = ((DBNDataSource) element).getDataSourceContainer();
             if (ds != null) {
-                Color color = UIUtils.getConnectionColor(ds.getConnectionConfiguration());
-                if (color != null) {
-                    final DBPPreferenceStore prefStore = DBWorkbench.getPlatform().getPreferenceStore();
-                    if (element instanceof DBNDataSource || prefStore.getBoolean(NavigatorPreferences.NAVIGATOR_COLOR_ALL_NODES)) {
-                        return color;
-                    }
-                }
+                return UIUtils.getConnectionColor(ds.getConnectionConfiguration());
             }
         }
         return null;
@@ -170,6 +180,9 @@ public class DatabaseNavigatorLabelProvider extends ColumnLabelProvider implemen
 
     @Override
     public String getToolTipText(Object element) {
+        if (!DBWorkbench.getPlatform().getPreferenceStore().getBoolean(NavigatorPreferences.NAVIGATOR_SHOW_TOOLTIPS)) {
+            return null;
+        }
         if (element instanceof DBNDataSource) {
             final DBPDataSourceContainer ds = ((DBNDataSource) element).getDataSourceContainer();
             if (ds != null) {
@@ -203,6 +216,11 @@ public class DatabaseNavigatorLabelProvider extends ColumnLabelProvider implemen
 
             }
         } else if (element instanceof DBNNode) {
+            if (element instanceof DBNResource &&
+                !DBWorkbench.getPlatform().getPreferenceStore().getBoolean(NavigatorPreferences.NAVIGATOR_SHOW_CONTENTS_IN_TOOLTIP))
+            {
+                return null;
+            }
             final String description = ((DBNNode) element).getNodeDescription();
             if (!CommonUtils.isEmptyTrimmed(description)) {
                 return description;
@@ -214,6 +232,9 @@ public class DatabaseNavigatorLabelProvider extends ColumnLabelProvider implemen
 
     @Override
     public Image getToolTipImage(Object element) {
+        if (!DBWorkbench.getPlatform().getPreferenceStore().getBoolean(NavigatorPreferences.NAVIGATOR_SHOW_TOOLTIPS)) {
+            return null;
+        }
         if (element instanceof DBNNode) {
             return DBeaverIcons.getImage(((DBNNode) element).getNodeIconDefault());
         }
@@ -228,5 +249,10 @@ public class DatabaseNavigatorLabelProvider extends ColumnLabelProvider implemen
     @Override
     public int getToolTipStyle(Object object) {
         return super.getToolTipStyle(object);
+    }
+
+    @Override
+    public boolean useNativeToolTip(Object object) {
+        return true;
     }
 }

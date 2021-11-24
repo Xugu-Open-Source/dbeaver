@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,10 +21,12 @@ import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.data.DBDPseudoAttribute;
 import org.jkiss.dbeaver.model.data.DBDPseudoAttributeType;
+import org.jkiss.dbeaver.model.impl.net.SSLHandlerTrustStoreImpl;
 import org.jkiss.dbeaver.model.struct.DBSEntityConstraintType;
 import org.jkiss.dbeaver.model.struct.DBSObjectState;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -37,24 +39,33 @@ public class PostgreConstants {
     public static final String DEFAULT_DATABASE = "postgres";
     public static final String DEFAULT_DATA_TYPE = "varchar";
     public static final String DEFAULT_USER = "postgres";
+    public static final String USER_VARIABLE = "$user";
 
+    public static final String PROP_CHOSEN_ROLE = DBConstants.INTERNAL_PROP_PREFIX + "chosen-role@";
     public static final String PROP_SHOW_NON_DEFAULT_DB = DBConstants.INTERNAL_PROP_PREFIX + "show-non-default-db@";
+    public static final String PROP_SHOW_UNAVAILABLE_DB = DBConstants.INTERNAL_PROP_PREFIX + "show-unavailable-db@";
     public static final String PROP_SHOW_TEMPLATES_DB = DBConstants.INTERNAL_PROP_PREFIX + "show-template-db@";
+    public static final String PROP_READ_ALL_DATA_TYPES = DBConstants.INTERNAL_PROP_PREFIX + "read-all-data-types-db@";
+    public static final String PROP_USE_PREPARED_STATEMENTS = DBConstants.INTERNAL_PROP_PREFIX + "use-prepared-statements-db@";
     public static final String PROP_DD_PLAIN_STRING = "postgresql.dd.plain.string";
     public static final String PROP_DD_TAG_STRING = "postgresql.dd.tag.string";
+    public static final String PROP_SHOW_DATABASE_STATISTICS = "show-database-statistics";
 
     public static final String PROP_SSL = "ssl";
 
+    /** @deprecated Use {@link SSLHandlerTrustStoreImpl#PROP_SSL_CLIENT_CERT} instead */
+    @Deprecated
     public static final String PROP_SSL_CLIENT_CERT = "clientCert";
+    /** @deprecated Use {@link SSLHandlerTrustStoreImpl#PROP_SSL_CLIENT_KEY} instead */
+    @Deprecated
     public static final String PROP_SSL_CLIENT_KEY = "clientKey";
+    /** @deprecated Use {@link SSLHandlerTrustStoreImpl#PROP_SSL_CA_CERT} instead */
+    @Deprecated
     public static final String PROP_SSL_ROOT_CERT = "rootCert";
     public static final String PROP_SSL_MODE = "sslMode";
     public static final String PROP_SSL_FACTORY = "sslFactory";
+    public static final String PROP_SSL_PROXY = "sslProxyServer";
     public static final String PROP_SERVER_TYPE = "serverType";
-
-    public static final String OPTION_DDL_SHOW_PERMISSIONS = "pg.ddl.show.permissions";
-    public static final String OPTION_DDL_SHOW_COLUMN_COMMENTS = "pg.ddl.show.column.comments";
-    public static final String OPTION_DDL_SHOW_FULL = "pg.ddl.show.full";
 
     public static final DBSObjectState STATE_UNAVAILABLE = new DBSObjectState("Unavailable", DBIcon.OVER_EXTERNAL);
     public static final DBSEntityConstraintType CONSTRAINT_TRIGGER = new DBSEntityConstraintType("trigger", "TRIGGER", "Trigger constraint", false, false, false, false); //$NON-NLS-1$
@@ -68,24 +79,38 @@ public class PostgreConstants {
     public static final String TEMP_SCHEMA_PREFIX = "pg_temp_";
     public static final String PUBLIC_SCHEMA_NAME = "public";
 
+    // Settings names from 'pg_options' view
+    public static final String OPTION_STANDARD_CONFORMING_STRINGS = "standard_conforming_strings";
+
     public static final String PG_OBJECT_CLASS = "org.postgresql.util.PGobject";
     public static final String PG_ARRAY_CLASS = "org.postgresql.jdbc.PgArray";
     public static final String PG_INTERVAL_CLASS = "org.postgresql.util.PGInterval";
     public static final String PG_GEOMETRY_CLASS = "org.postgis.PGgeometry";
 
+    // Workaround for Redshift 2.x
+    public static final String RS_OBJECT_CLASS = "com.amazon.redshift.util.RedshiftObject";
+
     public static final DBDPseudoAttribute PSEUDO_ATTR_OID = new DBDPseudoAttribute(DBDPseudoAttributeType.ROWID, "oid",
         "oid", "oid", "Row identifier", false);
 
+    public static final String TYPE_CHAR = "char";
+    public static final String TYPE_UUID = "uuid";
+    public static final String TYPE_BPCHAR = "bpchar";
     public static final String TYPE_VARCHAR = "varchar";
     public static final String TYPE_HSTORE = "hstore";
     public static final String TYPE_JSON = "json";
     public static final String TYPE_JSONB = "jsonb";
     public static final String TYPE_BIT = "bit";
+    public static final String TYPE_VARBIT = "varbit";
     public static final String TYPE_REFCURSOR = "refcursor";
     public static final String TYPE_MONEY = "money";
     public static final String TYPE_GEOMETRY = "geometry";
     public static final String TYPE_GEOGRAPHY = "geography";
     public static final String TYPE_INTERVAL = "interval";
+    public static final String TYPE_TIME = "time";
+    public static final String TYPE_TIMESTAMP = "timestamp";
+    public static final String TYPE_TIMETZ = "timetz";
+    public static final String TYPE_TIMESTAMPTZ = "timestamptz";
 
     public static final String HANDLER_SSL = "postgre_ssl";
 
@@ -97,12 +122,10 @@ public class PostgreConstants {
 
     public static final String PG_INSTALL_REG_KEY = "SOFTWARE\\PostgreSQL\\Installations";
     public static final String PG_INSTALL_PROP_BASE_DIRECTORY = "Base Directory";
-    public static final String PG_INSTALL_PROP_VERSION = "Version";
     public static final String PG_INSTALL_PROP_BRANDING = "Branding";
-    public static final String PG_INSTALL_PROP_DATA_DIRECTORY = "Data Directory";
     public static final String BIN_FOLDER = "bin";
 
-    public static final Map<String, String> SERIAL_TYPES = new HashMap<>();
+    public static final Map<String, String> SERIAL_TYPES = new LinkedHashMap<>();
     public static final Map<String, String> DATA_TYPE_ALIASES = new HashMap<>();
     public static final Map<String, String> DATA_TYPE_CANONICAL_NAMES = new HashMap<>();
 
@@ -127,12 +150,39 @@ public class PostgreConstants {
         DATA_TYPE_ALIASES.put("bigint", TYPE_INT8);
         DATA_TYPE_ALIASES.put("smallint", TYPE_INT2);
 
+        DATA_TYPE_ALIASES.put("character", TYPE_BPCHAR);
+        DATA_TYPE_ALIASES.put("character varying", TYPE_VARCHAR);
+        DATA_TYPE_ALIASES.put("char varying", TYPE_VARCHAR);
+        DATA_TYPE_ALIASES.put("bit varying", TYPE_VARBIT);
+
         DATA_TYPE_ALIASES.put("double precision", TYPE_FLOAT8);
         DATA_TYPE_ALIASES.put("real", TYPE_FLOAT4);
+        DATA_TYPE_ALIASES.put("decimal", "numeric");
         DATA_TYPE_ALIASES.put("void", "void");
+
+        DATA_TYPE_ALIASES.put("time with time zone", TYPE_TIMETZ);
+        DATA_TYPE_ALIASES.put("time without time zone", TYPE_TIME);
+        DATA_TYPE_ALIASES.put("timestamp with time zone", TYPE_TIMESTAMPTZ);
+        DATA_TYPE_ALIASES.put("timestamp without time zone", TYPE_TIMESTAMP);
+
+        DATA_TYPE_ALIASES.put("interval", TYPE_INTERVAL);
+        DATA_TYPE_ALIASES.put("interval year", TYPE_INTERVAL);
+        DATA_TYPE_ALIASES.put("interval month", TYPE_INTERVAL);
+        DATA_TYPE_ALIASES.put("interval day", TYPE_INTERVAL);
+        DATA_TYPE_ALIASES.put("interval hour", TYPE_INTERVAL);
+        DATA_TYPE_ALIASES.put("interval minute", TYPE_INTERVAL);
+        DATA_TYPE_ALIASES.put("interval second", TYPE_INTERVAL);
+        DATA_TYPE_ALIASES.put("interval year to month", TYPE_INTERVAL);
+        DATA_TYPE_ALIASES.put("interval day to hour", TYPE_INTERVAL);
+        DATA_TYPE_ALIASES.put("interval day to minute", TYPE_INTERVAL);
+        DATA_TYPE_ALIASES.put("interval day to second", TYPE_INTERVAL);
+        DATA_TYPE_ALIASES.put("interval hour to minute", TYPE_INTERVAL);
+        DATA_TYPE_ALIASES.put("interval hour to second", TYPE_INTERVAL);
+        DATA_TYPE_ALIASES.put("interval minute to second", TYPE_INTERVAL);
 
         SERIAL_TYPES.put("serial", TYPE_INT4);
         SERIAL_TYPES.put("serial8", TYPE_INT8);
+        SERIAL_TYPES.put("serial4", TYPE_INT4);
         SERIAL_TYPES.put("serial2", TYPE_INT2);
         SERIAL_TYPES.put("smallserial", TYPE_INT2);
         SERIAL_TYPES.put("bigserial", TYPE_INT8);

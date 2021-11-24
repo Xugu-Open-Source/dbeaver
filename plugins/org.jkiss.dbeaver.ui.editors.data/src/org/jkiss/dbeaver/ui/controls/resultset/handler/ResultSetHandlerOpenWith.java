@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.eclipse.jface.action.ContributionManager;
 import org.eclipse.jface.action.IContributionItem;
 import org.eclipse.jface.action.IContributionManager;
 import org.eclipse.jface.action.MenuManager;
+import org.eclipse.jface.dialogs.IDialogSettings;
 import org.eclipse.ui.actions.CompoundContributionItem;
 import org.eclipse.ui.commands.IElementUpdater;
 import org.eclipse.ui.handlers.HandlerUtil;
@@ -51,7 +52,9 @@ import org.jkiss.dbeaver.tools.transfer.registry.DataTransferRegistry;
 import org.jkiss.dbeaver.tools.transfer.stream.IStreamDataExporter;
 import org.jkiss.dbeaver.tools.transfer.stream.StreamConsumerSettings;
 import org.jkiss.dbeaver.tools.transfer.stream.StreamTransferConsumer;
+import org.jkiss.dbeaver.tools.transfer.ui.wizard.DataTransferWizard;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
+import org.jkiss.dbeaver.ui.ShellUtils;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.resultset.*;
 import org.jkiss.utils.CommonUtils;
@@ -127,13 +130,9 @@ public class ResultSetHandlerOpenWith extends AbstractHandler implements IElemen
             for (ResultSetRow selectedRow : rsSelectedRows) {
                 selectedRows.add((long) selectedRow.getRowNumber());
             }
-            List<String> selectedAttributes = new ArrayList<>();
-            for (DBDAttributeBinding attributeBinding : rsSelectedAttributes) {
-                selectedAttributes.add(attributeBinding.getName());
-            }
 
             options.setSelectedRows(selectedRows);
-            options.setSelectedColumns(selectedAttributes);
+            options.setSelectedColumns(rsSelectedAttributes);
         }
         ResultSetDataContainer dataContainer = new ResultSetDataContainer(resultSet, options);
         if (dataContainer.getDataSource() == null) {
@@ -178,9 +177,18 @@ public class ResultSetHandlerOpenWith extends AbstractHandler implements IElemen
                     settings.setOutputFolder(tempDir.getAbsolutePath());
                     settings.setOutputFilePattern(tempFile.getName());
 
-                    Map<Object, Object> properties = new HashMap<>();
+                    Map<String, Object> properties = new HashMap<>();
+                    // Default values from wizard
+                    IDialogSettings dtSettings = DataTransferWizard.getWizardDialogSettings();
+                    IDialogSettings procListSection = dtSettings.getSection("processors");
+                    IDialogSettings procSettings = null;
+                    if (procListSection != null) {
+                        procSettings = procListSection.getSection("stream_consumer:" + processor.getId());
+                    }
+
                     for (DBPPropertyDescriptor prop : processor.getProperties()) {
-                        properties.put(prop.getId(), prop.getDefaultValue());
+                        Object defValue = procSettings == null ? null : procSettings.get(CommonUtils.toString(prop.getId()));
+                        properties.put(prop.getId(), defValue != null ? defValue : prop.getDefaultValue());
                     }
                     // Remove extension property (we specify file name directly)
                     properties.remove(StreamConsumerSettings.PROP_FILE_EXTENSION);
@@ -207,7 +215,7 @@ public class ResultSetHandlerOpenWith extends AbstractHandler implements IElemen
                     consumer.finishTransfer(monitor, false);
 
                     UIUtils.asyncExec(() -> {
-                        if (!UIUtils.launchProgram(tempFile.getAbsolutePath())) {
+                        if (!ShellUtils.launchProgram(tempFile.getAbsolutePath())) {
                             DBWorkbench.getPlatformUI().showError(
                                 "Open " + processor.getAppName(),
                                 "Can't open " + processor.getAppFileExtension() + " file '" + tempFile.getAbsolutePath() + "'");

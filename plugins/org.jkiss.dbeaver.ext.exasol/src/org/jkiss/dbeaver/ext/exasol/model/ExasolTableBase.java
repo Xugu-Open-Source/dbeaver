@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2016-2016 Karl Griesser (fullref@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,6 @@
  */
 package org.jkiss.dbeaver.ext.exasol.model;
 
-import java.math.BigDecimal;
-import java.sql.ResultSet;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
@@ -36,10 +30,17 @@ import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTable;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntityAssociation;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
+
+import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * @author Karl Griesser
@@ -59,7 +60,7 @@ public abstract class ExasolTableBase extends JDBCTable<ExasolDataSource, Exasol
 
     public ExasolTableBase(DBRProgressMonitor monitor, ExasolSchema schema, ResultSet dbResult) {
         super(schema, true);
-        setName(JDBCUtils.safeGetString(dbResult, "TABLE_NAME"));
+        setName(JDBCUtils.safeGetString(dbResult, "COLUMN_TABLE"));
         this.remarks = JDBCUtils.safeGetString(dbResult, "REMARKS");
         this.objectType = JDBCUtils.safeGetString(dbResult, "TABLE_TYPE");
         this.objectId =JDBCUtils.safeGetBigDecimal(dbResult, "OBJECT_ID");
@@ -69,7 +70,7 @@ public abstract class ExasolTableBase extends JDBCTable<ExasolDataSource, Exasol
 
     @Nullable
     @Override
-    @Property(viewable = false, order = 99, editable = true, updatable = true, multiline = true)
+    @Property(viewable = false, order = 99, editable = true, updatable = true, length = PropertyLength.MULTILINE)
     public String getDescription()
     {
         return remarks;

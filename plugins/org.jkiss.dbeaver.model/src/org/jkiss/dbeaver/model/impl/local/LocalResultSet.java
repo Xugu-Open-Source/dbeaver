@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ package org.jkiss.dbeaver.model.impl.local;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBPDataKind;
-import org.jkiss.dbeaver.model.data.DBDValueMeta;
 import org.jkiss.dbeaver.model.exec.*;
 import org.jkiss.dbeaver.model.impl.AbstractResultSet;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
@@ -114,6 +113,15 @@ public class LocalResultSet<SOURCE_STMT extends DBCStatement> extends AbstractRe
         LocalResultSetColumn column = new LocalResultSetColumn(this, metaColumns.size(), label, typedObject);
         metaColumns.add(column);
         return column;
+    }
+
+    protected void addColumn(@NotNull LocalResultSetColumn column) {
+        metaColumns.add(column);
+    }
+
+    @NotNull
+    protected DBCAttributeMetaData getMetaColumn(int index) {
+        return metaColumns.get(index);
     }
 
     public void addRow(Object... values) {

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,8 +28,7 @@ import org.jkiss.utils.CommonUtils;
 /**
  * Grid cell renderer
  */
-class GridCellRenderer extends AbstractRenderer
-{
+class GridCellRenderer extends AbstractRenderer {
     private static final int LEFT_MARGIN = 6;
     private static final int RIGHT_MARGIN = 6;
     private static final int TOP_MARGIN = 0;
@@ -40,6 +39,10 @@ class GridCellRenderer extends AbstractRenderer
     static final Image LINK_IMAGE = DBeaverIcons.getImage(UIIcon.LINK);
     static final Image LINK2_IMAGE = DBeaverIcons.getImage(UIIcon.LINK2);
     static final Rectangle LINK_IMAGE_BOUNDS = new Rectangle(0, 0, 13, 13);
+
+    // Clipping limits cell paint with cell bounds. But is an expensive GC call.
+    // Generally we don't need it because we repaint whole grid left-to-right and all text tails will be overpainted by trailing cells
+    private static final boolean USE_CLIPPING = false;
 
     protected Color colorLineFocused;
 
@@ -92,7 +95,7 @@ class GridCellRenderer extends AbstractRenderer
             }
         }
 
-        int columnAlign = grid.getContentProvider().getColumnAlign(col);
+        int columnAlign = grid.getContentProvider().getCellAlign(col, row);
 
         if (image != null && columnAlign != IGridContentProvider.ALIGN_RIGHT) {
             int y = bounds.y + (bounds.height - imageBounds.height) / 2;
@@ -113,37 +116,63 @@ class GridCellRenderer extends AbstractRenderer
             // Replace linefeeds with space
             text = CommonUtils.getSingleLineString(text);
 
-            gc.setFont(grid.normalFont);
+            final Font font = grid.getContentProvider().getCellFont(col, row);
+            gc.setFont(font != null ? font : grid.normalFont);
 
             switch (columnAlign) {
                 // Center
-                case IGridContentProvider.ALIGN_CENTER:
+                case IGridContentProvider.ALIGN_CENTER: {
+                    Point textSize = gc.textExtent(text);
+                    gc.drawString(
+                        text,
+                        bounds.x + (bounds.width - textSize.x) / 2,
+                        bounds.y + TEXT_TOP_MARGIN + TOP_MARGIN,
+                        isTransparent
+                    );
                     break;
-                case IGridContentProvider.ALIGN_RIGHT:
+                }
+                case IGridContentProvider.ALIGN_RIGHT: {
                     // Right (numbers, datetimes)
+                    Point textSize = gc.textExtent(text);
+                    int valueWidth = textSize.x + INSIDE_MARGIN;
+                    if (imageBounds != null) {
+                        valueWidth += imageBounds.width + INSIDE_MARGIN;
+                    }
+                    valueWidth += RIGHT_MARGIN;
+                    boolean useClipping = valueWidth > bounds.width;
+
                     int imageMargin = 0;
                     if (image != null) {
                         // Reduce bounds by link image size
                         imageMargin = imageBounds.width + INSIDE_MARGIN;
-                        gc.setClipping(bounds.x, bounds.y, bounds.width - imageMargin, bounds.height);
+                        if (useClipping) {
+                            gc.setClipping(bounds.x, bounds.y, bounds.width - imageMargin, bounds.height);
+                        }
                     } else {
-                        gc.setClipping(bounds);
+                        if (useClipping) {
+                            gc.setClipping(bounds);
+                        }
                     }
-                    Point textSize = gc.textExtent(text);
                     gc.drawString(
-                            text,
-                            bounds.x + bounds.width - (textSize.x + RIGHT_MARGIN + imageMargin),
-                            bounds.y + TEXT_TOP_MARGIN + TOP_MARGIN,
-                            true);
-                    gc.setClipping((Rectangle) null);
+                        text,
+                        bounds.x + bounds.width - (textSize.x + RIGHT_MARGIN + imageMargin),
+                        bounds.y + TEXT_TOP_MARGIN + TOP_MARGIN,
+                        isTransparent
+                    );
+                    if (useClipping) {
+                        gc.setClipping((Rectangle) null);
+                    }
                     break;
-                default:
+                }
+                default: {
                     gc.drawString(
-                            text,
-                            bounds.x + x,
-                            bounds.y + TEXT_TOP_MARGIN + TOP_MARGIN,
-                            true);
+                        text,
+                        bounds.x + x,
+                        bounds.y + TEXT_TOP_MARGIN + TOP_MARGIN,
+                        isTransparent
+                    );
                     break;
+                }
             }
         }
 
@@ -152,31 +181,13 @@ class GridCellRenderer extends AbstractRenderer
             gc.drawImage(image, bounds.x + bounds.width - imageBounds.width - RIGHT_MARGIN, y);
         }
 
-        if (grid.isLinesVisible()) {
-            if (selected) {
-                gc.setForeground(grid.getLineSelectedColor());
-            } else {
-                gc.setForeground(grid.getLineColor());
-            }
-            gc.drawLine(
-                bounds.x,
-                bounds.y + bounds.height,
-                bounds.x + bounds.width,
-                bounds.y + bounds.height);
-            gc.drawLine(
-                bounds.x + bounds.width - 1,
-                bounds.y,
-                bounds.x + bounds.width - 1,
-                bounds.y + bounds.height);
-        }
-
         if (focus) {
 
             gc.setForeground(colorLineFocused);
-            gc.drawRectangle(bounds.x, bounds.y, bounds.width - 1, bounds.height);
+            gc.drawRectangle(bounds.x + 1, bounds.y, bounds.width - 2, bounds.height - 1);
 
             if (grid.isFocusControl()) {
-                gc.drawRectangle(bounds.x + 1, bounds.y + 1, bounds.width - 3, bounds.height - 2);
+                gc.drawRectangle(bounds.x + 2, bounds.y + 1, bounds.width - 4, bounds.height - 3);
             }
         }
     }
@@ -187,18 +198,30 @@ class GridCellRenderer extends AbstractRenderer
         Object rowElement = grid.getRowElement(row);
         int state = contentProvider.getCellState(colElement, rowElement, null);
 
-        if (isLinkState(state)) {
-            int columnAlign = contentProvider.getColumnAlign(colElement);
-            Point origin = grid.getOrigin(column, row);
-            DBPImage cellImage = grid.getCellImage(colElement, rowElement);
-            Image image;
-            if (cellImage == null) {
-                image = ((state & IGridContentProvider.STATE_LINK) != 0) ? LINK_IMAGE : LINK2_IMAGE;
-            } else {
-                image = DBeaverIcons.getImage(cellImage);
+        boolean isToggle = (state & IGridContentProvider.STATE_TOGGLE) != 0;
+        if (isToggle) {
+            if (contentProvider.isElementReadOnly(colElement)) {
+                return false;
             }
-            Rectangle imageBounds = image.getBounds();
-
+        }
+        if (isLinkState(state) || isToggle) {
+            int columnAlign = contentProvider.getCellAlign(colElement, rowElement);
+            Point origin = grid.getOrigin(column, row);
+            Rectangle imageBounds;
+            if (isToggle) {
+                String cellText = grid.getCellText(colElement, rowElement);
+                Point textSize = grid.sizingGC.textExtent(cellText);
+                imageBounds = new Rectangle(0, 0, textSize.x, textSize.y);
+            } else {
+                DBPImage cellImage = grid.getCellImage(colElement, rowElement);
+                Image image;
+                if (cellImage == null) {
+                    image = ((state & IGridContentProvider.STATE_LINK) != 0) ? LINK_IMAGE : LINK2_IMAGE;
+                } else {
+                    image = DBeaverIcons.getImage(cellImage);
+                }
+                imageBounds = image.getBounds();
+            }
             int verMargin = (grid.getItemHeight() - imageBounds.height) / 2;
 
             switch (columnAlign) {

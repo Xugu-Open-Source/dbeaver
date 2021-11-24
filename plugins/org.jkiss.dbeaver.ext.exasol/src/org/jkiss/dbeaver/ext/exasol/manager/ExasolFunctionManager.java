@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2016-2016 Karl Griesser (fullref@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ public class ExasolFunctionManager extends SQLObjectEditor<ExasolFunction, Exaso
     }
 
     @Override
-    protected void validateObjectProperties(ObjectChangeCommand command, Map<String, Object> options)
+    protected void validateObjectProperties(DBRProgressMonitor monitor, ObjectChangeCommand command, Map<String, Object> options)
             throws DBException {
         if (CommonUtils.isEmpty(command.getObject().getName()))
         {
@@ -62,8 +62,8 @@ public class ExasolFunctionManager extends SQLObjectEditor<ExasolFunction, Exaso
     protected ExasolFunction createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context,
                                                   Object container, Object copyFrom, Map<String, Object> options) throws DBException {
         ExasolFunction newScript =  new ExasolFunction((ExasolSchema) container);
-        newScript.setName("new_script");
-        newScript.setObjectDefinitionText("FUNCTION new_script ()RETURNS INTEGER");
+        newScript.setName("function_name");
+        newScript.setObjectDefinitionText("FUNCTION function_name() RETURNS INTEGER");
         return newScript;
     }
     
@@ -90,7 +90,7 @@ public class ExasolFunctionManager extends SQLObjectEditor<ExasolFunction, Exaso
     protected void addObjectDeleteActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, List<DBEPersistAction> actions,
                                           ObjectDeleteCommand command, Map<String, Object> options) {
         actions.add(
-                new SQLDatabasePersistAction("Create Script", "DROP SCRIPT " + command.getObject().getFullyQualifiedName(DBPEvaluationContext.DDL)));
+                new SQLDatabasePersistAction("Create Script", "DROP FUNCTION " + command.getObject().getFullyQualifiedName(DBPEvaluationContext.DDL)));
     }
     
     @Override

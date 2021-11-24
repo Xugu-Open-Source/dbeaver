@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,21 +17,29 @@
 package org.jkiss.dbeaver.ext.postgresql.model.impls.redshift;
 
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.postgresql.model.*;
 import org.jkiss.dbeaver.ext.postgresql.model.impls.PostgreServerExtensionBase;
+import org.jkiss.dbeaver.model.DBPErrorAssistant;
+import org.jkiss.dbeaver.model.DBPKeywordType;
 import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.sql.SQLState;
+import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import org.jkiss.utils.CommonUtils;
 import org.osgi.framework.Version;
 
 import java.sql.SQLException;
+import java.sql.Types;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -40,15 +48,48 @@ import java.util.regex.Pattern;
 /**
  * PostgreServerRedshift
  */
-public class PostgreServerRedshift extends PostgreServerExtensionBase {
+public class PostgreServerRedshift extends PostgreServerExtensionBase implements DBPErrorAssistant {
 
     private static final Log log = Log.getLog(PostgreServerRedshift.class);
+    public static final int RS_ERROR_CODE_CHANNEL_CLOSE = 500366;
+    public static final int RS_ERROR_CODE_NOT_CONNECTED = 500150;
 
     private Version redshiftVersion;
 
     public PostgreServerRedshift(PostgreDataSource dataSource) {
         super(dataSource);
     }
+    
+    private static final String[] REDSHIFT_OTHER_TYPES_FUNCTION = {
+        "SYSDATE"
+    };
+    
+    public static String[] REDSHIFT_EXTRA_KEYWORDS = new String[]{
+        "AUTO",
+        "BACKUP",
+        "AZ64",
+        "CASE_SENSITIVE",
+        "CASE_INSENSITIVE",
+        "COMPOUND",
+        "INTERLEAVED",
+        "COPY",
+        "DATASHARE",
+        "DISTSTYLE",
+        "DISTKEY",
+        "EVEN",
+        "MODEL",
+        "OWNER",
+        "SORTKEY",
+        "TEMP",
+        "UNLOAD",
+        "VACUUM",
+        "YES"
+    };
+   
+    public static String[] REDSHIFT_FUNCTIONS_CONDITIONAL = new String[]{
+        "NVL",
+        "NVL2"
+    };
 
     private boolean isRedshiftVersionAtLeast(int major, int minor, int micro) {
         if (redshiftVersion == null) {
@@ -144,7 +185,9 @@ public class PostgreServerRedshift extends PostgreServerExtensionBase {
 
     @Override
     public boolean supportsRoles() {
-        return false;
+        // Redshift has support for roles only as a part of the EE extension.
+        // That's a silly workaround (see #11912, #12691)
+        return dataSource.getClass() != PostgreDataSource.class;
     }
 
     @Override
@@ -176,7 +219,7 @@ public class PostgreServerRedshift extends PostgreServerExtensionBase {
     public String readTableDDL(DBRProgressMonitor monitor, PostgreTableBase table) throws DBException {
         try (JDBCSession session = DBUtils.openMetaSession(monitor, table, "Load Redshift table DDL")) {
             try (JDBCPreparedStatement dbStat = session.prepareStatement(
-                RedshiftConstants.DDL_EXTRACT_VIEW + "\n" +
+                RedshiftQueries.DDL_EXTRACT_VIEW + "\n" +
                     "WHERE schemaname=? AND tablename=?")) {
                 dbStat.setString(1, table.getSchema().getName());
                 dbStat.setString(2, table.getName());
@@ -200,9 +243,23 @@ public class PostgreServerRedshift extends PostgreServerExtensionBase {
             throw new DBException(e, table.getDataSource());
         }
     }
+
+    @Override
+    public PostgreTableBase createNewRelation(DBRProgressMonitor monitor, PostgreSchema schema, PostgreClass.RelKind kind, Object copyFrom) throws DBException {
+        if (kind == PostgreClass.RelKind.r) {
+            return new RedshiftTable(schema);
+        } else if (kind == PostgreClass.RelKind.v) {
+            return new RedshiftView(schema);
+        }
+        return super.createNewRelation(monitor, schema, kind, copyFrom);
+    }
+
+
     public PostgreTableBase createRelationOfClass(PostgreSchema schema, PostgreClass.RelKind kind, JDBCResultSet dbResult) {
         if (kind == PostgreClass.RelKind.r) {
             return new RedshiftTable(schema, dbResult);
+        } else if (kind == PostgreClass.RelKind.v) {
+            return new RedshiftView(schema, dbResult);
         }
         return super.createRelationOfClass(schema, kind, dbResult);
     }
@@ -231,8 +288,38 @@ public class PostgreServerRedshift extends PostgreServerExtensionBase {
     }
 
     @Override
+    public boolean isAlterTableAtomic() {
+        return true;
+    }
+
+    @Override
+    public boolean supportSerialTypes() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsEntityMetadataInResults() {
+        return true;
+    }
+
+    @Override
     public PostgreDatabase.SchemaCache createSchemaCache(PostgreDatabase database) {
         return new RedshiftSchemaCache();
+    }
+
+    @Override
+    public ErrorType discoverErrorType(@NotNull Throwable error) {
+        int errorCode = SQLState.getCodeFromException(error);
+        if (errorCode == RS_ERROR_CODE_CHANNEL_CLOSE || errorCode == RS_ERROR_CODE_NOT_CONNECTED) {
+            return ErrorType.CONNECTION_LOST;
+        }
+        return null;
+    }
+
+    @Nullable
+    @Override
+    public ErrorPosition[] getErrorPosition(@NotNull DBRProgressMonitor monitor, @NotNull DBCExecutionContext context, @NotNull String query, @NotNull Throwable error) {
+        return null;
     }
 
     private class RedshiftSchemaCache extends PostgreDatabase.SchemaCache {
@@ -282,6 +369,44 @@ public class PostgreServerRedshift extends PostgreServerExtensionBase {
             esSchemaMap.clear();
         }
     }
+    
+    @Override
+    public void configureDialect(PostgreDialect dialect) {
+        dialect.addExtraKeywords(REDSHIFT_EXTRA_KEYWORDS);
+        dialect.addKeywords(Arrays.asList(REDSHIFT_OTHER_TYPES_FUNCTION), DBPKeywordType.OTHER);
+        dialect.addExtraFunctions(REDSHIFT_FUNCTIONS_CONDITIONAL);
+    }
 
+    @Override
+    public boolean supportsBackslashStringEscape() {
+        return true;
+    }
+
+    @Override
+    public int getParameterBindType(DBSTypedObject type, Object value) {
+        if (value instanceof String) {
+            return Types.VARCHAR;
+        }
+        return super.getParameterBindType(type, value);
+    }
+
+    @Override
+    public boolean supportsDatabaseSize() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsFunctionDefRead() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsExternalTypes() {
+        return true;
+    }
+
+    @Override
+    public int getTruncateToolModes() {
+        return 0;
+    }
 }
-

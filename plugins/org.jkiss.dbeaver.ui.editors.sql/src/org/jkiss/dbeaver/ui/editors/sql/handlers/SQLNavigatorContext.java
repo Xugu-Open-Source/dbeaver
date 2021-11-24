@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,11 @@
 package org.jkiss.dbeaver.ui.editors.sql.handlers;
 
 import org.eclipse.core.commands.ExecutionEvent;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
+import org.jkiss.dbeaver.model.sql.SQLScriptContext;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.ui.actions.AbstractDataSourceHandler;
 import org.jkiss.dbeaver.ui.editors.DatabaseEditorContext;
@@ -28,8 +30,9 @@ import org.jkiss.dbeaver.ui.navigator.NavigatorUtils;
 public class SQLNavigatorContext implements DatabaseEditorContext {
 
     private DBPDataSourceContainer dataSourceContainer;
-    private final DBSObject selectedObject;
-    private final DBCExecutionContext executionContext;
+    private DBSObject selectedObject;
+    private DBCExecutionContext executionContext;
+    private SQLScriptContext scriptContext;
 
     SQLNavigatorContext(ExecutionEvent event) {
         this.selectedObject = AbstractDataSourceHandler.getActiveObject(event);
@@ -77,9 +80,24 @@ public class SQLNavigatorContext implements DatabaseEditorContext {
         this.executionContext = executionContext;
     }
 
+    public SQLNavigatorContext(SQLScriptContext scriptContext) {
+        this.selectedObject = null;
+        this.scriptContext = scriptContext;
+    }
+
+    @Nullable
+    public SQLScriptContext getScriptContext() {
+        return scriptContext;
+    }
+
     @Override
     public DBPDataSourceContainer getDataSourceContainer() {
-        return dataSourceContainer;
+        if (dataSourceContainer != null) {
+            return dataSourceContainer;
+        } else if (scriptContext != null) {
+            return scriptContext.getExecutionContext().getDataSource().getContainer();
+        }
+        return null;
     }
 
     public void setDataSourceContainer(DBPDataSourceContainer dataSourceContainer) {
@@ -91,13 +109,23 @@ public class SQLNavigatorContext implements DatabaseEditorContext {
         return selectedObject;
     }
 
+    public void setSelectedObject(DBSObject selectedObject) {
+        this.selectedObject = selectedObject;
+    }
+
     @Override
     public DBCExecutionContext getExecutionContext() {
-        return executionContext;
+        if (executionContext != null) {
+            return executionContext;
+        } else if (scriptContext != null) {
+            return scriptContext.getExecutionContext();
+        }
+        return null;
     }
 
     DBPProject getProject() {
-        return dataSourceContainer != null ? dataSourceContainer.getProject() : NavigatorUtils.getSelectedProject();
+        DBPDataSourceContainer ds = getDataSourceContainer();
+        return ds != null ? ds.getProject() : NavigatorUtils.getSelectedProject();
     }
 
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,11 @@ package org.jkiss.dbeaver.ext.mssql.edit;
 
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.ext.mssql.model.SQLServerTable;
-import org.jkiss.dbeaver.ext.mssql.model.SQLServerTableBase;
-import org.jkiss.dbeaver.ext.mssql.model.SQLServerTableIndex;
+import org.jkiss.dbeaver.ext.mssql.SQLServerConstants;
+import org.jkiss.dbeaver.ext.mssql.model.*;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPScriptObject;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
@@ -37,6 +37,7 @@ import org.jkiss.utils.CommonUtils;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * SQL Server index manager
@@ -70,6 +71,10 @@ public class SQLServerIndexManager extends SQLIndexManager<SQLServerTableIndex, 
     @Override
     protected void addObjectCreateActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, List<DBEPersistAction> actions, ObjectCreateCommand command, Map<String, Object> options) {
         SQLServerTableIndex index = command.getObject();
+        SQLServerTableBase indexTable = index.getTable();
+        if (indexTable instanceof SQLServerTableType) {
+            return;
+        }
         if (index.isPersisted()) {
             try {
                 String indexDDL = index.getObjectDefinitionText(monitor, DBPScriptObject.EMPTY_OPTIONS);
@@ -83,7 +88,45 @@ public class SQLServerIndexManager extends SQLIndexManager<SQLServerTableIndex, 
                 log.warn("Can't extract index DDL", e);
             }
         }
-        super.addObjectCreateActions(monitor, executionContext, actions, command, options);
+        DBSIndexType indexType = index.getIndexType();
+        String sqlServerIndexType = null;
+        if (indexType == DBSIndexType.CLUSTERED) {
+            sqlServerIndexType = "CLUSTERED";
+        } else if (indexType == SQLServerConstants.INDEX_TYPE_NON_CLUSTERED) {
+            sqlServerIndexType = "NONCLUSTERED";
+        }
+        StringBuilder ddl = new StringBuilder();
+        ddl.append("CREATE ");
+        if (index.isUnique()) {
+            ddl.append("UNIQUE ");
+        }
+        if (sqlServerIndexType != null) {
+            ddl.append(sqlServerIndexType).append(" ");
+        }
+        ddl.append("INDEX ").append(index.getName()).append(" ON ").append(indexTable.getFullyQualifiedName(DBPEvaluationContext.DDL));
+        List<SQLServerTableIndexColumn> indexColumns = index.getAttributeReferences(monitor);
+        if (indexColumns != null) {
+            ddl.append(indexColumns.stream()
+                .filter(x -> !x.isIncluded())
+                .map(DBUtils::getQuotedIdentifier)
+                .collect(Collectors.joining(", ", " (", ")"))
+            );
+
+            final String includedColumns = indexColumns.stream()
+                .filter(SQLServerTableIndexColumn::isIncluded)
+                .map(DBUtils::getQuotedIdentifier)
+                .collect(Collectors.joining(", "));
+
+            if (!includedColumns.isEmpty()) {
+                ddl.append(" INCLUDE (").append(includedColumns).append(")");
+            }
+        } else {
+            super.addObjectCreateActions(monitor, executionContext, actions, command, options);
+            return;
+        }
+        actions.add(
+                new SQLDatabasePersistAction("Create new SQL Server index", ddl.toString())
+        );
     }
 
     protected String getDropIndexPattern(SQLServerTableIndex index)

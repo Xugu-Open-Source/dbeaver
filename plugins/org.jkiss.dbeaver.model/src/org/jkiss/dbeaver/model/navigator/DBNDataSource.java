@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.*;
+import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.navigator.meta.DBXTreeItem;
 import org.jkiss.dbeaver.model.navigator.meta.DBXTreeNode;
 import org.jkiss.dbeaver.model.net.DBWHandlerConfiguration;
@@ -40,6 +41,8 @@ import java.util.List;
  */
 public class DBNDataSource extends DBNDatabaseNode implements DBNContainer, IAdaptable
 {
+    private static final boolean USE_ICON_DECORATIONS = false; // Disabled in #9384
+
     private final DBPDataSourceContainer dataSource;
     private DBXTreeNode treeRoot;
 
@@ -126,6 +129,11 @@ public class DBNDataSource extends DBNDatabaseNode implements DBNContainer, IAda
     }
 
     @Override
+    public String getNodeItemPath() {
+        return makeDataSourceItemPath(dataSource);
+    }
+
+    @Override
     public boolean isManagable()
     {
         return true;
@@ -138,8 +146,8 @@ public class DBNDataSource extends DBNDatabaseNode implements DBNContainer, IAda
     }
 
     @Override
-    protected void reloadObject(DBRProgressMonitor monitor, DBSObject object) {
-
+    protected boolean reloadObject(DBRProgressMonitor monitor, DBSObject object) {
+        return false;
     }
 
     @Override
@@ -160,19 +168,21 @@ public class DBNDataSource extends DBNDatabaseNode implements DBNContainer, IAda
     @Override
     public DBPImage getNodeIcon() {
         DBPImage image = super.getNodeIcon();
-        boolean hasNetworkHandlers = hasNetworkHandlers();
-        if (dataSource.isConnectionReadOnly() || hasNetworkHandlers) {
-            if (image instanceof DBIconComposite) {
-                ((DBIconComposite) image).setTopRight(hasNetworkHandlers ? DBIcon.OVER_EXTERNAL : null);
-                ((DBIconComposite) image).setBottomLeft(dataSource.isConnectionReadOnly() ? DBIcon.OVER_LOCK : null);
-            } else {
-                image = new DBIconComposite(
-                    image,
-                    false,
-                    null,
-                    hasNetworkHandlers ? DBIcon.OVER_EXTERNAL : null,
-                    dataSource.isConnectionReadOnly() ? DBIcon.OVER_LOCK : null,
-                    null);
+        if (USE_ICON_DECORATIONS) {
+            boolean hasNetworkHandlers = hasNetworkHandlers();
+            if (dataSource.isConnectionReadOnly() || hasNetworkHandlers) {
+                if (image instanceof DBIconComposite) {
+                    ((DBIconComposite) image).setTopRight(hasNetworkHandlers ? DBIcon.OVER_EXTERNAL : null);
+                    ((DBIconComposite) image).setBottomLeft(dataSource.isConnectionReadOnly() ? DBIcon.OVER_LOCK : null);
+                } else {
+                    image = new DBIconComposite(
+                        image,
+                        false,
+                        null,
+                        hasNetworkHandlers ? DBIcon.OVER_EXTERNAL : null,
+                        dataSource.isConnectionReadOnly() ? DBIcon.OVER_LOCK : null,
+                        null);
+                }
             }
         }
         return image;
@@ -194,7 +204,7 @@ public class DBNDataSource extends DBNDatabaseNode implements DBNContainer, IAda
         } else if (DBPDataSourceContainer.class.isAssignableFrom(adapter)) {
             return adapter.cast(dataSource);
         }
-        return null;
+        return super.getAdapter(adapter);
     }
 
     @Override
@@ -246,7 +256,7 @@ public class DBNDataSource extends DBNDatabaseNode implements DBNContainer, IAda
         DBPDataSourceFolder folder = dataSource.getFolder();
         for (DBNNode node : nodes) {
             if (node instanceof DBNDataSource) {
-                if (!((DBNDataSource) node).setFolder(folder)) {
+                if (!((DBNDataSource) node).moveToFolder(getOwnerProject(), folder)) {
                     return;
                 }
             } else if (node instanceof DBNLocalFolder) {
@@ -256,7 +266,7 @@ public class DBNDataSource extends DBNDatabaseNode implements DBNContainer, IAda
         DBNModel.updateConfigAndRefreshDatabases(this);
     }
 
-    public boolean setFolder(DBPDataSourceFolder folder)
+    public boolean moveToFolder(DBPProject project, DBPDataSourceFolder folder)
     {
         final DBPDataSourceFolder oldFolder = dataSource.getFolder();
         if (oldFolder == folder) {
@@ -277,6 +287,10 @@ public class DBNDataSource extends DBNDatabaseNode implements DBNContainer, IAda
         return node;
     }
 
+    public void cleanupNode() {
+        clearNode(true);
+    }
+
     @Override
     public String toString() {
         return dataSource.toString();
@@ -289,6 +303,11 @@ public class DBNDataSource extends DBNDatabaseNode implements DBNContainer, IAda
             }
         }
         return null;
+    }
+
+    @NotNull
+    public static String makeDataSourceItemPath(DBPDataSourceContainer dataSource) {
+        return NodePathType.database.getPrefix() + dataSource.getId();
     }
 
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,8 @@ public class GenericConstants {
     public static final String PARAM_ACTIVE_ENTITY_TYPE = "active-entity-type";
     public static final String PARAM_SUPPORTS_REFERENCES = "supports-references";
     public static final String PARAM_SUPPORTS_INDEXES = "supports-indexes";
+    public static final String PARAM_SUPPORTS_CONSTRAINTS = "supports-table-constraints";
+    public static final String PARAM_SUPPORTS_VIEWS = "supports-views";
     public static final String PARAM_SUPPORTS_STORED_CODE = "supports-stored-code";
     public static final String PARAM_SUPPORTS_SUBQUERIES = "supports-subqueries";
     public static final String PARAM_SUPPORTS_SELECT_COUNT = "supports-select-count";
@@ -42,6 +44,7 @@ public class GenericConstants {
     public static final String PARAM_OMIT_SCHEMA = "omit-schema";
     public static final String PARAM_OMIT_SINGLE_CATALOG = "omit-single-catalog";
     public static final String PARAM_OMIT_SINGLE_SCHEMA = "omit-single-schema";
+    public static final String PARAM_OMIT_CATALOG_NAME = "omit-catalog-name";
     public static final String PARAM_SCHEMA_FILTER_ENABLED = "schema-filters-enabled";
     public static final String PARAM_ALL_OBJECTS_PATTERN = "all-objects-pattern";
     public static final String PARAM_SCRIPT_DELIMITER = "script-delimiter";
@@ -52,12 +55,17 @@ public class GenericConstants {
     public static final String PARAM_EMBEDDED = "embedded";
     public static final String PARAM_DDL_DROP_COLUMN_SHORT = "ddl-drop-column-short";
     public static final String PARAM_DDL_DROP_COLUMN_BRACKETS = "ddl-drop-column-brackets";
+    public static final String PARAM_ALTER_TABLE_ADD_COLUMN = "alter-table-add-column";
     public static final String PARAM_LEGACY_DIALECT = "legacy-sql-dialect";
     public static final String PARAM_QUOTE_RESERVED_WORDS = "quote-reserved-words";
     public static final String PARAM_USE_SEARCH_STRING_ESCAPE = "use-search-string-escape";
     public static final String PARAM_DUAL_TABLE = "dual-table";
     public static final String PARAM_SPLIT_PROCEDURES_AND_FUNCTIONS = "split-procedures-and-functions";
     public static final String PARAM_DRIVER_PROPERTIES = "driver-properties";
+    public static final String PARAM_SUPPORTS_SET_ARRAY = "supports-set-array";
+    public static final String PARAM_SUPPORTS_TRANSACTIONS_FOR_DDL = "supports-ddl-transactions";
+    public static final String PARAM_READ_ONLY_DATA = "read-only-data";
+    public static final String PARAM_READ_ONLY_META_DATA = "read-only-meta-data";
 
     public static final String PARAM_NATIVE_FORMAT_TIMESTAMP = "native-format-timestamp";
     public static final String PARAM_NATIVE_FORMAT_TIME = "native-format-time";
@@ -91,4 +99,6 @@ public class GenericConstants {
 
     public static final String TABLE_TYPE_VIEW = "VIEW";
     public static final String TABLE_TYPE_TABLE = "TABLE";
+
+    public static final String BASE_CONSTRAINT_NAME = "new_key";
 }

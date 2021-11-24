@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,10 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.data.DBDBinaryFormatter;
 import org.jkiss.dbeaver.model.data.DBDDataFilter;
+import org.jkiss.dbeaver.model.exec.DBCLogicalOperator;
 import org.jkiss.dbeaver.model.impl.data.formatters.BinaryFormatterHexNative;
-import org.jkiss.dbeaver.model.sql.SQLConstants;
-import org.jkiss.dbeaver.model.sql.SQLDialect;
-import org.jkiss.dbeaver.model.sql.SQLStateType;
-import org.jkiss.dbeaver.model.sql.SQLUtils;
+import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.sql.*;
 import org.jkiss.dbeaver.model.sql.parser.SQLSemanticProcessor;
 import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedure;
@@ -49,6 +48,8 @@ public abstract class AbstractSQLDialect implements SQLDialect {
     private static final String[] QUERY_KEYWORDS = new String[] { SQLConstants.KEYWORD_SELECT };
     private static final String[] EXEC_KEYWORDS = new String[0];
     private static final String[] DDL_KEYWORDS = new String[0];
+    private static final Collection<String> TRANSACTION_NON_MODIFYING_KEYWORDS =
+        CommonUtils.unmodifiableSet(SQLConstants.KEYWORD_SELECT, "SHOW", "USE", "SET", SQLConstants.KEYWORD_EXPLAIN);
 
     public static final String[][] DEFAULT_IDENTIFIER_QUOTES = {{"\"", "\""}};
     public static final String[][] DEFAULT_STRING_QUOTES = {{"'", "'"}};
@@ -124,6 +125,11 @@ public abstract class AbstractSQLDialect implements SQLDialect {
     protected void addFunctions(Collection<String> allFunctions) {
         functions.addAll(allFunctions);
         addKeywords(allFunctions, DBPKeywordType.FUNCTION);
+    }
+
+    protected void turnFunctionIntoKeyword(String function) {
+        functions.remove(function);
+        addKeywords(Collections.singletonList(function), DBPKeywordType.KEYWORD);
     }
 
     protected void addDataTypes(Collection<String> allTypes) {
@@ -265,8 +271,8 @@ public abstract class AbstractSQLDialect implements SQLDialect {
 
     @NotNull
     @Override
-    public String getScriptDelimiter() {
-        return ";"; //$NON-NLS-1$
+    public String[] getScriptDelimiters() {
+        return SQLConstants.DEFAULT_SCRIPT_DELIMITER; //$NON-NLS-1$
     }
 
     @Nullable
@@ -284,6 +290,22 @@ public abstract class AbstractSQLDialect implements SQLDialect {
     @Override
     public String[] getBlockHeaderStrings() {
         return null;
+    }
+
+    @Nullable
+    @Override
+    public String[] getInnerBlockPrefixes() {
+        return null;
+    }
+
+    @Override
+    public boolean isWordStart(int ch) {
+        return Character.isUnicodeIdentifierStart(ch);
+    }
+
+    @Override
+    public boolean isWordPart(int ch) {
+        return Character.isUnicodeIdentifierPart(ch);
     }
 
     @Override
@@ -325,8 +347,119 @@ public abstract class AbstractSQLDialect implements SQLDialect {
 
     @NotNull
     @Override
-    public String getTypeCastClause(DBSAttributeBase attribute, String expression) {
+    public String getTypeCastClause(DBSTypedObject attribute, String expression) {
         return expression;
+    }
+
+    @Override
+    public boolean isQuotedIdentifier(String identifier) {
+        {
+            final String[][] quoteStrings = this.getIdentifierQuoteStrings();
+            if (ArrayUtils.isEmpty(quoteStrings)) {
+                return false;
+            }
+            for (String[] quoteString : quoteStrings) {
+                if (identifier.startsWith(quoteString[0]) && identifier.endsWith(quoteString[1])) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public String getQuotedIdentifier(String str, boolean forceCaseSensitive, boolean forceQuotes) {
+        if (isQuotedIdentifier(str)) {
+            // Already quoted
+            return str;
+        }
+        String[][] quoteStrings = this.getIdentifierQuoteStrings();
+        if (ArrayUtils.isEmpty(quoteStrings)) {
+            return str;
+        }
+
+        // Check for keyword conflict
+        final DBPKeywordType keywordType = this.getKeywordType(str);
+        boolean hasBadChars = forceQuotes ||
+            ((keywordType == DBPKeywordType.KEYWORD || keywordType == DBPKeywordType.TYPE || keywordType == DBPKeywordType.OTHER) &&
+                this.isQuoteReservedWords());
+
+        if (!hasBadChars && !str.isEmpty()) {
+            hasBadChars = !this.validIdentifierStart(str.charAt(0));
+        }
+        if (!hasBadChars && forceCaseSensitive) {
+            // Check for case of quoted idents. Do not check for unquoted case - we don't need to quote em anyway
+            // Disable supportsQuotedMixedCase checking. Let's quote identifiers always if storage case doesn't match actual case
+            // unless database use case-insensitive search always (e.g. MySL with lower_case_table_names <> 0)
+            if (!this.useCaseInsensitiveNameLookup()) {
+                // See how unquoted identifiers are stored
+                // If passed identifier case differs from unquoted then we need to escape it
+                switch (this.storesUnquotedCase()) {
+                    case UPPER:
+                        hasBadChars = !str.equals(str.toUpperCase());
+                        break;
+                    case LOWER:
+                        hasBadChars = !str.equals(str.toLowerCase());
+                        break;
+                }
+            }
+        }
+
+        // Check for bad characters
+        if (!hasBadChars && !str.isEmpty()) {
+            for (int i = 0; i < str.length(); i++) {
+                if (!this.validIdentifierPart(str.charAt(i), false)) {
+                    hasBadChars = true;
+                    break;
+                }
+            }
+        }
+        if (!hasBadChars) {
+            return str;
+        }
+
+        return quoteIdentifier(str, quoteStrings);
+    }
+
+    @NotNull
+    protected String quoteIdentifier(@NotNull String str, @NotNull String[][] quoteStrings) {
+        // Escape quote chars
+        for (String[] pair : quoteStrings) {
+            final String q1 = pair[0];
+            final String q2 = pair[1];
+            if (q1.equals(q2) && (q1.equals("\"") || q1.equals("'")) && str.contains(q1)) {
+                str = str.replace(q1, q1 + q1);
+            }
+        }
+        // Escape with first (default) quote string
+        return quoteStrings[0][0] + str + quoteStrings[0][1];
+    }
+
+    @Override
+    public String getUnquotedIdentifier(String identifier) {
+        String[][] quoteStrings = this.getIdentifierQuoteStrings();
+        if (ArrayUtils.isEmpty(quoteStrings)) {
+            quoteStrings = BasicSQLDialect.DEFAULT_IDENTIFIER_QUOTES;
+        }
+        for (int i = 0; i < quoteStrings.length; i++) {
+            identifier = DBUtils.getUnQuotedIdentifier(identifier, quoteStrings[i][0], quoteStrings[i][1]);
+        }
+        return identifier;
+    }
+
+    @Override
+    public boolean isQuotedString(String string) {
+        return string.length() >= 2 && string.charAt(0) == '\'' && string.charAt(string.length() - 1) == '\'';
+    }
+
+    @Override
+    public String getQuotedString(String string) {
+        return '\'' + escapeString(string) + '\'';
+    }
+
+    @Override
+    public String getUnquotedString(String string) {
+        return isQuotedString(string) ? unEscapeString(string.substring(1, string.length() - 1)) : string;
     }
 
     @NotNull
@@ -343,7 +476,7 @@ public abstract class AbstractSQLDialect implements SQLDialect {
 
     @NotNull
     @Override
-    public String escapeScriptValue(DBSAttributeBase attribute, @NotNull Object value, @NotNull String strValue) {
+    public String escapeScriptValue(DBSTypedObject attribute, @NotNull Object value, @NotNull String strValue) {
         if (value instanceof UUID) {
             return '\'' + escapeString(strValue) + '\'';
         }
@@ -352,13 +485,13 @@ public abstract class AbstractSQLDialect implements SQLDialect {
 
     @NotNull
     @Override
-    public MultiValueInsertMode getMultiValueInsertMode() {
+    public MultiValueInsertMode getDefaultMultiValueInsertMode() {
         return MultiValueInsertMode.NOT_SUPPORTED;
     }
 
     @Override
-    public String addFiltersToQuery(DBPDataSource dataSource, String query, DBDDataFilter filter) {
-        return SQLSemanticProcessor.addFiltersToQuery(dataSource, query, filter);
+    public String addFiltersToQuery(DBRProgressMonitor monitor, DBPDataSource dataSource, String query, DBDDataFilter filter) {
+        return SQLSemanticProcessor.addFiltersToQuery(monitor, dataSource, query, filter);
     }
 
     @Override
@@ -387,6 +520,11 @@ public abstract class AbstractSQLDialect implements SQLDialect {
     }
 
     @Override
+    public boolean supportsNestedComments() {
+        return false;
+    }
+
+    @Override
     public boolean supportsCommentQuery() {
         return false;
     }
@@ -394,6 +532,12 @@ public abstract class AbstractSQLDialect implements SQLDialect {
     @Override
     public boolean supportsNullability() {
         return true;
+    }
+
+    @Nullable
+    @Override
+    public SQLExpressionFormatter getCaseInsensitiveExpressionFormatter(@NotNull DBCLogicalOperator operator) {
+        return null;
     }
 
     @Override
@@ -413,6 +557,11 @@ public abstract class AbstractSQLDialect implements SQLDialect {
 
     @Override
     public boolean isDelimiterAfterBlock() {
+        return false;
+    }
+
+    @Override
+    public boolean needsDelimiterFor(String firstKeyword, String lastKeyword) {
         return false;
     }
 
@@ -465,13 +614,7 @@ public abstract class AbstractSQLDialect implements SQLDialect {
         if (getKeywordType(firstKeyword) != DBPKeywordType.KEYWORD) {
             return false;
         }
-        if (SQLConstants.KEYWORD_SELECT.equals(firstKeyword) ||
-            "SHOW".equals(firstKeyword) ||
-            "USE".equals(firstKeyword))
-        {
-            return false;
-        }
-        return true;
+        return !TRANSACTION_NON_MODIFYING_KEYWORDS.contains(firstKeyword);
     }
 
     private static boolean containsKeyword(String[] keywords, String keyword) {
@@ -495,7 +638,6 @@ public abstract class AbstractSQLDialect implements SQLDialect {
         return CORE_NON_TRANSACTIONAL_KEYWORDS;
     }
 
-    @Override
     public boolean isQuoteReservedWords() {
         return true;
     }
@@ -527,7 +669,7 @@ public abstract class AbstractSQLDialect implements SQLDialect {
             if (typeName.indexOf('(') == -1) {
                 long maxLength = column.getMaxLength();
                 if (maxLength > 0 && maxLength != Integer.MAX_VALUE && maxLength != Long.MAX_VALUE) {
-                    Object maxStringLength = dataSource.getDataSourceFeature(DBConstants.FEATURE_MAX_STRING_LENGTH);
+                    Object maxStringLength = dataSource.getDataSourceFeature(DBPDataSource.FEATURE_MAX_STRING_LENGTH);
                     if (maxStringLength instanceof Number) {
                         int lengthLimit = ((Number) maxStringLength).intValue();
                         if (lengthLimit < 0) {
@@ -610,6 +752,11 @@ public abstract class AbstractSQLDialect implements SQLDialect {
         }
     }
 
+    @NotNull
+    protected String getProcedureCallEndClause(DBSProcedure procedure) {
+        return "";
+    }
+
     @Override
     public void generateStoredProcedureCall(StringBuilder sql, DBSProcedure proc, Collection<? extends DBSProcedureParameter> parameters) {
         List<DBSProcedureParameter> inParameters = new ArrayList<>();
@@ -622,19 +769,24 @@ public abstract class AbstractSQLDialect implements SQLDialect {
         sql.append(getStoredProcedureCallInitialClause(proc)).append("(");
         if (!inParameters.isEmpty()) {
             boolean first = true;
-            for (int i = 0; i < inParameters.size(); i++) {
-                DBSProcedureParameter parameter = inParameters.get(i);
-                if (!first) {
-                    sql.append(",");
-                }
+            for (DBSProcedureParameter parameter : inParameters) {
                 switch (parameter.getParameterKind()) {
                     case IN:
+                        if (!first) {
+                            sql.append(",");
+                        }
                         sql.append(":").append(CommonUtils.escapeIdentifier(parameter.getName()));
                         break;
                     case RETURN:
                         continue;
                     default:
-                        sql.append("?");
+                        if (isStoredProcedureCallIncludesOutParameters()) {
+                            if (!first) {
+                                sql.append(",");
+                            }
+                            sql.append("?");
+                        }
+                        break;
                 }
                 String typeName = parameter.getParameterType().getFullTypeName();
 //                sql.append("\t-- put the ").append(parameter.getName())
@@ -643,6 +795,10 @@ public abstract class AbstractSQLDialect implements SQLDialect {
             }
         }
         sql.append(")");
+        String callEndClause = getProcedureCallEndClause(proc);
+        if (!CommonUtils.isEmpty(callEndClause)) {
+            sql.append(" ").append(callEndClause);
+        }
         if (!useBrackets) {
             sql.append(";");
         } else {
@@ -651,13 +807,22 @@ public abstract class AbstractSQLDialect implements SQLDialect {
         sql.append("\n\n");
     }
 
+    protected boolean isStoredProcedureCallIncludesOutParameters() {
+        return true;
+    }
+
     @Override
     public boolean isDisableScriptEscapeProcessing() {
         return false;
     }
 
     @Override
-    public boolean supportsAlterTableConstraint() {
+    public boolean supportsAlterTableStatement() {
         return true;
+    }
+
+    @Override
+    public boolean supportsInsertAllDefaultValuesStatement() {
+        return false;
     }
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,10 +87,10 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
         try {
             newObject = createDatabaseObject(monitor, commandContext, container, copyFrom, options);
         } catch (ClassCastException e) {
-            throw new IllegalArgumentException("Can't create object here.\nWrong container type: " + container.getClass().getSimpleName());
+            throw new DBException("Can't create object here.\nWrong container type: " + container.getClass().getSimpleName());
         }
         if (!CommonUtils.getOption(options, OPTION_SKIP_CONFIGURATION)) {
-            newObject = configureObject(monitor, container, newObject);
+            newObject = configureObject(monitor, container, newObject, options);
             if (newObject == null) {
                 return null;
             }
@@ -153,7 +153,7 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
         }
     }
 
-    protected abstract void addObjectDeleteActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, List<DBEPersistAction> actions, ObjectDeleteCommand command, Map<String, Object> options);
+    protected abstract void addObjectDeleteActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, List<DBEPersistAction> actions, ObjectDeleteCommand command, Map<String, Object> options) throws DBException;
 
     //////////////////////////////////////////////////
     // Name generator
@@ -202,12 +202,12 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
 
     }
 
-    protected void validateObjectProperties(ObjectChangeCommand command, Map<String, Object> options) throws DBException {
+    protected void validateObjectProperties(DBRProgressMonitor monitor, ObjectChangeCommand command, Map<String, Object> options) throws DBException {
 
     }
 
-    protected void processObjectRename(DBECommandContext commandContext, OBJECT_TYPE object, String newName) throws DBException {
-        ObjectRenameCommand command = new ObjectRenameCommand(object, ModelMessages.model_jdbc_rename_object, newName);
+    protected void processObjectRename(DBECommandContext commandContext, OBJECT_TYPE object, Map<String, Object> options, String newName) throws DBException {
+        ObjectRenameCommand command = new ObjectRenameCommand(object, ModelMessages.model_jdbc_rename_object, options, newName);
         commandContext.addCommand(command, new RenameObjectReflector(), true);
     }
 
@@ -216,7 +216,7 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
         commandContext.addCommand(command, new ReorderObjectReflector(), true);
     }
 
-    protected OBJECT_TYPE configureObject(DBRProgressMonitor monitor, Object parent, OBJECT_TYPE object) {
+    protected OBJECT_TYPE configureObject(DBRProgressMonitor monitor, Object parent, OBJECT_TYPE object, Map<String, Object> options) {
         DBEObjectConfigurator<OBJECT_TYPE> configurator = GeneralUtils.adapt(object, DBEObjectConfigurator.class);
         if (configurator != null) {
             return configurator.configureObject(monitor, parent, object);
@@ -299,7 +299,7 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
 
         @Override
         public void validateCommand(DBRProgressMonitor monitor, Map<String, Object> options) throws DBException {
-            validateObjectProperties(this, options);
+            validateObjectProperties(monitor, this, options);
         }
 
         @Override
@@ -309,6 +309,11 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
             // TODO: May be we should make ObjectChangeCommand static
             final StringBuilder decl = SQLObjectEditor.this.getNestedDeclaration(monitor, (CONTAINER_TYPE) owner, this, options);
             return CommonUtils.isEmpty(decl) ? null : decl.toString();
+        }
+
+        @Override
+        public String toString() {
+            return "CMD:UpdateObject:" + getObject();
         }
     }
 
@@ -378,6 +383,11 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
             final StringBuilder decl = SQLObjectEditor.this.getNestedDeclaration(monitor, (CONTAINER_TYPE) owner, this, options);
             return CommonUtils.isEmpty(decl) ? null : decl.toString();
         }
+
+        @Override
+        public String toString() {
+            return "CMD:CreateObject:" + getObject();
+        }
     }
 
     protected class ObjectDeleteCommand extends DBECommandDeleteObject<OBJECT_TYPE> {
@@ -386,7 +396,7 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
         }
 
         @Override
-        public DBEPersistAction[] getPersistActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, Map<String, Object> options) {
+        public DBEPersistAction[] getPersistActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, Map<String, Object> options) throws DBException {
             List<DBEPersistAction> actions = new ArrayList<>();
             addObjectDeleteActions(monitor, executionContext, actions, this, options);
             return actions.toArray(new DBEPersistAction[0]);
@@ -400,16 +410,27 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
                 cache.removeObject(object, false);
             }
         }
+
+        @Override
+        public String toString() {
+            return "CMD:DeleteObject:" + getObject();
+        }
     }
 
     protected class ObjectRenameCommand extends DBECommandAbstract<OBJECT_TYPE> implements DBECommandRename {
+        private Map<String, Object> options;
         private String oldName;
         private String newName;
 
-        public ObjectRenameCommand(OBJECT_TYPE object, String title, String newName) {
+        public ObjectRenameCommand(OBJECT_TYPE object, String title, Map<String, Object> options, String newName) {
             super(object, title);
+            this.options = options;
             this.oldName = object.getName();
             this.newName = newName;
+        }
+
+        public Map<String, Object> getOptions() {
+            return options;
         }
 
         public String getOldName() {
@@ -422,6 +443,9 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
 
         @Override
         public DBEPersistAction[] getPersistActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, Map<String, Object> options) {
+            if (CommonUtils.equalObjects(oldName, newName)) {
+                return new DBEPersistAction[0];
+            }
             List<DBEPersistAction> actions = new ArrayList<>();
             addObjectRenameActions(monitor, executionContext, actions, this, options);
             return actions.toArray(new DBEPersistAction[0]);
@@ -429,17 +453,36 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
 
         @Override
         public DBECommand<?> merge(DBECommand<?> prevCommand, Map<Object, Object> userParams) {
+            // We need to dismiss all rename commands if there is a create command in the command queue.
+            // Otherwise we issue redundant rename commands
+            // See https://github.com/dbeaver/dbeaver/issues/11917
+            int hashCode = getObject().hashCode();
+            String createId = "create#" + hashCode;
+            Object createCmd = userParams.get(createId);
+            if (createCmd != null) {
+                return (DBECommand<?>) createCmd;
+            }
+            if (prevCommand instanceof SQLObjectEditor.ObjectCreateCommand) {
+                userParams.put(createId, prevCommand);
+                return prevCommand;
+            }
+
             // We need very first and very last rename commands. They produce final rename
-            final String mergeId = "rename" + getObject().hashCode();
+            String mergeId = "rename#" + hashCode;
             ObjectRenameCommand renameCmd = (ObjectRenameCommand) userParams.get(mergeId);
             if (renameCmd == null) {
-                renameCmd = new ObjectRenameCommand(getObject(), getTitle(), newName);
+                renameCmd = new ObjectRenameCommand(getObject(), getTitle(), options, newName);
                 userParams.put(mergeId, renameCmd);
             } else {
                 renameCmd.newName = newName;
                 return renameCmd;
             }
             return super.merge(prevCommand, userParams);
+        }
+
+        @Override
+        public String toString() {
+            return "CMD:RenameObject:" + getObject();
         }
     }
 
@@ -456,11 +499,11 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
                     cache.renameObject(command.getObject(), command.getOldName(), command.getNewName());
                 }
 
-                Map<String, Object> options = new LinkedHashMap<>();
+                Map<String, Object> options = new LinkedHashMap<>(command.getOptions());
                 options.put(DBEObjectRenamer.PROP_OLD_NAME, command.getOldName());
                 options.put(DBEObjectRenamer.PROP_NEW_NAME, command.getNewName());
 
-                DBUtils.fireObjectUpdate(command.getObject(), options, null);
+                DBUtils.fireObjectUpdate(command.getObject(), options, DBPEvent.RENAME);
             }
         }
 
@@ -475,7 +518,8 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
                     cache.renameObject(command.getObject(), command.getNewName(), command.getOldName());
                 }
 
-                DBUtils.fireObjectUpdate(command.getObject());
+                Map<String, Object> options = new LinkedHashMap<>(command.getOptions());
+                DBUtils.fireObjectUpdate(command.getObject(), options, DBPEvent.RENAME);
             }
         }
 
@@ -525,6 +569,11 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
                 return reorderCmd;
             }
             return super.merge(prevCommand, userParams);
+        }
+
+        @Override
+        public String toString() {
+            return "CMD:ReorderPosition:" + getObject() + ":" + getOldPosition() + ":" + getNewPosition();
         }
     }
 
@@ -576,7 +625,7 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
 
         @Override
         public void redoCommand(DBECommandAbstract<OBJECT_TYPE> command) {
-            DBUtils.fireObjectRefresh(command.getObject());
+            DBUtils.fireObjectUpdate(command.getObject(), true);
         }
 
         @Override

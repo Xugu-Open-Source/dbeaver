@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,9 +68,9 @@ public class SQLServerCheckConstraintManager extends SQLObjectEditor<SQLServerTa
     }
 
     @Override
-    protected void validateObjectProperties(ObjectChangeCommand command, Map<String, Object> options) throws DBException {
+    protected void validateObjectProperties(DBRProgressMonitor monitor, ObjectChangeCommand command, Map<String, Object> options) throws DBException {
         SQLServerTableCheckConstraint object = command.getObject();
-        if (object.getConstraintType() == DBSEntityConstraintType.CHECK && CommonUtils.isEmpty(object.getDefinition())) {
+        if (object.getConstraintType() == DBSEntityConstraintType.CHECK && CommonUtils.isEmpty(object.getCheckConstraintDefinition())) {
             throw new DBException("CHECK constraint definition is empty");
         }
     }
@@ -85,7 +85,7 @@ public class SQLServerCheckConstraintManager extends SQLObjectEditor<SQLServerTa
                 "ALTER TABLE " + constraint.getParentObject().getFullyQualifiedName(DBPEvaluationContext.DDL) +
                     " WITH NOCHECK" +
                     " ADD CONSTRAINT " + DBUtils.getQuotedIdentifier(constraint) +
-                    " CHECK " + constraint.getDefinition()
+                    " CHECK " + constraint.getCheckConstraintDefinition()
             ));
     }
 

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,7 +90,7 @@ public abstract class AbstractExecutionContext<DATASOURCE extends DBPDataSource>
      * Executes bootstrap queries and other init functions.
      * This function must be called by all implementations.
      */
-    protected void initContextBootstrap(@NotNull DBRProgressMonitor monitor, boolean autoCommit) throws DBCException
+    protected boolean initContextBootstrap(@NotNull DBRProgressMonitor monitor, boolean autoCommit) throws DBCException
     {
         // Notify QM
         QMUtils.getDefaultHandler().handleContextOpen(this, !autoCommit);
@@ -118,7 +118,9 @@ public abstract class AbstractExecutionContext<DATASOURCE extends DBPDataSource>
                     }
                 }
             }
+            return true;
         }
+        return false;
     }
 
     protected void closeContext()

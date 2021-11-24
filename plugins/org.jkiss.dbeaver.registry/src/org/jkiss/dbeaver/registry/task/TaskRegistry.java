@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,6 +89,9 @@ public class TaskRegistry implements DBTTaskRegistry
                 DBPProject project = DBWorkbench.getPlatform().getWorkspace().getProject(projectName);
                 if (project != null) {
                     DBTTask task = project.getTaskManager().getTaskById(taskId);
+                    if (task != null) {
+                        task.refreshRunStatistics();
+                    }
                     DBTTaskEvent event = new DBTTaskEvent(task, DBTTaskEvent.Action.TASK_EXECUTE);
                     notifyTaskListeners(event);
                 }
@@ -173,6 +176,16 @@ public class TaskRegistry implements DBTTaskRegistry
         }
         for (DBTTaskListener listener : listenersCopy) {
             listener.handleTaskEvent(event);
+        }
+    }
+
+    public void notifyTaskFoldersListeners(DBTTaskFolderEvent event) {
+        DBTTaskListener[] listenersCopy;
+        synchronized (taskListeners) {
+            listenersCopy = taskListeners.toArray(new DBTTaskListener[0]);
+        }
+        for (DBTTaskListener listener : listenersCopy) {
+            listener.handleTaskFolderEvent(event);
         }
     }
 

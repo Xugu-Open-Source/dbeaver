@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2017-2018 Alexander Fedorov (alexander.fedorov@jkiss.org)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -41,7 +41,6 @@ import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
-import org.jkiss.dbeaver.runtime.resource.WorkspaceResources;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 
 public class ToggleProcedureBreakpointTarget implements IToggleBreakpointsTargetExtension2 {
@@ -104,7 +103,12 @@ public class ToggleProcedureBreakpointTarget implements IToggleBreakpointsTarget
 
     protected IResource extractResource(IEditorPart part, ISelection selection) {
         DBSObject databaseObject = DebugUI.extractDatabaseObject(part);
-        return WorkspaceResources.resolveWorkspaceResource(databaseObject);
+        return resolveWorkspaceResource(databaseObject);
+    }
+
+    public static IResource resolveWorkspaceResource(DBSObject dbsObject) {
+        DBNDatabaseNode node = DBWorkbench.getPlatform().getNavigatorModel().getNodeByObject(dbsObject);
+        return node == null || node.getOwnerProject() == null ? null : node.getOwnerProject().getEclipseProject();
     }
 
     @Override

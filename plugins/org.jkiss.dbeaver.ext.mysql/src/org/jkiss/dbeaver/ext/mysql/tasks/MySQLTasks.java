@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,5 +22,10 @@ public class MySQLTasks {
     public static final String TASK_DATABASE_BACKUP = "mysqlDatabaseBackup";
     public static final String TASK_DATABASE_RESTORE = "mysqlDatabaseRestore";
     public static final String TASK_SCRIPT_EXECUTE = "mysqlScriptExecute";
+    public static final String TASK_TABLE_REPAIR = "mysqlToolRepairTable";
+    public static final String TASK_TABLE_CHECK = "mysqlToolCheckTable";
+    public static final String TASK_TABLE_ANALYZE = "mysqlToolAnalyzeTable";
+    public static final String TASK_TABLE_OPTIMIZE = "mysqlToolOptimizeTable";
+    public static final String TASK_TABLE_TRUNCATE = "mysqlToolTruncateTable";
 
 }

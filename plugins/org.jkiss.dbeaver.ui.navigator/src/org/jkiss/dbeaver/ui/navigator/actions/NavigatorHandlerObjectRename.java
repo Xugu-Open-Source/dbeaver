@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.eclipse.ui.handlers.HandlerUtil;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPScriptObject;
 import org.jkiss.dbeaver.model.edit.DBECommand;
+import org.jkiss.dbeaver.model.edit.DBEObjectManager;
 import org.jkiss.dbeaver.model.edit.DBEObjectRenamer;
 import org.jkiss.dbeaver.model.navigator.DBNContainer;
 import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
@@ -34,9 +35,12 @@ import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.TasksJob;
+import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.dialogs.EnterNameDialog;
+import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.CommonUtils;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class NavigatorHandlerObjectRename extends NavigatorHandlerObjectBase {
@@ -49,17 +53,19 @@ public class NavigatorHandlerObjectRename extends NavigatorHandlerObjectBase {
         if (selection instanceof IStructuredSelection) {
             IStructuredSelection structSelection = (IStructuredSelection) selection;
             Object element = structSelection.getFirstElement();
-            if (element instanceof DBNNode) {
+            DBNNode node = RuntimeUtils.getObjectAdapter(element, DBNNode.class);
+            if (node != null) {
                 renameNode(
                     HandlerUtil.getActiveWorkbenchWindow(event),
                     HandlerUtil.getActiveShell(event),
-                    (DBNNode) element, null);
+                    node, null,
+                    this);
             }
         }
         return null;
     }
 
-    public static boolean renameNode(IWorkbenchWindow workbenchWindow, Shell shell, final DBNNode node, String newName)
+    public static boolean renameNode(IWorkbenchWindow workbenchWindow, Shell shell, final DBNNode node, String newName, Object uiSource)
     {
         String oldName = node instanceof DBNDatabaseNode ? ((DBNDatabaseNode) node).getPlainNodeName(true, false) : node.getNodeName();
         if (oldName == null) {
@@ -85,12 +91,12 @@ public class NavigatorHandlerObjectRename extends NavigatorHandlerObjectBase {
             return renameDatabaseObject(
                 workbenchWindow,
                 (DBNDatabaseNode) node,
-                newName);
+                CommonUtils.toString(UIUtils.normalizePropertyValue(newName)), uiSource);
         }
         return false;
     }
 
-    public static boolean renameDatabaseObject(IWorkbenchWindow workbenchWindow, DBNDatabaseNode node, String newName)
+    public static boolean renameDatabaseObject(IWorkbenchWindow workbenchWindow, DBNDatabaseNode node, String newName, Object uiSource)
     {
         try {
             if (node.getParentNode() instanceof DBNContainer) {
@@ -101,17 +107,19 @@ public class NavigatorHandlerObjectRename extends NavigatorHandlerObjectBase {
                         CommandTarget commandTarget = getCommandTarget(
                             workbenchWindow,
                             node.getParentNode(),
+                            node,
                             object.getClass(),
                             false);
 
-                        objectRenamer.renameObject(commandTarget.getContext(), object, newName);
+                        Map<String, Object> options = new LinkedHashMap<>();
+                        options.put(DBEObjectManager.OPTION_UI_SOURCE, uiSource);
+                        objectRenamer.renameObject(commandTarget.getContext(), object, options, newName);
                         if (object.isPersisted() && commandTarget.getEditor() == null) {
-                            Map<String, Object> options = DBPScriptObject.EMPTY_OPTIONS;
-                            if (!showScript(workbenchWindow, commandTarget.getContext(), options, "Rename script")) {
+                            if (!showScript(workbenchWindow, commandTarget.getContext(), DBPScriptObject.EMPTY_OPTIONS, "Rename script")) {
                                 commandTarget.getContext().resetChanges(true);
                                 return false;
                             } else {
-                                ObjectSaver renamer = new ObjectSaver(commandTarget.getContext(), options);
+                                ObjectSaver renamer = new ObjectSaver(commandTarget.getContext(), DBPScriptObject.EMPTY_OPTIONS);
                                 TasksJob.runTask("Rename object '" + object.getName() + "'", renamer);
                             }
                         } else {

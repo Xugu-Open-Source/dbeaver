@@ -37,6 +37,7 @@ import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCStructLookupCache;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSDataType;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSEntityConstraintType;
@@ -72,7 +73,6 @@ public class Schema extends BaseGlobalObject
 	final public UdtCache udtCache = new UdtCache();
 	final public ProceduresCache proceduresCache = new ProceduresCache();
 	final public FunctionsCache functionsCache = new FunctionsCache();
-	final public SchedulerJobCache schedulerJobCache = new SchedulerJobCache();
 	final public TriggerCache triggerCache = new TriggerCache();
  	final public ProcedurePackagedCache procedurePackagedCache = new ProcedurePackagedCache();
  	
@@ -102,28 +102,6 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * 通过结果集构造一个新的模式对象，同时指定其所属数据库
-	 * 
-	 * @param dataSource 数据源
-	 * @param parent     所属数据库
-	 * @param dbResult   查询结果集
-	 */
-	public Schema(@NotNull DataSource dataSource, Database parent, ResultSet dbResult) {
-		super(dataSource, true);
-		this.id = JDBCUtils.safeGetLong(dbResult, "SCHEMA_ID");
-		this.name = JDBCUtils.safeGetString(dbResult, "SCHEMA_NAME");
-		this.owner = JDBCUtils.safeGetString(dbResult, "USER_NAME");
-		this.comment = JDBCUtils.safeGetString(dbResult, "COMMENT");
-		this.dataSource= dataSource;
-		this.roleFlag = dataSource.getRoleFlag();
-		this.parent = parent;
-		if (CommonUtils.isEmpty(this.name)) {
-			log.warn("Empty schema name fetched");
-			this.name = "? " + super.hashCode();
-		}
-	}
-
-	/**
 	 * 通过结果集构造一个新的模式对象
 	 * 
 	 * @param dataSource 数据源
@@ -137,6 +115,7 @@ public class Schema extends BaseGlobalObject
 		this.comment = JDBCUtils.safeGetString(dbResult, "COMMENTS");
 		this.roleFlag = dataSource.getRoleFlag();
 		this.dataSource= dataSource;
+		this.parent = dataSource.getDatabase();
 		if (CommonUtils.isEmpty(this.name)) {
 			log.warn("Empty schema name fetched");
 			this.name = "? " + super.hashCode();
@@ -185,15 +164,7 @@ public class Schema extends BaseGlobalObject
 	}
 
 	public int getDbId(Schema schema, JDBCSession session) {
-		try {
-			String dbName = schema.getName();
-			int dbId = schema.getDataSource().databaseCache
-					.getObject(session.getProgressMonitor(), schema.getDataSource(), dbName).getId();
-			return dbId;
-		} catch (DBException e) {
-			e.printStackTrace();
-			return -1;
-		}
+		return parent.getId();
 	}
 
 	public Database getParent() {
@@ -393,8 +364,8 @@ public class Schema extends BaseGlobalObject
 	 * 从缓存触发器中获取全部触发器信息
 	 */
 	@Association
-	public Collection<NewTrigger> getTriggers(DBRProgressMonitor monitor) throws DBException {
-		Collection<NewTrigger> list = triggerCache.getAllObjects(monitor, this);
+	public Collection<Trigger> getTriggers(DBRProgressMonitor monitor) throws DBException {
+		Collection<Trigger> list = triggerCache.getAllObjects(monitor, this);
 		return list;
 	}
 	
@@ -430,8 +401,8 @@ public class Schema extends BaseGlobalObject
 	 * @return synonym 触发器对象
 	 * @throws DBException 数据库异常
 	 */
-	public NewTrigger getTrigger(DBRProgressMonitor monitor, String name) throws DBException {
-		NewTrigger trigger = triggerCache.getObject(monitor, this, name, NewTrigger.class);
+	public Trigger getTrigger(DBRProgressMonitor monitor, String name) throws DBException {
+		Trigger trigger = triggerCache.getObject(monitor, this, name, Trigger.class);
 		return trigger;
 	}
 //	public TriggerTest getTrigger(DBRProgressMonitor monitor, String name) throws DBException {
@@ -465,19 +436,6 @@ public class Schema extends BaseGlobalObject
 		return udt;
 	}
 
-	/**
-	 * 从作业缓存中获取全部的作业信息
-	 * 
-	 * @param monitor 监控
-	 * @return list 作业列表
-	 * @throws DBException 数据库异常
-	 */
-	@Association
-	public Collection<SchedulerJob> getSchedulerJobs(DBRProgressMonitor monitor) throws DBException {
-		Collection<SchedulerJob> list = schedulerJobCache.getAllObjects(monitor, this);
-		return list;
-	}
-
 	public User getSchemaUser(DBRProgressMonitor monitor) throws DBException {
 		return getDataSource().getUser(monitor, name);
 	}
@@ -492,7 +450,6 @@ public class Schema extends BaseGlobalObject
 		children.addAll(synonymCache.getAllObjects(monitor, this));
 		children.addAll(triggerCache.getAllObjects(monitor, this));
 		children.addAll(udtCache.getAllObjects(monitor, this));
-		children.addAll(schedulerJobCache.getAllObjects(monitor, this));
 		return children;
 	}
 
@@ -507,7 +464,7 @@ public class Schema extends BaseGlobalObject
 			return synonym;
 		}
 		
-		NewTrigger trigger = triggerCache.getObject(monitor, this, childName);
+		Trigger trigger = triggerCache.getObject(monitor, this, childName);
 		if (trigger != null) {
 			return trigger;
 		}
@@ -520,7 +477,7 @@ public class Schema extends BaseGlobalObject
 	}
 
 	@Override
-	public Class<? extends DBSEntity> getChildType(@NotNull DBRProgressMonitor monitor) throws DBException {
+	public Class<? extends DBSObject> getPrimaryChildType(DBRProgressMonitor monitor) throws DBException {
 		return DBSEntity.class;
 	}
 
@@ -554,8 +511,6 @@ public class Schema extends BaseGlobalObject
 			synonymCache.getAllObjects(monitor, this);
 			monitor.subTask("Cache triggers");
 			triggerCache.getAllObjects(monitor, this);
-			monitor.subTask("Cache job");
-			schedulerJobCache.getAllObjects(monitor, this);
 		}
 	}
 
@@ -573,8 +528,7 @@ public class Schema extends BaseGlobalObject
 		synonymCache.clearCache();
 		triggerCache.clearCache();
 		udtCache.clearCache();
-		schedulerJobCache.clearCache();
-		return this.getDataSource().schemaCache.refreshObject(monitor, this.getDataSource(), this);
+		return this.getDataSource().schemaCache.refreshObject(monitor, this.getDataSource().getDatabase(), this);
 	}
 
 	@Override
@@ -1294,7 +1248,7 @@ public class Schema extends BaseGlobalObject
 	 * @author zkun
 	 *
 	 */
-	 static class TriggerCache extends JDBCObjectCache<Schema,NewTrigger>{
+	 static class TriggerCache extends JDBCObjectCache<Schema,Trigger>{
 
 		@Override
 		protected JDBCStatement prepareObjectsStatement(JDBCSession session, Schema owner)
@@ -1316,43 +1270,16 @@ public class Schema extends BaseGlobalObject
 		}
 
 		@Override
-		protected NewTrigger fetchObject(JDBCSession session, Schema owner, JDBCResultSet resultSet)
+		protected Trigger fetchObject(JDBCSession session, Schema owner, JDBCResultSet resultSet)
 				throws SQLException, DBException {
-			return new NewTrigger(session.getProgressMonitor(), session, owner, resultSet);
+			String objName = JDBCUtils.safeGetString(resultSet, "OBJ_NAME");
+			BaseTable baseTable = owner.getTable(new LoggingProgressMonitor(), objName);
+			if (baseTable == null) {
+				baseTable = owner.getView(new LoggingProgressMonitor(), objName);
+			}
+			return new Trigger(baseTable, resultSet);
 		}
 	}
-	 
-//	 static class TriggerCache extends JDBCObjectCache<Schema,TriggerTest>{
-//
-//		@Override
-//		protected JDBCStatement prepareObjectsStatement(JDBCSession session, Schema owner)
-//				throws SQLException {
-//			String orleFlag = owner.getRoleFlag();
-//			StringBuilder sqlBuilder = new StringBuilder();
-//			sqlBuilder.append("select st.db_id,st.schema_id,st.user_id, st.trig_name, st.trig_event,st.trig_type,st.trig_cond,st.Language,st.define,st.enable,st.valid,so.obj_name,so.obj_type from ");
-//			sqlBuilder.append(orleFlag);
-//			sqlBuilder.append("_triggers st join ");
-//			sqlBuilder.append(orleFlag);
-//			sqlBuilder.append("_objects so");
-//			sqlBuilder.append(" on st.obj_id = so.obj_id and st.db_id = so.db_id where st.db_id= ");
-//			sqlBuilder.append(owner.getDbId(owner, session));
-//			sqlBuilder.append(" and st.schema_id=");
-//			sqlBuilder.append(owner.id);
-//			log.debug("" + OemConfig.COMPANY_NAME + " triggers metadata: " + sqlBuilder.toString());
-//			JDBCPreparedStatement dbStat = session.prepareStatement(sqlBuilder.toString());
-//			return dbStat;
-//		}
-//
-//		@Override
-//		protected TriggerTest fetchObject(JDBCSession session, Schema owner, JDBCResultSet resultSet)
-//				throws SQLException, DBException {
-//			return new TriggerTest(session.getProgressMonitor(), session, owner, resultSet);
-//		}
-//		
-//	}
-	
-	
-	
 
 	/**
 	 * 用户自定义数据类型缓存
@@ -1408,8 +1335,9 @@ public class Schema extends BaseGlobalObject
 			sql.append(" AND SCHEMA_ID=");
 			sql.append(owner.getId());
 			if (object != null) {
-				sql.append(" AND VIEW_ID=");
-				sql.append(object.getId());
+				sql.append(" AND VIEW_NAME='");
+				sql.append(object.getName());
+				sql.append("'");
 			}
 
 			log.debug("" + OemConfig.OEM_NAME_EN + " view metadata: " + sql.toString());
@@ -1461,33 +1389,4 @@ public class Schema extends BaseGlobalObject
 			super.cacheChildren(parent, tableColumns);
 		}
 	}
-
-	/**
-	 * 作业缓存
-	 */
-	static class SchedulerJobCache extends JDBCObjectCache<Schema, SchedulerJob> {
-		@Override
-		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull Schema owner)
-				throws SQLException {
-			// xfc 修改了获取所有job信息的sql语句
-			String roleFlag = owner.getRoleFlag();
-			StringBuilder sql = new StringBuilder();
-			sql.append("SELECT * FROM ");
-			sql.append(roleFlag);
-			sql.append("_JOBS WHERE DB_ID=");
-			sql.append(owner.getDbId(owner, session));
-
-			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct select jobs sql: " + sql.toString());
-			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
-			return dbStat;
-		}
-
-		@Override
-		protected SchedulerJob fetchObject(@NotNull JDBCSession session, @NotNull Schema owner,
-				@NotNull JDBCResultSet dbResult) throws SQLException, DBException {
-			return new SchedulerJob(session.getProgressMonitor(), session, owner, dbResult);
-		}
-	}
-	
-
 }

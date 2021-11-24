@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,19 +16,21 @@
  */
 package org.jkiss.dbeaver.ext.sqlite.model;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.ext.generic.model.GenericSQLDialect;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCDatabaseMetaData;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSource;
 import org.jkiss.dbeaver.model.impl.sql.BasicSQLDialect;
 
 public class SQLiteSQLDialect extends GenericSQLDialect {
 
     public SQLiteSQLDialect() {
-        super("SQLite");
+        super("SQLite", "sqlite");
     }
 
-    public void initDriverSettings(JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
-        super.initDriverSettings(dataSource, metaData);
+    public void initDriverSettings(JDBCSession session, JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
+        super.initDriverSettings(session, dataSource, metaData);
     }
 
     @Override
@@ -41,7 +43,19 @@ public class SQLiteSQLDialect extends GenericSQLDialect {
     }
 
     @Override
-    public boolean supportsAlterTableConstraint() {
+    public boolean supportsAlterTableStatement() {
         return false;
+    }
+
+    @NotNull
+    @Override
+    public MultiValueInsertMode getDefaultMultiValueInsertMode()
+    {
+        return MultiValueInsertMode.GROUP_ROWS;
+    }
+
+    @Override
+    public boolean supportsInsertAllDefaultValuesStatement() {
+        return true;
     }
 }

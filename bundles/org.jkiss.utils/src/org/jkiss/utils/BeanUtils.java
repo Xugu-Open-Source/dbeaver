@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,11 @@
 
 package org.jkiss.utils;
 
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
+
 import java.lang.reflect.*;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.StringTokenizer;
 
@@ -353,6 +357,30 @@ public class BeanUtils {
         }
     }
 
+    @Nullable
+    public static Object invokeObjectDeclaredMethod(
+        @NotNull Object object,
+        @NotNull String methodName,
+        @NotNull Class<?>[] paramTypes,
+        @NotNull Object[] args) throws Throwable
+    {
+        for (Class<?> cls = object.getClass(); cls != null; cls = cls.getSuperclass()) {
+            for (Method method : cls.getDeclaredMethods()) {
+                if (method.getName().equals(methodName) && Arrays.equals(method.getParameterTypes(), paramTypes)) {
+                    if (!method.isAccessible()) {
+                        method.setAccessible(true);
+                    }
+                    try {
+                        return method.invoke(object, args);
+                    } catch (InvocationTargetException e) {
+                        throw e.getTargetException();
+                    }
+                }
+            }
+        }
+        throw new NoSuchMethodException("Cannot find declared method " + methodName + "(" + Arrays.toString(paramTypes) + ")");
+    }
+
     public static Object invokeStaticMethod(Class<?> objectType, String name, Class<?> paramTypes[], Object args[])
         throws Throwable {
         Method method = objectType.getMethod(name, paramTypes);
@@ -363,6 +391,41 @@ public class BeanUtils {
             return method.invoke(null, args);
         } catch (InvocationTargetException e) {
             throw e.getTargetException();
+        }
+    }
+
+    public static <T> Class<? extends T> findAssignableType(Class<?>[] types, Class<T> type) {
+        for (Class<?> childType : types) {
+            if (type.isAssignableFrom(childType)) {
+                return (Class<? extends T>) childType;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Determines the distance of the given object to the given class in the
+     * inheritance tree.
+     * <p>
+     * @param object the root object
+     * @param clazz the class to determine the distance to
+     * @return the distance of the object to the class. If the object is not an
+     * instance of the class {@code -1} will return.
+     */
+    public static int getInheritanceDistance(Object object, Class<?> clazz) {
+        if (clazz.isInstance(object)) {
+            int distance = 0;
+            Class<?> compared = object.getClass();
+            while (compared != clazz) {
+                compared = compared.getSuperclass();
+                distance++;
+                if (compared == Object.class) {
+                    break;
+                }
+            }
+            return distance;
+        } else {
+            return -1;
         }
     }
 

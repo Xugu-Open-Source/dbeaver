@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,20 +19,17 @@ package org.jkiss.dbeaver.ext.mysql;
 import com.sun.jna.platform.win32.Advapi32Util;
 import com.sun.jna.platform.win32.WinReg;
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.mysql.model.MySQLDataSource;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
-import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
-import org.jkiss.dbeaver.model.connection.DBPDriver;
-import org.jkiss.dbeaver.model.connection.DBPNativeClientLocation;
-import org.jkiss.dbeaver.model.connection.DBPNativeClientLocationManager;
+import org.jkiss.dbeaver.model.connection.*;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSourceProvider;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
-import org.jkiss.dbeaver.model.runtime.OSDescriptor;
-import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.utils.GeneralUtils;
+import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.IOUtils;
 import org.jkiss.utils.StandardConstants;
@@ -43,10 +40,8 @@ import java.io.InputStreamReader;
 import java.util.*;
 
 public class MySQLDataSourceProvider extends JDBCDataSourceProvider implements DBPNativeClientLocationManager {
-
     private static final Log log = Log.getLog(MySQLDataSourceProvider.class);
 
-    private static final String REGISTRY_ROOT_MYSQL_32 = "SOFTWARE\\MySQL AB";
     private static final String REGISTRY_ROOT_MYSQL_64 = "SOFTWARE\\Wow6432Node\\MYSQL AB";
     private static final String REGISTRY_ROOT_MARIADB = "SOFTWARE\\Monty Program AB";
     private static final String SERER_LOCATION_KEY = "Location";
@@ -65,6 +60,11 @@ public class MySQLDataSourceProvider extends JDBCDataSourceProvider implements D
         // Set utf-8 as default charset
         connectionsProps.put("characterEncoding", GeneralUtils.UTF8_ENCODING);
         connectionsProps.put("tinyInt1isBit", "false");
+        // Tell MySQL to use the (typically longer) interactive_timeout variable as the connection timeout
+        // instead of wait_timeout.
+        // This longer timeout is for connections directly in use by a human, who'd prefer MySQL not 
+        // kill their connection while they were on a coffee break.
+        connectionsProps.put("interactiveClient", "true");
         // Auth plugins
 //        connectionsProps.put("authenticationPlugins",
 //            "com.mysql.jdbc.authentication.MysqlClearPasswordPlugin," +
@@ -89,7 +89,7 @@ public class MySQLDataSourceProvider extends JDBCDataSourceProvider implements D
     @Override
     public long getFeatures()
     {
-        return FEATURE_SCHEMAS;
+        return FEATURE_CATALOGS;
     }
 
     @Override
@@ -145,12 +145,12 @@ public class MySQLDataSourceProvider extends JDBCDataSourceProvider implements D
     }
 
     @Override
-    public String getProductName(DBPNativeClientLocation location) throws DBException {
+    public String getProductName(DBPNativeClientLocation location) {
         return "MySQL/MariaDB";
     }
 
     @Override
-    public String getProductVersion(DBPNativeClientLocation location) throws DBException {
+    public String getProductVersion(DBPNativeClientLocation location) {
         return getFullServerVersion(location.getPath());
     }
 
@@ -161,15 +161,14 @@ public class MySQLDataSourceProvider extends JDBCDataSourceProvider implements D
         return home == null ? new MySQLServerHome(homeId, homeId) : home;
     }
 
-    public synchronized static void findLocalClients()
-    {
+    public synchronized static void findLocalClients() {
         if (localServers != null) {
             return;
         }
         localServers = new LinkedHashMap<>();
         // read from path
         String path = System.getenv("PATH");
-        if (path != null) {
+        if (path != null && RuntimeUtils.isWindows()) {
             for (String token : path.split(System.getProperty(StandardConstants.ENV_PATH_SEPARATOR))) {
                 token = CommonUtils.removeTrailingSlash(token);
                 File mysqlFile = new File(token, MySQLUtils.getMySQLConsoleBinaryName());
@@ -184,17 +183,15 @@ public class MySQLDataSourceProvider extends JDBCDataSourceProvider implements D
         }
 
         // find homes in Windows registry
-        OSDescriptor localSystem = DBWorkbench.getPlatform().getLocalSystem();
-        if (localSystem.isWindows()) {
+        if (RuntimeUtils.isWindows()) {
             try {
                 // Search MySQL entries
                 {
-                    final String registryRoot = localSystem.is64() ? REGISTRY_ROOT_MYSQL_64 : REGISTRY_ROOT_MYSQL_32;
-                    if (Advapi32Util.registryKeyExists(WinReg.HKEY_LOCAL_MACHINE, registryRoot)) {
-                        String[] homeKeys = Advapi32Util.registryGetKeys(WinReg.HKEY_LOCAL_MACHINE, registryRoot);
+                    if (Advapi32Util.registryKeyExists(WinReg.HKEY_LOCAL_MACHINE, REGISTRY_ROOT_MYSQL_64)) {
+                        String[] homeKeys = Advapi32Util.registryGetKeys(WinReg.HKEY_LOCAL_MACHINE, REGISTRY_ROOT_MYSQL_64);
                         if (homeKeys != null) {
                             for (String homeKey : homeKeys) {
-                                Map<String, Object> valuesMap = Advapi32Util.registryGetValues(WinReg.HKEY_LOCAL_MACHINE, registryRoot + "\\" + homeKey);
+                                Map<String, Object> valuesMap = Advapi32Util.registryGetValues(WinReg.HKEY_LOCAL_MACHINE, REGISTRY_ROOT_MYSQL_64 + "\\" + homeKey);
                                 for (String key : valuesMap.keySet()) {
                                     if (SERER_LOCATION_KEY.equalsIgnoreCase(key)) {
                                         String serverPath = CommonUtils.removeTrailingSlash(CommonUtils.toString(valuesMap.get(key)));
@@ -227,11 +224,42 @@ public class MySQLDataSourceProvider extends JDBCDataSourceProvider implements D
             } catch (Throwable e) {
                 log.warn("Error reading Windows registry", e);
             }
+        } else if (RuntimeUtils.isMacOS()) {
+            Collection<File> mysqlDirs = new ArrayList<>();
+            Collections.addAll(
+                mysqlDirs,
+                NativeClientLocationUtils.getSubdirectoriesWithNamesStartingWith("mysql", new File(NativeClientLocationUtils.USR_LOCAL)) //clients installed via installer downloaded from mysql site
+            );
+            Collections.addAll(
+                mysqlDirs,
+                NativeClientLocationUtils.getSubdirectories(NativeClientLocationUtils.getSubdirectoriesWithNamesStartingWith("mysql", new File(NativeClientLocationUtils.HOMEBREW_FORMULAE_LOCATION)))
+            );
+            Collections.addAll(
+                mysqlDirs,
+                NativeClientLocationUtils.getSubdirectories(NativeClientLocationUtils.getSubdirectoriesWithNamesStartingWith("mariadb", new File(NativeClientLocationUtils.HOMEBREW_FORMULAE_LOCATION)))
+            );
+            for (File dir: mysqlDirs) {
+                File bin = new File(dir, NativeClientLocationUtils.BIN);
+                File binary = new File(bin, MySQLUtils.getMySQLConsoleBinaryName());
+                if (!bin.exists() || !bin.isDirectory() || !binary.exists() || !binary.canExecute()) {
+                    continue;
+                }
+                String version = getFullServerVersion(dir);
+                if (version == null) {
+                    continue;
+                }
+                String canonicalPath = NativeClientLocationUtils.getCanonicalPath(dir);
+                if (canonicalPath.isEmpty()) {
+                    continue;
+                }
+                MySQLServerHome home = new MySQLServerHome(canonicalPath, "MySQL " + version);
+                localServers.put(canonicalPath, home);
+            }
         }
     }
 
-    static String getFullServerVersion(File path)
-    {
+    @Nullable
+    private static String getFullServerVersion(File path) {
         File binPath = path;
         File binSubfolder = new File(binPath, "bin");
         if (binSubfolder.exists()) {
@@ -243,7 +271,7 @@ public class MySQLDataSourceProvider extends JDBCDataSourceProvider implements D
             MySQLUtils.getMySQLConsoleBinaryName()).getAbsolutePath();
 
         try {
-            Process p = Runtime.getRuntime().exec(new String[] {cmd, "-V"});
+            Process p = Runtime.getRuntime().exec(new String[]{cmd, MySQLConstants.FLAG_VERSION});
             try {
                 BufferedReader input = new BufferedReader(new InputStreamReader(p.getInputStream()));
                 try {
@@ -253,6 +281,12 @@ public class MySQLDataSourceProvider extends JDBCDataSourceProvider implements D
                         if (pos != -1) {
                             pos += 8;
                             int pos2 = line.indexOf(",", pos);
+                            return line.substring(pos, pos2);
+                        }
+                        pos = line.indexOf("Ver ");
+                        if (pos != -1) {
+                            pos += 4;
+                            int pos2 = line.indexOf(" for ", pos);
                             return line.substring(pos, pos2);
                         }
                     }
@@ -268,5 +302,4 @@ public class MySQLDataSourceProvider extends JDBCDataSourceProvider implements D
         }
         return null;
     }
-
 }

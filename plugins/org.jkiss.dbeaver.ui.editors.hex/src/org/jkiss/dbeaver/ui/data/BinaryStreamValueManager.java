@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.data.DBDContent;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
+import org.jkiss.dbeaver.utils.MimeTypes;
 
 /**
  * Hex editor manager
@@ -34,6 +35,9 @@ public class BinaryStreamValueManager implements IStreamValueManager {
 
     @Override
     public MatchType matchesTo(@NotNull DBRProgressMonitor monitor, @NotNull DBSTypedObject attribute, @Nullable DBDContent value) {
+        if (value != null && MimeTypes.OCTET_STREAM.equals(value.getContentType())) {
+            return MatchType.DEFAULT;
+        }
         // Applies to any values
         return MatchType.APPLIES;
     }

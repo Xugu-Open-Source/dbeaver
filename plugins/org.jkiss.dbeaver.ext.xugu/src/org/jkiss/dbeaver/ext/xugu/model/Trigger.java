@@ -27,6 +27,7 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -37,7 +38,7 @@ import java.util.List;
 /**
  * 触发器衍生类，包含触发器具体信息
  */
-public class Trigger extends BaseTrigger<BaseTable> {
+public class Trigger extends BaseTrigger<Schema> {
 	private Schema ownerSchema;
 	private List<String> includeCols;
 	private final TriggerCache triggerCache = new TriggerCache();
@@ -90,17 +91,21 @@ public class Trigger extends BaseTrigger<BaseTable> {
 	 * 触发器作用对象类型
 	 */
 	private Integer objType;
+	
+	private BaseTable baseTable;
 	 
 
 
 	public Trigger(BaseTable table, String name) {
-		super(table, name);
+		super(table.getSchema(), name);
+		this.baseTable = table;
 		this.ownerSchema = table.getSchema();
 		includeCols = new ArrayList<String>();
 	}
 
 	public Trigger(BaseTable table, ResultSet dbResult) {
 		super(table, dbResult);
+		this.baseTable = table;
 		this.ownerSchema = table.getSchema();
 		includeCols = new ArrayList<String>();
 	}
@@ -108,12 +113,12 @@ public class Trigger extends BaseTrigger<BaseTable> {
 
 	@Property(viewable = true, order = 3)
 	public String getObjName() {
-		return parent.getFullyQualifiedName(DBPEvaluationContext.DDL);
+		return baseTable.getFullyQualifiedName(DBPEvaluationContext.DDL);
 	}
 
 	@Override
 	public BaseTable getTable() {
-		return parent;
+		return baseTable;
 	}
 
 	@Override
@@ -124,28 +129,28 @@ public class Trigger extends BaseTrigger<BaseTable> {
 	@Association
 	public Collection<TriggerColumn> getColumns(DBRProgressMonitor monitor) throws DBException {
 		Collection<TriggerColumn> res = new ArrayList<>();
-		Collection<TableColumn> tCols = parent.getAttributes(monitor);
+		Collection<? extends DBSEntityAttribute> tCols = baseTable.getAttributes(monitor);
 		if (this.isPersisted() == false && this.includeCols != null) {
 			if (this.includeCols.size() != 0) {
-				Iterator<TableColumn> it = tCols.iterator();
+				Iterator<? extends DBSEntityAttribute> it = tCols.iterator();
 				while (it.hasNext()) {
-					TableColumn tempCol = it.next();
+					TableColumn tempCol = (TableColumn) it.next();
 					tempCol.setPersisted(true);
 					if (includeCols.contains(tempCol.getName())) {
 						res.add(new TriggerColumn(tempCol.getName(), this, tempCol));
 					}
 				}
 			} else {
-				Iterator<TableColumn> it = tCols.iterator();
+				Iterator<? extends DBSEntityAttribute> it = tCols.iterator();
 				while (it.hasNext()) {
-					TableColumn tempCol = it.next();
+					TableColumn tempCol = (TableColumn) it.next();
 					tempCol.setPersisted(true);
 					res.add(new TriggerColumn(tempCol.getName(), this, tempCol));
 				}
 			}
 			return res;
 		} else {
-			return parent.triggerCache.getChildren(monitor, parent, this);
+			return baseTable.triggerCache.getChildren(monitor, baseTable, this);
 		}
 	}
 

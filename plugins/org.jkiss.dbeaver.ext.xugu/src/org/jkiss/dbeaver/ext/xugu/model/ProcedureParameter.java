@@ -222,4 +222,9 @@ public class ProcedureParameter implements DBSProcedureParameter, DBSTypedObject
 	public String getDefaultValue() {
 		return defalutValue;
 	}
+
+	@Override
+	public long getTypeModifiers() {
+		return 0;
+	}
 }

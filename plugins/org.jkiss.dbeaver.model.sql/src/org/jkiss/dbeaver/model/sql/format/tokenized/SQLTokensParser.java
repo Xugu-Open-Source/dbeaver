@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,10 @@
 
 package org.jkiss.dbeaver.model.sql.format.tokenized;
 
+import org.jkiss.dbeaver.model.DBPKeywordType;
+import org.jkiss.dbeaver.model.sql.SQLConstants;
 import org.jkiss.dbeaver.model.sql.format.SQLFormatterConfiguration;
+import org.jkiss.dbeaver.model.text.parser.rules.NumberRule;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 
@@ -115,29 +118,35 @@ class SQLTokensParser {
 
         if (isSpace(fChar)) {
             StringBuilder workString = new StringBuilder();
-            for (;;) {
-                workString.append(fChar);
+            for (; fPos < fBefore.length(); fPos++) {
                 fChar = fBefore.charAt(fPos);
                 if (!isSpace(fChar)) {
-                    return new FormatterToken(TokenType.SPACE, workString.toString(), start_pos);
+                    break;
                 }
-                fPos++;
-                if (fPos >= fBefore.length()) {
-                    return new FormatterToken(TokenType.SPACE, workString.toString(), start_pos);
-                }
+                workString.append(fChar);
             }
+            return new FormatterToken(TokenType.SPACE, workString.toString(), start_pos);
         } else if (fChar == ';') {
             fPos++;
             return new FormatterToken(TokenType.SYMBOL, ";", start_pos);
         } else if (isDigit(fChar)) {
             StringBuilder s = new StringBuilder();
-            while (isDigit(fChar) || fChar == '.' || fChar == 'e' || fChar == 'E') {
-                // if (ch == '.') type = Token.REAL;
+            int radix = NumberRule.RADIX_DECIMAL;
+            while (CommonUtils.isDigit(fChar, radix) || (radix == NumberRule.RADIX_DECIMAL && (fChar == '.' || fChar == 'e' || fChar == 'E'))) {
                 s.append(fChar);
                 fPos++;
 
                 if (fPos >= fBefore.length()) {
                     break;
+                }
+
+                if (fChar == '0' && fPos + 1 < fBefore.length()) {
+                    fChar = fBefore.charAt(fPos);
+                    if (fChar == 'x' || fChar == 'X') {
+                        radix = NumberRule.RADIX_HEXADECIMAL;
+                        s.append(fChar);
+                        fPos++;
+                    }
                 }
 
                 fChar = fBefore.charAt(fPos);
@@ -160,7 +169,7 @@ class SQLTokensParser {
             fPos += commentString.length() - 1;
             while (fPos < fBefore.length()) {
                 fPos++;
-                if (fBefore.charAt(fPos - 1) == '\n') {
+                if (fBefore.substring(fPos).startsWith(System.lineSeparator())) {
                     break;
                 }
             }
@@ -169,13 +178,13 @@ class SQLTokensParser {
         }
         else if (isLetter(fChar)) {
             StringBuilder s = new StringBuilder();
-            while (isLetter(fChar) || isDigit(fChar) || fChar == '*' || structSeparator == fChar || catalogSeparator.indexOf(fChar) != -1) {
+            while (isLetter(fChar) || isDigit(fChar) || (fChar == '*' && fPos > 0 && fBefore.charAt(fPos - 1) == structSeparator)
+                || structSeparator == fChar || catalogSeparator.indexOf(fChar) != -1) {
                 s.append(fChar);
                 fPos++;
                 if (fPos >= fBefore.length()) {
                     break;
                 }
-
                 fChar = fBefore.charAt(fPos);
             }
             String word = s.toString();
@@ -191,7 +200,7 @@ class SQLTokensParser {
                 }
                 return new FormatterToken(TokenType.COMMAND, word + s.toString(), start_pos);
             }
-            if (configuration.getSyntaxManager().getDialect().getKeywordType(word) != null) {
+            if (configuration.getSyntaxManager().getDialect().getKeywordType(word) == DBPKeywordType.KEYWORD) {
                 return new FormatterToken(TokenType.KEYWORD, word, start_pos);
             }
             return new FormatterToken(TokenType.NAME, word, start_pos);

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -67,7 +67,7 @@ public class ConnectionPropertiesControl extends PropertyTreeViewer {
 
     PropertySourceCustom makeProperties(DBRProgressMonitor monitor, DBPDriver driver, DBPConnectionConfiguration connectionInfo)
     {
-        Map<Object, Object> connectionProps = new HashMap<>();
+        Map<String, Object> connectionProps = new HashMap<>();
         connectionProps.putAll(driver.getConnectionProperties());
         connectionProps.putAll(connectionInfo.getProperties());
         driverProvidedProperties = null;
@@ -81,7 +81,7 @@ public class ConnectionPropertiesControl extends PropertyTreeViewer {
             connectionProps);
     }
 
-    public PropertySourceCustom makeProperties(DBPDriver driver, Map<?, ?> properties)
+    public PropertySourceCustom makeProperties(DBPDriver driver, Map<String, ?> properties)
     {
         driverProvidedProperties = null;
         customProperties = null;
@@ -136,7 +136,7 @@ public class ConnectionPropertiesControl extends PropertyTreeViewer {
     }
 
     private List<DBPPropertyDescriptor> getAllProperties(DBPDriver driver, boolean includeCustom) {
-        List<DBPPropertyDescriptor> propertyDescriptors = new ArrayList<>(driver.getConnectionPropertyDescriptors());
+        List<DBPPropertyDescriptor> propertyDescriptors = new ArrayList<>();
         if (driverProvidedProperties != null) {
             propertyDescriptors.addAll(driverProvidedProperties);
         }

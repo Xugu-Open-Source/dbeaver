@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,114 +17,135 @@
 package org.jkiss.dbeaver.model.net.ssh;
 
 import com.jcraft.jsch.*;
-import org.eclipse.jsch.ui.UserInfoPrompter;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.net.DBWHandlerConfiguration;
 import org.jkiss.dbeaver.model.net.ssh.SSHConstants.AuthType;
+import org.jkiss.dbeaver.model.net.ssh.config.SSHAuthConfiguration;
+import org.jkiss.dbeaver.model.net.ssh.config.SSHHostConfiguration;
+import org.jkiss.dbeaver.model.net.ssh.config.SSHPortForwardConfiguration;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
+import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 
-import java.io.File;
-import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * SSH tunnel
  */
 public class SSHImplementationJsch extends SSHImplementationAbstract {
-
     private static final Log log = Log.getLog(SSHImplementationJsch.class);
 
     private transient JSch jsch;
-    private transient volatile Session session;
+    private transient volatile Session[] sessions;
 
     @Override
-    protected synchronized void setupTunnel(DBRProgressMonitor monitor, DBWHandlerConfiguration configuration, String sshHost, int aliveInterval, int sshPortNum, File privKeyFile, int connectTimeout, String sshLocalHost, int sshLocalPort, String sshRemoteHost, int sshRemotePort) throws DBException, IOException {
-        try {
-            if (jsch == null) {
-                jsch = new JSch();
-                JSch.setLogger(new LoggerProxy());
-            }
+    protected synchronized void setupTunnel(@NotNull DBRProgressMonitor monitor, @NotNull DBWHandlerConfiguration configuration, @NotNull SSHHostConfiguration[] hosts, @NotNull SSHPortForwardConfiguration portForward) throws DBException, IOException {
+        if (jsch == null) {
+            jsch = new JSch();
+            JSch.setLogger(new JschLoggerProxy());
+        }
 
-            String autoTypeString = CommonUtils.toString(configuration.getProperty(SSHConstants.PROP_AUTH_TYPE));
-            AuthType authType = CommonUtils.isEmpty(autoTypeString) ?
-                (privKeyFile == null ? AuthType.PASSWORD : AuthType.PUBLIC_KEY) :
-                CommonUtils.valueOf(AuthType.class, autoTypeString, AuthType.PASSWORD);
+        sessions = new Session[hosts.length];
 
-            if (authType == AuthType.PUBLIC_KEY) {
-                if (!CommonUtils.isEmpty(configuration.getPassword())) {
-                    jsch.addIdentity(privKeyFile.getAbsolutePath(), configuration.getPassword());
-                } else {
-                    jsch.addIdentity(privKeyFile.getAbsolutePath());
+        for (int index = 0; index < hosts.length; index++) {
+            final SSHHostConfiguration host = hosts[index];
+            final SSHAuthConfiguration auth = host.getAuthConfiguration();
+            final Session session;
+
+            if (auth.getType() == AuthType.PUBLIC_KEY) {
+                log.debug("Adding identity key");
+                try {
+                    addIdentityKey(monitor, configuration.getDataSource(), auth.getKey(), auth.getPassword());
+                } catch (JSchException e) {
+                    throw new DBException("Cannot add identity key", e);
                 }
-            } else if (authType == AuthType.AGENT) {
-                log.debug("Creating identityRepository");
-                IdentityRepository identityRepository = new DBeaverIdentityRepository(this, getAgentData());
-                jsch.setIdentityRepository(identityRepository);
+            } else if (auth.getType() == AuthType.AGENT) {
+                log.debug("Creating identity repository");
+                jsch.setIdentityRepository(new DBeaverIdentityRepository(this, getAgentData()));
             }
 
-            log.debug("Instantiate SSH tunnel");
-            session = jsch.getSession(configuration.getUserName(), sshHost, sshPortNum);
-            session.setConfig("StrictHostKeyChecking", "no");
-
-            if (authType == AuthType.PASSWORD) {
-                session.setConfig("PreferredAuthentications", "password,keyboard-interactive");
-            } else {
-                session.setConfig("PreferredAuthentications", "publickey,keyboard-interactive,password");
-            }
-            session.setConfig("ConnectTimeout", String.valueOf(connectTimeout));
-
-            // Use Eclipse standard prompter
-            UserInfoCustom ui = new UserInfoCustom(configuration);
-            session.setUserInfo(ui);
-
-            if (aliveInterval != 0) {
-                session.setServerAliveInterval(aliveInterval);
-            }
-            log.debug("Connect to tunnel host");
-            session.connect(connectTimeout);
             try {
-                if (CommonUtils.isEmpty(sshLocalHost)) {
-                    session.setPortForwardingL(sshLocalPort, sshRemoteHost, sshRemotePort);
+                if (index > 0) {
+                    final int port = sessions[index - 1].setPortForwardingL(0, host.getHostname(), host.getPort());
+                    monitor.subTask("Instantiate tunnel " + hosts[index - 1].getHostname() + ":" + port + " -> " + host.getHostname() + ":" + host.getPort());
+                    session = jsch.getSession(host.getUsername(), "localhost", port);
                 } else {
-                    session.setPortForwardingL(sshLocalHost, sshLocalPort, sshRemoteHost, sshRemotePort);
+                    monitor.subTask("Instantiate tunnel to " + host.getHostname() + ":" + host.getPort());
+                    session = jsch.getSession(host.getUsername(), host.getHostname(), host.getPort());
+                }
+
+                log.debug("Configure tunnel");
+
+                UserInfo userInfo = null;
+                JSCHUserInfoPromptProvider userInfoPromptProvider = GeneralUtils.adapt(this, JSCHUserInfoPromptProvider.class);
+                if (userInfoPromptProvider != null) {
+                    userInfo = userInfoPromptProvider.createUserInfoPrompt(auth, session);
+                }
+                if (userInfo == null) {
+                    userInfo = new JschUserInfo(auth);
+                }
+
+                session.setUserInfo(userInfo);
+                session.setConfig("StrictHostKeyChecking", "no");
+                session.setConfig("ConnectTimeout", String.valueOf(configuration.getIntProperty(SSHConstants.PROP_CONNECT_TIMEOUT)));
+                session.setConfig("ServerAliveInterval", String.valueOf(configuration.getIntProperty(SSHConstants.PROP_ALIVE_INTERVAL)));
+
+                if (auth.getType() == AuthType.PASSWORD) {
+                    session.setConfig("PreferredAuthentications", "password,keyboard-interactive");
+                } else {
+                    session.setConfig("PreferredAuthentications", "publickey,keyboard-interactive,password");
+                }
+
+                log.debug("Connect to tunnel host");
+
+                session.connect();
+
+                if (index == hosts.length - 1) {
+                    log.debug("Set port forwarding " + portForward.getLocalHost() + ":" + portForward.getLocalPort() + " -> " + portForward.getRemoteHost() + ":" + portForward.getRemotePort());
+                    session.setPortForwardingL(portForward.getLocalHost(), portForward.getLocalPort(), portForward.getRemoteHost(), portForward.getRemotePort());
                 }
             } catch (JSchException e) {
                 closeTunnel(monitor);
-                throw e;
+                throw new DBException("Cannot establish tunnel to " + host.getHostname() + ":" + host.getPort(), e);
             }
-        } catch (JSchException e) {
-            throw new DBException("Cannot establish tunnel", e);
+
+            sessions[index] = session;
         }
     }
 
     @Override
-    public synchronized void closeTunnel(DBRProgressMonitor monitor) throws DBException, IOException {
-        if (session != null) {
-            RuntimeUtils.runTask(monitor1 -> {
-                if (session != null) {
-                    try {
-                        session.disconnect();
-                    } catch (Exception e) {
-                        throw new InvocationTargetException(e);
-                    }
-                }
-            }, "Close SSH session", 1000);
-            session = null;
+    public synchronized void closeTunnel(DBRProgressMonitor monitor) {
+        if (ArrayUtils.isEmpty(sessions)) {
+            return;
         }
+        RuntimeUtils.runTask(monitor1 -> {
+            for (Session session : sessions) {
+                if (session != null && session.isConnected()) {
+                    session.disconnect();
+                }
+            }
+        }, "Close SSH session", 1000);
+        sessions = null;
     }
 
     @Override
     public synchronized String getClientVersion() {
-        return session == null ? null : session.getClientVersion();
+        return ArrayUtils.isEmpty(sessions) ? null : sessions[sessions.length - 1].getClientVersion();
     }
 
     @Override
     public synchronized String getServerVersion() {
-        return session == null ? null : session.getServerVersion();
+        return ArrayUtils.isEmpty(sessions) ? null : sessions[sessions.length - 1].getServerVersion();
     }
 
     @Override
@@ -133,7 +154,9 @@ public class SSHImplementationJsch extends SSHImplementationAbstract {
         boolean isAlive = false;//session != null && session.isConnected();
         if (isAlive) {
             try {
-                session.sendKeepAliveMsg();
+                for (Session session : sessions) {
+                    session.sendKeepAliveMsg();
+                }
             } catch (Exception e) {
                 isAlive = false;
             }
@@ -144,10 +167,87 @@ public class SSHImplementationJsch extends SSHImplementationAbstract {
         }
     }
 
-    private class UIUserInfo implements UserInfo, UIKeyboardInteractive {
-        DBWHandlerConfiguration configuration;
+    private void addIdentityKey(DBRProgressMonitor monitor, DBPDataSourceContainer dataSource, File key, String password) throws IOException, JSchException {
+        String header;
 
-        private UIUserInfo(DBWHandlerConfiguration configuration) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(key))) {
+            header = reader.readLine();
+        }
+
+        /*
+         * This code is a workaround for JSCH because it cannot load
+         * newer private keys produced by ssh-keygen, so we need
+         * to convert it to the older format manually. This
+         * algorithm will fail if the 'ssh-keygen' cannot be found (#5845)
+         */
+        if (header.equals("-----BEGIN OPENSSH PRIVATE KEY-----")) {
+            log.debug("Attempting to convert an unsupported key into suitable format");
+
+            String id = dataSource != null ? dataSource.getId() : "profile";
+            File dir = DBWorkbench.getPlatform().getTempFolder(monitor, "openssh-pkey");
+            File tmp = new File(dir, id + ".pem");
+
+            Files.copy(key.toPath(), tmp.toPath(), StandardCopyOption.COPY_ATTRIBUTES, StandardCopyOption.REPLACE_EXISTING);
+
+            password = CommonUtils.notEmpty(password);
+
+            if (RuntimeUtils.isWindows()) {
+                password = '"' + password + '"';
+            }
+
+            Process process = new ProcessBuilder()
+                .command(
+                    "ssh-keygen",
+                    "-p",
+                    "-P", password,
+                    "-N", password,
+                    "-m", "PEM",
+                    "-f", tmp.getAbsolutePath(),
+                    "-q")
+                .start();
+
+            try {
+                if (!process.waitFor(5000, TimeUnit.MILLISECONDS)) {
+                    process.destroyForcibly();
+                }
+
+                int status = process.exitValue();
+
+                if (status != 0) {
+                    String message;
+
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
+                        message = reader.lines().collect(Collectors.joining("\n"));
+                    }
+
+                    throw new IOException("Specified private key cannot be converted:\n" + message);
+                }
+
+                addIdentityKey0(tmp, password);
+            } catch (InterruptedException e) {
+                throw new IOException(e);
+            } finally {
+                if (!tmp.delete()) {
+                    log.debug("Failed to delete private key file");
+                }
+            }
+        } else {
+            addIdentityKey0(key, password);
+        }
+    }
+
+    private void addIdentityKey0(File key, String password) throws JSchException {
+        if (!CommonUtils.isEmpty(password)) {
+            jsch.addIdentity(key.getAbsolutePath(), password);
+        } else {
+            jsch.addIdentity(key.getAbsolutePath());
+        }
+    }
+
+    private static class JschUserInfo implements UserInfo, UIKeyboardInteractive {
+        private final SSHAuthConfiguration configuration;
+
+        private JschUserInfo(@NotNull SSHAuthConfiguration configuration) {
             this.configuration = configuration;
         }
 
@@ -183,12 +283,12 @@ public class SSHImplementationJsch extends SSHImplementationAbstract {
 
         @Override
         public String[] promptKeyboardInteractive(String destination, String name, String instruction, String[] prompt, boolean[] echo) {
-            System.out.printf("Keyboard interactive auth");
-            return new String[] { configuration.getPassword() } ;
+            log.debug("JSCH keyboard interactive auth");
+            return new String[]{ configuration.getPassword() };
         }
     }
 
-    private class LoggerProxy implements Logger {
+    private static class JschLoggerProxy implements Logger {
         @Override
         public boolean isEnabled(int level) {
             return true;
@@ -219,46 +319,4 @@ public class SSHImplementationJsch extends SSHImplementationAbstract {
 
         }
     }
-
-    private class UserInfoCustom extends UserInfoPrompter {
-        private final DBWHandlerConfiguration configuration;
-        UserInfoCustom(DBWHandlerConfiguration configuration) {
-            super(SSHImplementationJsch.this.session);
-            this.configuration = configuration;
-        }
-
-        @Override
-        public String[] promptKeyboardInteractive(String destination, String name, String instruction, String[] prompt, boolean[] echo) {
-            if (configuration.isSavePassword()) {
-                setPassword(configuration.getPassword());
-            }
-            return super.promptKeyboardInteractive(destination, name, instruction, prompt, echo);
-        }
-
-        @Override
-        public boolean promptPassword(String message) {
-            if (configuration.isSavePassword()) {
-                setPassword(configuration.getPassword());
-                return true;
-            }
-            return super.promptPassword(message);
-        }
-
-        @Override
-        public boolean promptPassphrase(String message) {
-            if (configuration.isSavePassword()) {
-                setPassphrase(configuration.getPassword());
-                return true;
-            }
-            return super.promptPassphrase(message);
-        }
-
-        @Override
-        public void showMessage(String message) {
-            // Just log it in debug
-            log.debug("SSH server message:");
-            log.debug(message);
-        }
-    }
-
 }

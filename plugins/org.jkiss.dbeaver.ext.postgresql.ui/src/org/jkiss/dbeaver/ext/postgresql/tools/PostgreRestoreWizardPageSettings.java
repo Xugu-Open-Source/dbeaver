@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import org.jkiss.dbeaver.ext.postgresql.tasks.PostgreDatabaseBackupSettings;
 import org.jkiss.dbeaver.ext.postgresql.tasks.PostgreDatabaseRestoreSettings;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.TextWithOpenFile;
-import org.jkiss.utils.CommonUtils;
 
 
 class PostgreRestoreWizardPageSettings extends PostgreToolWizardPageSettings<PostgreRestoreWizard> {
@@ -42,9 +41,12 @@ class PostgreRestoreWizardPageSettings extends PostgreToolWizardPageSettings<Pos
     }
 
     @Override
-    public boolean isPageComplete()
-    {
-        return super.isPageComplete() && !CommonUtils.isEmpty(wizard.getSettings().getInputFile());
+    protected boolean determinePageCompletion() {
+        if (wizard.getSettings().getInputFile() == null) {
+            setErrorMessage("Input file not specified");
+            return false;
+        }
+        return super.determinePageCompletion();
     }
 
     @Override
@@ -84,13 +86,12 @@ class PostgreRestoreWizardPageSettings extends PostgreToolWizardPageSettings<Pos
         inputFileText = new TextWithOpenFile(inputGroup, PostgreMessages.wizard_restore_page_setting_label_choose_backup_file, new String[] {"*.backup","*.sql","*"});
         inputFileText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
         inputFileText.getTextControl().addListener(SWT.Modify, updateListener);
-        //inputFileText.setText(wizard.getSettings().getInputFile());
+        inputFileText.setText(wizard.getSettings().getInputFile());
 
         createExtraArgsInput(inputGroup);
 
         Composite extraGroup = UIUtils.createComposite(composite, 2);
         createSecurityGroup(extraGroup);
-        wizard.createTaskSaveGroup(extraGroup);
 
         setControl(composite);
     }
@@ -110,7 +111,7 @@ class PostgreRestoreWizardPageSettings extends PostgreToolWizardPageSettings<Pos
         saveState();
 
         inputFileText.setOpenFolder(wizard.getSettings().getFormat() == PostgreDatabaseBackupSettings.ExportFormat.DIRECTORY);
-
+        updatePageCompletion();
         getContainer().updateButtons();
     }
 

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,6 +24,7 @@ import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceMap;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableContext;
+import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.utils.CommonUtils;
 
 import java.lang.reflect.InvocationTargetException;
@@ -99,7 +100,18 @@ public class PostgreDatabaseRestoreSettings extends PostgreBackupRestoreSettings
                 } catch (InterruptedException e) {
                     // Ignore
                 }
+            } else {
+                for (DBSObject object : getDatabaseObjects()) {
+                    if (object instanceof PostgreDatabase) {
+                        restoreInfo = new PostgreDatabaseRestoreInfo((PostgreDatabase) object);
+                        break;
+                    }
+                }
             }
+        }
+
+        if (restoreInfo == null) {
+            throw new DBException("Cannot find database for restoring");
         }
     }
 

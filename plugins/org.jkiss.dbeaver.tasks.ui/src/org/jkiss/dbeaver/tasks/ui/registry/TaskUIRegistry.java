@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,12 +22,16 @@ import org.eclipse.core.runtime.Platform;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.exec.DBCException;
+import org.jkiss.dbeaver.model.task.DBTTaskHandler;
 import org.jkiss.dbeaver.model.task.DBTTaskType;
 import org.jkiss.dbeaver.registry.task.TaskRegistry;
 import org.jkiss.dbeaver.registry.task.TaskTypeDescriptor;
 import org.jkiss.dbeaver.tasks.ui.DBTTaskConfigurator;
+import org.jkiss.utils.CommonUtils;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class TaskUIRegistry {
@@ -45,6 +49,7 @@ public class TaskUIRegistry {
     }
 
     private final Map<DBTTaskType, TaskConfiguratorDescriptor> taskConfigurators = new LinkedHashMap<>();
+    private final List<TaskConfiguratorDescriptor> taskHandlerConfigurators = new ArrayList<>();
 
     private TaskUIRegistry(IExtensionRegistry registry) {
         IConfigurationElement[] extElements = registry.getConfigurationElementsFor(TASK_EXTENSION_ID);
@@ -54,7 +59,12 @@ public class TaskUIRegistry {
                 String typeId = ext.getAttribute("type");
                 TaskTypeDescriptor taskType = TaskRegistry.getInstance().getTaskType(typeId);
                 if (taskType == null) {
-                    log.debug("Task type '" + typeId + "' not found. Skip configurator.");
+                    if (!CommonUtils.isEmpty(ext.getAttribute("handler"))) {
+                        TaskConfiguratorDescriptor configDescriptor = new TaskConfiguratorDescriptor(ext);
+                        taskHandlerConfigurators.add(configDescriptor);
+                    } else {
+                        log.debug("Task type '" + typeId + "' not found. Skip configurator.");
+                    }
                 } else {
                     TaskConfiguratorDescriptor configDescriptor = new TaskConfiguratorDescriptor(taskType, ext);
                     taskConfigurators.put(taskType, configDescriptor);
@@ -64,7 +74,18 @@ public class TaskUIRegistry {
     }
 
     public boolean supportsConfigurator(DBTTaskType taskType) {
-        return taskConfigurators.containsKey(taskType);
+        if (taskConfigurators.containsKey(taskType)) {
+            return true;
+        }
+        Class<? extends DBTTaskHandler> handlerClass = taskType.getHandlerClass();
+        if (handlerClass != null) {
+            for (TaskConfiguratorDescriptor tcd : taskHandlerConfigurators) {
+                if (tcd.getTaskHandlerType().getObjectClass().isAssignableFrom(handlerClass)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public boolean supportsConfiguratorPage(DBTTaskType type) {
@@ -78,7 +99,18 @@ public class TaskUIRegistry {
     public DBTTaskConfigurator createConfigurator(DBTTaskType taskType) throws DBCException {
         TaskConfiguratorDescriptor configuratorDescriptor = taskConfigurators.get(taskType);
         if (configuratorDescriptor == null) {
-            throw new DBCException("Task configurator not supported for " + taskType.getName());
+            Class<? extends DBTTaskHandler> handlerClass = taskType.getHandlerClass();
+            if (handlerClass != null) {
+                for (TaskConfiguratorDescriptor tcd : taskHandlerConfigurators) {
+                    if (tcd.getTaskHandlerType().getObjectClass().isAssignableFrom(handlerClass)) {
+                        configuratorDescriptor = tcd;
+                        break;
+                    }
+                }
+            }
+            if (configuratorDescriptor == null) {
+                throw new DBCException("Task configurator not supported for " + taskType.getName());
+            }
         }
         try {
             return configuratorDescriptor.createConfigurator();

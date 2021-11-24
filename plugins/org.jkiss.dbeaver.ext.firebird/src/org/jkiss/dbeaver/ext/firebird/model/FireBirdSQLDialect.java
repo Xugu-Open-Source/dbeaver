@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.ext.generic.model.GenericSQLDialect;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCDatabaseMetaData;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSource;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedure;
 
@@ -27,7 +28,7 @@ public class FireBirdSQLDialect extends GenericSQLDialect {
 
     public static final String[] FB_BLOCK_HEADERS = new String[]{
         "EXECUTE BLOCK",
-        "DECLARE",
+        //"DECLARE",
         //"IS",
     };
 
@@ -40,7 +41,7 @@ public class FireBirdSQLDialect extends GenericSQLDialect {
     };
 
     public FireBirdSQLDialect() {
-        super("FireBird");
+        super("Firebird", "firebird");
     }
 
     @NotNull
@@ -59,8 +60,9 @@ public class FireBirdSQLDialect extends GenericSQLDialect {
         return FB_BEGIN_END_BLOCK;
     }
 
-    public void initDriverSettings(JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
-        super.initDriverSettings(dataSource, metaData);
+    public void initDriverSettings(JDBCSession session, JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
+        super.initDriverSettings(session, dataSource, metaData);
+        turnFunctionIntoKeyword("TRUNCATE");
     }
 
     @Override
@@ -76,5 +78,10 @@ public class FireBirdSQLDialect extends GenericSQLDialect {
     @Override
     protected String getStoredProcedureCallInitialClause(DBSProcedure proc) {
         return "select * from " + proc.getFullyQualifiedName(DBPEvaluationContext.DML);
+    }
+
+    @Override
+    public boolean supportsInsertAllDefaultValuesStatement() {
+        return true;
     }
 }

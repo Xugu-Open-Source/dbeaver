@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2013-2016 Denis Forveille (titou10.titou10@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 package org.jkiss.dbeaver.ext.db2.model;
 
 import org.eclipse.core.runtime.IAdaptable;
-import org.eclipse.jface.dialogs.IDialogConstants;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
@@ -26,7 +25,6 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.ext.db2.*;
 import org.jkiss.dbeaver.ext.db2.editors.DB2StructureAssistant;
-import org.jkiss.dbeaver.ext.db2.editors.DB2TablespaceChooser;
 import org.jkiss.dbeaver.ext.db2.info.DB2Parameter;
 import org.jkiss.dbeaver.ext.db2.info.DB2XMLString;
 import org.jkiss.dbeaver.ext.db2.model.app.DB2ServerApplicationManager;
@@ -38,20 +36,21 @@ import org.jkiss.dbeaver.ext.db2.model.security.DB2AuthIDType;
 import org.jkiss.dbeaver.ext.db2.model.security.DB2Grantee;
 import org.jkiss.dbeaver.ext.db2.model.security.DB2GranteeCache;
 import org.jkiss.dbeaver.ext.db2.model.security.DB2Role;
-import org.jkiss.dbeaver.model.DBConstants;
-import org.jkiss.dbeaver.model.DBPDataSourceContainer;
-import org.jkiss.dbeaver.model.DBPDataSourceInfo;
-import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.admin.sessions.DBAServerSessionManager;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
+import org.jkiss.dbeaver.model.edit.DBEObjectConfigurator;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCDatabaseMetaData;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlan;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlanStyle;
 import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlanner;
+import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlannerConfiguration;
 import org.jkiss.dbeaver.model.impl.jdbc.*;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectSimpleCache;
 import org.jkiss.dbeaver.model.meta.Association;
@@ -60,9 +59,7 @@ import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSStructureAssistant;
 import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
-import org.jkiss.dbeaver.runtime.DBWorkbench;
-import org.jkiss.dbeaver.ui.UITask;
-import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.sql.Connection;
@@ -74,7 +71,7 @@ import java.util.*;
  * 
  * @author Denis Forveille
  */
-public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdaptable {
+public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdaptable, DBPObjectStatisticsCollector {
 
     private static final Log                                     LOG                = Log.getLog(DB2DataSource.class);
 
@@ -92,33 +89,23 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
     private static final String                                  C_WR               = "SELECT * FROM SYSCAT.WRAPPERS ORDER BY WRAPNAME WITH UR";
     private static final String                                  C_UM               = "SELECT * FROM SYSCAT.USEROPTIONS WHERE OPTION = 'REMOTE_AUTHID' ORDER BY SERVERNAME,AUTHID WITH UR";
 
-    private final DBSObjectCache<DB2DataSource, DB2Schema>       schemaCache        = new JDBCObjectSimpleCache<>(DB2Schema.class,
-        C_SCHEMA);
-    private final DBSObjectCache<DB2DataSource, DB2DataType>     dataTypeCache      = new JDBCObjectSimpleCache<>(DB2DataType.class,
-        C_DT);
-    private final DBSObjectCache<DB2DataSource, DB2Bufferpool>   bufferpoolCache    = new JDBCObjectSimpleCache<>(
-        DB2Bufferpool.class, C_BP);
-    private final DBSObjectCache<DB2DataSource, DB2Tablespace>   tablespaceCache    = new JDBCObjectSimpleCache<>(
-        DB2Tablespace.class, C_TS);
+    private final DBSObjectCache<DB2DataSource, DB2Schema>       schemaCache        = new JDBCObjectSimpleCache<>(DB2Schema.class, C_SCHEMA);
+    private final DBSObjectCache<DB2DataSource, DB2DataType>     dataTypeCache      = new JDBCObjectSimpleCache<>(DB2DataType.class, C_DT);
+    private final DBSObjectCache<DB2DataSource, DB2Bufferpool>   bufferpoolCache    = new JDBCObjectSimpleCache<>(DB2Bufferpool.class, C_BP);
+    private final DBSObjectCache<DB2DataSource, DB2Tablespace>   tablespaceCache    = new JDBCObjectSimpleCache<>(DB2Tablespace.class, C_TS);
 
-    private final DBSObjectCache<DB2DataSource, DB2RemoteServer> remoteServerCache  = new JDBCObjectSimpleCache<>(
-        DB2RemoteServer.class, C_SV);
-    private final DBSObjectCache<DB2DataSource, DB2Wrapper>      wrapperCache       = new JDBCObjectSimpleCache<>(DB2Wrapper.class,
-        C_WR);
-    private final DBSObjectCache<DB2DataSource, DB2UserMapping>  userMappingCache   = new JDBCObjectSimpleCache<>(
-        DB2UserMapping.class, C_UM);
+    private final DBSObjectCache<DB2DataSource, DB2RemoteServer> remoteServerCache  = new JDBCObjectSimpleCache<>(DB2RemoteServer.class, C_SV);
+    private final DBSObjectCache<DB2DataSource, DB2Wrapper>      wrapperCache       = new JDBCObjectSimpleCache<>(DB2Wrapper.class, C_WR);
+    private final DBSObjectCache<DB2DataSource, DB2UserMapping>  userMappingCache   = new JDBCObjectSimpleCache<>(DB2UserMapping.class, C_UM);
 
     private final DB2GranteeCache                                groupCache         = new DB2GranteeCache(DB2AuthIDType.G);
     private final DB2GranteeCache                                userCache          = new DB2GranteeCache(DB2AuthIDType.U);
 
     // Those are dependent of DB2 version
     // This is ok as they will never been called as the folder/menu is hidden in plugin.xml
-    private final DBSObjectCache<DB2DataSource, DB2StorageGroup> storagegroupCache  = new JDBCObjectSimpleCache<>(
-        DB2StorageGroup.class, C_SG);
-    private final DBSObjectCache<DB2DataSource, DB2Role>         roleCache          = new JDBCObjectSimpleCache<>(DB2Role.class,
-        C_RL);
-    private final DBSObjectCache<DB2DataSource, DB2Variable>     variableCache      = new JDBCObjectSimpleCache<>(DB2Variable.class,
-        C_VR);
+    private final DBSObjectCache<DB2DataSource, DB2StorageGroup> storagegroupCache  = new JDBCObjectSimpleCache<>(DB2StorageGroup.class, C_SG);
+    private final DBSObjectCache<DB2DataSource, DB2Role>         roleCache          = new JDBCObjectSimpleCache<>(DB2Role.class, C_RL);
+    private final DBSObjectCache<DB2DataSource, DB2Variable>     variableCache      = new JDBCObjectSimpleCache<>(DB2Variable.class, C_VR);
 
     private List<DB2Parameter>                                   listDBParameters;
     private List<DB2Parameter>                                   listDBMParameters;
@@ -129,7 +116,8 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
     private String                                               schemaForExplainTables;
 
     private Double                                               version;                                                                                                                  // Database
-                                                                                                                                                                                           // Version
+    private volatile transient boolean hasStatistics;
+    // Version
 
     // -----------------------
     // Constructors
@@ -138,12 +126,14 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
     public DB2DataSource(DBRProgressMonitor monitor, DBPDataSourceContainer container) throws DBException
     {
         super(monitor, container, new DB2SQLDialect());
+
+        this.hasStatistics = !container.getPreferenceStore().getBoolean(ModelPreferences.READ_EXPENSIVE_STATISTICS);
     }
 
     @Override
     public Object getDataSourceFeature(String featureId) {
         switch (featureId) {
-            case DBConstants.FEATURE_MAX_STRING_LENGTH:
+            case DBPDataSource.FEATURE_MAX_STRING_LENGTH:
                 return 32764;
         }
 
@@ -221,12 +211,6 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
     // -----------------------
     // Connection related Info
     // -----------------------
-
-    @Override
-    protected String getConnectionUserName(@NotNull DBPConnectionConfiguration connectionInfo)
-    {
-        return connectionInfo.getUserName();
-    }
 
     @NotNull
     @Override
@@ -324,6 +308,8 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
         this.listDBMParameters = null;
         this.listDBParameters = null;
 
+        this.hasStatistics = false;
+
         this.initialize(monitor);
 
         return this;
@@ -355,8 +341,9 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
     // Manage Children: DB2Schema
     // --------------------------
 
+    @NotNull
     @Override
-    public Class<? extends DB2Schema> getChildType(@NotNull DBRProgressMonitor monitor) throws DBException
+    public Class<? extends DB2Schema> getPrimaryChildType(@Nullable DBRProgressMonitor monitor) throws DBException
     {
         return DB2Schema.class;
     }
@@ -384,7 +371,7 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
 
     @NotNull
     @Override
-    public DBCPlan planQueryExecution(@NotNull DBCSession session, @NotNull String query) throws DBCException
+    public DBCPlan planQueryExecution(@NotNull DBCSession session, @NotNull String query, @NotNull DBCQueryPlannerConfiguration configuration) throws DBCException
     {
         String ptSchemaname = getExplainTablesSchemaName(session);
         if (ptSchemaname == null) {
@@ -431,51 +418,24 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
             schemaForExplainTables = DB2Constants.EXPLAIN_SCHEMA_NAME_DEFAULT;
             return schemaForExplainTables;
         }
-
-        // No valid explain tables found, propose to create them in current authId
-        String msg = String.format(DB2Messages.dialog_explain_ask_to_create, sessionUserSchema);
-        if (!UIUtils.confirmAction(DB2Messages.dialog_explain_no_tables, msg)) {
+        
+        DB2PlanConfig cfg = new DB2PlanConfig();
+        DBEObjectConfigurator configurator = GeneralUtils.adapt(cfg, DBEObjectConfigurator.class);
+        if (configurator == null || configurator.configureObject(monitor, this, cfg) == null) {
             return null;
         }
 
-        // Ask the user in what tablespace to create the Explain tables
-        try {
-            final List<String> listTablespaces = DB2Utils.getListOfUsableTsForExplain(monitor, (JDBCSession) session);
+       String tablespaceName = cfg.getTablespace();
 
-            // NO Usable Tablespace found: End of the game..
-            if (listTablespaces.isEmpty()) {
-                DBWorkbench.getPlatformUI().showError(DB2Messages.dialog_explain_no_tablespace_found_title,
-                    DB2Messages.dialog_explain_no_tablespace_found_title);
+        if (tablespaceName == null) {
                 return null;
-            }
+         }
 
-            // Build a dialog with the list of usable tablespaces for the user to choose
-            String tablespaceName = new UITask<String>() {
-                @Override
-                protected String runTask() {
-                    final DB2TablespaceChooser tsChooserDialog = new DB2TablespaceChooser(
-                        UIUtils.getActiveWorkbenchShell(),
-                        listTablespaces);
-                    if (tsChooserDialog.open() == IDialogConstants.OK_ID) {
-                        return tsChooserDialog.getSelectedTablespace();
-                    } else {
-                        return null;
-                    }
-                }
-            }.execute();
+        // Try to create explain tables within current authorizartionID in given tablespace
+        DB2Utils.createExplainTables(session.getProgressMonitor(), this, sessionUserSchema, tablespaceName);
 
-            if (tablespaceName == null) {
-                return null;
-            }
-
-            // Try to create explain tables within current authorizartionID in given tablespace
-            DB2Utils.createExplainTables(session.getProgressMonitor(), this, sessionUserSchema, tablespaceName);
-
-            // Hourra!
-            schemaForExplainTables = sessionUserSchema;
-        } catch (SQLException e) {
-            throw new DBCException(e, session.getExecutionContext());
-        }
+        // Hourra!
+        schemaForExplainTables = sessionUserSchema;
 
         return sessionUserSchema;
     }
@@ -761,6 +721,49 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
     public DBSObjectCache<DB2DataSource, DB2Wrapper> getWrapperCache()
     {
         return wrapperCache;
+    }
+
+    // -------------------------
+    // Stats
+    // -------------------------
+
+    @Override
+    public boolean isStatisticsCollected() {
+        return hasStatistics;
+    }
+
+    @Override
+    public void collectObjectStatistics(DBRProgressMonitor monitor, boolean totalSizeOnly, boolean forceRefresh) throws DBException {
+        if (hasStatistics && !forceRefresh) {
+            return;
+        }
+        try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load schema statistics")) {
+            try (JDBCStatement dbStat = session.createStatement()) {
+                try (JDBCResultSet dbResult = dbStat.executeQuery("SELECT\n" +
+                    "    TABSCHEMA,\n" +
+                    "    SUM(DATA_OBJECT_P_SIZE + INDEX_OBJECT_P_SIZE + LONG_OBJECT_P_SIZE + LOB_OBJECT_P_SIZE + XML_OBJECT_P_SIZE) AS TOTAL_SIZE_IN_KB\n" +
+                    "FROM SYSIBMADM.ADMINTABINFO\n" +
+                    "GROUP BY TABSCHEMA")) {
+                    while (dbResult.next()) {
+                        String schemaName = JDBCUtils.safeGetStringTrimmed(dbResult, 1);
+                        long bytes = dbResult.getLong(2) * 1024;
+                        DB2Schema schema = getSchema(monitor, schemaName);
+                        if (schema != null) {
+                            schema.setSchemaTotalSize(bytes);
+                        }
+                    }
+                    for (DB2Schema schema : getSchemas(monitor)) {
+                        if (!schema.hasStatistics()) {
+                            schema.setSchemaTotalSize(0);
+                        }
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            throw new DBCException("Error reading table statistics", e);
+        } finally {
+            hasStatistics = true;
+        }
     }
 
 }

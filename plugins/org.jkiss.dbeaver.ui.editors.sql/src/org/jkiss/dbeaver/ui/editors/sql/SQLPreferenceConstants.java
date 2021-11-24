@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,6 +82,7 @@ public class SQLPreferenceConstants
     public static final String FOLDING_ENABLED                         = "SQLEditor.Folding.enabled";
 
     // Auto-save
+    public static final String AUTO_SAVE_ON_CHANGE                     = "SQLEditor.autoSaveOnChange";
     public static final String AUTO_SAVE_ON_CLOSE                      = "SQLEditor.autoSaveOnClose";
     public static final String AUTO_SAVE_ON_EXECUTE                    = "SQLEditor.autoSaveOnExecute";
     public static final String AUTO_SAVE_ACTIVE_SCHEMA                 = "SQLEditor.autoSaveActiveSchema";
@@ -95,6 +96,7 @@ public class SQLPreferenceConstants
 
     // Matching brackets
     public final static String MATCHING_BRACKETS                        = "SQLEditor.matchingBrackets";
+    public final static String MATCHING_BRACKETS_HIGHLIGHT              = "SQLEditor.matchingBracketsHighlight";
     // Reuse "AbstractTextEditor.Color.Foreground" color
     public final static String MATCHING_BRACKETS_COLOR                  = "AbstractTextEditor.Color.Foreground";//"org.jkiss.dbeaver.sql.editor.color.matchingBrackets.foreground";
 
@@ -104,6 +106,7 @@ public class SQLPreferenceConstants
     public final static String SQL_FORMAT_KEYWORD_CASE_AUTO             = "SQLEditor.format.keywordCaseAuto";
     public final static String SQL_FORMAT_EXTRACT_FROM_SOURCE           = "SQLEditor.format.extractFromSource";
     public final static String SQL_FORMAT_BOLD_KEYWORDS                 = "SQLEditor.format.boldKeywords";
+    public final static String SQL_FORMAT_ACTIVE_QUERY                  = "SQLEditor.format.activeQuery";
 
     public final static String BEEP_ON_QUERY_END                        = "SQLEditor.beepOnQueryEnd";
     public final static String REFRESH_DEFAULTS_AFTER_EXECUTE           = "SQLEditor.refreshDefaultsAfterExecute";
@@ -112,6 +115,9 @@ public class SQLPreferenceConstants
     public final static String RESULT_SET_CLOSE_ON_ERROR                = "SQLEditor.resultSet.closeOnError";
     public final static String RESULT_SET_ORIENTATION                   = "SQLEditor.resultSet.orientation";
     public static final String RESULTS_PANEL_RATIO                      = "SQLEditor.resultSet.ratio";
+    public static final String EXTRA_PANEL_RATIO                        = "SQLEditor.extraPanels.ratio";
+    public static final String EXTRA_PANEL_LOCATION                     = "SQLEditor.extraPanels.location";
+    public static final String OUTPUT_PANEL_AUTO_SHOW                   = "SQLEditor.outputPanel.autoShow";
 
     public static final String SCRIPT_BIND_EMBEDDED_READ                = "SQLEditor.script.bind.embedded.read"; //$NON-NLS-1$
     public static final String SCRIPT_BIND_EMBEDDED_WRITE               = "SQLEditor.script.bind.embedded.write"; //$NON-NLS-1$
@@ -126,6 +132,8 @@ public class SQLPreferenceConstants
     public static final String SCRIPT_COMMIT_LINES                      = "script.commit.lines"; //$NON-NLS-1$
     public static final String SCRIPT_ERROR_HANDLING                    = "script.error.handling"; //$NON-NLS-1$
     public static final String SCRIPT_FETCH_RESULT_SETS                 = "script.fetch.resultset"; //$NON-NLS-1$
+    public static final String NEW_SCRIPT_TEMPLATE_ENABLED              = "new.script.template.enabled"; //$NON-NLS-1$
+    public static final String NEW_SCRIPT_TEMPLATE                      = "new.script.template"; //$NON-NLS-1$
     public static final String STATEMENT_INVALIDATE_BEFORE_EXECUTE      = "statement.invalidate.before.execute"; //$NON-NLS-1$
     public static final String STATEMENT_TIMEOUT                        = "statement.timeout"; //$NON-NLS-1$
     public static final String EDITOR_SEPARATE_CONNECTION               = "database.editor.separate.connection"; //$NON-NLS-1$
@@ -137,5 +145,10 @@ public class SQLPreferenceConstants
     public static final String CONFIRM_RUNNING_QUERY_CLOSE              = "close_running_query"; //$NON-NLS-1$
     public static final String CONFIRM_RESULT_TABS_CLOSE                = "close_result_tabs"; //$NON-NLS-1$
 
+    public static final String DEFAULT_SQL_EDITOR_OPEN_COMMAND          = "SQLEditor.defaultOpenCommand";
+
+    public static final String LOCATION_RIGHT       = "right";
+    public static final String LOCATION_BOTTOM      = "bottom";
+    public static final String LOCATION_RESULTS     = "results";
 
 }

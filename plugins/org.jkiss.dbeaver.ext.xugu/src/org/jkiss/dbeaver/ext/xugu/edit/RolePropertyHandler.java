@@ -31,7 +31,7 @@ public enum RolePropertyHandler implements DBEPropertyHandler<Role>, DBEProperty
 	TARGET_OBJECT, SUB_TARGET_TYPE, SUB_TARGET_OBJECT;
 
 	@Override
-	public Object getId() {
+	public String getId() {
 		return name();
 	}
 

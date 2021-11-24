@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,6 +23,7 @@ import org.eclipse.jface.wizard.IWizard;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.ui.IWorkbenchWindow;
+import org.jkiss.dbeaver.tools.compare.simple.ui.internal.CompareUIMessages;
 import org.jkiss.dbeaver.ui.dialogs.ActiveWizardDialog;
 
 /**
@@ -41,6 +42,6 @@ public class CompareWizardDialog extends ActiveWizardDialog
     {
         super.createButtonsForButtonBar(parent);
         Button finishButton = getButton(IDialogConstants.FINISH_ID);
-        finishButton.setText("Compare");
+        finishButton.setText(CompareUIMessages.compare_objects_wizard_dialog_button_compare);
     }
 }

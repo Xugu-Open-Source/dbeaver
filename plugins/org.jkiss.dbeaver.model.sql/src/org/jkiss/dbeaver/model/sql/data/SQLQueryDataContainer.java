@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,10 +41,10 @@ import java.util.Map;
  */
 public class SQLQueryDataContainer implements DBSDataContainer, SQLQueryContainer, DBPContextProvider, DBPImageProvider {
 
-    private DBPContextProvider contextProvider;
+    private final DBPContextProvider contextProvider;
+    private final SQLScriptContext scriptContext;
     private SQLQuery query;
-    private SQLScriptContext scriptContext;
-    private Log log;
+    private final Log log;
 
     public SQLQueryDataContainer(DBPContextProvider contextProvider, SQLQuery query, SQLScriptContext scriptContext, Log log) {
         this.contextProvider = contextProvider;
@@ -63,6 +63,7 @@ public class SQLQueryDataContainer implements DBSDataContainer, SQLQueryContaine
         return DATA_SELECT;
     }
 
+    @Override
     public SQLScriptContext getScriptContext() {
         return scriptContext;
     }
@@ -78,6 +79,7 @@ public class SQLQueryDataContainer implements DBSDataContainer, SQLQueryContaine
         String queryText = sqlQuery.getOriginalText();//.trim();
         if (dataFilter != null && dataFilter.hasFilters()) {
             String filteredQueryText = dataSource.getSQLDialect().addFiltersToQuery(
+                session.getProgressMonitor(),
                 dataSource, queryText, dataFilter);
             sqlQuery = new SQLQuery(dataSource, filteredQueryText, sqlQuery);
         } else {
@@ -86,10 +88,10 @@ public class SQLQueryDataContainer implements DBSDataContainer, SQLQueryContaine
 
         if (scriptContext != null) {
             SQLSyntaxManager syntaxManager = new SQLSyntaxManager();
-            syntaxManager.init(dataSource);
+            syntaxManager.init(dataSource.getSQLDialect(), dataSource.getContainer().getPreferenceStore());
             SQLRuleManager ruleManager = new SQLRuleManager(syntaxManager);
             ruleManager.loadRules(dataSource, false);
-            SQLParserContext parserContext = new SQLParserContext(this, syntaxManager, ruleManager, new Document(query.getOriginalText()));
+            SQLParserContext parserContext = new SQLParserContext(getDataSource(), syntaxManager, ruleManager, new Document(query.getOriginalText()));
             sqlQuery.setParameters(SQLScriptParser.parseParameters(parserContext, 0, sqlQuery.getLength()));
             if (!scriptContext.fillQueryParameters(sqlQuery, CommonUtils.isBitSet(flags, DBSDataContainer.FLAG_REFRESH))) {
                 // User canceled
@@ -239,6 +241,10 @@ public class SQLQueryDataContainer implements DBSDataContainer, SQLQueryContaine
     @Override
     public SQLScriptElement getQuery() {
         return query;
+    }
+
+    public void setQuery(SQLQuery query) {
+        this.query = query;
     }
 
     @Override

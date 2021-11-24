@@ -39,7 +39,7 @@ import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
-import org.jkiss.dbeaver.ui.ICompositeDialogPage;
+import org.jkiss.dbeaver.ui.IDialogPageProvider;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.dialogs.connection.ConnectionPageAbstract;
 import org.jkiss.dbeaver.ui.dialogs.connection.DriverPropertiesDialogPage;
@@ -51,7 +51,7 @@ import java.util.TimeZone;
 /**
  * 创建连接页面
  */
-public class ConnectionPage extends ConnectionPageAbstract implements ICompositeDialogPage {
+public class ConnectionPage extends ConnectionPageAbstract implements IDialogPageProvider {
 	private Text hostText;
 	private Text portText;
 	private Text dbText;
@@ -296,7 +296,7 @@ public class ConnectionPage extends ConnectionPageAbstract implements IComposite
 	}
 
 	@Override
-	public IDialogPage[] getSubPages(boolean extrasOnly, boolean forceCreate) {
+	public IDialogPage[] getDialogPages(boolean extrasOnly, boolean forceCreate) {
 		return new IDialogPage[] { new DriverPropertiesDialogPage(this) };
 	}
 }

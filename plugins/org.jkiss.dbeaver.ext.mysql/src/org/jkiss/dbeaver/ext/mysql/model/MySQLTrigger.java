@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -84,6 +84,18 @@ public class MySQLTrigger extends AbstractTrigger implements MySQLSourceObject, 
         this.body = source.body;
         this.charsetClient = source.charsetClient;
         this.sqlMode = source.sqlMode;
+    }
+
+    @Property(viewable = true, order = 2, listProvider = TriggerTimingListProvider.class)
+    public DBSActionTiming getActionTiming()
+    {
+        return super.getActionTiming();
+    }
+
+    @Property(viewable = true, order = 3, listProvider = TriggerTypeListProvider.class)
+    public DBSManipulationType getManipulationType()
+    {
+        return super.getManipulationType();
     }
 
     public String getBody()

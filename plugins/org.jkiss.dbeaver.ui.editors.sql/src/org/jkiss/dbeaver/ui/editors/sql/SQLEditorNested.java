@@ -1,7 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
- * Copyright (C) 2017-2018 Alexander Fedorov (alexander.fedorov@jkiss.org)
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +55,6 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
-import org.jkiss.dbeaver.runtime.resource.WorkspaceResources;
 import org.jkiss.dbeaver.ui.*;
 import org.jkiss.dbeaver.ui.controls.ObjectCompilerLogViewer;
 import org.jkiss.dbeaver.ui.controls.ProgressPageControl;
@@ -198,7 +196,7 @@ public abstract class SQLEditorNested<T extends DBSObject>
     }
 
     @Override
-    public void refreshPart(Object source, boolean force) {
+    public RefreshResult refreshPart(Object source, boolean force) {
         // Check if we are in saving process
         // If so then no refresh needed (source text was updated during save)
         IEditorSite editorSite = getEditorSite();
@@ -206,7 +204,7 @@ public abstract class SQLEditorNested<T extends DBSObject>
             ((MultiPageEditorSite) editorSite).getMultiPageEditor() instanceof EntityEditor &&
             ((EntityEditor) ((MultiPageEditorSite) editorSite).getMultiPageEditor()).isSaveInProgress())
         {
-            return;
+            return RefreshResult.IGNORED;
         }
 
         final IDocumentProvider documentProvider = getDocumentProvider();
@@ -222,6 +220,8 @@ public abstract class SQLEditorNested<T extends DBSObject>
             }
         }
         reloadSyntaxRules();
+
+        return RefreshResult.REFRESHED;
     }
 
     protected String getCompileCommandId()
@@ -266,6 +266,7 @@ public abstract class SQLEditorNested<T extends DBSObject>
                     }
                     @Override
                     protected IStatus run(DBRProgressMonitor monitor) {
+                        monitor.beginTask(getName(), 1);
                         try {
                             DBExecUtils.tryExecuteRecover(monitor, getDataSource(), param -> {
                                 try {
@@ -279,8 +280,11 @@ public abstract class SQLEditorNested<T extends DBSObject>
                             });
                             return Status.OK_STATUS;
                         } catch (Exception e) {
+                            log.error(e);
                             sourceText = "/* ERROR WHILE READING SOURCE:\n\n" + e.getMessage() + "\n*/";
                             return Status.CANCEL_STATUS;
+                        } finally {
+                            monitor.done();
                         }
                     }
                 };
@@ -307,7 +311,7 @@ public abstract class SQLEditorNested<T extends DBSObject>
         protected IAnnotationModel createAnnotationModel(Object element) throws CoreException {
             DBSObject databaseObject = getSourceObject();
             DBNDatabaseNode node = DBWorkbench.getPlatform().getNavigatorModel().getNodeByObject(databaseObject);
-            IResource resource = WorkspaceResources.resolveWorkspaceResource(databaseObject);
+            IResource resource = node == null || node.getOwnerProject() == null ? null : node.getOwnerProject().getEclipseProject();
             if (resource != null) {
                 return new DatabaseMarkerAnnotationModel(databaseObject, node, resource);
             }
@@ -316,7 +320,13 @@ public abstract class SQLEditorNested<T extends DBSObject>
         
         @Override
         protected void doSaveDocument(IProgressMonitor monitor, Object element, IDocument document, boolean overwrite) throws CoreException {
-            setSourceText(RuntimeUtils.makeMonitor(monitor), document.get());
+            DBRProgressMonitor pm = RuntimeUtils.makeMonitor(monitor);
+            pm.beginTask("Save nested editor", 1);
+            try {
+                setSourceText(pm, document.get());
+            } finally {
+                pm.done();
+            }
         }
     }
 

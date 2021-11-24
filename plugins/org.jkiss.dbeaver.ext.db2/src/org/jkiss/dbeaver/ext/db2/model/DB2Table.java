@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2013-2016 Denis Forveille (titou10.titou10@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import org.jkiss.dbeaver.ext.db2.editors.DB2SourceObject;
 import org.jkiss.dbeaver.ext.db2.editors.DB2TableTablespaceListProvider;
 import org.jkiss.dbeaver.ext.db2.model.cache.DB2TableTriggerCache;
 import org.jkiss.dbeaver.ext.db2.model.dict.*;
+import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.DBPRefreshableObject;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.data.DBDPseudoAttribute;
@@ -214,8 +215,9 @@ public class DB2Table extends DB2TableBase
     // Associations
     // -----------------
 
+    @Nullable
     @Association
-    public Collection<DB2Trigger> getTriggers(DBRProgressMonitor monitor) throws DBException
+    public List<DB2Trigger> getTriggers(@NotNull DBRProgressMonitor monitor) throws DBException
     {
         return tableTriggerCache.getAllObjects(monitor, this);
     }
@@ -327,7 +329,7 @@ public class DB2Table extends DB2TableBase
         return super.getName();
     }
 
-    @Property(viewable = true, editable = false, order = 3, category = DB2Constants.CAT_STATS)
+    @Property(viewable = true, editable = false, order = 3, category = DBConstants.CAT_STATISTICS)
     public Long getCard()
     {
         return card;
@@ -378,25 +380,25 @@ public class DB2Table extends DB2TableBase
         this.longTablespace = longTablespace;
     }
 
-    @Property(viewable = false, editable = false, category = DB2Constants.CAT_STATS)
+    @Property(viewable = false, editable = false, category = DBConstants.CAT_STATISTICS)
     public Timestamp getStatsTime()
     {
         return statsTime;
     }
 
-    @Property(viewable = false, editable = false, category = DB2Constants.CAT_STATS)
+    @Property(viewable = false, editable = false, category = DBConstants.CAT_STATISTICS)
     public Long getnPages()
     {
         return nPages;
     }
 
-    @Property(viewable = false, editable = false, category = DB2Constants.CAT_STATS)
+    @Property(viewable = false, editable = false, category = DBConstants.CAT_STATISTICS)
     public Long getfPages()
     {
         return fPages;
     }
 
-    @Property(viewable = false, editable = false, category = DB2Constants.CAT_STATS)
+    @Property(viewable = false, editable = false, category = DBConstants.CAT_STATISTICS)
     public Long getOverFLow()
     {
         return overFLow;

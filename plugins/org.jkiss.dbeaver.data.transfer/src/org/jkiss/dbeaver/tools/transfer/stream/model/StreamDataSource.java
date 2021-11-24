@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,13 +22,12 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceInfo;
-import org.jkiss.dbeaver.model.data.DBDPreferences;
+import org.jkiss.dbeaver.model.data.DBDFormatSettings;
 import org.jkiss.dbeaver.model.data.DBDValueHandler;
 import org.jkiss.dbeaver.model.data.DBDValueHandlerProvider;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.impl.AbstractSimpleDataSource;
 import org.jkiss.dbeaver.model.impl.data.DefaultValueHandler;
-import org.jkiss.dbeaver.model.impl.sql.BasicSQLDialect;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLDialect;
 import org.jkiss.dbeaver.model.struct.DBSObject;
@@ -41,9 +40,12 @@ import java.util.Collection;
  */
 public class StreamDataSource extends AbstractSimpleDataSource<StreamExecutionContext> implements DBDValueHandlerProvider {
 
+    private final StreamDataSourceDialect dialect;
+
     public StreamDataSource(StreamDataSourceContainer container) {
         super(container);
         this.executionContext = new StreamExecutionContext(this, "Main");
+        this.dialect = new StreamDataSourceDialect();
     }
 
     public StreamDataSource(String inputName) {
@@ -63,7 +65,7 @@ public class StreamDataSource extends AbstractSimpleDataSource<StreamExecutionCo
 
     @Override
     public SQLDialect getSQLDialect() {
-        return BasicSQLDialect.INSTANCE;
+        return dialect;
     }
 
     @Override
@@ -80,7 +82,7 @@ public class StreamDataSource extends AbstractSimpleDataSource<StreamExecutionCo
     // We need to implement value handler provider to pass default value handler for attribute bindings
     @Nullable
     @Override
-    public DBDValueHandler getValueHandler(DBPDataSource dataSource, DBDPreferences preferences, DBSTypedObject typedObject) {
+    public DBDValueHandler getValueHandler(DBPDataSource dataSource, DBDFormatSettings preferences, DBSTypedObject typedObject) {
         return DefaultValueHandler.INSTANCE;
     }
 
@@ -97,7 +99,7 @@ public class StreamDataSource extends AbstractSimpleDataSource<StreamExecutionCo
 
     @NotNull
     @Override
-    public Class<? extends DBSObject> getChildType(@NotNull DBRProgressMonitor monitor) throws DBException {
+    public Class<? extends DBSObject> getPrimaryChildType(@Nullable DBRProgressMonitor monitor) throws DBException {
         return DBSObject.class;
     }
 

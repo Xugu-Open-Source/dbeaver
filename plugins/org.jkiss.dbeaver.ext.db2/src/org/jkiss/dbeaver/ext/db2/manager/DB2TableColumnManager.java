@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2013-2015 Denis Forveille (titou10.titou10@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  */
 package org.jkiss.dbeaver.ext.db2.manager;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.db2.model.DB2Table;
@@ -73,7 +74,7 @@ public class DB2TableColumnManager extends SQLTableColumnManager<DB2TableColumn,
     @Override
     public boolean canEditObject(DB2TableColumn object)
     {
-        // Edit is only availabe for DB2Table and not for other kinds of tables (View, MQTs, Nicknames..)
+        // Edit is only available for DB2Table and not for other kinds of tables (View, MQTs, Nicknames..)
         DB2TableBase db2TableBase = object.getParentObject();
         if ((db2TableBase != null) & (db2TableBase.getClass().equals(DB2Table.class))) {
             return true;
@@ -88,7 +89,7 @@ public class DB2TableColumnManager extends SQLTableColumnManager<DB2TableColumn,
 
     @Override
     protected DB2TableColumn createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context, Object container,
-                                                  Object copyFrom, Map<String, Object> options)
+                                                  Object copyFrom, Map<String, Object> options) throws DBException
     {
         DB2TableColumn column = new DB2TableColumn((DB2TableBase) container);
         column.setName(getNewColumnName(monitor, context, (DB2TableBase) container));
@@ -105,7 +106,7 @@ public class DB2TableColumnManager extends SQLTableColumnManager<DB2TableColumn,
 
         boolean hasColumnChanges = false;
         if (!command.getProperties().isEmpty()) {
-            final String deltaSQL = computeDeltaSQL(command);
+            final String deltaSQL = computeDeltaSQL(monitor, command);
             if (!deltaSQL.isEmpty()) {
                 hasColumnChanges = true;
                 String sqlAlterColumn = String.format(SQL_ALTER, db2Column.getTable().getFullyQualifiedName(DBPEvaluationContext.DDL), deltaSQL);
@@ -135,7 +136,7 @@ public class DB2TableColumnManager extends SQLTableColumnManager<DB2TableColumn,
     // -------
     // Helpers
     // -------
-    private String computeDeltaSQL(ObjectChangeCommand command)
+    private String computeDeltaSQL(DBRProgressMonitor monitor, ObjectChangeCommand command)
     {
 
         if (command.getProperties().isEmpty() ||
@@ -170,7 +171,7 @@ public class DB2TableColumnManager extends SQLTableColumnManager<DB2TableColumn,
         if (command.hasProperty("dataType") || command.hasProperty("maxLength") || command.hasProperty("scale")) {
             sb.append(LINE_SEPARATOR);
             sb.append(CLAUSE_SET_TYPE);
-            sb.append(DBUtils.getFullTypeName(column));
+            DataTypeModifier.appendModifier(monitor, column, sb, command);
         }
 
         return sb.toString();
@@ -193,8 +194,8 @@ public class DB2TableColumnManager extends SQLTableColumnManager<DB2TableColumn,
     }
 
     @Override
-    public void renameObject(DBECommandContext commandContext, DB2TableColumn object, String newName) throws DBException {
-        processObjectRename(commandContext, object, newName);
+    public void renameObject(@NotNull DBECommandContext commandContext, @NotNull DB2TableColumn object, @NotNull Map<String, Object> options, @NotNull String newName) throws DBException {
+        processObjectRename(commandContext, object, options, newName);
     }
 
     @Override

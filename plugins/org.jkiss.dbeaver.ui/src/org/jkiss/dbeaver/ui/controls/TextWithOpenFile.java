@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,20 +21,32 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.DirectoryDialog;
 import org.eclipse.swt.widgets.FileDialog;
 import org.jkiss.dbeaver.ui.dialogs.DialogUtils;
+import org.jkiss.utils.CommonUtils;
+
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 /**
  * TextWithOpen
  */
 public class TextWithOpenFile extends TextWithOpen
 {
-    private String title;
-    private String[] filterExt;
+    private final String title;
+    private final String[] filterExt;
+    private final int style;
     private boolean openFolder = false;
 
-    public TextWithOpenFile(Composite parent, String title, String[] filterExt) {
+    public TextWithOpenFile(Composite parent, String title, String[] filterExt, int style) {
         super(parent);
         this.title = title;
         this.filterExt = filterExt;
+        this.style = style;
+    }
+
+    public TextWithOpenFile(Composite parent, String title, String[] filterExt) {
+        this(parent, title, filterExt, SWT.SINGLE | SWT.OPEN);
     }
 
     public void setOpenFolder(boolean openFolder) {
@@ -42,22 +54,48 @@ public class TextWithOpenFile extends TextWithOpen
     }
 
     protected void openBrowser() {
+        String directory = getDialogDirectory();
         String selected;
         if (openFolder) {
-            DirectoryDialog fd = new DirectoryDialog(getShell(), SWT.OPEN | SWT.SINGLE);
+            DirectoryDialog fd = new DirectoryDialog(getShell(), style);
+            if (directory != null) {
+                fd.setFilterPath(directory);
+            }
             if (title != null) {
                 fd.setText(title);
             }
             selected = fd.open();
         } else {
-            FileDialog fd = new FileDialog(getShell(), SWT.OPEN | SWT.SINGLE);
+            FileDialog fd = new FileDialog(getShell(), style);
             fd.setText(title);
             fd.setFilterExtensions(filterExt);
+            if (directory != null) {
+                DialogUtils.setCurDialogFolder(directory);
+            }
             selected = DialogUtils.openFileDialog(fd);
         }
         if (selected != null) {
             setText(selected);
         }
+    }
+
+    protected String getDialogDirectory() {
+        final String text = getText();
+        if (CommonUtils.isEmptyTrimmed(text)) {
+            return null;
+        }
+        try {
+            final Path path = Paths.get(text);
+            if (Files.isDirectory(path)) {
+                return path.toString();
+            }
+            final Path parent = path.getParent();
+            if (parent != null) {
+                return parent.toString();
+            }
+        } catch (InvalidPathException ignored) {
+        }
+        return null;
     }
 
 }

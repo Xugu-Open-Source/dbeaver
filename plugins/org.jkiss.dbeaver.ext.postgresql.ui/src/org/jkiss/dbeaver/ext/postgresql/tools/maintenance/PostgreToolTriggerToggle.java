@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,19 +16,16 @@
  */
 package org.jkiss.dbeaver.ext.postgresql.tools.maintenance;
 
-import org.eclipse.swt.widgets.Composite;
+import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.ui.IWorkbenchPart;
-import org.eclipse.ui.IWorkbenchPartSite;
 import org.eclipse.ui.IWorkbenchWindow;
-import org.jkiss.dbeaver.ext.postgresql.model.PostgreObject;
-import org.jkiss.dbeaver.ext.postgresql.model.PostgreTrigger;
-import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.tasks.ui.wizard.TaskConfigurationWizardDialog;
+import org.jkiss.dbeaver.ui.navigator.NavigatorUtils;
 import org.jkiss.dbeaver.ui.tools.IUserInterfaceTool;
-import org.jkiss.utils.CommonUtils;
 
 import java.util.Collection;
-import java.util.List;
+
 
 public abstract class PostgreToolTriggerToggle implements IUserInterfaceTool {
 
@@ -40,34 +37,18 @@ public abstract class PostgreToolTriggerToggle implements IUserInterfaceTool {
 
     @Override
     public void execute(IWorkbenchWindow window, IWorkbenchPart activePart, Collection<DBSObject> objects) {
-        List<PostgreTrigger> triggeList = CommonUtils.filterCollection(objects, PostgreTrigger.class);
-        if (!triggeList.isEmpty()) {
-            SQLDialog dialog = new SQLDialog(activePart.getSite(), triggeList);
-            dialog.open();
-        }
+        if (isEnable) {
+            TaskConfigurationWizardDialog.openNewTaskDialog(
+                    window,
+                    NavigatorUtils.getSelectedProject(),
+                    "pgToolTriggerEnable",
+                    new StructuredSelection(objects.toArray()));
+        } else {
+            TaskConfigurationWizardDialog.openNewTaskDialog(
+                    window,
+                    NavigatorUtils.getSelectedProject(),
+                    "pgToolTriggerDisable",
+                    new StructuredSelection(objects.toArray()));
+            }
     }
-
-    class SQLDialog extends TableToolDialog {
-
-        SQLDialog(IWorkbenchPartSite partSite, List<PostgreTrigger> selectedTrigger) {
-            super(partSite, (isEnable ? "Enable" : "Disable") + " trigger", selectedTrigger);
-        }
-
-        @Override
-        protected void generateObjectCommand(List<String> lines, PostgreObject object) {
-            lines.add("ALTER TABLE " + ((PostgreTrigger) object).getTable() + " " + (isEnable ? "ENABLE" : "DISABLE")
-                + " TRIGGER " + DBUtils.getQuotedIdentifier(object));
-        }
-
-        @Override
-        protected void createControls(Composite parent) {
-            createObjectsSelector(parent);
-        }
-
-        @Override
-        protected boolean needsRefreshOnFinish() {
-            return true;
-        }
-    }
-
 }

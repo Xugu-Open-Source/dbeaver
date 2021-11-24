@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import org.eclipse.core.runtime.IConfigurationElement;
 import org.eclipse.core.runtime.IExtensionRegistry;
 import org.eclipse.core.runtime.Platform;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.connection.DBPDriver;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -79,18 +80,17 @@ public class NetworkHandlerRegistry {
     }
 
     public List<NetworkHandlerDescriptor> getDescriptors(DBPDataSourceContainer dataSource) {
-/*
-        if (dataSource.getDriver().isEmbedded()) {
-            // No network handlers for embedded drivers
-            return Collections.emptyList();
-        }
-*/
+        return getDescriptors(dataSource.getDriver());
+    }
+
+    public List<NetworkHandlerDescriptor> getDescriptors(DBPDriver driver) {
         List<NetworkHandlerDescriptor> result = new ArrayList<>();
         for (NetworkHandlerDescriptor d : descriptors) {
-            if (d.getReplacedBy() == null && !d.hasObjectTypes() || d.matches(dataSource)) {
+            if (d.getReplacedBy() == null && !d.hasObjectTypes() || d.matches(driver)) {
                 result.add(d);
             }
         }
         return result;
     }
+
 }

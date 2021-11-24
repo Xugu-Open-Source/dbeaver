@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 
 package org.jkiss.dbeaver.ext.import_config.wizards;
 
+import org.jkiss.dbeaver.model.DBPDataSourceFolder;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,8 +27,9 @@ import java.util.List;
  */
 public class ImportData {
 
-    private List<ImportDriverInfo> drivers = new ArrayList<>();
-    private List<ImportConnectionInfo> connections = new ArrayList<>();
+    private final List<ImportDriverInfo> drivers = new ArrayList<>();
+    private final List<ImportConnectionInfo> connections = new ArrayList<>();
+    private DBPDataSourceFolder dataSourceFolder;
 
     public List<ImportDriverInfo> getDrivers()
     {
@@ -68,4 +71,11 @@ public class ImportData {
         connections.add(connectionInfo);
     }
 
+    public DBPDataSourceFolder getDataSourceFolder() {
+        return dataSourceFolder;
+    }
+
+    public void setDataSourceFolder(DBPDataSourceFolder dataSourceFolder) {
+        this.dataSourceFolder = dataSourceFolder;
+    }
 }

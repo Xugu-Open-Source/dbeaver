@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2016-2016 Karl Griesser (fullref@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  */
 package org.jkiss.dbeaver.ext.exasol.manager;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.exasol.model.ExasolSchema;
 import org.jkiss.dbeaver.ext.exasol.model.ExasolTableBase;
@@ -48,7 +49,7 @@ public class ExasolViewManager
     }
 
     @Override
-    protected void validateObjectProperties(ObjectChangeCommand command, Map<String, Object> options)
+    protected void validateObjectProperties(DBRProgressMonitor monitor, ObjectChangeCommand command, Map<String, Object> options)
         throws DBException {
         ExasolTableBase object = command.getObject();
         if (CommonUtils.isEmpty(object.getName())) {
@@ -126,9 +127,9 @@ public class ExasolViewManager
     }
 
     @Override
-    public void renameObject(DBECommandContext commandContext,
-                             ExasolView object, String newName) throws DBException {
-        processObjectRename(commandContext, object, newName);
+    public void renameObject(@NotNull DBECommandContext commandContext,
+                             @NotNull ExasolView object, @NotNull Map<String, Object> options, @NotNull String newName) throws DBException {
+        processObjectRename(commandContext, object, options, newName);
     }
 
     @Override

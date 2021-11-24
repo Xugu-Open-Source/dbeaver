@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,12 @@
 
 package org.jkiss.dbeaver.model.app;
 
-import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.model.DBPObject;
+import org.jkiss.dbeaver.model.auth.DBAAuthSpace;
+import org.jkiss.dbeaver.model.auth.DBASessionContext;
 import org.jkiss.dbeaver.model.task.DBTTaskManager;
 
 import java.io.File;
@@ -29,9 +30,9 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * DBPWorkspace
+ * Project meta information.
  */
-public interface DBPProject extends DBPObject
+public interface DBPProject extends DBPObject, DBAAuthSpace
 {
     String METADATA_FOLDER = ".dbeaver";
 
@@ -39,6 +40,12 @@ public interface DBPProject extends DBPObject
 
     @NotNull
     DBPWorkspace getWorkspace();
+
+    // In multi-use environment virtual project is a project owned by user
+    boolean isVirtual();
+
+    // Project with no persistent state
+    boolean isInMemory();
 
     @NotNull
     String getName();
@@ -52,13 +59,15 @@ public interface DBPProject extends DBPObject
     IProject getEclipseProject();
 
     @NotNull
-    IFolder getMetadataFolder(boolean create);
+    File getMetadataFolder(boolean create);
 
     boolean isOpen();
 
     void ensureOpen();
 
     boolean isRegistryLoaded();
+
+    boolean isModernProject();
 
     @NotNull
     DBPDataSourceRegistry getDataSourceRegistry();
@@ -68,6 +77,12 @@ public interface DBPProject extends DBPObject
 
     @NotNull
     DBASecureStorage getSecureStorage();
+
+    /**
+     * Project auth context
+     */
+    @NotNull
+    DBASessionContext getSessionContext();
 
     Object getProjectProperty(String propName);
 
@@ -81,4 +96,5 @@ public interface DBPProject extends DBPObject
 
     void setResourceProperty(IResource resource, String propName, Object propValue);
 
+    void setResourceProperties(IResource resource, Map<String, Object> props);
 }

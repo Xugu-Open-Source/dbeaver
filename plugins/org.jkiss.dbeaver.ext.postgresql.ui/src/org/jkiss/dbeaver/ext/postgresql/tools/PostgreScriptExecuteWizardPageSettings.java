@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,8 +45,12 @@ public class PostgreScriptExecuteWizardPageSettings extends PostgreToolWizardPag
     }
 
     @Override
-    public boolean isPageComplete() {
-        return super.isPageComplete() && wizard.getSettings().getInputFile() != null;
+    protected boolean determinePageCompletion() {
+        if (wizard.getSettings().getInputFile() == null) {
+            setErrorMessage("Input file not specified");
+            return false;
+        }
+        return super.determinePageCompletion();
     }
 
     @Override
@@ -78,7 +82,6 @@ public class PostgreScriptExecuteWizardPageSettings extends PostgreToolWizardPag
 
         Composite extraGroup = UIUtils.createComposite(composite, 2);
         createSecurityGroup(extraGroup);
-        wizard.createTaskSaveGroup(extraGroup);
 
         setControl(composite);
     }
@@ -101,6 +104,7 @@ public class PostgreScriptExecuteWizardPageSettings extends PostgreToolWizardPag
     @Override
     protected void updateState() {
         saveState();
+        updatePageCompletion();
         getContainer().updateButtons();
     }
 

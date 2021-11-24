@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -129,7 +129,7 @@ public class ResourceHandlerDescriptor extends AbstractDescriptor implements DBP
                 return null;
             }
             try {
-                handler = clazz.newInstance();
+                handler = clazz.getConstructor().newInstance();
             } catch (Exception e) {
                 log.error("Can't instantiate resource handler", e);
             }
@@ -191,8 +191,18 @@ public class ResourceHandlerDescriptor extends AbstractDescriptor implements DBP
         try {
             IEclipsePreferences resourceHandlers = getResourceHandlerPreferences(project, DBPResourceHandlerDescriptor.RESOURCE_ROOT_FOLDER_NODE);
             String root = resourceHandlers.get(id, defaultRoot);
+            boolean isInvalidRoot = root != null && CommonUtils.isEmptyTrimmed(root);
             synchronized (projectRoots) {
-                projectRoots.put(project.getName(), root);
+                projectRoots.put(project.getName(), isInvalidRoot ? defaultRoot : root);
+            }
+            if (isInvalidRoot) {
+                root = defaultRoot;
+                resourceHandlers.put(id, root);
+                try {
+                    resourceHandlers.flush();
+                } catch (BackingStoreException e) {
+                    log.error(e);
+                }
             }
             return root;
         } catch (Exception e) {

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,22 +16,27 @@
  */
 package org.jkiss.dbeaver.ui.preferences;
 
+import org.eclipse.core.internal.runtime.Activator;
 import org.eclipse.jface.preference.IPreferencePage;
 import org.eclipse.jface.wizard.WizardPage;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.ui.IWorkbenchPropertyPage;
-import org.jkiss.dbeaver.ui.ICompositeDialogPage;
+import org.jkiss.dbeaver.ui.IDialogPageProvider;
 import org.jkiss.utils.CommonUtils;
+import org.osgi.framework.Bundle;
+import org.osgi.framework.FrameworkUtil;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.ResourceBundle;
 
 /**
  * Preference page adapter for wizard page
  */
-public class WizardPrefPage extends WizardPage implements ICompositeDialogPage {
+public class WizardPrefPage extends WizardPage implements IDialogPageProvider {
 
     private final IPreferencePage preferencePage;
     private final List<WizardPrefPage> subPages = new ArrayList<>();
@@ -135,7 +140,7 @@ public class WizardPrefPage extends WizardPage implements ICompositeDialogPage {
     }
 
     @Override
-    public WizardPrefPage[] getSubPages(boolean extrasOnly, boolean forceCreate) {
+    public WizardPrefPage[] getDialogPages(boolean extrasOnly, boolean forceCreate) {
         if (subPages.isEmpty()) {
             return null;
         }
@@ -144,6 +149,38 @@ public class WizardPrefPage extends WizardPage implements ICompositeDialogPage {
 
     public WizardPrefPage addSubPage(IPreferencePage page, String title, String description) {
         WizardPrefPage wizardPrefPage = new WizardPrefPage(page, title, description);
+        subPages.add(wizardPrefPage);
+        // Sety the same element to sub page
+        if (preferencePage instanceof IWorkbenchPropertyPage && page instanceof IWorkbenchPropertyPage) {
+            ((IWorkbenchPropertyPage) page).setElement(((IWorkbenchPropertyPage) preferencePage).getElement());
+        }
+        return wizardPrefPage;
+    }
+
+    public WizardPrefPage addSubPage(String pageId, IPreferencePage page) {
+        return addSubPage(pageId, page.getClass(), page);
+    }
+
+    public WizardPrefPage addSubPage(String pageId, Class<?> ownerBundleClass, IPreferencePage page) {
+        String pageName = pageId, pageDescription = pageId;
+        try {
+            Bundle pageBundle = FrameworkUtil.getBundle(ownerBundleClass);
+            ResourceBundle resourceBundle = Activator.getDefault().getLocalization(pageBundle, Locale.getDefault().getLanguage());
+            try {
+                pageName = resourceBundle.getString("page." + pageId + ".name");
+            } catch (Exception e) {
+                pageName = pageId;
+            }
+            try {
+                pageDescription = resourceBundle.getString("page." + pageId + ".description");
+            } catch (Exception e) {
+                pageDescription = pageName;
+            }
+        } catch (Exception e) {
+            // Ignore
+        }
+
+        WizardPrefPage wizardPrefPage = new WizardPrefPage(page, pageName, pageDescription);
         subPages.add(wizardPrefPage);
         // Sety the same element to sub page
         if (preferencePage instanceof IWorkbenchPropertyPage && page instanceof IWorkbenchPropertyPage) {

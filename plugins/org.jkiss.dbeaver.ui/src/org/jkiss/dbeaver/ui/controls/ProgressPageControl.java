@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,6 +22,7 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.action.Action;
+import org.eclipse.jface.action.ContributionManager;
 import org.eclipse.jface.action.IContributionManager;
 import org.eclipse.jface.action.ToolBarManager;
 import org.eclipse.swt.SWT;
@@ -51,7 +52,7 @@ import org.jkiss.utils.CommonUtils;
 import java.util.ArrayList;
 
 /**
- * ItemListControl
+ * ProgressPageControl
  */
 public class ProgressPageControl extends Composite implements ISearchContextProvider, ICustomActionsProvider
 {
@@ -198,9 +199,16 @@ public class ProgressPageControl extends Composite implements ISearchContextProv
             throw new IllegalStateException("Can't create page control while substitution control already set"); //$NON-NLS-1$
         }
         if (showDivider) {
-            Label separator = new Label(container, SWT.SEPARATOR | SWT.HORIZONTAL);
-            separator.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+            Label separator = new Label(container, SWT.NONE);
+            GridData gd = new GridData(GridData.FILL_HORIZONTAL);
+            gd.heightHint = 1;
+            separator.setLayoutData(gd);
+            separator.addPaintListener(e ->  {
+                e.gc.setForeground(e.display.getSystemColor(SWT.COLOR_WIDGET_NORMAL_SHADOW));
+                e.gc.drawLine(e.x, e.y, e.x + e.width, e.y);
+            });
         }
+
         Composite infoGroup = new Composite(container, SWT.NONE);
         GridData gd = new GridData(GridData.FILL_HORIZONTAL);
         infoGroup.setLayoutData(gd);
@@ -244,11 +252,14 @@ public class ProgressPageControl extends Composite implements ISearchContextProv
     }
 
     @Override
-    public void fillCustomActions(IContributionManager contributionManager)
-    {
+    public void fillCustomActions(IContributionManager contributionManager) {
         if (childPageControl != null) {
             childPageControl.fillCustomActions(contributionManager);
         }
+    }
+
+    protected void populateCustomActions(ContributionManager contributionManager) {
+
     }
 
     public void updateActions() {
@@ -261,7 +272,7 @@ public class ProgressPageControl extends Composite implements ISearchContextProv
         if (searchControlsComposite == null || searchControlsComposite.isDisposed()) {
             return;
         }
-        searchControlsComposite.getParent().setRedraw(false);
+        this.setRedraw(false);
         try {
             // Delete all controls created in searchControlsComposite
             UIUtils.disposeChildControls(searchControlsComposite);
@@ -273,6 +284,7 @@ public class ProgressPageControl extends Composite implements ISearchContextProv
             // Create default controls toolbar
             if (showDefaultControls) {
                 ((GridLayout)searchControlsComposite.getLayout()).numColumns = 2;
+                ((GridLayout)searchControlsComposite.getLayout()).marginTop = 2;
                 defaultToolbarManager.removeAll();
                 if (isSearchPossible() && isSearchEnabled()) {
                     addSearchAction(defaultToolbarManager);
@@ -291,13 +303,14 @@ public class ProgressPageControl extends Composite implements ISearchContextProv
                 if (!customToolbarManager.isEmpty()) {
                     ToolBar toolbar = customToolbarManager.createControl(customControlsComposite);
                     toolbar.setLayoutData(new GridData(GridData.FILL_HORIZONTAL | GridData.HORIZONTAL_ALIGN_END));
+                    populateCustomActions(customToolbarManager);
                 }
             }
 
             searchControlsComposite.getParent().layout();
             //customControlsComposite.layout();
         } finally {
-            searchControlsComposite.getParent().setRedraw(true);
+            this.setRedraw(true);
         }
     }
 
@@ -347,7 +360,7 @@ public class ProgressPageControl extends Composite implements ISearchContextProv
         searchControlsComposite.getParent().layout();
     }
 
-    private void createSearchControls()
+    protected void createSearchControls()
     {
         if (searchText != null) {
             return;
@@ -355,80 +368,84 @@ public class ProgressPageControl extends Composite implements ISearchContextProv
         hideControls(false);
         ((GridLayout)searchControlsComposite.getLayout()).numColumns = 2;
 
-        searchText = new Text(searchControlsComposite, SWT.BORDER);
-        UIUtils.addDefaultEditActionsSupport(UIUtils.getActiveWorkbenchWindow(), this.searchText);
-        if (curSearchText != null) {
-            searchText.setText(curSearchText);
-            searchText.setSelection(curSearchText.length());
-        }
-        //searchText.setBackground(searchNotFoundColor);
-        searchText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-        searchText.addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyPressed(KeyEvent e) {
-                switch (e.keyCode) {
-                    case SWT.ESC:
-                        cancelSearch(true);
-                        break;
-                    case SWT.CR:
-                    case SWT.ARROW_UP:
-                    case SWT.ARROW_DOWN:
-                        if (childPageControl != null) {
-                            childPageControl.setFocus();
-                        }
-                        e.doit = false;
-                        //performSearch(SearchType.NEXT);
-                        break;
-                }
-            }
-        });
-        searchText.addModifyListener(e -> {
-            curSearchText = searchText.getText();
-            if (curSearchJob == null) {
-                curSearchJob = new UIJob(UIMessages.controls_progress_page_job_search) {
-                    @Override
-                    public IStatus runInUIThread(IProgressMonitor monitor)
-                    {
-                        if (monitor.isCanceled()) {
-                            return Status.CANCEL_STATUS;
-                        }
-                        performSearch(SearchType.NEXT);
-                        curSearchJob = null;
-                        return Status.OK_STATUS;
-                    }
-                };
-                curSearchJob.schedule(200);
-            }
-        });
+        searchControlsComposite.getParent().setRedraw(false);
+        try {
 
-        //ToolBar searchTools = new ToolBar(searchControlsComposite, SWT.HORIZONTAL);
-        if (searchToolbarManager == null) {
-            searchToolbarManager = new ToolBarManager(SWT.FLAT | SWT.HORIZONTAL);
-            // Do not add prev/next buttons - they doesn't make sense now.
-            // Keep code just in case
-/*
-            searchToolbarManager.add(ActionUtils.makeCommandContribution(
-                    PlatformUI.getWorkbench(),
-                    IWorkbenchActionDefinitionIds.FIND_NEXT,
-                    null,
-                    UIIcon.ARROW_DOWN));
-            searchToolbarManager.add(ActionUtils.makeCommandContribution(
-                    PlatformUI.getWorkbench(),
-                    IWorkbenchActionDefinitionIds.FIND_PREVIOUS,
-                    null,
-                    UIIcon.ARROW_UP));
-*/
-            searchToolbarManager.add(new Action(UIMessages.controls_progress_page_action_close, UIUtils.getShardImageDescriptor(ISharedImages.IMG_ELCL_REMOVE)) {
+            searchText = new Text(searchControlsComposite, SWT.BORDER);
+            UIUtils.addDefaultEditActionsSupport(UIUtils.getActiveWorkbenchWindow(), this.searchText);
+            if (curSearchText != null) {
+                searchText.setText(curSearchText);
+                searchText.setSelection(curSearchText.length());
+            }
+            //searchText.setBackground(searchNotFoundColor);
+            searchText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+            searchText.addKeyListener(new KeyAdapter() {
                 @Override
-                public void run()
-                {
-                    cancelSearch(true);
+                public void keyPressed(KeyEvent e) {
+                    switch (e.keyCode) {
+                        case SWT.ESC:
+                            cancelSearch(true);
+                            break;
+                        case SWT.CR:
+                        case SWT.ARROW_UP:
+                        case SWT.ARROW_DOWN:
+                            if (childPageControl != null) {
+                                childPageControl.setFocus();
+                            }
+                            e.doit = false;
+                            //performSearch(SearchType.NEXT);
+                            break;
+                    }
                 }
             });
-        }
-        searchToolbarManager.createControl(searchControlsComposite);
+            searchText.addModifyListener(e -> {
+                curSearchText = searchText.getText();
+                if (curSearchJob == null) {
+                    curSearchJob = new UIJob(UIMessages.controls_progress_page_job_search) {
+                        @Override
+                        public IStatus runInUIThread(IProgressMonitor monitor) {
+                            if (monitor.isCanceled()) {
+                                return Status.CANCEL_STATUS;
+                            }
+                            performSearch(SearchType.NEXT);
+                            curSearchJob = null;
+                            return Status.OK_STATUS;
+                        }
+                    };
+                    curSearchJob.schedule(200);
+                }
+            });
 
-        searchControlsComposite.getParent().layout();
+            //ToolBar searchTools = new ToolBar(searchControlsComposite, SWT.HORIZONTAL);
+            if (searchToolbarManager == null) {
+                searchToolbarManager = new ToolBarManager(SWT.FLAT | SWT.HORIZONTAL);
+                // Do not add prev/next buttons - they doesn't make sense now.
+                // Keep code just in case
+    /*
+                searchToolbarManager.add(ActionUtils.makeCommandContribution(
+                        PlatformUI.getWorkbench(),
+                        IWorkbenchActionDefinitionIds.FIND_NEXT,
+                        null,
+                        UIIcon.ARROW_DOWN));
+                searchToolbarManager.add(ActionUtils.makeCommandContribution(
+                        PlatformUI.getWorkbench(),
+                        IWorkbenchActionDefinitionIds.FIND_PREVIOUS,
+                        null,
+                        UIIcon.ARROW_UP));
+    */
+                searchToolbarManager.add(new Action(UIMessages.controls_progress_page_action_close, UIUtils.getShardImageDescriptor(ISharedImages.IMG_ELCL_REMOVE)) {
+                    @Override
+                    public void run() {
+                        cancelSearch(true);
+                    }
+                });
+            }
+            searchToolbarManager.createControl(searchControlsComposite);
+
+            searchControlsComposite.getParent().layout();
+        } finally {
+            searchControlsComposite.getParent().setRedraw(true);
+        }
     }
 
     public void disposeControl()

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,24 +16,34 @@
  */
 package org.jkiss.dbeaver.ui.controls;
 
+import org.eclipse.core.commands.Command;
+import org.eclipse.core.commands.ICommandListener;
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.*;
 import org.eclipse.swt.graphics.*;
+import org.eclipse.swt.internal.DPIUtil;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.ui.services.IServiceLocator;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.ui.ActionUtils;
 import org.jkiss.dbeaver.ui.UIStyles;
 import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.CommonUtils;
 
 public class VerticalButton extends Canvas {
 
     public static final int BORDER_MARGIN = 2;
     public static final int VERT_INDENT = 8;
+
+    private static final Point EMPTY_SIZE = new Point(0, 0);
+
+    // Transform bug in SWT appeared in 2021-06 and was fixed in 2021-09
+    private static final boolean IS_TRANSFORM_BUG_PRESENT = false;
 
     private int mouse = 0;
     private boolean hit = false;
@@ -47,6 +57,7 @@ public class VerticalButton extends Canvas {
     private IAction action;
     private IServiceLocator serviceLocator;
     private String commandId;
+    private ICommandListener commandListener;
     private boolean checked;
     //float[] angles = {0, 90, 180, 270};
     //int index = 0;
@@ -111,7 +122,12 @@ public class VerticalButton extends Canvas {
             }
         });
 
-        this.addDisposeListener(e -> getFolder().removeItem(this));
+        this.addDisposeListener(e -> {
+            getFolder().removeItem(this);
+            if (commandId != null) {
+                removeCommandListener(commandId);
+            }
+        });
     }
 
     private void runAction(Event event) {
@@ -169,24 +185,21 @@ public class VerticalButton extends Canvas {
     }
 
     public Point computeSize(GC gc, int wHint, int hHint, boolean changed) {
-        Point textSize = gc.stringExtent(getText());
+        String text = getText();
+        Point textSize = CommonUtils.isEmpty(text) ? EMPTY_SIZE : gc.stringExtent(text);
 
-        Point iconSize = new Point(0, 0);
+        Point iconSize = EMPTY_SIZE;
         if (image != null) {
             Rectangle imageBounds = image.getBounds();
-            iconSize.x = imageBounds.width + BORDER_MARGIN;
-            iconSize.y = imageBounds.height + BORDER_MARGIN * 2;
+            iconSize = new Point(imageBounds.width + BORDER_MARGIN, imageBounds.height + BORDER_MARGIN * 2);
+            if (textSize == EMPTY_SIZE) {
+                return iconSize;
+            }
         }
 
-        if (CommonUtils.isEmpty(text)) {
-            return new Point(
-                iconSize.x,
-                iconSize.y);
-        } else {
-            return new Point(
-                Math.max(iconSize.y, textSize.y + BORDER_MARGIN * 2),
-                textSize.x + (BORDER_MARGIN + VERT_INDENT) * 2 + iconSize.x);
-        }
+        return new Point(
+            Math.max(iconSize.y, textSize.y + BORDER_MARGIN * 2),
+            textSize.x + (BORDER_MARGIN + VERT_INDENT) * 2 + iconSize.x);
     }
 
     public void paint(PaintEvent e) {
@@ -225,23 +238,34 @@ public class VerticalButton extends Canvas {
             }
         }
 
-        int x = 0;
+        // In fact X and Y offsets are reversed because of transform
+        int xOffset = 0;
+        int yOffset = BORDER_MARGIN;
 
         String text = getText();
         if (!CommonUtils.isEmpty(text)) {
+            // Offset shift. Windows only? (14048)
+            boolean shiftOffset = IS_TRANSFORM_BUG_PRESENT && RuntimeUtils.isWindows() && (DPIUtil.getDeviceZoom() >= 200);
+
             Transform tr = new Transform(e.display);
 
             e.gc.setAntialias(SWT.ON);
             if ((getStyle() & SWT.RIGHT) == SWT.RIGHT) {
                 tr.translate(size.x, 0);
                 tr.rotate(90);
+                if (shiftOffset) {
+                    yOffset -= size.x / 2;
+                }
             } else {
                 tr.translate(0, size.y);
                 tr.rotate(-90);
+                if (shiftOffset) {
+                    xOffset -= size.y / 2;
+                }
             }
             e.gc.setTransform(tr);
 
-            x += VERT_INDENT;
+            xOffset += VERT_INDENT;
         }
 
         if (image != null) {
@@ -250,15 +274,17 @@ public class VerticalButton extends Canvas {
                     imageDisabled = new Image(e.display, image, SWT.IMAGE_GRAY);
                     addDisposeListener(e1 -> imageDisabled.dispose());
                 }
-                e.gc.drawImage(imageDisabled, x, BORDER_MARGIN);
+                e.gc.drawImage(imageDisabled, xOffset, yOffset);
             } else {
-                e.gc.drawImage(image, x, BORDER_MARGIN);
+                e.gc.drawImage(image, xOffset, yOffset);
             }
-            x += image.getBounds().width + BORDER_MARGIN;
+            xOffset += image.getBounds().width + BORDER_MARGIN;
         }
 
-        e.gc.setForeground(UIStyles.getDefaultTextForeground());
-        e.gc.drawString(this.text, x, BORDER_MARGIN);
+        if (!CommonUtils.isEmpty(text)) {
+            e.gc.setForeground(UIStyles.getDefaultTextForeground());
+            e.gc.drawString(this.text, xOffset, yOffset);
+        }
     }
 
     private boolean isSelected() {
@@ -292,6 +318,10 @@ public class VerticalButton extends Canvas {
     }
 
     public void setCommand(IServiceLocator serviceLocator, String commandId, boolean showText) {
+        if (this.commandId != null) {
+            this.removeCommandListener(this.commandId);
+        }
+        this.setCommandListener(commandId);
         this.serviceLocator = serviceLocator;
         this.commandId = commandId;
         setImage(ActionUtils.findCommandImage(commandId));
@@ -301,6 +331,27 @@ public class VerticalButton extends Canvas {
         String toolTipText = ActionUtils.findCommandDescription(commandId, serviceLocator, false);
         if (!CommonUtils.isEmpty(toolTipText)) {
             this.setToolTipText(toolTipText);
+        }
+    }
+
+    private void setCommandListener(@NotNull String commandId) {
+        final Command command = ActionUtils.findCommand(commandId);
+        if (command != null) {
+            command.addCommandListener(commandListener = event -> {
+                // Update visuals
+                final String toolTipText = ActionUtils.findCommandDescription(commandId, serviceLocator, false);
+                if (CommonUtils.isNotEmpty(toolTipText)) {
+                    setToolTipText(toolTipText);
+                }
+            });
+        }
+    }
+
+    private void removeCommandListener(@NotNull String commandId) {
+        final Command command = ActionUtils.findCommand(commandId);
+        if (command != null && commandListener != null) {
+            command.removeCommandListener(commandListener);
+            commandListener = null;
         }
     }
 

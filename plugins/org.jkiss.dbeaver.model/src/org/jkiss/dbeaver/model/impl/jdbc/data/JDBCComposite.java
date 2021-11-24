@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.jkiss.dbeaver.model.impl.jdbc.data;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataKind;
 import org.jkiss.dbeaver.model.DBPDataSource;
@@ -39,8 +40,8 @@ import org.jkiss.utils.CommonUtils;
 
 import java.sql.*;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 
 /**
  * abstract struct implementation.
@@ -52,11 +53,8 @@ public abstract class JDBCComposite implements DBDComposite, DBDValueCloneable {
     @Nullable
     private Struct rawStruct;
 
-    @NotNull
     protected DBSDataType type;
-    @NotNull
     protected DBSEntityAttribute[] attributes;
-    @NotNull
     protected Object[] values;
     protected boolean modified;
 
@@ -102,7 +100,9 @@ public abstract class JDBCComposite implements DBDComposite, DBDValueCloneable {
     @Override
     public void release()
     {
-        values = EMPTY_VALUES;
+        for (Object value : values) {
+            DBUtils.releaseValue(value);
+        }
     }
 
     @NotNull
@@ -183,8 +183,13 @@ public abstract class JDBCComposite implements DBDComposite, DBDValueCloneable {
         return values[position];
     }
 
+    public Object getAttributeValue(@NotNull String attrName) throws DBCException {
+        DBSEntityAttribute attribute = DBUtils.findObject(attributes, attrName);
+        return attribute == null ? null : getAttributeValue(attribute);
+    }
+
     @Override
-    public void setAttributeValue(@NotNull DBSAttributeBase attribute, @Nullable Object value) {
+    public void setAttributeValue(@NotNull DBSAttributeBase attribute, @Nullable Object value) throws DBCException {
         if (!CommonUtils.equalObjects(values[attribute.getOrdinalPosition()], value)) {
             this.values[attribute.getOrdinalPosition()] = value;
             this.modified = true;
@@ -225,7 +230,7 @@ public abstract class JDBCComposite implements DBDComposite, DBDValueCloneable {
 
         @Nullable
         @Override
-        public Collection<? extends DBSEntityAttribute> getAttributes(@NotNull DBRProgressMonitor monitor) {
+        public List<? extends DBSEntityAttribute> getAttributes(@NotNull DBRProgressMonitor monitor) {
             return Arrays.asList(attributes);
         }
     }
@@ -233,7 +238,7 @@ public abstract class JDBCComposite implements DBDComposite, DBDValueCloneable {
     protected static class StructAttribute extends AbstractAttribute implements DBSEntityAttribute {
         final DBSDataType type;
         DBPDataKind dataKind;
-        public StructAttribute(DBSDataType type, int index, Object value)
+        public StructAttribute(DBSDataType type, int index, Object value) throws DBException
         {
             this.type = type;
             if (value instanceof CharSequence) {
@@ -291,8 +296,8 @@ public abstract class JDBCComposite implements DBDComposite, DBDValueCloneable {
             return CommonUtils.equalObjects(name, attr.name) &&
                 valueType == attr.valueType &&
                 maxLength == attr.maxLength &&
-                CommonUtils.equalObjects(scale, attr.scale) &&
-                CommonUtils.equalObjects(precision, attr.precision) &&
+                scale == attr.scale &&
+                precision == attr.precision &&
                 CommonUtils.equalObjects(typeName, attr.typeName) &&
                 ordinalPosition == attr.ordinalPosition;
         }
@@ -300,7 +305,7 @@ public abstract class JDBCComposite implements DBDComposite, DBDValueCloneable {
         @Override
         public int hashCode() {
             return (int) ((name == null ? 0 : name.hashCode()) +
-                valueType + maxLength + CommonUtils.toInt(scale) + CommonUtils.toInt(precision) +
+                valueType + maxLength + scale + precision +
                 (typeName == null ? 0 : typeName.hashCode()) +
                 ordinalPosition);
         }

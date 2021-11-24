@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBUtils;
@@ -204,7 +205,8 @@ public abstract class DBVUtils {
         @NotNull DBSEntityAttribute valueAttribute,
         @NotNull DBDValueHandler valueHandler,
         @NotNull DBCResultSet dbResult,
-        boolean formatValues) throws DBCException
+        boolean formatValues,
+        boolean containsCount) throws DBCException
     {
         List<DBDLabelValuePair> values = new ArrayList<>();
         List<DBCAttributeMetaData> metaColumns = dbResult.getMeta().getAttributes();
@@ -213,6 +215,9 @@ public abstract class DBVUtils {
             colHandlers.add(DBUtils.findValueHandler(session, col));
         }
         boolean hasNulls = false;
+
+        String columnDivider = session.getDataSource().getContainer().getPreferenceStore().getString(ModelPreferences.DICTIONARY_COLUMN_DIVIDER);
+
         // Extract enumeration values and (optionally) their descriptions
         while (dbResult.nextRow()) {
             // Check monitor
@@ -232,12 +237,18 @@ public abstract class DBVUtils {
                 keyValue = valueHandler.getValueDisplayString(valueAttribute, keyValue, DBDDisplayFormat.NATIVE);
             }
             String keyLabel;
+            long keyCount = 0;
             if (metaColumns.size() > 1) {
                 StringBuilder keyLabel2 = new StringBuilder();
                 for (int i = 1; i < colHandlers.size(); i++) {
                     Object descValue = colHandlers.get(i).fetchValueObject(session, dbResult, metaColumns.get(i), i);
+                    if (containsCount && i == colHandlers.size() - 1) {
+                        // The last one column is the `count(*)`
+                        keyCount = CommonUtils.toLong(descValue);
+                        break;
+                    }
                     if (keyLabel2.length() > 0) {
-                        keyLabel2.append(" ");
+                        keyLabel2.append(columnDivider);
                     }
                     keyLabel2.append(colHandlers.get(i).getValueDisplayString(metaColumns.get(i), descValue, DBDDisplayFormat.NATIVE));
                 }
@@ -245,7 +256,11 @@ public abstract class DBVUtils {
             } else {
                 keyLabel = valueHandler.getValueDisplayString(valueAttribute, keyValue, DBDDisplayFormat.NATIVE);
             }
-            values.add(new DBDLabelValuePair(keyLabel, keyValue));
+            if (containsCount && keyCount > 0) {
+                values.add(new DBDLabelValuePairExt(keyLabel, keyValue, keyCount));
+            } else {
+                values.add(new DBDLabelValuePair(keyLabel, keyValue));
+            }
         }
         return values;
     }
@@ -300,11 +315,15 @@ public abstract class DBVUtils {
     }
 
     @NotNull
-    public static List<DBSEntityAssociation> getAllAssociations(@NotNull DBRProgressMonitor monitor, @NotNull DBSEntity entity) throws DBException {
+    public static List<DBSEntityAssociation> getAllAssociations(@NotNull DBRProgressMonitor monitor, @NotNull DBSEntity entity) {
         List<DBSEntityAssociation> result = new ArrayList<>();
-        final Collection<? extends DBSEntityAssociation> realConstraints = entity.getAssociations(monitor);
-        if (!CommonUtils.isEmpty(realConstraints)) {
-            result.addAll(realConstraints);
+        try {
+            final Collection<? extends DBSEntityAssociation> realConstraints = entity.getAssociations(monitor);
+            if (!CommonUtils.isEmpty(realConstraints)) {
+                result.addAll(realConstraints);
+            }
+        } catch (DBException e) {
+            log.debug("Error reading entity associations", e);
         }
         if (!(entity instanceof DBVEntity)) {
             DBVEntity vEntity = getVirtualEntity(entity, false);
@@ -320,11 +339,15 @@ public abstract class DBVUtils {
     }
 
     @NotNull
-    public static List<DBSEntityAssociation> getAllReferences(@NotNull DBRProgressMonitor monitor, @NotNull DBSEntity onEntity) throws DBException {
+    public static List<DBSEntityAssociation> getAllReferences(@NotNull DBRProgressMonitor monitor, @NotNull DBSEntity onEntity) {
         List<DBSEntityAssociation> result = new ArrayList<>();
-        final Collection<? extends DBSEntityAssociation> realConstraints = onEntity.getReferences(monitor);
-        if (!CommonUtils.isEmpty(realConstraints)) {
-            result.addAll(realConstraints);
+        try {
+            final Collection<? extends DBSEntityAssociation> realConstraints = onEntity.getReferences(monitor);
+            if (!CommonUtils.isEmpty(realConstraints)) {
+                result.addAll(realConstraints);
+            }
+        } catch (DBException e) {
+            log.debug("Error reading entity references", e);
         }
 
         result.addAll(getVirtualReferences(onEntity));
@@ -369,6 +392,9 @@ public abstract class DBVUtils {
     }
 
     public static DBVObject getVirtualObject(DBSObject source, boolean create) {
+        if (source == null) {
+            return null;
+        }
         if (source instanceof DBVObject) {
             return (DBVObject) source;
         }

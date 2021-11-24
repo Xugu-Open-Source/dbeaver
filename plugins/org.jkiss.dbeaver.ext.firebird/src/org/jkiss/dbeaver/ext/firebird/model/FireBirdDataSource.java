@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.jkiss.dbeaver.ext.firebird.model;
 
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.firebird.model.plan.FireBirdPlanAnalyser;
@@ -31,12 +32,15 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlan;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlanStyle;
 import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlanner;
+import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlannerConfiguration;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.utils.IntKeyMap;
 
 import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class FireBirdDataSource extends GenericDataSource
@@ -86,7 +90,7 @@ public class FireBirdDataSource extends GenericDataSource
         try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Read generic metadata")) {
             // Read metadata
             try (JDBCPreparedStatement dbStat = session.prepareStatement("SELECT * FROM RDB$TYPES")) {
-                monitor.subTask("Load FireBird types");
+                monitor.subTask("Load Firebird types");
                 try (JDBCResultSet dbResult = dbStat.executeQuery()) {
                     while (dbResult.next()) {
                         if (monitor.isCanceled()) {
@@ -130,15 +134,38 @@ public class FireBirdDataSource extends GenericDataSource
     }
 
     
-	@Override
-	public DBCPlan planQueryExecution(DBCSession session, String query) throws DBException {
+	@NotNull
+    @Override
+	public DBCPlan planQueryExecution(@NotNull DBCSession session, @NotNull String query, @NotNull DBCQueryPlannerConfiguration configuration) throws DBException {
 		FireBirdPlanAnalyser plan = new FireBirdPlanAnalyser(this, (JDBCSession) session, query);
         plan.explain();
         return plan;
 	}
 
-	@Override
+	@NotNull
+    @Override
 	public DBCPlanStyle getPlanStyle() {
 		return DBCPlanStyle.PLAN;
 	}
+
+    @Override
+    public List<FireBirdTable> getPhysicalTables(DBRProgressMonitor monitor) throws DBException {
+        return (List<FireBirdTable>) super.getPhysicalTables(monitor);
+    }
+
+    @Override
+    public List<FireBirdTable> getTables(DBRProgressMonitor monitor) throws DBException {
+        return (List<FireBirdTable>) super.getTables(monitor);
+    }
+
+    @Override
+    public List<FireBirdProcedure> getProcedures(DBRProgressMonitor monitor) throws DBException {
+        return (List<FireBirdProcedure>) super.getProcedures(monitor);
+    }
+
+    @NotNull
+    @Override
+    public Class<? extends DBSObject> getPrimaryChildType(@Nullable DBRProgressMonitor monitor) throws DBException {
+        return FireBirdTable.class;
+    }
 }

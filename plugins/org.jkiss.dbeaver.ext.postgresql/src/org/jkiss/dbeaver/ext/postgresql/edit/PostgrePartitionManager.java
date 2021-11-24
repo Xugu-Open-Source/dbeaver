@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,6 @@
  */
 package org.jkiss.dbeaver.ext.postgresql.edit;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
@@ -27,6 +23,10 @@ import org.jkiss.dbeaver.ext.postgresql.model.*;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 
 /**
  * PostgrePartitionManager
@@ -54,14 +54,14 @@ public class PostgrePartitionManager extends PostgreTableManager {
             superTables = partition.getSuperTables(new VoidProgressMonitor());
         } catch (DBException e) {
             log.error("Unable to get parent",e);
-            return "";
+            return "";//$NON-NLS-1$
         }
         
         if (superTables == null && partition.getPartitionOf() != null) {
-            return partition.getPartitionOf().getSchema().getName() + "." + partition.getPartitionOf().getName();            
+            return partition.getPartitionOf().getSchema().getName() + "." + partition.getPartitionOf().getName();//$NON-NLS-1$
         } else if (superTables == null || superTables.size() > 1) {
             log.error("Unable to get parent");
-            return "";
+            return "";//$NON-NLS-1$
         } 
         
         //       final String tableName = CommonUtils.getOption(options, DBPScriptObject.OPTION_FULLY_QUALIFIED_NAMES, true) ?
@@ -72,13 +72,12 @@ public class PostgrePartitionManager extends PostgreTableManager {
     }   
     
     @Override
-    protected String beginCreateTableStatement(PostgreTableBase table, String tableName) {
-        return "CREATE " + getCreateTableType(table) + " " + tableName + " PARTITION OF " +
-                getParentTable((PostgreTablePartition) table) + " ";//$NON-NLS-1$ //$NON-NLS-2$
+    protected String beginCreateTableStatement(DBRProgressMonitor monitor, PostgreTableBase table, String tableName, Map<String, Object> options) {
+        return "CREATE " + getCreateTableType(table) + " " + tableName + " PARTITION OF " + getParentTable((PostgreTablePartition) table) + " ";//$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
     }
 
     @Override
-    protected boolean hasAttrDeclarations() {
+    protected boolean hasAttrDeclarations(PostgreTableBase table) {
         return false;
     }
 

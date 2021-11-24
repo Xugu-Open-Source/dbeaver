@@ -1,3 +1,19 @@
+/*
+ * DBeaver - Universal Database Manager
+ * Copyright (C) 2010-2021 DBeaver Corp and others
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.jkiss.dbeaver.ext.oracle.tasks;
 
 import org.jkiss.dbeaver.DBException;
@@ -62,7 +78,7 @@ public class OracleScriptExecuteHandler extends AbstractNativeToolHandler<Oracle
         DBPConnectionConfiguration conInfo = settings.getDataSourceContainer().getActualConnectionConfiguration();
         String url;
         if ("TNS".equals(conInfo.getProviderProperty(OracleConstants.PROP_CONNECTION_TYPE))) { //$NON-NLS-1$
-            url = conInfo.getServerName();
+            url = conInfo.getServerName() != null ? conInfo.getServerName() : conInfo.getDatabaseName();
         }
         else {
             boolean isSID = OracleConnectionType.SID.name().equals(conInfo.getProviderProperty(OracleConstants.PROP_SID_SERVICE));
@@ -97,8 +113,12 @@ public class OracleScriptExecuteHandler extends AbstractNativeToolHandler<Oracle
 
     @Override
     protected void startProcessHandler(DBRProgressMonitor monitor, DBTTask task, OracleScriptExecuteSettings settings, OracleDataSource arg, ProcessBuilder processBuilder, Process process, Log log) throws IOException {
+        final File inputFile = new File(settings.getInputFile());
+        if (!inputFile.exists()) {
+            throw new IOException("File '" + inputFile.getAbsolutePath() + "' doesn't exist");
+        }
         super.startProcessHandler(monitor, task, settings, arg, processBuilder, process, log);
-        new BinaryFileTransformerJob(monitor, task, new File(settings.getInputFile()), process.getOutputStream(), log).start();
+        new BinaryFileTransformerJob(monitor, task, inputFile, process.getOutputStream(), log).start();
     }
 
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import org.eclipse.core.runtime.preferences.AbstractPreferenceInitializer;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.sql.SQLModelPreferences;
+import org.jkiss.dbeaver.model.sql.SQLTableAliasInsertMode;
 import org.jkiss.dbeaver.model.sql.format.tokenized.SQLFormatterTokenized;
 import org.jkiss.dbeaver.utils.PrefUtils;
 
@@ -35,7 +36,7 @@ public class SQLModelPreferencesInitializer extends AbstractPreferenceInitialize
 
         // Common
         PrefUtils.setDefaultPreferenceValue(store, SQLModelPreferences.SQL_FORMAT_FORMATTER, SQLFormatterTokenized.FORMATTER_ID);
-        PrefUtils.setDefaultPreferenceValue(store, SQLModelPreferences.SQL_PROPOSAL_INSERT_TABLE_ALIAS, true);
+        PrefUtils.setDefaultPreferenceValue(store, SQLModelPreferences.SQL_PROPOSAL_INSERT_TABLE_ALIAS, SQLTableAliasInsertMode.PLAIN);
     }
 
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import org.eclipse.core.internal.localstore.BucketTree;
 import org.eclipse.core.internal.properties.PropertyBucket;
 import org.eclipse.core.internal.resources.Workspace;
 import org.eclipse.core.resources.IFile;
-import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.*;
@@ -35,6 +34,8 @@ import org.jkiss.dbeaver.model.app.DBASecureStorage;
 import org.jkiss.dbeaver.model.app.DBPDataSourceRegistry;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.app.DBPWorkspace;
+import org.jkiss.dbeaver.model.auth.DBASessionContext;
+import org.jkiss.dbeaver.model.data.json.JSONUtils;
 import org.jkiss.dbeaver.model.runtime.AbstractJob;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.task.DBTTaskManager;
@@ -60,7 +61,7 @@ public class ProjectMetadata implements DBPProject {
         MODERN,     // 6.1+ version
     }
 
-    private static Gson METADATA_GSON = new GsonBuilder()
+    private static final Gson METADATA_GSON = new GsonBuilder()
         .setLenient()
         .serializeNulls()
         .create();
@@ -69,6 +70,10 @@ public class ProjectMetadata implements DBPProject {
 
     private final DBPWorkspace workspace;
     private final IProject project;
+    private final DBASessionContext sessionContext;
+
+    private String projectName;
+    private File projectPath;
 
     private volatile ProjectFormat format = ProjectFormat.UNKNOWN;
     private volatile DataSourceRegistry dataSourceRegistry;
@@ -78,11 +83,27 @@ public class ProjectMetadata implements DBPProject {
     private DBASecureStorage secureStorage;
     private UUID projectID;
     private final Object metadataSync = new Object();
+    private boolean inMemory;
 
-    public ProjectMetadata(DBPWorkspace workspace, IProject project) {
+    public ProjectMetadata(DBPWorkspace workspace, IProject project, DBASessionContext sessionContext) {
         this.workspace = workspace;
         this.project = project;
         this.metadataSyncJob = new ProjectSyncJob();
+        this.sessionContext = sessionContext == null ? workspace.getAuthContext() : sessionContext;
+    }
+
+    public ProjectMetadata(DBPWorkspace workspace, String name, File path, DBASessionContext sessionContext) {
+        this(workspace, workspace.getActiveProject() == null ? null : workspace.getActiveProject().getEclipseProject(), sessionContext);
+        this.projectName = name;
+        this.projectPath = path;
+    }
+
+    public void setInMemory(boolean inMemory) {
+        this.inMemory = inMemory;
+    }
+
+    public boolean isInMemory() {
+        return inMemory;
     }
 
     @NotNull
@@ -91,10 +112,15 @@ public class ProjectMetadata implements DBPProject {
         return workspace;
     }
 
+    @Override
+    public boolean isVirtual() {
+        return projectName != null;
+    }
+
     @NotNull
     @Override
     public String getName() {
-        return project.getName();
+        return projectName != null ? projectName : project.getName();
     }
 
     @Override
@@ -114,7 +140,7 @@ public class ProjectMetadata implements DBPProject {
     @NotNull
     @Override
     public File getAbsolutePath() {
-        return project.getLocation().toFile();
+        return projectPath != null ? projectPath : project.getLocation().toFile();
     }
 
     @NotNull
@@ -125,13 +151,11 @@ public class ProjectMetadata implements DBPProject {
 
     @NotNull
     @Override
-    public IFolder getMetadataFolder(boolean create) {
-        IFolder metadataFolder = project.getFolder(METADATA_FOLDER);
+    public File getMetadataFolder(boolean create) {
+        File metadataFolder = new File(getAbsolutePath(), METADATA_FOLDER);
         if (create && !metadataFolder.exists()) {
-            try {
-                metadataFolder.create(IResource.FORCE | IResource.HIDDEN, true, new NullProgressMonitor());
-            } catch (CoreException e) {
-                log.error("Error creating project metadata folder", e);
+            if (!metadataFolder.mkdirs()) {
+                log.error("Error creating metadata folder");
             }
         }
 
@@ -145,7 +169,7 @@ public class ProjectMetadata implements DBPProject {
 
     @Override
     public boolean isOpen() {
-        return project.isOpen();
+        return project == null || project.isOpen();
     }
 
     @Override
@@ -153,7 +177,7 @@ public class ProjectMetadata implements DBPProject {
         if (format != ProjectFormat.UNKNOWN) {
             return;
         }
-        if (!project.isOpen()) {
+        if (project != null && !project.isOpen()) {
             try {
                 NullProgressMonitor monitor = new NullProgressMonitor();
                 project.open(monitor);
@@ -163,8 +187,12 @@ public class ProjectMetadata implements DBPProject {
                 return;
             }
         }
+        if (inMemory) {
+            format = ProjectFormat.MODERN;
+            return;
+        }
 
-        IFolder mdFolder = getMetadataFolder(false);
+        File mdFolder = getMetadataFolder(false);
 
         File dsConfig = new File(getAbsolutePath(), DataSourceRegistry.LEGACY_CONFIG_FILE_NAME);
         if (!mdFolder.exists() && dsConfig.exists()) {
@@ -180,6 +208,11 @@ public class ProjectMetadata implements DBPProject {
     @Override
     public boolean isRegistryLoaded() {
         return dataSourceRegistry != null;
+    }
+
+    @Override
+    public boolean isModernProject() {
+        return getFormat() == ProjectFormat.MODERN;
     }
 
     @NotNull
@@ -222,6 +255,12 @@ public class ProjectMetadata implements DBPProject {
         return secureStorage;
     }
 
+    @NotNull
+    @Override
+    public DBASessionContext getSessionContext() {
+        return sessionContext;
+    }
+
     ////////////////////////////////////////////////////////
     // Properties
 
@@ -256,7 +295,7 @@ public class ProjectMetadata implements DBPProject {
             if (settingsFile.exists() && settingsFile.length() > 0) {
                 // Parse metadata
                 try (Reader settingsReader = new InputStreamReader(new FileInputStream(settingsFile), StandardCharsets.UTF_8)) {
-                    properties = METADATA_GSON.fromJson(settingsReader, Map.class);
+                    properties = JSONUtils.parseMap(METADATA_GSON, settingsReader);
                 } catch (Throwable e) {
                     log.error("Error reading project '" + getName() + "' setting from "  + settingsFile.getAbsolutePath(), e);
                 }
@@ -339,6 +378,41 @@ public class ProjectMetadata implements DBPProject {
         flushMetadata();
     }
 
+    @Override
+    public void setResourceProperties(IResource resource, Map<String, Object> props) {
+        loadMetadata();
+        synchronized (metadataSync) {
+            String filePath = resource.getProjectRelativePath().toString();
+            Map<String, Object> resProps = resourceProperties.get(filePath);
+            if (resProps == null) {
+                if (props.isEmpty()) {
+                    // No props + no new value - ignore
+                    return;
+                }
+                resProps = new LinkedHashMap<>();
+                resourceProperties.put(filePath, resProps);
+            }
+            boolean hasChanges = false;
+            for (Map.Entry<String, Object> pe : props.entrySet()) {
+                if (pe.getValue() == null) {
+                    if (resProps.remove(pe.getKey()) != null) {
+                        hasChanges = true;
+                    }
+                } else {
+                    Object oldValue = resProps.get(pe.getKey());
+                    if (!CommonUtils.equalObjects(oldValue, pe.getValue())) {
+                        resProps.put(pe.getKey(), pe.getValue());
+                        hasChanges = true;
+                    }
+                }
+            }
+            if (!hasChanges) {
+                return;
+            }
+        }
+        flushMetadata();
+    }
+
     public void dispose() {
         if (dataSourceRegistry != null) {
             dataSourceRegistry.dispose();
@@ -350,6 +424,9 @@ public class ProjectMetadata implements DBPProject {
     }
 
     private void loadMetadata() {
+        if (isInMemory()) {
+            return;
+        }
         ensureOpen();
         synchronized (metadataSync) {
             if (resourceProperties != null) {
@@ -480,30 +557,40 @@ public class ProjectMetadata implements DBPProject {
     }
 
     private void flushMetadata() {
+        if (inMemory) {
+            return;
+        }
         synchronized (metadataSync) {
             metadataSyncJob.schedule(100);
         }
     }
 
     void removeResourceFromCache(IPath path) {
+        boolean cacheChanged = false;
         synchronized (metadataSync) {
             if (resourceProperties != null) {
-                resourceProperties.remove(path.toString());
+                cacheChanged = (resourceProperties.remove(path.toString()) != null);
             }
         }
-        flushMetadata();
+        if (cacheChanged) {
+            flushMetadata();
+        }
     }
 
     void updateResourceCache(IPath oldPath, IPath newPath) {
+        boolean cacheChanged = false;
         synchronized (metadataSync) {
             if (resourceProperties != null) {
                 Map<String, Object> props = resourceProperties.remove(oldPath.toString());
                 if (props != null) {
                     resourceProperties.put(newPath.toString(), props);
+                    cacheChanged = true;
                 }
             }
         }
-        flushMetadata();
+        if (cacheChanged) {
+            flushMetadata();
+        }
     }
 
     @Override
@@ -520,7 +607,7 @@ public class ProjectMetadata implements DBPProject {
         protected IStatus run(DBRProgressMonitor monitor) {
             setName("Project '" + ProjectMetadata.this.getName() + "' sync job");
 
-            ContentUtils.makeFileBackup(getMetadataFolder(true).getFile(new Path(METADATA_STORAGE_FILE)));
+            ContentUtils.makeFileBackup(new File(getMetadataFolder(false), METADATA_STORAGE_FILE));
 
             synchronized (metadataSync) {
                 File mdFile = new File(getMetadataPath(), METADATA_STORAGE_FILE);

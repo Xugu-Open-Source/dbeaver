@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,21 +29,26 @@ import java.util.Locale;
 public class DBConstants {
 
     /////////////////////////////////
-    // Features
+    // Standard properties
 
-    /**
-     * Row limit (setMaxSize) affects DML (UPDATE, INSERT, etc) statements.
-     */
-    public static final String FEATURE_LIMIT_AFFECTS_DML = "datasource.limit-affects-dml";
-    /**
-     * LOB value operations require enabled transactions. I.e. LOB locator life time is 1 transaction.
-     */
-    public static final String FEATURE_LOB_REQUIRE_TRANSACTIONS = "datasource.lob-require-transactions";
-    /**
-     * Max string length. Used by data transfer/compare/migration tools.
-     * null means "unknown", -1 means any length (i.e. explicit length is not needed)
-     */
-    public static final String FEATURE_MAX_STRING_LENGTH = "datasource.max-string-type-length";
+    public static final String PROP_ID_NAME = "name"; //NON-NLS-1
+    public static final String PROP_ID_DESCRIPTION = "description"; //NON-NLS-1
+    public static final String PROP_ID_DATA_TYPE = "dataType"; //NON-NLS-1
+    public static final String PROP_ID_REQUIRED = "required"; //NON-NLS-1
+    public static final String PROP_ID_DEFAULT_VALUE = "defaultValue"; //NON-NLS-1
+    public static final String PROP_ID_TYPE_NAME = "typeName"; //NON-NLS-1
+    public static final String PROP_ID_MAX_LENGTH = "maxLength"; //NON-NLS-1
+    public static final String PROP_ID_NOT_NULL = "notNull"; //NON-NLS-1
+    public static final String PROP_ID_ENABLED = "enabled"; //NON-NLS-1
+    public static final String PARAM_INIT_ON_TEST = "initOnTest"; //NON-NLS-1
+    public static final String PARAM_OBJECT_DEFINITION_TEXT = "objectDefinitionText"; //NON-NLS-1
+    public static final String PARAM_EXTENDED_DEFINITION_TEXT = "extendedDefinitionText"; //NON-NLS-1
+
+    /////////////////////////////////
+    // Variables
+
+    public static final String VAR_CONTEXT_NAME = "context.name";
+    public static final String VAR_CONTEXT_ID = "context.id";
 
     /////////////////////////////////
     // Misc
@@ -55,23 +60,9 @@ public class DBConstants {
 
     public static final String NULL_VALUE_LABEL = "[NULL]"; //NON-NLS-1
 
-    public static final String PROP_ID_NAME = "name"; //NON-NLS-1
-    public static final String PROP_ID_DESCRIPTION = "description"; //NON-NLS-1
-    public static final String PROP_ID_DATA_TYPE = "dataType"; //NON-NLS-1
-    public static final String PROP_ID_REQUIRED = "required"; //NON-NLS-1
-    public static final String PROP_ID_DEFAULT_VALUE = "defaultValue"; //NON-NLS-1
-    public static final String PROP_ID_TYPE_NAME = "typeName"; //NON-NLS-1
-    public static final String PROP_ID_MAX_LENGTH = "maxLength"; //NON-NLS-1
-    public static final String PROP_ID_NOT_NULL = "notNull"; //NON-NLS-1
-    public static final String PARAM_INIT_ON_TEST = "initOnTest"; //NON-NLS-1
-    public static final String PARAM_OBJECT_DEFINITION_TEXT = "objectDefinitionText"; //NON-NLS-1
-    public static final String PARAM_EXTENDED_DEFINITION_TEXT = "extendedDefinitionText"; //NON-NLS-1
-
-    public static final String VAR_CONTEXT_NAME = "context.name";
-    public static final String VAR_CONTEXT_ID = "context.id";
-
     // Internal properties prefix. This is a legacy properties marker (used to divide driver properties from provider properties)
     // Left for backward compatibility. Do not use it for new provider property names
+    @Deprecated
     public static final String INTERNAL_PROP_PREFIX = "@dbeaver-"; //NON-NLS-1
 
     // Used for default driver property values redefine
@@ -108,7 +99,7 @@ public class DBConstants {
     public static final String DEFAULT_TIME_TZ_FORMAT = "HH:mm:ss Z";
     public static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
     public static final String DEFAULT_TIMESTAMP_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
-    public static final String DEFAULT_TIMESTAMP_TZ_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS'Z'";
+    public static final String DEFAULT_TIMESTAMP_TZ_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS Z";
 
     public static final String DEFAULT_ISO_TIMESTAMP_FORMAT = "yyyy-MM-dd'T'HH:mm:ss'Z'";
 
@@ -120,4 +111,29 @@ public class DBConstants {
     public static final String WORKSPACE_PROPS_FILE = "dbeaver-workspace.properties"; //$NON-NLS-1$
 
     public static final String LABEL_NA = "N/A";
+
+    public static final String DEBUG_LOG_FILE_NAME = "dbeaver-debug.log";
+
+    /////////////////////////////////
+    // Property categories and features
+
+    public static final String CAT_MAIN = "Main";
+    public static final String CAT_STATISTICS = "Statistics";
+
+    public static final String PROP_FEATURE_EXPENSIVE = "expensive";
+    public static final String PROP_FEATURE_NUMERIC = "numeric";
+    public static final String PROP_FEATURE_DATETME = "datetme";
+    public static final String PROP_FEATURE_HIDDEN = "hidden";
+    public static final String PROP_FEATURE_REMOTE = "remote";
+    public static final String PROP_FEATURE_OPTIONAL = "optional";
+    public static final String PROP_FEATURE_SPECIFIC = "specific";
+    public static final String PROP_FEATURE_REQUIRED = "required";
+    public static final String PROP_FEATURE_PASSWORD = "password";
+    public static final String PROP_FEATURE_NAME = "name";
+    public static final String PROP_FEATURE_MULTILINE = "multiline";
+    public static final String PROP_FEATURE_EDIT_POSSIBLE = "editPossible";
+    public static final String PROP_FEATURE_LINK_POSSIBLE = "linkPossible";
+    public static final String PROP_FEATURE_HREF = "href";
+    public static final String PROP_FEATURE_VIEWABLE = "viewable";
+
 }

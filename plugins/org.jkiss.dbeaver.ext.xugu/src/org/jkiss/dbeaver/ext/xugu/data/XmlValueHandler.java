@@ -56,9 +56,9 @@ public class XmlValueHandler extends ClobValueHandler {
 		}
 
 		if (object == null) {
-			return new ContentXml(session.getDataSource(), null);
+			return new ContentXml(session.getExecutionContext(), null);
 		} else if (object instanceof SQLXML) {
-			return new ContentXml(session.getDataSource(), (SQLXML) object);
+			return new ContentXml(session.getExecutionContext(), (SQLXML) object);
 		} else {
 			throw new DBCException("Unsupported object type: " + object.getClass().getName());
 		}
@@ -68,7 +68,7 @@ public class XmlValueHandler extends ClobValueHandler {
 	public DBDContent getValueFromObject(@NotNull DBCSession session, @NotNull DBSTypedObject type, Object object,
 			boolean copy, boolean validateValue) throws DBCException {
 		if (object == null) {
-			return new ContentXml(session.getDataSource(), null);
+			return new ContentXml(session.getExecutionContext(), null);
 		} else if (object instanceof ContentXml) {
 			return copy ? (ContentXml) ((ContentXml) object).cloneValue(session.getProgressMonitor())
 					: (ContentXml) object;

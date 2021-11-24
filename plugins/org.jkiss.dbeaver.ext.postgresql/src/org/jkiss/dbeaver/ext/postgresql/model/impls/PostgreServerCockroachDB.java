@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -130,7 +130,7 @@ public class PostgreServerCockroachDB extends PostgreServerExtensionBase {
 
     @Override
     public boolean supportsResultSetLimits() {
-        return false;
+        return true;
     }
 
     @Override
@@ -204,6 +204,11 @@ public class PostgreServerCockroachDB extends PostgreServerExtensionBase {
     }
 
     @Override
+    public boolean supportsTableStatistics() {
+        return false;
+    }
+
+    @Override
     public String readTableDDL(DBRProgressMonitor monitor, PostgreTableBase table) throws DBException {
         try (JDBCSession session = DBUtils.openMetaSession(monitor, table, "Load CockroachDB table DDL")) {
             try (JDBCPreparedStatement dbStat = session.prepareStatement("SHOW CREATE TABLE " + table.getFullyQualifiedName(DBPEvaluationContext.DDL))) {
@@ -226,5 +231,34 @@ public class PostgreServerCockroachDB extends PostgreServerExtensionBase {
             throw new DBException(e, table.getDataSource());
         }
     }
-}
 
+    @Override
+    public boolean supportsSuperusers() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsRolesWithCreateDBAbility() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsKeyAndIndexRename() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsAlterUserChangePassword() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsCopyFromStdIn() {
+        return true;
+    }
+
+    @Override
+    public int getTruncateToolModes() {
+        return TRUNCATE_TOOL_MODE_SUPPORT_ONLY_ONE_TABLE | TRUNCATE_TOOL_MODE_SUPPORT_CASCADE;
+    }
+}

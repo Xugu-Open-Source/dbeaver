@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,17 @@
  */
 package org.jkiss.dbeaver.ui.dialogs.net;
 
+import org.eclipse.jface.preference.PreferenceDialog;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Spinner;
 import org.eclipse.swt.widgets.Text;
+import org.eclipse.ui.dialogs.PreferencesUtil;
 import org.jkiss.dbeaver.model.impl.net.SocksConstants;
 import org.jkiss.dbeaver.model.net.DBWHandlerConfiguration;
 import org.jkiss.dbeaver.ui.IObjectPropertyConfigurator;
@@ -34,6 +38,8 @@ import org.jkiss.utils.CommonUtils;
  * SOCKS proxy configuration
  */
 public class SocksProxyConfiguratorUI implements IObjectPropertyConfigurator<DBWHandlerConfiguration> {
+
+    public static final String NETWORK_PREF_PAGE_ID = "org.eclipse.ui.net.NetPreferences";
 
     private Text hostText;
     private Spinner portText;
@@ -48,7 +54,7 @@ public class SocksProxyConfiguratorUI implements IObjectPropertyConfigurator<DBW
         composite.setLayout(new GridLayout(1, true));
         composite.setLayoutData(new GridData(GridData.FILL_BOTH));
 
-        createSocksGroup(parent);
+        createSocksGroup(composite);
     }
 
     protected void createSocksGroup(Composite parent) {
@@ -59,7 +65,7 @@ public class SocksProxyConfiguratorUI implements IObjectPropertyConfigurator<DBW
 
         portText = UIUtils.createLabelSpinner(composite, UIConnectionMessages.dialog_connection_network_socket_label_port, SocksConstants.DEFAULT_SOCKS_PORT, 0, 65535);
         GridData gd = new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING);
-        gd.widthHint = 50;
+        gd.widthHint = UIUtils.getFontHeight(portText) * 7;
         portText.setLayoutData(gd);
 
         userNameText = UIUtils.createLabelText(composite, UIConnectionMessages.dialog_connection_network_socket_label_username, null); //$NON-NLS-2$
@@ -68,6 +74,18 @@ public class SocksProxyConfiguratorUI implements IObjectPropertyConfigurator<DBW
         passwordText = UIUtils.createLabelText(composite, UIConnectionMessages.dialog_connection_network_socket_label_password, "", SWT.BORDER | SWT.PASSWORD); //$NON-NLS-2$
         UIUtils.createEmptyLabel(composite,1, 1);
         savePasswordCheckbox = UIUtils.createCheckbox(composite, UIConnectionMessages.dialog_connection_auth_checkbox_save_password, false);
+
+        UIUtils.createLink(parent, "<a>Open global network preferences</a>", new SelectionAdapter() {
+            @Override
+            public void widgetSelected(SelectionEvent e) {
+                PreferenceDialog dialog = PreferencesUtil.createPreferenceDialogOn(
+                    UIUtils.getActiveWorkbenchShell(),
+                    NETWORK_PREF_PAGE_ID,
+                    null,
+                    null);
+                dialog.open();
+            }
+        });
     }
 
     @Override
@@ -88,9 +106,9 @@ public class SocksProxyConfiguratorUI implements IObjectPropertyConfigurator<DBW
     @Override
     public void saveSettings(DBWHandlerConfiguration configuration)
     {
-        configuration.setProperty(SocksConstants.PROP_HOST, hostText.getText());
+        configuration.setProperty(SocksConstants.PROP_HOST, hostText.getText().trim());
         configuration.setProperty(SocksConstants.PROP_PORT, portText.getSelection());
-        configuration.setUserName(userNameText.getText());
+        configuration.setUserName(userNameText.getText().trim());
         configuration.setPassword(passwordText.getText());
         configuration.setSavePassword(savePasswordCheckbox.getSelection());
     }

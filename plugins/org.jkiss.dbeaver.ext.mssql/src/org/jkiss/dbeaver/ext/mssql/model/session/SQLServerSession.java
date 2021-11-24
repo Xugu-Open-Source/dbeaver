@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,14 @@
  */
 package org.jkiss.dbeaver.ext.mssql.model.session;
 
+import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.admin.sessions.AbstractServerSession;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
 
 import java.sql.ResultSet;
 import java.util.Date;
+import java.util.Objects;
 
 /**
  * SQL Server session
@@ -29,9 +31,8 @@ import java.util.Date;
 public class SQLServerSession extends AbstractServerSession {
     private static final String CAT_CLIENT = "Client";
     private static final String CAT_TIMING = "Timings";
-    private static final String CAT_STATISTICS = "Statistics";
 
-    private long id;
+    private final long id;
 
     private Date loginTime;
     private Date lastRequestStart;
@@ -58,7 +59,7 @@ public class SQLServerSession extends AbstractServerSession {
 
     private String language;
     private long rowCount;
-    private String databaseName;
+    private final String databaseName;
 
     private String sqlText;
 
@@ -165,37 +166,37 @@ public class SQLServerSession extends AbstractServerSession {
         return ntUserName;
     }
 
-    @Property(viewable = true, category = CAT_STATISTICS, order = 40)
+    @Property(viewable = true, category = DBConstants.CAT_STATISTICS, order = 40)
     public long getCpuTime() {
         return cpuTime;
     }
 
-    @Property(viewable = true, category = CAT_STATISTICS, order = 41)
+    @Property(viewable = true, category = DBConstants.CAT_STATISTICS, order = 41)
     public long getMemoryUsage() {
         return memoryUsage;
     }
 
-    @Property(viewable = false, category = CAT_STATISTICS, order = 42)
+    @Property(viewable = false, category = DBConstants.CAT_STATISTICS, order = 42)
     public long getTotalScheduledTime() {
         return totalScheduledTime;
     }
 
-    @Property(viewable = false, category = CAT_STATISTICS, order = 43)
+    @Property(viewable = false, category = DBConstants.CAT_STATISTICS, order = 43)
     public long getTotalElapsedTime() {
         return totalElapsedTime;
     }
 
-    @Property(viewable = true, category = CAT_STATISTICS, order = 44)
+    @Property(viewable = true, category = DBConstants.CAT_STATISTICS, order = 44)
     public long getReadsNum() {
         return readsNum;
     }
 
-    @Property(viewable = true, category = CAT_STATISTICS, order = 45)
+    @Property(viewable = true, category = DBConstants.CAT_STATISTICS, order = 45)
     public long getWritesNum() {
         return writesNum;
     }
 
-    @Property(viewable = false, category = CAT_STATISTICS, order = 46)
+    @Property(viewable = false, category = DBConstants.CAT_STATISTICS, order = 46)
     public long getRowCount() {
         return rowCount;
     }
@@ -225,5 +226,18 @@ public class SQLServerSession extends AbstractServerSession {
         } else {
             return String.valueOf(id);
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        SQLServerSession that = (SQLServerSession) o;
+        return id == that.id && Objects.equals(databaseName, that.databaseName);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, databaseName);
     }
 }

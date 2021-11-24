@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.*;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.postgresql.PostgreMessages;
@@ -39,7 +40,7 @@ import org.jkiss.dbeaver.model.runtime.AbstractJob;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
-import org.jkiss.dbeaver.tasks.ui.nativetool.AbstractToolWizardPage;
+import org.jkiss.dbeaver.tasks.ui.nativetool.AbstractNativeToolWizardPage;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.CustomSashForm;
@@ -49,7 +50,7 @@ import java.util.List;
 import java.util.*;
 
 
-class PostgreBackupWizardPageObjects extends AbstractToolWizardPage<PostgreBackupWizard>
+class PostgreBackupWizardPageObjects extends AbstractNativeToolWizardPage<PostgreBackupWizard>
 {
     private static final Log log = Log.getLog(PostgreBackupWizardPageObjects.class);
 
@@ -66,12 +67,6 @@ class PostgreBackupWizardPageObjects extends AbstractToolWizardPage<PostgreBacku
         super(wizard, PostgreMessages.wizard_backup_page_object_title_schema_table);
         setTitle(PostgreMessages.wizard_backup_page_object_title);
         setDescription(PostgreMessages.wizard_backup_page_object_description);
-    }
-
-    @Override
-    public boolean isPageComplete()
-    {
-        return super.isPageComplete();
     }
 
     @Override
@@ -142,6 +137,22 @@ class PostgreBackupWizardPageObjects extends AbstractToolWizardPage<PostgreBacku
     }
 
     @Override
+    protected boolean determinePageCompletion() {
+        boolean complete = false;
+        if (!checkedObjects.isEmpty()) {
+            complete = true;
+        }
+        for (TableItem item : schemasTable.getItems()) {
+            if (item.getChecked()) {
+                complete = true;
+                break;
+            }
+        }
+
+        return complete && super.determinePageCompletion();
+    }
+
+    @Override
     public void activatePage() {
         super.activatePage();
         loadSettings();
@@ -196,7 +207,7 @@ class PostgreBackupWizardPageObjects extends AbstractToolWizardPage<PostgreBacku
                         continue;
                     }
                     TableItem item = new TableItem(schemasTable, SWT.NONE);
-                    item.setImage(DBeaverIcons.getImage(DBIcon.TREE_DATABASE));
+                    item.setImage(DBeaverIcons.getImage(DBIcon.TREE_SCHEMA));
                     item.setText(0, schema.getName());
                     item.setData(schema);
                     if (activeSchemas.contains(schema)) {
@@ -222,8 +233,11 @@ class PostgreBackupWizardPageObjects extends AbstractToolWizardPage<PostgreBacku
                 checkedTables.add((PostgreTableBase) item.getData());
             }
         }
-        TableItem catalogItem = schemasTable.getItem(schemasTable.getSelectionIndex());
-        catalogItem.setChecked(!checkedTables.isEmpty());
+        int selectionIndex = schemasTable.getSelectionIndex();
+        if (selectionIndex > -1) {
+            TableItem catalogItem = schemasTable.getItem(selectionIndex);
+            catalogItem.setChecked(!checkedTables.isEmpty());
+        }
         if (checkedTables.isEmpty() || checkedTables.size() == tableItems.length) {
             checkedObjects.remove(curSchema);
         } else {
@@ -240,23 +254,25 @@ class PostgreBackupWizardPageObjects extends AbstractToolWizardPage<PostgreBacku
         return false;
     }
 
-    private void loadTables(final PostgreSchema catalog) {
+    private List<PostgreTableBase> loadTables(final PostgreSchema catalog) {
         if (catalog != null) {
             curSchema = catalog;
         }
         if (curSchema == null) {
-            return;
+            return null;
         }
         final boolean isCatalogChecked = isChecked(curSchema);
         final Set<PostgreTableBase> checkedObjects = this.checkedObjects.get(curSchema);
+        final List<PostgreTableBase> objects = new ArrayList<>();
         new AbstractJob("Load '" + curSchema.getName() + "' tables") {
             {
                 setUser(true);
             }
             @Override
             protected IStatus run(DBRProgressMonitor monitor) {
+                monitor.beginTask("Collect tables", 1);
                 try {
-                    final List<PostgreTableBase> objects = new ArrayList<>();
+                    monitor.subTask("Collect tables to dump");
                     for (JDBCTable table : curSchema.getTables(monitor)) {
                         if (table instanceof PostgreTableBase) {
                             objects.add((PostgreTableBase) table);
@@ -278,10 +294,13 @@ class PostgreBackupWizardPageObjects extends AbstractToolWizardPage<PostgreBacku
                     });
                 } catch (DBException e) {
                     DBWorkbench.getPlatformUI().showError("Table list", "Can't read table list", e);
+                } finally {
+                    monitor.done();
                 }
                 return Status.OK_STATUS;
             }
         }.schedule();
+        return objects;
     }
 
     public void saveState() {
@@ -312,17 +331,41 @@ class PostgreBackupWizardPageObjects extends AbstractToolWizardPage<PostgreBacku
     @Override
     protected void updateState()
     {
-        boolean complete = false;
-        if (!checkedObjects.isEmpty()) {
-            complete = true;
-        }
-        for (TableItem item : schemasTable.getItems()) {
-            if (item.getChecked()) {
-                complete = true;
-                break;
+        updatePageCompletion();
+        getContainer().updateButtons();
+    }
+
+    @Override
+    protected void updateTableCheckedStatus(@NotNull Table table, boolean check) {
+        // Handle event from buttons "All" and "None"
+        if (table == schemasTable) {
+            TableItem[] items = tablesTable.getItems();
+            if (items.length != 0) {
+                for (TableItem tableItem : items) {
+                    tableItem.setChecked(check);
+                }
+            } else {
+                // This is the case when the user selects a backup by pressing the database, and not the scheme. Then tablesTable is empty.
+                TableItem[] schemasItems = schemasTable.getItems();
+                if (schemasItems.length != 0) {
+                    for (TableItem schemaItem : schemasItems) {
+                        Object data = schemaItem.getData();
+                        if (data instanceof PostgreSchema) {
+                            PostgreSchema postgreSchema = (PostgreSchema) data;
+                            if (schemaItem.getChecked() && check && !checkedObjects.containsKey(postgreSchema)) {
+                                List<PostgreTableBase> tableBaseList = loadTables(postgreSchema);
+                                if (!CommonUtils.isEmpty(tableBaseList)) {
+                                    checkedObjects.put(postgreSchema, new HashSet<>(tableBaseList));
+                                }
+                            } else if (!schemaItem.getChecked() && !check) {
+                                checkedObjects.remove(postgreSchema);
+                            }
+                        }
+                    }
+                }
             }
         }
-        setPageComplete(complete);
+        updateCheckedTables();
     }
 
 }

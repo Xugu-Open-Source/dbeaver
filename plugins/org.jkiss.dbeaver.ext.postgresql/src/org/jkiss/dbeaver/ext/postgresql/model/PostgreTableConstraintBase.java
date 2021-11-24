@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTableConstraint;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntityConstraintType;
 import org.jkiss.utils.CommonUtils;
@@ -67,6 +68,21 @@ public abstract class PostgreTableConstraintBase extends JDBCTableConstraint<Pos
 
     public PostgreTableConstraintBase(PostgreTableBase table, String constraintName, DBSEntityConstraintType constraintType) {
         super(table, constraintName, null, constraintType, false);
+    }
+
+    public PostgreTableConstraintBase(DBRProgressMonitor monitor, PostgreTableReal owner, PostgreTableConstraintBase srcConstr) throws DBException {
+        super(owner, srcConstr, false);
+        // Make constraint name unique
+        int postfix = 1;
+        while (owner.getSchema().getConstraintCache().getObject(monitor, owner.getSchema(), getName()) != null) {
+            setName(srcConstr.getName() + "_" + postfix);
+            postfix++;
+        }
+        this.isLocal = srcConstr.isLocal;
+        this.deferrable = srcConstr.deferrable;
+        this.deferred = srcConstr.deferred;
+
+        this.description = srcConstr.description;
     }
 
     @NotNull
@@ -116,7 +132,7 @@ public abstract class PostgreTableConstraintBase extends JDBCTableConstraint<Pos
         this.deferred = deferred;
     }
 
-    @Property(viewable = true, editable = true, updatable = true, multiline = true, order = 100)
+    @Property(viewable = true, editable = true, updatable = true, length = PropertyLength.MULTILINE, order = 100)
     @Nullable
     @Override
     public String getDescription()

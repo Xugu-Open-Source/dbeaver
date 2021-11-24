@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,14 +45,20 @@ public class BooleanAttributeTransformer implements DBDAttributeTransformer {
     @Override
     public void transformAttribute(@NotNull DBCSession session, @NotNull DBDAttributeBinding attribute, @NotNull List<Object[]> rows, @NotNull Map<String, Object> options) throws DBException {
         attribute.setPresentationAttribute(
-            new TransformerPresentationAttribute(attribute, "Boolean", -1, DBPDataKind.BOOLEAN));
+            new TransformerPresentationAttribute(attribute, "boolean", -1, DBPDataKind.BOOLEAN));
 
         attribute.setTransformHandler(new BooleanValueHandler(attribute.getValueHandler()));
     }
 
-    private class BooleanValueHandler extends ProxyValueHandler {
-        public BooleanValueHandler(DBDValueHandler target) {
+    private static class BooleanValueHandler extends ProxyValueHandler {
+        BooleanValueHandler(DBDValueHandler target) {
             super(target);
+        }
+
+        @NotNull
+        @Override
+        public Class<?> getValueObjectType(@NotNull DBSTypedObject attribute) {
+            return Boolean.class;
         }
 
         @Override

@@ -51,6 +51,7 @@ import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.ui.UITask;
 import org.jkiss.dbeaver.ui.UIUtils;
@@ -86,7 +87,7 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 
 		// 禁止对没有列的表进行添加分区操作
 		try {
-			Collection<TableColumn> cols = parent.getAttributes(monitor);
+			Collection<? extends DBSEntityAttribute> cols = parent.getAttributes(monitor);
 			if (cols == null) {
 				new UITask<String>() {
 					@Override
@@ -295,7 +296,7 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 
 				colCombo = UIUtils.createLabelCombo(composite, Messages.dialog_tablePartition_col_Combo_label, 8);
 				colCombo.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-				Iterator<TableColumn> it = table.getAttributes(monitor).iterator();
+				Iterator<? extends DBSEntityAttribute> it = table.getAttributes(monitor).iterator();
 				while (it.hasNext()) {
 					String name = it.next().getName();
 					colCombo.add(name);

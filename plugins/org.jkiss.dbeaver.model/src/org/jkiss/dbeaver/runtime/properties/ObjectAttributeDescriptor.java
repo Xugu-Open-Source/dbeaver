@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.utils.BeanUtils;
 import org.jkiss.utils.CommonUtils;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.*;
 
@@ -80,7 +81,7 @@ public abstract class ObjectAttributeDescriptor {
             final LazyProperty lazyInfo = getter.getAnnotation(LazyProperty.class);
             if (lazyInfo != null) {
                 try {
-                    cacheValidator = lazyInfo.cacheValidator().newInstance();
+                    cacheValidator = lazyInfo.cacheValidator().getConstructor().newInstance();
                 } catch (Exception e) {
                     log.warn("Can't instantiate lazy cache validator '" + lazyInfo.cacheValidator().getName() + "'", e);
                 }
@@ -109,13 +110,17 @@ public abstract class ObjectAttributeDescriptor {
         return id;
     }
 
+    public <T extends Annotation> T getAnnotation(Class<T> annoType) {
+        return getter == null ? null : getter.getAnnotation(annoType);
+    }
+
     public Method getGetter()
     {
         return getter;
     }
 
     public boolean isNameProperty() {
-        return id.equals(DBConstants.PROP_ID_NAME);
+        return id.equals(DBConstants.PROP_ID_NAME) || orderNumber == 1;
     }
 
     public boolean isRemote()

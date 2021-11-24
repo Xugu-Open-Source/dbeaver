@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,19 +24,30 @@ import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.struct.DBSAttributeBase;
 import org.jkiss.utils.CommonUtils;
 
+import java.util.Arrays;
+
 /**
  * Attribute constraint
  */
 public class DBDAttributeConstraint extends DBDAttributeConstraintBase {
 
+//    public static final String FEATURE_HIDDEN = "hidden";
+
     @Nullable
     private DBSAttributeBase attribute;
     private String attributeName;
     private int originalVisualPosition;
+    private boolean plainNameReference; // Disables ordering by column index
 
     public DBDAttributeConstraint(@NotNull DBDAttributeBinding attribute) {
         setAttribute(attribute);
         setVisualPosition(attribute.getOrdinalPosition());
+    }
+
+    public DBDAttributeConstraint(@NotNull DBDAttributeBinding attribute, int visualPosition, int originalVisualPosition) {
+        setAttribute(attribute);
+        setVisualPosition(visualPosition);
+        this.originalVisualPosition = originalVisualPosition; // Can be very important for nested attributes without through ordering
     }
 
     public DBDAttributeConstraint(@NotNull DBSAttributeBase attribute, int visualPosition) {
@@ -86,6 +97,15 @@ public class DBDAttributeConstraint extends DBDAttributeConstraintBase {
         return originalVisualPosition;
     }
 
+    // Disables ordering by column index
+    public boolean isPlainNameReference() {
+        return plainNameReference;
+    }
+
+    public void setPlainNameReference(boolean plainNameReference) {
+        this.plainNameReference = plainNameReference;
+    }
+
     @Override
     public boolean hasFilter() {
         return super.hasFilter() || // compare visual position only if it explicitly set
@@ -125,7 +145,7 @@ public class DBDAttributeConstraint extends DBDAttributeConstraintBase {
     public String toString() {
         String clause = getOperator() == null ?
             (getCriteria() == null ? "" : getCriteria()) :
-            (isReverseOperator() ? "NOT " : "") + getOperator().getStringValue() + " " + getValue();
+            (isReverseOperator() ? "NOT " : "") + getOperator().getExpression() + " " + getValue();
         return attributeName + " " + clause;
     }
 
@@ -135,6 +155,8 @@ public class DBDAttributeConstraint extends DBDAttributeConstraintBase {
     }
 
     public boolean equalVisibility(DBDAttributeConstraint constraint) {
-        return isVisible() == constraint.isVisible() && getVisualPosition() == constraint.getVisualPosition();
+        return isVisible() == constraint.isVisible() && getVisualPosition() == constraint.getVisualPosition() &&
+            Arrays.equals(getOptions(), constraint.getOptions());
     }
+
 }

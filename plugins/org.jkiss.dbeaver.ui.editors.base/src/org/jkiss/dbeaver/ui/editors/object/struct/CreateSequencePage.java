@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,8 +25,6 @@ import org.eclipse.swt.widgets.Text;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
-import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
-import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureType;
 import org.jkiss.dbeaver.model.struct.rdb.DBSSequence;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.editors.internal.EditorsMessages;
@@ -35,10 +33,9 @@ public class CreateSequencePage extends BaseObjectEditPage {
 
     private DBSSequence sequence;
     private String name;
-    private DBSProcedureType type;
 
     public CreateSequencePage(DBSSequence sequence) {
-        super(EditorsMessages.dialog_struct_create_procedure_title);
+        super(EditorsMessages.dialog_struct_create_sequence_title);
         this.sequence = sequence;
     }
 
@@ -52,11 +49,8 @@ public class CreateSequencePage extends BaseObjectEditPage {
         UIUtils.createLabelText(propsGroup, EditorsMessages.dialog_struct_create_sequence_container, DBUtils.getObjectFullName(sequence.getParentObject(), DBPEvaluationContext.UI)).setEditable(false);
         final Text nameText = UIUtils.createLabelText(propsGroup, EditorsMessages.dialog_struct_create_sequence_name, null);
         nameText.addModifyListener(e -> name = nameText.getText());
+        nameText.setFocus();
         return propsGroup;
-    }
-
-    public DBSProcedureType getProcedureType() {
-        return type;
     }
 
     public String getSequenceName() {

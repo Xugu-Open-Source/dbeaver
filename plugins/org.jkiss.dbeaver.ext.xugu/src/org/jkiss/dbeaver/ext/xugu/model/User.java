@@ -17,17 +17,26 @@
 package org.jkiss.dbeaver.ext.xugu.model;
 
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.ext.xugu.model.DataSource.UserRoleFlag;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPRefreshableObject;
 import org.jkiss.dbeaver.model.DBPSaveableObject;
+import org.jkiss.dbeaver.model.DBPScriptObject;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.access.DBAUser;
 import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 
 import java.sql.Statement;
+
+import com.xugu.parser.DatabaseParsing;
+import com.xugu.parser.Parsing;
+import com.xugu.parser.Parsing.TableType;
 import com.xugu.permission.LoadPermission;
 
 import java.sql.Connection;
@@ -38,12 +47,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Vector;
 
 /**
  * 用户信息类，包含名称、用户权限等具体信息
  */
-public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObject, DBPSaveableObject {
+public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObject, DBPSaveableObject, DBPScriptObject {
 	private static final Log log = Log.getLog(User.class);
 
 	private Vector<String> authorityKey;
@@ -71,43 +81,34 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 	private int ioQuota;
 	private Timestamp createTime;
 	private Timestamp lastModiTime;
-	private Connection conn;
 	private String roleList;
 	private Collection<UserAuthority> userAuthorities;
 	private String schemaList;
-	public static List<User> users = new ArrayList<User>() ;
+	private Database parent;
 	public static List<String> roleNames = new ArrayList<String>();
-	
-	
-	public static List<User> getUserList(){
-		return users;
-	}
 	
 	public static List<String> getRoleNameList(){
 		return roleNames;
 	}
 	
-	public User(DataSource dataSource,String userName) {
-		super(dataSource, true);
+	public User(DataSource dataSource, String userName, boolean persisted) {
+		super(dataSource, persisted);
 		this.userName = userName;
+		this.parent = dataSource.getDatabase();
+	}
+	
+	public User(DataSource dataSource,DBRProgressMonitor moniter, boolean persisted) {
+		super(dataSource, persisted);
+		this.monitor = monitor;
+		this.parent = dataSource.getDatabase();
 	}
 	
 	
-	public User(DataSource dataSource,DBRProgressMonitor moniter) {
-		super(dataSource, true);
+	public User(DataSource dataSource, ResultSet resultSet, DBRProgressMonitor monitor, boolean persisted) {
+		super(dataSource, persisted);
 		this.monitor = monitor;
-	}
-	
-	
-	public User(DataSource dataSource, ResultSet resultSet, DBRProgressMonitor monitor) {
-		super(dataSource, true);
-		this.monitor = monitor;
+		this.parent = dataSource.getDatabase();
 		if (resultSet != null) {
-			try {
-				conn = resultSet.getStatement().getConnection();
-			} catch (SQLException e) {
-				e.printStackTrace();
-			}
 			this.dbId = JDBCUtils.safeGetInt(resultSet, "DB_ID");
 			this.userId = JDBCUtils.safeGetInt(resultSet, "USER_ID");
 			this.userName = JDBCUtils.safeGetString(resultSet, "USER_NAME");
@@ -186,37 +187,33 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 			e.printStackTrace();
 		}
 		if (resultSet != null) {
-			// 加载权限
-			Vector<Object> authorities = new LoadPermission().loadPermission(conn, this.userName, 0);
-			userAuthorities = new ArrayList<>();
-			Iterator<Object> it = authorities.iterator();
-			while (it.hasNext()) {
-				String temp = it.next().toString();
-				// 对象级权限
-				if (temp.indexOf("\"") != -1) {
-					String targetName = temp.substring(temp.indexOf("\""));
-					UserAuthority one = new UserAuthority(this, temp, targetName, false, expired);
-					userAuthorities.add(one);
-				}
-				// 库级权限
-				else {
-					UserAuthority one = new UserAuthority(this, temp, null, true, expired);
-					userAuthorities.add(one);
-				}
-			}
+			reloadAuthrities();
 		}
-		//不存在则加入
-		if(users.size()==0) {
-			users.add(this);
-		}else {
-			Boolean isHaveBoolean = false;
-			for (int i =0 ;i<users.size();i++) {
-				if(this.getName().equals(users.get(i).getName())) {
-					isHaveBoolean = true;
-				}
+	}
+
+	public void reloadAuthrities() {
+		// 加载权限
+		Connection conn;
+		try {
+			conn = this.getDataSource().getDefaultInstance().getDefaultContext(true).getConnection(new LoggingProgressMonitor());
+		} catch (SQLException e) {
+			throw new RuntimeException("获取用户权限查询连接失败", e);
+		}
+		Vector<Object> authorities = new LoadPermission().loadPermission(conn, this.userName, 0);
+		userAuthorities = new ArrayList<>();
+		Iterator<Object> it = authorities.iterator();
+		while (it.hasNext()) {
+			String temp = it.next().toString();
+			// 对象级权限
+			if (temp.indexOf("\"") != -1) {
+				String targetName = temp.substring(temp.indexOf("\""));
+				UserAuthority one = new UserAuthority(this, temp, targetName, false, expired);
+				userAuthorities.add(one);
 			}
-			if(!isHaveBoolean) {
-				users.add(this);
+			// 库级权限
+			else {
+				UserAuthority one = new UserAuthority(this, temp, null, true, expired);
+				userAuthorities.add(one);
 			}
 		}
 	}
@@ -370,9 +367,15 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 		return authority;
 	}
 
+	public Database getParent() {
+		return parent;
+	}
+
 	@Override
 	public DBSObject refreshObject(DBRProgressMonitor monitor) throws DBException {
-		return this.getDataSource().userCache.refreshObject(monitor, this.getDataSource(), this);
+		User user = this.getDataSource().userCache.refreshObject(monitor, this.getDataSource(), this);
+		user.reloadAuthrities();
+		return user;
 	}
 
 	public Collection<UserAuthority> getUserAuthorities() {
@@ -441,7 +444,7 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 			Collection<Sequence> seqList = null;
 			Collection<Package> pacList = null;
 			Collection<ProcedureStandalone> procList = null;
-			Collection<NewTrigger> triList = null;
+			Collection<Trigger> triList = null;
 			List<TableColumn> colList = null;
 			switch (type) {
 			case "TABLE":
@@ -529,7 +532,7 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 			}
 			if (triList != null && triList.size() > 0) {
 				String res = "";
-				Iterator<NewTrigger> it = triList.iterator();
+				Iterator<Trigger> it = triList.iterator();
 				while (it.hasNext()) {
 					res += it.next().getName() + ",";
 					;
@@ -554,5 +557,28 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 			e.printStackTrace();
 		}
 		return "";
+	}
+
+	@Override
+	public String getObjectDefinitionText(DBRProgressMonitor monitor, Map<String, Object> options) throws DBException {
+		String objectFullName = DBUtils.getObjectFullName(this, DBPEvaluationContext.DDL);
+		monitor.beginTask("Load sources for user '" + objectFullName + "'...", 1);
+		try (Connection conn = DBUtils.openUtilSession(monitor, this, "Get " + this.userName + "DDL")) {
+			String roleFlag = getDataSource().getRoleFlag();
+			TableType tableType;
+
+			if (UserRoleFlag.SYS.name().equalsIgnoreCase(roleFlag)) {
+				tableType = TableType.SYS;
+			} else if (UserRoleFlag.DBA.name().equalsIgnoreCase(roleFlag)) {
+				tableType = TableType.DBA;
+			} else {
+				tableType = TableType.ALL;
+			}
+
+			Parsing parsing = new Parsing();
+			return parsing.loadTheUserDDL(conn, getDataSource().getDatabase().getName(), getName(), tableType);
+		} catch (SQLException e) {
+			throw new DBException("Close connection of DDL failed", e);
+		}
 	}
 }

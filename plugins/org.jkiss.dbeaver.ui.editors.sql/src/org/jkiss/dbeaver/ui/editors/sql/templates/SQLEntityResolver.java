@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,6 +70,10 @@ class SQLEntityResolver extends SQLObjectResolver<DBSEntity> {
             objectContainer = (DBSObjectContainer)DBUtils.getObjectByPath(monitor, executionContext, objectContainer, catalogName, schemaName, null);
         } else {
             objectContainer = DBUtils.getSelectedObject(executionContext, DBSObjectContainer.class);
+        }
+        if (objectContainer == null) {
+            // Possibly neither catalogs nor schemas are supported
+            objectContainer = DBUtils.getAdapter(DBSObjectContainer.class, executionContext.getDataSource());
         }
         if (objectContainer != null) {
             makeProposalsFromChildren(monitor, objectContainer, entities);

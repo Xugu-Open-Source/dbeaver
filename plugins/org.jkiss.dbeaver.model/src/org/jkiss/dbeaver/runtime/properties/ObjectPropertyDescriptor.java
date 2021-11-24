@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,11 @@ package org.jkiss.dbeaver.runtime.properties;
 import org.eclipse.core.internal.runtime.Activator;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.DBPPersistedObject;
 import org.jkiss.dbeaver.model.exec.DBExecUtils;
 import org.jkiss.dbeaver.model.impl.AbstractDescriptor;
-import org.jkiss.dbeaver.model.meta.IPropertyValueListProvider;
-import org.jkiss.dbeaver.model.meta.IPropertyValueTransformer;
-import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.*;
 import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
 import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
@@ -41,7 +40,9 @@ import java.lang.reflect.Method;
 import java.text.DecimalFormat;
 import java.text.Format;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.ResourceBundle;
 
 /**
@@ -49,12 +50,14 @@ import java.util.ResourceBundle;
 */
 public class ObjectPropertyDescriptor extends ObjectAttributeDescriptor implements DBPPropertyDescriptor, IPropertyValueListProvider<Object>
 {
+
     private final Property propInfo;
     private final String propName;
     private final String propDescription;
     private Method setter;
     private IPropertyValueTransformer valueTransformer;
     private IPropertyValueTransformer valueRenderer;
+    private IPropertyValueValidator valueValidator;
     private final Class<?> declaringClass;
     private Format displayFormat = null;
 
@@ -84,7 +87,7 @@ public class ObjectPropertyDescriptor extends ObjectAttributeDescriptor implemen
         Class<? extends IPropertyValueTransformer> valueTransformerClass = propInfo.valueTransformer();
         if (valueTransformerClass != IPropertyValueTransformer.class) {
             try {
-                valueTransformer = valueTransformerClass.newInstance();
+                valueTransformer = valueTransformerClass.getConstructor().newInstance();
             } catch (Throwable e) {
                 log.warn("Can't create value transformer", e);
             }
@@ -94,9 +97,19 @@ public class ObjectPropertyDescriptor extends ObjectAttributeDescriptor implemen
         Class<? extends IPropertyValueTransformer> valueRendererClass = propInfo.valueRenderer();
         if (valueRendererClass != IPropertyValueTransformer.class) {
             try {
-                valueRenderer = valueRendererClass.newInstance();
+                valueRenderer = valueRendererClass.getConstructor().newInstance();
             } catch (Throwable e) {
                 log.warn("Can't create value renderer", e);
+            }
+        }
+
+        // Obtain value validator
+        Class<? extends IPropertyValueValidator> valueValidatorClass = propInfo.valueValidator();
+        if (valueValidatorClass != IPropertyValueValidator.class) {
+            try {
+                valueValidator = valueValidatorClass.getConstructor().newInstance();
+            } catch (Throwable e) {
+                log.warn("Can't create value validator", e);
             }
         }
 
@@ -127,20 +140,24 @@ public class ObjectPropertyDescriptor extends ObjectAttributeDescriptor implemen
         return propInfo.expensive();
     }
 
-    public boolean isNumeric()
-    {
+    public boolean isNumeric() {
         Class<?> propType = getGetter().getReturnType();
         return propType != null && BeanUtils.isNumericType(propType);
     }
 
-    public boolean isDateTime()
-    {
+    public boolean isDateTime() {
         Class<?> propType = getGetter().getReturnType();
         return propType != null && Date.class.isAssignableFrom(propType);
     }
 
-    public boolean isMultiLine() {
-        return propInfo.multiline();
+    public boolean isBoolean() {
+        Class<?> propType = getGetter().getReturnType();
+        return propType == Boolean.class || propType == Boolean.TYPE;
+    }
+
+    @NotNull
+    public PropertyLength getLength() {
+        return propInfo.length();
     }
 
     public boolean isSpecific() {
@@ -153,6 +170,10 @@ public class ObjectPropertyDescriptor extends ObjectAttributeDescriptor implemen
 
     public boolean isLinkPossible() {
         return propInfo.linkPossible();
+    }
+
+    public boolean isHref() {
+        return propInfo.href();
     }
 
     public boolean supportsPreview()
@@ -173,6 +194,23 @@ public class ObjectPropertyDescriptor extends ObjectAttributeDescriptor implemen
         return valueRenderer;
     }
 
+    public IPropertyValueValidator getValueValidator() {
+        return valueValidator;
+    }
+
+    public boolean isPropertyVisible(Object object, Object value) {
+        Class<? extends IPropertyValueValidator> visiblityCheckerClass = propInfo.visibleIf();
+        if (visiblityCheckerClass != IPropertyValueValidator.class) {
+            try {
+                IPropertyValueValidator checker = visiblityCheckerClass.getConstructor().newInstance();
+                return checker.isValidValue(object, value);
+            } catch (Throwable e) {
+                log.debug(e);
+            }
+        }
+        return true;
+    }
+
     @Override
     public boolean isEditable(Object object)
     {
@@ -182,6 +220,67 @@ public class ObjectPropertyDescriptor extends ObjectAttributeDescriptor implemen
         }
         // Read-only or non-updatable property for non-new object
         return getEditableValue(object);
+    }
+
+    @Nullable
+    @Override
+    public String[] getFeatures() {
+        List<String> features = new ArrayList<>();
+        if (this.isRequired()) features.add(DBConstants.PROP_FEATURE_REQUIRED);
+        if (this.isSpecific()) features.add(DBConstants.PROP_FEATURE_SPECIFIC);
+        if (this.isOptional()) features.add(DBConstants.PROP_FEATURE_OPTIONAL);
+        if (this.isHidden()) features.add(DBConstants.PROP_FEATURE_HIDDEN);
+        if (this.isRemote()) features.add(DBConstants.PROP_FEATURE_REMOTE);
+
+        if (this.isDateTime()) features.add(DBConstants.PROP_FEATURE_DATETME);
+        if (this.isNumeric()) features.add(DBConstants.PROP_FEATURE_NUMERIC);
+        if (this.isNameProperty()) features.add(DBConstants.PROP_FEATURE_NAME);
+
+        if (this.getLength() == PropertyLength.MULTILINE) features.add(DBConstants.PROP_FEATURE_MULTILINE);
+        if (this.isExpensive()) features.add(DBConstants.PROP_FEATURE_EXPENSIVE);
+        if (this.isEditPossible()) features.add(DBConstants.PROP_FEATURE_EDIT_POSSIBLE);
+        if (this.isLinkPossible()) features.add(DBConstants.PROP_FEATURE_LINK_POSSIBLE);
+        if (this.isHref()) features.add(DBConstants.PROP_FEATURE_HREF);
+        if (this.isViewable()) features.add(DBConstants.PROP_FEATURE_VIEWABLE);
+        if (this.isPassword()) features.add(DBConstants.PROP_FEATURE_PASSWORD);
+        return features.toArray(new String[0]);
+    }
+
+    @Override
+    public boolean hasFeature(@NotNull String feature) {
+        switch (feature) {
+            case DBConstants.PROP_FEATURE_REQUIRED:
+                return this.isRequired();
+            case DBConstants.PROP_FEATURE_SPECIFIC:
+                return this.isSpecific();
+            case DBConstants.PROP_FEATURE_OPTIONAL:
+                return this.isOptional();
+            case DBConstants.PROP_FEATURE_HIDDEN:
+                return this.isHidden();
+
+            case DBConstants.PROP_FEATURE_DATETME:
+                return this.isDateTime();
+            case DBConstants.PROP_FEATURE_NUMERIC:
+                return this.isNumeric();
+            case DBConstants.PROP_FEATURE_NAME:
+                return this.isNameProperty();
+
+            case DBConstants.PROP_FEATURE_MULTILINE:
+                return this.getLength() == PropertyLength.MULTILINE;
+            case DBConstants.PROP_FEATURE_EXPENSIVE:
+                return this.isExpensive();
+            case DBConstants.PROP_FEATURE_EDIT_POSSIBLE:
+                return this.isEditPossible();
+            case DBConstants.PROP_FEATURE_LINK_POSSIBLE:
+                return this.isLinkPossible();
+            case DBConstants.PROP_FEATURE_HREF:
+                return this.isHref();
+            case DBConstants.PROP_FEATURE_VIEWABLE:
+                return this.isViewable();
+            case DBConstants.PROP_FEATURE_PASSWORD:
+                return this.isPassword();
+        }
+        return false;
     }
 
     private boolean getEditableValue(Object object)
@@ -209,6 +308,15 @@ public class ObjectPropertyDescriptor extends ObjectAttributeDescriptor implemen
         return object instanceof DBPPersistedObject && !((DBPPersistedObject) object).isPersisted();
     }
 
+    public boolean isEditPossible(Object context)
+    {
+        String expr = propInfo.editableExpr();
+        if (!CommonUtils.isEmpty(expr)) {
+            return Boolean.TRUE.equals(evaluateExpression(context, expr));
+        }
+        return propInfo.editable();
+    }
+
     @Override
     public String getCategory()
     {
@@ -233,7 +341,7 @@ public class ObjectPropertyDescriptor extends ObjectAttributeDescriptor implemen
             Class<? extends Format> formatClass = propInfo.formatter();
             if (formatClass != Format.class) {
                 try {
-                    displayFormat = formatClass.newInstance();
+                    displayFormat = formatClass.getConstructor().newInstance();
                 } catch (Throwable e) {
                     log.error(e);
                 }
@@ -335,9 +443,9 @@ public class ObjectPropertyDescriptor extends ObjectAttributeDescriptor implemen
                 // Use void monitor because this object already read by readValue
                 object = getParent().getGroupObject(object, new VoidProgressMonitor());
             }
+            final Class<?> argType = setter.getParameterTypes()[0];
             if (value == null) {
                 // Check for primitive argument
-                final Class<?> argType = setter.getParameterTypes()[0];
                 if (argType == Integer.TYPE) {
                     value = 0;
                 } else if (argType == Short.TYPE) {
@@ -352,6 +460,10 @@ public class ObjectPropertyDescriptor extends ObjectAttributeDescriptor implemen
                     value = false;
                 } else if (argType == Character.TYPE) {
                     value = ' ';
+                }
+            } else {
+                if (argType == Boolean.TYPE || argType == Boolean.class && !(value instanceof Boolean)) {
+                    value = CommonUtils.toBoolean(value);
                 }
             }
             setter.invoke(object, value);
@@ -390,7 +502,7 @@ public class ObjectPropertyDescriptor extends ObjectAttributeDescriptor implemen
         if (propInfo.listProvider() != IPropertyValueListProvider.class) {
             // List
             try {
-                return propInfo.listProvider().newInstance().allowCustomValue();
+                return propInfo.listProvider().getConstructor().newInstance().allowCustomValue();
             } catch (Exception e) {
                 log.error(e);
             }
@@ -408,7 +520,7 @@ public class ObjectPropertyDescriptor extends ObjectAttributeDescriptor implemen
         if (propInfo.listProvider() != IPropertyValueListProvider.class) {
             // List
             try {
-                return propInfo.listProvider().newInstance().getPossibleValues(object);
+                return propInfo.listProvider().getConstructor().newInstance().getPossibleValues(object);
             } catch (Exception e) {
                 log.error(e);
             }

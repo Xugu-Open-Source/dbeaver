@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,9 @@ public enum AWSRegion
     ap_southeast_1("ap-southeast-1", "Asia Pacific (Singapore)"),
     ap_southeast_2("ap-southeast-2", "Asia Pacific (Sydney)"),
     ap_south_1("ap-south-1", "Asia Pacific (Mumbai)"),
-    sa_east_1("sa-east-1", "South America (São Paulo)"),;
+    sa_east_1("sa-east-1", "South America (São Paulo)"),
+    cn_north_1("cn-north-1", "China (North)"),
+    cn_northwest_1("cn-northwest-1", "China (North-West)");
 
     private final String id;
     private final String name;

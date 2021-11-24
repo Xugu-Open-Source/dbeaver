@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -130,7 +130,7 @@ public abstract class PostgrePrivilege implements DBAPrivilege, Comparable<Postg
 
     @NotNull
     @Override
-    public DBPDataSource getDataSource() {
+    public PostgreDataSource getDataSource() {
         return owner.getDataSource();
     }
 
@@ -216,7 +216,7 @@ public abstract class PostgrePrivilege implements DBAPrivilege, Comparable<Postg
      * Checks all privileges
      */
     public boolean hasAllPrivileges(Object object) {
-        for (PostgrePrivilegeType pt : PostgrePrivilegeType.values()) {
+        for (PostgrePrivilegeType pt : getDataSource().getSupportedPrivilegeTypes()) {
             if (pt.isValid() && pt.supportsType(object.getClass()) && getPermission(pt) == 0) {
                 return false;
             }

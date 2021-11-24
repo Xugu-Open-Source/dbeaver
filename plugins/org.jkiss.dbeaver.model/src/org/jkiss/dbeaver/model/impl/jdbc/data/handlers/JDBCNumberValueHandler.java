@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.Date;
 
 /**
  * JDBC number value handler
@@ -42,16 +43,18 @@ public class JDBCNumberValueHandler extends JDBCAbstractValueHandler implements 
 
     private static final Log log = Log.getLog(JDBCNumberValueHandler.class);
 
-    private final DBDDataFormatterProfile formatterProfile;
+    private final DBDFormatSettings formatSettings;
+    private int useScientificNotation = -1;
     private DBDDataFormatter formatter;
 
-    public JDBCNumberValueHandler(DBSTypedObject type, DBDDataFormatterProfile formatterProfile) {
-        this.formatterProfile = formatterProfile;
+    public JDBCNumberValueHandler(DBSTypedObject type, DBDFormatSettings formatSettings) {
+        this.formatSettings = formatSettings;
     }
 
     @Override
     public void refreshValueHandlerConfiguration(DBSTypedObject type) {
         this.formatter = null;
+        this.useScientificNotation = -1;
     }
 
     /**
@@ -59,35 +62,47 @@ public class JDBCNumberValueHandler extends JDBCAbstractValueHandler implements 
      */
     @NotNull
     @Override
-    public synchronized String getValueDisplayString(@NotNull DBSTypedObject column, @Nullable Object value, @NotNull DBDDisplayFormat format)
-    {
+    public synchronized String getValueDisplayString(@NotNull DBSTypedObject column, @Nullable Object value, @NotNull DBDDisplayFormat format) {
         if (value == null) {
             return DBValueFormatting.getDefaultValueDisplayString(null, format);
-        } else if (value instanceof String) {
+        }
+        if (value instanceof String) {
             // Binary string
             return (String)value;
-        } else if (value instanceof Double) {
-            double dbl = ((Double) value).doubleValue();
-            if (dbl != dbl) {
-                return "NaN";
-            } else if (dbl == Double.POSITIVE_INFINITY) {
-                return "+Infinity";
-            } else if (dbl == Double.NEGATIVE_INFINITY) {
-                return "-Infinity";
+        }
+        if (value instanceof Double) {
+            Double d = (Double) value;
+            if (d.isNaN() || d.isInfinite()) {
+                return d.toString();
+            }
+        }
+        if (value instanceof Float) {
+            Float f = (Float) value;
+            if (f.isNaN() || f.isInfinite()) {
+                return f.toString();
             }
         }
         if (value instanceof Number && (format == DBDDisplayFormat.NATIVE || format == DBDDisplayFormat.EDIT)) {
-            return DBValueFormatting.convertNumberToNativeString((Number) value);
+            if (useScientificNotation < 0) {
+                this.useScientificNotation =
+                    formatSettings.isUseScientificNumericFormat() ? 1 : 0;
+            }
+
+            return DBValueFormatting.convertNumberToNativeString((Number) value, useScientificNotation > 0);
         }
+        return getFormatter(column).formatValue(value);
+    }
+
+    private DBDDataFormatter getFormatter(@NotNull DBSTypedObject column) {
         if (formatter == null) {
             try {
-                formatter = formatterProfile.createFormatter(DBDDataFormatter.TYPE_NAME_NUMBER, column);
+                formatter = formatSettings.getDataFormatterProfile().createFormatter(DBDDataFormatter.TYPE_NAME_NUMBER, column);
             } catch (Exception e) {
                 log.error("Can't create formatter for number value handler", e); //$NON-NLS-1$
                 formatter = DefaultDataFormatter.INSTANCE;
             }
         }
-        return formatter.formatValue(value);
+        return formatter;
     }
 
     @Nullable
@@ -99,23 +114,31 @@ public class JDBCNumberValueHandler extends JDBCAbstractValueHandler implements 
         int index)
         throws DBCException, SQLException
     {
-        Number value;
+        Object value;
         switch (type.getTypeID()) {
             case Types.INTEGER:
                 try {
                     // Read value with maximum precision. Some drivers reports INTEGER but means long [JDBC:SQLite]
                     value = resultSet.getLong(index);
                 } catch (SQLException | ClassCastException | NumberFormatException e) {
-                    value = resultSet.getInt(index);
+                    value = resultSet.getObject(index);
                 }
                 break;
             case Types.SMALLINT:
-                // Read int in case of unsigned shorts
-                value = resultSet.getInt(index);
+                try {
+                    // Read int in case of unsigned shorts
+                    value = resultSet.getInt(index);
+                } catch (SQLException | ClassCastException | NumberFormatException e) {
+                    value = resultSet.getObject(index);
+                }
                 break;
             case Types.TINYINT:
-                // Read short in case of unsigned byte
-                value = resultSet.getShort(index);
+                try {
+                    // Read short in case of unsigned byte
+                    value = resultSet.getShort(index);
+                } catch (SQLException | ClassCastException | NumberFormatException e) {
+                    value = resultSet.getObject(index);
+                }
                 break;
             case Types.BIT:
                 if (CommonUtils.toInt(type.getPrecision()) <= 1) {
@@ -146,8 +169,12 @@ public class JDBCNumberValueHandler extends JDBCAbstractValueHandler implements 
             case Types.REAL:
             case Types.FLOAT:
                 if (isReadDecimalsAsDouble()) {
-                    // Always read as double to avoid precision loose (#7214)
-                    value = resultSet.getDouble(index);
+                    try {
+                        // Always read as double to avoid precision loose (#7214)
+                        value = resultSet.getDouble(index);
+                    } catch (SQLException | ClassCastException | NumberFormatException e) {
+                        value = resultSet.getObject(index);
+                    }
                     break;
                 }
             default:
@@ -157,7 +184,7 @@ public class JDBCNumberValueHandler extends JDBCAbstractValueHandler implements 
                 try {
                     Object objectValue = resultSet.getObject(index);
                     if (objectValue == null || objectValue instanceof Number) {
-                        value = (Number) objectValue;
+                        value = objectValue;
                         gotValue = true;
                     }
                 } catch (SQLException e) {
@@ -200,7 +227,7 @@ public class JDBCNumberValueHandler extends JDBCAbstractValueHandler implements 
         if (value instanceof String) {
             String strValue = (String) value;
             // Some number. Actually we shouldn't be here
-            Number number = DBValueFormatting.convertStringToNumber(strValue, getNumberType(paramType), formatter, true);
+            Object number = DBValueFormatting.convertStringToNumber(strValue, getNumberType(paramType), getFormatter(paramType), true);
             if (number != null) {
                 value = number;
             } else if (!strValue.isEmpty()) {
@@ -224,7 +251,6 @@ public class JDBCNumberValueHandler extends JDBCAbstractValueHandler implements 
                     } else {
                         statement.setLong(paramIndex, number.longValue());
                     }
-                    statement.setLong(paramIndex, number.longValue());
                     break;
                 case Types.FLOAT:
                     if (number instanceof BigDecimal) {
@@ -239,6 +265,8 @@ public class JDBCNumberValueHandler extends JDBCAbstractValueHandler implements 
                 case Types.REAL:
                     if (number instanceof BigDecimal) {
                         statement.setBigDecimal(paramIndex, (BigDecimal) number);
+                    } else if (number instanceof Float) {
+                        statement.setFloat(paramIndex, number.floatValue());
                     } else {
                         statement.setDouble(paramIndex, number.doubleValue());
                     }
@@ -321,9 +349,11 @@ public class JDBCNumberValueHandler extends JDBCAbstractValueHandler implements 
                 // Empty string means NULL value
                 return null;
             }
-            return DBValueFormatting.convertStringToNumber(strValue, getNumberType(type), formatter, validateValue);
+            return DBValueFormatting.convertStringToNumber(strValue, getNumberType(type), getFormatter(type), validateValue);
         } else if (object instanceof Boolean) {
             return (Boolean) object ? 1 : 0;
+        } else if (object instanceof Date) {
+            return DBValueFormatting.convertDateToNumber(((Date) object), getNumberType(type), getFormatter(type), validateValue);
         } else {
             log.warn("Unrecognized type '" + object.getClass().getName() + "' - can't convert to numeric");
             return null;
@@ -348,9 +378,12 @@ public class JDBCNumberValueHandler extends JDBCAbstractValueHandler implements 
                     return Float.class;
                 }
                 return BigDecimal.class;
+            //Workaround for MySQL Unsigned INTEGER #8786
             case Types.INTEGER:
-                return Integer.class;
+                return Long.class;
             case Types.SMALLINT:
+            //Workaround for MySQL Unsigned SMALLINT #10239
+                return Integer.class;
             case Types.TINYINT:
                 return Short.class;
             case Types.BIT:

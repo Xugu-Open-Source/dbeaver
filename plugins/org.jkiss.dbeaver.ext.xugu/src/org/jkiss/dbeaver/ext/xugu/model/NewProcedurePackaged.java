@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.model.DBPUniqueObject;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.Property;
@@ -24,7 +25,7 @@ import com.alibaba.druid.sql.dialect.xugu.api.bean.CreateProcedureBean;
  * @author zkun
  *
  */
-public class NewProcedurePackaged   implements DBSObject{
+public class NewProcedurePackaged   implements DBSObject, DBPUniqueObject {
 	
 	
 	private Package package1;
@@ -135,5 +136,24 @@ public class NewProcedurePackaged   implements DBSObject{
 	    
 	public boolean hasAttributes() {
 		return !CommonUtils.isEmpty(procParams);
+	}
+
+	@Override
+	public String getUniqueName() {
+		StringBuilder builder = new StringBuilder(this.getName());
+		builder.append("(");
+		if (procParams != null) {
+			for (int i=0; i < procParams.size(); ++i) {
+				NewProcedureParameter param = procParams.get(i);
+				builder.append(param.getType());
+				builder.append(" ");
+				builder.append(param.getName());
+				if (i < procParams.size() - 1) {
+					builder.append(",");
+				}
+			}
+		}
+		builder.append(")");
+		return builder.toString();
 	}
 }

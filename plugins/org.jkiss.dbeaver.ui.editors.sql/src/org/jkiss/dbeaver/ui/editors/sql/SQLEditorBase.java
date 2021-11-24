@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jface.action.*;
 import org.eclipse.jface.preference.IPreferenceStore;
+import org.eclipse.jface.preference.PreferenceConverter;
 import org.eclipse.jface.text.*;
 import org.eclipse.jface.text.rules.FastPartitioner;
 import org.eclipse.jface.text.source.*;
@@ -31,12 +32,13 @@ import org.eclipse.jface.util.IPropertyChangeListener;
 import org.eclipse.jface.util.PropertyChangeEvent;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.ISelectionProvider;
+import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.PlatformUI;
-import org.eclipse.ui.dialogs.PreferencesUtil;
 import org.eclipse.ui.editors.text.EditorsUI;
+import org.eclipse.ui.internal.dialogs.PropertyDialog;
 import org.eclipse.ui.texteditor.*;
 import org.eclipse.ui.texteditor.templates.ITemplatesPage;
 import org.eclipse.ui.themes.IThemeManager;
@@ -46,6 +48,7 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.impl.sql.BasicSQLDialect;
+import org.jkiss.dbeaver.model.preferences.DBPPreferenceListener;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.*;
@@ -67,6 +70,7 @@ import org.jkiss.dbeaver.ui.editors.sql.syntax.SQLRuleScanner;
 import org.jkiss.dbeaver.ui.editors.sql.templates.SQLTemplatesPage;
 import org.jkiss.dbeaver.ui.editors.sql.util.SQLSymbolInserter;
 import org.jkiss.dbeaver.ui.editors.text.BaseTextEditor;
+import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.Pair;
 
@@ -77,7 +81,7 @@ import java.util.ResourceBundle;
 /**
  * SQL Executor
  */
-public abstract class SQLEditorBase extends BaseTextEditor implements DBPContextProvider, IErrorVisualizer {
+public abstract class SQLEditorBase extends BaseTextEditor implements DBPContextProvider, IErrorVisualizer, DBPPreferenceListener {
 
     static protected final Log log = Log.getLog(SQLEditorBase.class);
     private static final long MAX_FILE_LENGTH_FOR_RULES = 2000000;
@@ -90,7 +94,13 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
         {
             IPreferenceStore editorStore = EditorsUI.getPreferenceStore();
             editorStore.setDefault(SQLPreferenceConstants.MATCHING_BRACKETS, true);
+            editorStore.setDefault(SQLPreferenceConstants.MATCHING_BRACKETS_HIGHLIGHT, true);
             //editorStore.setDefault(SQLPreferenceConstants.MATCHING_BRACKETS_COLOR, "128,128,128"); //$NON-NLS-1$
+
+            // Enable "delete spaces as tabs" option by default
+            // We use hardcoded constants instead of AbstractDecoratedTextEditorPreferenceConstants.EDITOR_DELETE_SPACES_AS_TABS
+            // to allow compile on older Eclipse versions
+            editorStore.setDefault("removeSpacesAsTabs", true);
         }
     }
 
@@ -114,6 +124,7 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
     private ICharacterPairMatcher characterPairMatcher;
     private SQLEditorCompletionContext completionContext;
     private SQLOccurrencesHighlighter occurrencesHighlighter;
+    private SQLSymbolInserter sqlSymbolInserter;
 
     public SQLEditorBase() {
         super();
@@ -149,6 +160,8 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
         setKeyBindingScopes(getKeyBindingContexts());  //$NON-NLS-1$
 
         completionContext = new SQLEditorCompletionContext(this);
+
+        DBWorkbench.getPlatform().getPreferenceStore().addPropertyChangeListener(this);
     }
 
     @Override
@@ -238,11 +251,20 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
         return syntaxManager;
     }
 
+    @Nullable
+    public SQLRuleManager getRuleManager() {
+        if (parserContext == null) {
+            return null;
+        }
+        return parserContext.getRuleManager();
+    }
+
     @NotNull
     public SQLRuleScanner getRuleScanner() {
         return ruleScanner;
     }
 
+    @Nullable
     public ProjectionAnnotationModel getAnnotationModel() {
         return annotationModel;
     }
@@ -277,20 +299,13 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
 
         // Symbol inserter
         {
-            SQLSymbolInserter symbolInserter = new SQLSymbolInserter(this);
+            sqlSymbolInserter = new SQLSymbolInserter(this);
 
-            DBPPreferenceStore preferenceStore = getActivePreferenceStore();
-            boolean closeSingleQuotes = preferenceStore.getBoolean(SQLPreferenceConstants.SQLEDITOR_CLOSE_SINGLE_QUOTES);
-            boolean closeDoubleQuotes = preferenceStore.getBoolean(SQLPreferenceConstants.SQLEDITOR_CLOSE_DOUBLE_QUOTES);
-            boolean closeBrackets = preferenceStore.getBoolean(SQLPreferenceConstants.SQLEDITOR_CLOSE_BRACKETS);
-
-            symbolInserter.setCloseSingleQuotesEnabled(closeSingleQuotes);
-            symbolInserter.setCloseDoubleQuotesEnabled(closeDoubleQuotes);
-            symbolInserter.setCloseBracketsEnabled(closeBrackets);
+            loadActivePreferenceSettings();
 
             ISourceViewer sourceViewer = getSourceViewer();
             if (sourceViewer instanceof ITextViewerExtension) {
-                ((ITextViewerExtension) sourceViewer).prependVerifyKeyListener(symbolInserter);
+                ((ITextViewerExtension) sourceViewer).prependVerifyKeyListener(sqlSymbolInserter);
             }
         }
 
@@ -298,6 +313,17 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
             // Context listener
             EditorUtils.trackControlContext(getSite(), getViewer().getTextWidget(), SQLEditorContributions.SQL_EDITOR_CONTROL_CONTEXT);
         }
+    }
+
+    protected void loadActivePreferenceSettings() {
+        DBPPreferenceStore preferenceStore = getActivePreferenceStore();
+        boolean closeSingleQuotes = preferenceStore.getBoolean(SQLPreferenceConstants.SQLEDITOR_CLOSE_SINGLE_QUOTES);
+        boolean closeDoubleQuotes = preferenceStore.getBoolean(SQLPreferenceConstants.SQLEDITOR_CLOSE_DOUBLE_QUOTES);
+        boolean closeBrackets = preferenceStore.getBoolean(SQLPreferenceConstants.SQLEDITOR_CLOSE_BRACKETS);
+
+        sqlSymbolInserter.setCloseSingleQuotesEnabled(closeSingleQuotes);
+        sqlSymbolInserter.setCloseDoubleQuotesEnabled(closeDoubleQuotes);
+        sqlSymbolInserter.setCloseBracketsEnabled(closeBrackets);
     }
 
     public SQLEditorControl getEditorControlWrapper() {
@@ -362,6 +388,10 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
         handleInputChange(getEditorInput());
     }
 
+    protected void doTextEditorSave(DBRProgressMonitor monitor) {
+        super.doSave(monitor.getNestedMonitor());
+    }
+
     @Override
     protected ISourceViewer createSourceViewer(Composite parent, IVerticalRuler ruler, int styles) {
         fAnnotationAccess = getAnnotationAccess();
@@ -370,6 +400,12 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
         SQLEditorSourceViewer sourceViewer = createSourceViewer(parent, ruler, styles, fOverviewRuler);
 
         getSourceViewerDecorationSupport(sourceViewer);
+
+        SQLMatchingCharacterPainter matchPainter = new SQLMatchingCharacterPainter(sourceViewer, characterPairMatcher);
+        matchPainter.setColor(getSharedColors().getColor(
+            PreferenceConverter.getColor(getPreferenceStore(), "writeOccurrenceIndicationColor")));
+        matchPainter.setHighlightCharacterAtCaretLocation(true);
+        sourceViewer.addPainter(matchPainter);
 
         return sourceViewer;
     }
@@ -384,8 +420,16 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
             // If we below Eclipse 4.2.1
             characterPairMatcher = new SQLCharacterPairMatcher(this, matchChars, SQLParserPartitions.SQL_PARTITIONING);
         }
+
+/*
         support.setCharacterPairMatcher(characterPairMatcher);
-        support.setMatchingCharacterPainterPreferenceKeys(SQLPreferenceConstants.MATCHING_BRACKETS, SQLPreferenceConstants.MATCHING_BRACKETS_COLOR);
+        support.setMatchingCharacterPainterPreferenceKeys(
+            SQLPreferenceConstants.MATCHING_BRACKETS,
+            SQLPreferenceConstants.MATCHING_BRACKETS_COLOR,
+            SQLPreferenceConstants.MATCHING_BRACKETS_HIGHLIGHT,
+            null);//SQLPreferenceConstants.MATCHING_BRACKETS_HIGHLIGHT);
+*/
+
         super.configureSourceViewerDecorationSupport(support);
     }
 
@@ -442,6 +486,7 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
 
     @Override
     public void dispose() {
+        DBWorkbench.getPlatform().getPreferenceStore().removePropertyChangeListener(this);
         this.occurrencesHighlighter.dispose();
 /*
         if (this.activationListener != null) {
@@ -456,6 +501,11 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
         if (themeListener != null) {
             PlatformUI.getWorkbench().getThemeManager().removePropertyChangeListener(themeListener);
             themeListener = null;
+        }
+
+        SQLEditorSourceViewerConfiguration viewerConfiguration = getViewerConfiguration();
+        if (viewerConfiguration != null) {
+            viewerConfiguration.saveFoldingState();
         }
 
         super.dispose();
@@ -536,6 +586,7 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
             formatMenu.add(ActionUtils.makeCommandContribution(getSite(), "org.jkiss.dbeaver.ui.editors.sql.morph.delimited.list"));
             formatMenu.add(getAction(ITextEditorActionConstants.UPPER_CASE));
             formatMenu.add(getAction(ITextEditorActionConstants.LOWER_CASE));
+            formatMenu.add(ActionUtils.makeCommandContribution(getSite(), "org.jkiss.dbeaver.ui.editors.sql.trim.spaces"));
             formatMenu.add(new Separator());
             formatMenu.add(ActionUtils.makeCommandContribution(getSite(), "org.jkiss.dbeaver.ui.editors.sql.word.wrap"));
             formatMenu.add(ActionUtils.makeCommandContribution(getSite(), "org.jkiss.dbeaver.ui.editors.sql.comment.single"));
@@ -550,17 +601,15 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
         // Refresh syntax
         SQLDialect dialect = getSQLDialect();
         IDocument document = getDocument();
-
         syntaxManager.init(dialect, getActivePreferenceStore());
         SQLRuleManager ruleManager = new SQLRuleManager(syntaxManager);
         ruleManager.loadRules(getDataSource(), SQLEditorBase.isBigScript(getEditorInput()));
-
         ruleScanner.refreshRules(getDataSource(), ruleManager);
-        parserContext = new SQLParserContext(SQLEditorBase.this, syntaxManager, ruleManager, document != null ? document : new Document());
+        parserContext = new SQLParserContext(getDataSource(), syntaxManager, ruleManager, document != null ? document : new Document());
 
         if (document instanceof IDocumentExtension3) {
             IDocumentPartitioner partitioner = new FastPartitioner(
-                new SQLPartitionScanner(getDataSource(), dialect),
+                new SQLPartitionScanner(getDataSource(), dialect, ruleManager),
                 SQLParserPartitions.SQL_CONTENT_TYPES);
             partitioner.connect(document);
             try {
@@ -636,7 +685,11 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
             return null;
         }
         ITextSelection selection = (ITextSelection) getSelectionProvider().getSelection();
-        return SQLScriptParser.extractActiveQuery(parserContext, selection.getOffset(), selection.getLength());
+        if (selection instanceof IBlockTextSelection) {
+            return SQLScriptParser.extractActiveQuery(parserContext, ((IBlockTextSelection) selection).getRegions());
+        } else {
+            return SQLScriptParser.extractActiveQuery(parserContext, selection.getOffset(), selection.getLength());
+        }
     }
 
     public SQLScriptElement extractQueryAtPos(int currentPos) {
@@ -667,7 +720,7 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
         if (parserContext == null) {
             return null;
         }
-        SQLParserContext context = new SQLParserContext(SQLEditorBase.this, parserContext.getSyntaxManager(), parserContext.getRuleManager(), new Document(query.getText()));
+        SQLParserContext context = new SQLParserContext(getDataSource(), parserContext.getSyntaxManager(), parserContext.getRuleManager(), new Document(query.getText()));
         return SQLScriptParser.parseParameters(context, 0, query.getLength());
     }
 
@@ -698,15 +751,15 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
 
     protected String[] collectContextMenuPreferencePages() {
         String[] ids = super.collectContextMenuPreferencePages();
-        String[] more = new String[ids.length + 6];
-        more[ids.length] = PrefPageSQLEditor.PAGE_ID;
-        more[ids.length + 1] = PrefPageSQLExecute.PAGE_ID;
-        more[ids.length + 2] = PrefPageSQLCompletion.PAGE_ID;
-        more[ids.length + 3] = PrefPageSQLFormat.PAGE_ID;
-        more[ids.length + 4] = PrefPageSQLResources.PAGE_ID;
-        more[ids.length + 5] = PrefPageSQLTemplates.PAGE_ID;
-        System.arraycopy(ids, 0, more, 0, ids.length);
-        return more;
+        return ArrayUtils.concatArrays(ids, new String[] {
+            PrefPageSQLEditor.PAGE_ID,
+            PrefPageSQLExecute.PAGE_ID,
+            PrefPageSQLCodeEditing.PAGE_ID,
+            PrefPageSQLCompletion.PAGE_ID,
+            PrefPageSQLFormat.PAGE_ID,
+            PrefPageSQLResources.PAGE_ID,
+            PrefPageSQLTemplates.PAGE_ID
+        });
     }
 
     @Override
@@ -780,7 +833,7 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
     }
 
     public boolean isFoldingEnabled() {
-        return getActivePreferenceStore().getBoolean(SQLPreferenceConstants.FOLDING_ENABLED);
+        return DBWorkbench.getPlatform().getPreferenceStore().getBoolean(SQLPreferenceConstants.FOLDING_ENABLED);
     }
 
     /**
@@ -811,6 +864,33 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
         }
     }
 
+    @Override
+    public void preferenceChange(PreferenceChangeEvent event) {
+        switch (event.getProperty()) {
+            case SQLPreferenceConstants.SQLEDITOR_CLOSE_SINGLE_QUOTES:
+                sqlSymbolInserter.setCloseSingleQuotesEnabled(CommonUtils.toBoolean(event.getNewValue()));
+                return;
+            case SQLPreferenceConstants.SQLEDITOR_CLOSE_DOUBLE_QUOTES:
+                sqlSymbolInserter.setCloseDoubleQuotesEnabled(CommonUtils.toBoolean(event.getNewValue()));
+                return;
+            case SQLPreferenceConstants.SQLEDITOR_CLOSE_BRACKETS:
+                sqlSymbolInserter.setCloseBracketsEnabled(CommonUtils.toBoolean(event.getNewValue()));
+                return;
+            case SQLPreferenceConstants.FOLDING_ENABLED:
+                if (annotationModel != null) {
+                    SourceViewerConfiguration configuration = getSourceViewerConfiguration();
+                    SQLEditorSourceViewer sourceViewer = (SQLEditorSourceViewer) getSourceViewer();
+                    annotationModel.removeAllAnnotations();
+                    sourceViewer.unconfigure();
+                    sourceViewer.configure(configuration);
+                }
+                return;
+            case SQLPreferenceConstants.MARK_OCCURRENCES_UNDER_CURSOR:
+            case SQLPreferenceConstants.MARK_OCCURRENCES_FOR_SELECTION:
+                occurrencesHighlighter.updateInput(getEditorInput());
+        }
+    }
+
     ////////////////////////////////////////////////////////
     // Brackets
 
@@ -822,8 +902,10 @@ public abstract class SQLEditorBase extends BaseTextEditor implements DBPContext
         public void run() {
             Shell shell = getSourceViewer().getTextWidget().getShell();
             String[] preferencePages = collectContextMenuPreferencePages();
-            if (preferencePages.length > 0 && (shell == null || !shell.isDisposed()))
-                PreferencesUtil.createPreferenceDialogOn(shell, preferencePages[0], preferencePages, getEditorInput()).open();
+            if (preferencePages.length > 0 && (shell == null || !shell.isDisposed())) {
+                PropertyDialog.createDialogOn(shell, null, new StructuredSelection(getEditorInput())).open();
+                //PreferencesUtil.createPreferenceDialogOn(shell, preferencePages[0], preferencePages, getEditorInput()).open();
+            }
         }
     }
 

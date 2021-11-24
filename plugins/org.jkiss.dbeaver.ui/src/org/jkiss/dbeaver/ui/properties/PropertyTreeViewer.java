@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IMenuManager;
 import org.eclipse.jface.action.MenuManager;
 import org.eclipse.jface.action.Separator;
+import org.eclipse.jface.util.IPropertyChangeListener;
+import org.eclipse.jface.util.PropertyChangeEvent;
 import org.eclipse.jface.viewers.*;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.TreeEditor;
@@ -28,31 +30,35 @@ import org.eclipse.swt.events.MouseAdapter;
 import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.*;
 import org.eclipse.ui.views.properties.IPropertySource2;
+import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBPNamedObject;
 import org.jkiss.dbeaver.model.DBPNamedObject2;
 import org.jkiss.dbeaver.model.DBPObject;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.impl.PropertyDescriptor;
 import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
 import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
-import org.jkiss.dbeaver.runtime.properties.IPropertySourceEditable;
-import org.jkiss.dbeaver.runtime.properties.PropertyCollector;
-import org.jkiss.dbeaver.runtime.properties.PropertySourceCollection;
-import org.jkiss.dbeaver.runtime.properties.PropertySourceMap;
+import org.jkiss.dbeaver.runtime.properties.*;
 import org.jkiss.dbeaver.ui.DefaultViewerToolTipSupport;
+import org.jkiss.dbeaver.ui.UIElementAlignment;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.ObjectViewerRenderer;
+import org.jkiss.dbeaver.ui.controls.bool.BooleanMode;
+import org.jkiss.dbeaver.ui.controls.bool.BooleanStyleDecorator;
 import org.jkiss.dbeaver.ui.internal.UIMessages;
 import org.jkiss.dbeaver.utils.GeneralUtils;
+import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.BeanUtils;
 import org.jkiss.utils.CommonUtils;
 
@@ -66,7 +72,6 @@ import java.util.*;
  * Driver properties control
  */
 public class PropertyTreeViewer extends TreeViewer {
-
     public static final String LINE_SEPARATOR = GeneralUtils.getDefaultLineSeparator();
 
     public enum ExpandMode {
@@ -80,6 +85,7 @@ public class PropertyTreeViewer extends TreeViewer {
     private boolean expandSingleRoot = true;
     private boolean namesEditable = false;
     private boolean newPropertiesAllowed = false;
+    private boolean isMouseEventOnMacos = false; // [#10279] [#10366] [#10361]
     private TreeEditor treeEditor;
 
     private Font boldFont;
@@ -91,6 +97,8 @@ public class PropertyTreeViewer extends TreeViewer {
     private IBaseLabelProvider extraLabelProvider;
     private ObjectViewerRenderer renderer;
     private ExpandMode expandMode = ExpandMode.ALL;
+
+    private final List<IPropertyChangeListener> propertyListeners = new ArrayList<>();
 
     public PropertyTreeViewer(Composite parent, int style)
     {
@@ -156,11 +164,6 @@ public class PropertyTreeViewer extends TreeViewer {
             }
 
             @Override
-            protected int getBooleanEditStyle() {
-                return ES_LEFT;
-            }
-
-            @Override
             public boolean isHyperlink(Object cellValue)
             {
                 return cellValue instanceof DBSObject;
@@ -172,6 +175,12 @@ public class PropertyTreeViewer extends TreeViewer {
                 if (cellValue instanceof DBSObject) {
                     DBWorkbench.getPlatformUI().openEntityEditor((DBSObject) cellValue);
                 }
+            }
+
+            @NotNull
+            @Override
+            protected UIElementAlignment getBooleanAlignment(@Nullable Boolean value) {
+                return UIElementAlignment.LEFT;
             }
         };
     }
@@ -195,6 +204,11 @@ public class PropertyTreeViewer extends TreeViewer {
     public void loadProperties(DBPPropertySource propertySource)
     {
         loadProperties(null, null, propertySource);
+    }
+
+    public void loadProperties(DBRProgressMonitor monitor, DBPPropertySource propertySource)
+    {
+        loadProperties(monitor, null, propertySource);
     }
 
     protected void loadProperties(@Nullable DBRProgressMonitor monitor, TreeNode parent, DBPPropertySource propertySource)
@@ -265,8 +279,15 @@ public class PropertyTreeViewer extends TreeViewer {
     {
         Map<String, TreeNode> categories = new LinkedHashMap<>();
         TreeNode lastCategory = null;
-        final DBPPropertyDescriptor[] props = filterProperties(propertySource.getEditableValue(), propertySource.getPropertyDescriptors2());
+        final DBPPropertyDescriptor[] props = filterProperties(propertySource.getEditableValue(), propertySource.getProperties());
         for (DBPPropertyDescriptor prop : props) {
+            if (prop instanceof ObjectPropertyDescriptor) {
+                Object propertyValue = propertySource.getPropertyValue(monitor, prop.getId());
+                if (!((ObjectPropertyDescriptor) prop).isPropertyVisible(propertySource.getEditableValue(), propertyValue)) {
+                    // Skip non-visible properties
+                    continue;
+                }
+            }
             String categoryName = prop.getCategory();
             if (CommonUtils.isEmpty(categoryName)) {
                 categoryName = CATEGORY_GENERAL;
@@ -299,15 +320,15 @@ public class PropertyTreeViewer extends TreeViewer {
                                 collection = (Collection<?>) propertyValue;
                             }
                             PropertySourceCollection psc = new PropertySourceCollection(collection);
-                            for (DBPPropertyDescriptor pd : psc.getPropertyDescriptors2()) {
+                            for (DBPPropertyDescriptor pd : psc.getProperties()) {
                                 new TreeNode(propNode, psc, pd);
                             }
                         }
                     } else if (Map.class.isAssignableFrom(propType)) {
-                        Map<?,?> propertyValue = (Map<?, ?>) propertySource.getPropertyValue(monitor, prop.getId());
+                        Map<String,?> propertyValue = (Map<String, ?>) propertySource.getPropertyValue(monitor, prop.getId());
                         if (propertyValue != null) {
                             PropertySourceMap psc = new PropertySourceMap(propertyValue);
-                            for (DBPPropertyDescriptor pd : psc.getPropertyDescriptors2()) {
+                            for (DBPPropertyDescriptor pd : psc.getProperties()) {
                                 new TreeNode(propNode, psc, pd);
                             }
                         }
@@ -343,6 +364,8 @@ public class PropertyTreeViewer extends TreeViewer {
 
     protected void removeProperty(Object node)
     {
+        applyEditorValue();
+        disposeOldEditor();
         if (node instanceof TreeNode) {
             TreeNode treeNode = (TreeNode) node;
             if (treeNode.propertySource != null) {
@@ -392,7 +415,13 @@ public class PropertyTreeViewer extends TreeViewer {
             @Override
             public void widgetSelected(final SelectionEvent e)
             {
-                showEditor((TreeItem) e.item, (e.stateMask & SWT.BUTTON_MASK) != 0);
+                TreeItem item = (TreeItem) e.item;
+                if (RuntimeUtils.isMacOS()) { // [#10279] [#10366] [#10361]
+                    showEditor(item, isMouseEventOnMacos);
+                    isMouseEventOnMacos = false;
+                    return;
+                }
+                showEditor(item, (e.stateMask & SWT.BUTTON_MASK) != 0);
             }
         });
         treeControl.addMouseListener(new MouseAdapter() {
@@ -400,6 +429,9 @@ public class PropertyTreeViewer extends TreeViewer {
             public void mouseDown(MouseEvent e)
             {
                 TreeItem item = treeControl.getItem(new Point(e.x, e.y));
+                if (RuntimeUtils.isMacOS()) { // [#10279] [#10366] [#10361]
+                    isMouseEventOnMacos = true;
+                }
                 if (item != null) {
                     selectedColumn = UIUtils.getColumnAtPos(item, e.x, e.y);
                 } else {
@@ -458,48 +490,58 @@ public class PropertyTreeViewer extends TreeViewer {
             if (prop.property == null || !prop.isEditable()) {
                 return;
             }
-            if (selectedColumn == 0) {
-                if (!namesEditable || !(prop.property instanceof DBPNamedObject)) {
-                    return;
-                }
+            final int columnIndex;
+            if (selectedColumn == 0 && (!namesEditable || !(prop.property instanceof DBPNamedObject))) {
+                columnIndex = 1;
+            } else {
+                columnIndex = this.selectedColumn;
             }
             int editStyle = SWT.LEFT;
             if (isHidePropertyValue(prop.property)) {
                 editStyle |= SWT.PASSWORD;
             }
-            final CellEditor cellEditor = UIUtils.createPropertyEditor(UIUtils.getActiveWorkbenchWindow(), treeControl, prop.propertySource, prop.property, editStyle);
+            final CellEditor cellEditor = PropertyEditorUtils.createPropertyEditor(UIUtils.getActiveWorkbenchWindow(), treeControl, prop.propertySource, prop.property, editStyle);
             if (cellEditor == null) {
                 return;
             }
-            final Object propertyValue = selectedColumn == 0 ? prop.property.getDisplayName() : prop.propertySource.getPropertyValue(null, prop.property.getId());
+            if (cellEditor instanceof BooleanStyleDecorator) {
+                ((BooleanStyleDecorator) cellEditor).setBooleanAlignment(UIElementAlignment.LEFT);
+            }
+            final Object propertyValue = columnIndex == 0 ? prop.property.getDisplayName() : prop.propertySource.getPropertyValue(null, prop.property.getId());
             final ICellEditorListener cellEditorListener = new ICellEditorListener() {
                 @Override
                 public void applyEditorValue()
                 {
-                    //editorValueChanged(true, true);
-                    final Object value = cellEditor.getValue();
-                    final Object oldValue = selectedColumn == 0 ? prop.property.getDisplayName() : prop.propertySource.getPropertyValue(null, prop.property.getId());
-                    if (value instanceof String && ((String) value).isEmpty() && oldValue == null) {
-                        // The same empty string
-                        return;
-                    }
-                    if (!CommonUtils.equalObjects(oldValue, value)) {
-                        if (selectedColumn == 0) {
-                            String newName = CommonUtils.toString(value);
-                            Object oldPropId = prop.property.getId();
-                            Object oldPropValue = prop.propertySource.getPropertyValue(null, prop.property.getId());
-                            ((DBPNamedObject2)prop.property).setName(newName);
-                            if (oldPropValue != null) {
-                                prop.propertySource.resetPropertyValueToDefault(oldPropId);
-                                prop.propertySource.setPropertyValue(null, prop.property.getId(), oldPropValue);
-                            }
-                        } else {
-                            prop.propertySource.setPropertyValue(
-                                null,
-                                prop.property.getId(),
-                                value);
+                    try {
+                        //editorValueChanged(true, true);
+                        final Object value = cellEditor.getValue();
+                        final Object oldValue = columnIndex == 0 ? prop.property.getDisplayName() : prop.propertySource.getPropertyValue(null, prop.property.getId());
+                        if (value instanceof String && ((String) value).isEmpty() && oldValue == null) {
+                            // The same empty string
+                            return;
                         }
-                        handlePropertyChange(prop);
+                        if (DBUtils.compareDataValues(oldValue, value) != 0) {
+                            if (columnIndex == 0) {
+                                String newName = CommonUtils.toString(value);
+                                String oldPropId = prop.property.getId();
+                                Object oldPropValue = prop.propertySource.getPropertyValue(null, prop.property.getId());
+                                ((DBPNamedObject2) prop.property).setName(newName);
+                                if (oldPropValue != null) {
+                                    prop.propertySource.resetPropertyValueToDefault(oldPropId);
+                                    prop.propertySource.setPropertyValue(null, prop.property.getId(), oldPropValue);
+                                }
+                            } else {
+                                prop.propertySource.setPropertyValue(
+                                    null,
+                                    prop.property.getId(),
+                                    value);
+                            }
+                            handlePropertyChange(prop);
+                        }
+
+                        disposeOldEditor();
+                    } catch (Exception e) {
+                        DBWorkbench.getPlatformUI().showError("Error setting property value", "Error setting property '" + prop.property.getDisplayName() + "' value", e);
                     }
                 }
 
@@ -516,7 +558,7 @@ public class PropertyTreeViewer extends TreeViewer {
             };
             cellEditor.addListener(cellEditorListener);
             if (propertyValue != null) {
-                cellEditor.setValue(propertyValue);
+                cellEditor.setValue(UIUtils.normalizePropertyValue(propertyValue));
             }
             curCellEditor = cellEditor;
             selectedProperty = prop.property;
@@ -546,7 +588,7 @@ public class PropertyTreeViewer extends TreeViewer {
                 treeEditor.minimumWidth = cellEditor.getLayoutData().minimumWidth;
                 treeEditor.grabHorizontal = cellEditor.getLayoutData().grabHorizontal;
 
-                treeEditor.setEditor(editorControl, item, selectedColumn);
+                treeEditor.setEditor(editorControl, item, columnIndex);
             }
             if (isDef) {
                 // Selected by mouse
@@ -669,6 +711,22 @@ public class PropertyTreeViewer extends TreeViewer {
     {
         super.update(prop, null);
 
+        List<IPropertyChangeListener> listenersCopy;
+        synchronized (propertyListeners) {
+            listenersCopy = new ArrayList<>(propertyListeners);
+        }
+        if (!listenersCopy.isEmpty()) {
+            PropertyChangeEvent event = new PropertyChangeEvent(
+                this,
+                CommonUtils.toString(prop.property.getId()),
+                null,
+                getPropertyValue(prop));
+
+            for (IPropertyChangeListener listener : listenersCopy) {
+                listener.propertyChange(event);
+            }
+        }
+
         // Send modify event
         Event event = new Event();
         event.data = prop.property;
@@ -688,6 +746,18 @@ public class PropertyTreeViewer extends TreeViewer {
     {
         handlePropertyChange(prop);
         super.refresh(prop.parent);
+    }
+
+    public void addPropertyChangeListener(IPropertyChangeListener listener) {
+        synchronized (propertyListeners) {
+            propertyListeners.add(listener);
+        }
+    }
+
+    public void removePropertyChangeListener(IPropertyChangeListener listener) {
+        synchronized (propertyListeners) {
+            propertyListeners.remove(listener);
+        }
     }
 
     public void setExpandMode(ExpandMode expandMode) {
@@ -740,12 +810,15 @@ public class PropertyTreeViewer extends TreeViewer {
     }
 
     public void saveEditorValues() {
-        if (curCellEditor != null && curCellEditor.isActivated()) {
+        if (RuntimeUtils.isMacOS() && curCellEditor != null && curCellEditor.isActivated()) {
             try {
                 // This is a hack. On MacOS buttons don't get focus so when user closes dialog
                 // by clicking on Ok button CellEditor doesn't get FocusLost event and thus doesn't save its value.
                 // This is workaround. Calling protected method focusLost in okPressed saves the value.
-                // See https://github.com/dbeaver/dbeaver/issues/3553
+                // See:
+                // https://github.com/dbeaver/dbeaver/issues/3553
+                // https://github.com/dbeaver/dbeaver/issues/10366
+                // https://github.com/dbeaver/dbeaver/issues/10361
                 Method focusLost = CellEditor.class.getDeclaredMethod("focusLost");
                 focusLost.setAccessible(true);
                 focusLost.invoke(curCellEditor);
@@ -830,7 +903,7 @@ public class PropertyTreeViewer extends TreeViewer {
         }
     }
 
-    class PropsContentProvider implements IStructuredContentProvider, ITreeContentProvider {
+    static class PropsContentProvider implements IStructuredContentProvider, ITreeContentProvider {
         @Override
         public void inputChanged(Viewer v, Object oldInput, Object newInput)
         {
@@ -899,8 +972,19 @@ public class PropertyTreeViewer extends TreeViewer {
                 }
             } else {
                 if (node.property != null) {
-                    final Object propertyValue = getPropertyValue(node);
-                    if (propertyValue == null || renderer.isHyperlink(propertyValue)) {
+                    Object propertyValue = getPropertyValue(node);
+
+                    Class<?> propDataType = node.property.getDataType();
+                    if (Boolean.class == propDataType || Boolean.TYPE == propDataType) {
+                        if (propertyValue != null && !(propertyValue instanceof Boolean)) {
+                            propertyValue = CommonUtils.toBoolean(propertyValue);
+                        }
+                        if (renderer.getBooleanStyles().getMode() == BooleanMode.TEXT) {
+                            return renderer.getBooleanStyles().getStyle((Boolean) propertyValue).getText();
+                        } else {
+                            return "";
+                        }
+                    } else if (propertyValue == null || renderer.isHyperlink(propertyValue)) {
                         return ""; //$NON-NLS-1$
                     } else if (isHidePropertyValue(node.property)) {
                         // Mask value
@@ -925,14 +1009,33 @@ public class PropertyTreeViewer extends TreeViewer {
                         str.append("]");
                         return str.toString();
                     }
-                    if (propertyValue instanceof Boolean) {
-                        return "";
-                    }
                     return ObjectViewerRenderer.getCellString(propertyValue, isName);
                 } else {
                     return ""; //$NON-NLS-1$
                 }
             }
+        }
+
+        @Nullable
+        public Color getForeground(Object obj, int columnIndex) {
+            if (obj instanceof TreeNode && columnIndex > 0) {
+                TreeNode node = (TreeNode) obj;
+                if (node.property != null) {
+                    Object propertyValue = getPropertyValue(node);
+                    Class<?> propertyDataType = node.property.getDataType();
+                    if ((Boolean.class == propertyDataType || Boolean.TYPE == propertyDataType)) {
+                        if (propertyValue != null && !(propertyValue instanceof Boolean)) {
+                            propertyValue = CommonUtils.toBoolean(propertyValue);
+                        }
+                        if (renderer.getBooleanStyles().getMode() == BooleanMode.TEXT) {
+                            return UIUtils.getSharedColor(renderer.getBooleanStyles().getStyle((Boolean) propertyValue).getColor());
+                        } else {
+                            return null;
+                        }
+                    }
+                }
+            }
+            return null;
         }
 
         @Override
@@ -1033,6 +1136,7 @@ public class PropertyTreeViewer extends TreeViewer {
         {
             Object element = cell.getElement();
             cell.setText(getText(element, cell.getColumnIndex()));
+            cell.setForeground(getForeground(element, cell.getColumnIndex()));
             if (!(element instanceof TreeNode)) {
                 return;
             }
@@ -1162,5 +1266,4 @@ public class PropertyTreeViewer extends TreeViewer {
             }
         }
     }
-
 }

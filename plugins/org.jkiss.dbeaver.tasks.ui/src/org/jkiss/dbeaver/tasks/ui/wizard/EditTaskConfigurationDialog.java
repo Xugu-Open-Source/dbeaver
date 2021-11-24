@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,12 +30,15 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.task.DBTTask;
+import org.jkiss.dbeaver.model.task.DBTTaskFolder;
 import org.jkiss.dbeaver.model.task.DBTTaskManager;
 import org.jkiss.dbeaver.model.task.DBTTaskType;
 import org.jkiss.dbeaver.registry.task.TaskImpl;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.dbeaver.tasks.ui.internal.TaskUIMessages;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.dialogs.BaseDialog;
+import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.Date;
@@ -56,12 +59,12 @@ public class EditTaskConfigurationDialog extends BaseDialog
 
     private Combo taskLabelCombo;
     private Text taskDescriptionText;
-    private DBTTask[] allTasks;
+    private Combo taskFoldersCombo;
 
     public EditTaskConfigurationDialog(Shell parentShell, @NotNull DBTTask task)
     {
         super(parentShell,
-            "Edit task [" + task.getName() + "]",
+            TaskUIMessages.edit_task_config_dialog_title_edit_task + " [" + task.getName() + "]",
             task.getType().getIcon() == null ? DBIcon.TREE_TASK: task.getType().getIcon());
         this.task = (TaskImpl) task;
         this.project = task.getProject();
@@ -71,7 +74,7 @@ public class EditTaskConfigurationDialog extends BaseDialog
 
     public EditTaskConfigurationDialog(Shell parentShell, @NotNull DBPProject project, @NotNull DBTTaskType taskType)
     {
-        super(parentShell, "Create task", DBIcon.TREE_TASK);
+        super(parentShell, TaskUIMessages.edit_task_config_dialog_title_create_task, DBIcon.TREE_TASK);
         this.task = null;
         this.project = project;
         this.taskType = taskType;
@@ -96,19 +99,31 @@ public class EditTaskConfigurationDialog extends BaseDialog
             updateButtons();
         };
 
-        UIUtils.createLabelText(formPanel, "Type", taskType.getCategory().getName() + " / " + taskType.getName(), SWT.BORDER | SWT.READ_ONLY);
+        UIUtils.createLabelText(formPanel, TaskUIMessages.edit_task_config_dialog_label_type, taskType.getCategory().getName() + " / " + taskType.getName(), SWT.BORDER | SWT.READ_ONLY);
 
         boolean taskSaved = task != null && !CommonUtils.isEmpty(task.getId());
-        taskLabelCombo = UIUtils.createLabelCombo(formPanel, "Name", "", SWT.BORDER | (taskSaved ? SWT.READ_ONLY : SWT.NONE));
+        taskLabelCombo = UIUtils.createLabelCombo(formPanel, TaskUIMessages.edit_task_config_dialog_label_name, "", SWT.BORDER | (taskSaved ? SWT.READ_ONLY : SWT.NONE));
         ((GridData)taskLabelCombo.getLayoutData()).widthHint = 300;
         if (task != null) {
             taskLabelCombo.setText(task.getName());
         } else {
             taskLabelCombo.add("");
             DBTTaskManager taskManager = project.getTaskManager();
-            allTasks = taskManager.getAllTaskByType(taskType);
+            DBTTask[] allTasks = taskManager.getAllTaskByType(taskType);
             for (DBTTask tc : allTasks) {
                 taskLabelCombo.add(tc.getName());
+            }
+
+            UIUtils.createControlLabel(formPanel, TaskUIMessages.edit_task_config_dialog_task_folders_label_name);
+            taskFoldersCombo = new Combo(formPanel, SWT.DROP_DOWN | SWT.READ_ONLY);
+            taskFoldersCombo.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+
+            DBTTaskFolder[] tasksFolders = taskManager.getTasksFolders();
+            if (!ArrayUtils.isEmpty(tasksFolders)) {
+                taskFoldersCombo.add(""); // Empty row as ability to remove task folder from task
+                for (DBTTaskFolder taskFolder : tasksFolders) {
+                    taskFoldersCombo.add(taskFolder.getName());
+                }
             }
 
 /*
@@ -138,7 +153,7 @@ public class EditTaskConfigurationDialog extends BaseDialog
 //            UIUtils.createLabelText(formPanel, "ID", task.getId(), SWT.BORDER | SWT.READ_ONLY);
 //        }
 
-        taskDescriptionText = UIUtils.createLabelText(formPanel, "Description", task == null ? "" : CommonUtils.notEmpty(task.getDescription()), SWT.BORDER | SWT.MULTI | SWT.V_SCROLL);
+        taskDescriptionText = UIUtils.createLabelText(formPanel, TaskUIMessages.edit_task_config_dialog_label_descr, task == null ? "" : CommonUtils.notEmpty(task.getDescription()), SWT.BORDER | SWT.MULTI | SWT.V_SCROLL);
         ((GridData)taskDescriptionText.getLayoutData()).heightHint = taskDescriptionText.getLineHeight() * 5;
         taskDescriptionText.addModifyListener(modifyListener);
 
@@ -167,7 +182,7 @@ public class EditTaskConfigurationDialog extends BaseDialog
         DBTTaskManager taskManager = project.getTaskManager();
         try {
             if (task == null) {
-                task = (TaskImpl) taskManager.createTask(taskType, taskLabelCombo.getText(), taskDescriptionText.getText(), state);
+                task = (TaskImpl) taskManager.createTask(taskType, taskLabelCombo.getText(), taskDescriptionText.getText(), taskFoldersCombo.getText(), state);
             }
             task.setName(taskLabelCombo.getText());
             task.setDescription(taskDescriptionText.getText());

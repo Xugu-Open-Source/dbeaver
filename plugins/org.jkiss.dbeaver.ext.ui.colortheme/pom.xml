@@ -10,13 +10,13 @@
         <relativePath>../</relativePath>
     </parent>
     <artifactId>org.jkiss.dbeaver.ext.ui.colortheme</artifactId>
-    <version>1.0.37-SNAPSHOT</version>
+    <version>1.0.75-SNAPSHOT</version>
     <packaging>eclipse-plugin</packaging>
 
     <repositories>
         <repository>
             <id>eclipse-color-theme</id>
-            <url>https://eclipse-color-theme.github.com/update</url>
+            <url>https://eclipse-color-theme.github.io/update</url>
             <layout>p2</layout>
         </repository>
     </repositories>

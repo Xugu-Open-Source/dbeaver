@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlanCostNode;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlanNode;
-import org.jkiss.dbeaver.model.sql.SQLUtils;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -39,11 +38,6 @@ public class MySQLPlanClassic extends MySQLPlanAbstract {
 
     public MySQLPlanClassic(JDBCSession session, String query) throws DBCException {
         super((MySQLDataSource) session.getDataSource(), query);
-
-        String plainQuery = SQLUtils.stripComments(SQLUtils.getDialectFromObject(dataSource), query).toUpperCase();
-        if (!plainQuery.startsWith("SELECT")) {
-            throw new DBCException("Only SELECT statements could produce execution plan");
-        }
         try (JDBCPreparedStatement dbStat = session.prepareStatement(getPlanQueryString())) {
             try (JDBCResultSet dbResult = dbStat.executeQuery()) {
                 List<MySQLPlanNodePlain> nodes = new ArrayList<>();

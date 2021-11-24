@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.ext.postgresql.PostgreConstants;
 import org.jkiss.dbeaver.ext.postgresql.PostgreUtils;
+import org.jkiss.dbeaver.ext.postgresql.PostgreValueParser;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCException;
@@ -30,6 +30,7 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.struct.AbstractProcedure;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.DBSObject;
@@ -46,13 +47,13 @@ import java.util.*;
 /**
  * PostgreProcedure
  */
-public class PostgreProcedure extends AbstractProcedure<PostgreDataSource, PostgreSchema> implements PostgreObject, PostgreScriptObject, PostgrePrivilegeOwner, DBPUniqueObject, DBPOverloadedObject, DBPNamedObject2, DBPRefreshableObject
+public class PostgreProcedure extends AbstractProcedure<PostgreDataSource, PostgreSchema>
+        implements PostgreObject, PostgreScriptObject, PostgrePrivilegeOwner, DBPUniqueObject, DBPOverloadedObject, DBPNamedObject2, DBPRefreshableObject, DBPScriptObjectExt2
 {
     private static final Log log = Log.getLog(PostgreProcedure.class);
 
     private static final String CAT_FLAGS = "Flags";
     private static final String CAT_PROPS = "Properties";
-    private static final String CAT_STATS = "Statistics";
 
     public static final float DEFAULT_EST_ROWS = 1000.0f;
     public static final float DEFAULT_COST = 100.0f;
@@ -130,12 +131,16 @@ public class PostgreProcedure extends AbstractProcedure<PostgreDataSource, Postg
     }
 
     private void loadInfo(DBRProgressMonitor monitor, ResultSet dbResult) {
-        this.oid = JDBCUtils.safeGetLong(dbResult, "oid");
+        PostgreDataSource dataSource = getDataSource();
+
+        this.oid = JDBCUtils.safeGetLong(dbResult, "poid");
         setName(JDBCUtils.safeGetString(dbResult, "proname"));
         this.ownerId = JDBCUtils.safeGetLong(dbResult, "proowner");
         this.languageId = JDBCUtils.safeGetLong(dbResult, "prolang");
-        this.execCost = JDBCUtils.safeGetFloat(dbResult, "procost");
-        this.estRows = JDBCUtils.safeGetFloat(dbResult, "prorows");
+        if (dataSource.isServerVersionAtLeast(8, 3)) {
+            this.execCost = JDBCUtils.safeGetFloat(dbResult, "procost");
+            this.estRows = JDBCUtils.safeGetFloat(dbResult, "prorows");
+        }
 
         Long[] allArgTypes = JDBCUtils.safeGetArray(dbResult, "proallargtypes");
         String[] argNames = JDBCUtils.safeGetArray(dbResult, "proargnames");
@@ -195,7 +200,7 @@ public class PostgreProcedure extends AbstractProcedure<PostgreDataSource, Postg
             String[] argDefaults = null;
             if (!CommonUtils.isEmpty(argDefaultsString)) {
                 try {
-                    argDefaults = PostgreUtils.parseObjectString(argDefaultsString);
+                    argDefaults = PostgreValueParser.parseSingleObject(argDefaultsString);
                 } catch (DBCException e) {
                     log.debug("Error parsing function parameters defaults", e);
                 }
@@ -208,7 +213,9 @@ public class PostgreProcedure extends AbstractProcedure<PostgreDataSource, Postg
                     if (parameterKind == DBSProcedureParameterKind.OUT || parameterKind == DBSProcedureParameterKind.TABLE || parameterKind == DBSProcedureParameterKind.RETURN) {
                         continue;
                     }
-                    params.get(i).setDefaultValue(argDefaults[argDefaults.length - 1 - paramsAssigned]);
+                    String defaultValue = argDefaults[argDefaults.length - 1 - paramsAssigned];
+                    if (defaultValue != null) defaultValue = defaultValue.trim();
+                    params.get(i).setDefaultValue(defaultValue);
                     paramsAssigned++;
                     if (paramsAssigned >= argDefaults.length) {
                         break;
@@ -221,17 +228,23 @@ public class PostgreProcedure extends AbstractProcedure<PostgreDataSource, Postg
 
         this.overloadedName = makeOverloadedName(getSchema(), getName(), params, false, false);
 
-        {
+        if (dataSource.isServerVersionAtLeast(8, 4)) {
             final long varTypeId = JDBCUtils.safeGetLong(dbResult, "provariadic");
             if (varTypeId != 0) {
                 varArrayType = container.getDatabase().getDataType(monitor, varTypeId);
             }
         }
-        this.procTransform = JDBCUtils.safeGetString(dbResult, "protransform");
+        if (dataSource.isServerVersionAtLeast(9, 2)) {
+            this.procTransform = JDBCUtils.safeGetString(dbResult, "protransform");
+        }
         this.isAggregate = JDBCUtils.safeGetBoolean(dbResult, "proisagg");
-        this.isWindow = JDBCUtils.safeGetBoolean(dbResult, "proiswindow");
+        if (dataSource.isServerVersionAtLeast(8, 4)) {
+            this.isWindow = JDBCUtils.safeGetBoolean(dbResult, "proiswindow");
+        }
         this.isSecurityDefiner = JDBCUtils.safeGetBoolean(dbResult, "prosecdef");
-        this.leakproof = JDBCUtils.safeGetBoolean(dbResult, "proleakproof");
+        if (dataSource.isServerVersionAtLeast(9, 2)) {
+            this.leakproof = JDBCUtils.safeGetBoolean(dbResult, "proleakproof");
+        }
         this.isStrict = JDBCUtils.safeGetBoolean(dbResult, "proisstrict");
         this.returnsSet = JDBCUtils.safeGetBoolean(dbResult, "proretset");
         try {
@@ -251,9 +264,11 @@ public class PostgreProcedure extends AbstractProcedure<PostgreDataSource, Postg
 
         this.acl = JDBCUtils.safeGetObject(dbResult, "proacl");
 
-        this.config = JDBCUtils.safeGetArray(dbResult, "proconfig");
+        if (dataSource.isServerVersionAtLeast(8, 3)) {
+            this.config = JDBCUtils.safeGetArray(dbResult, "proconfig");
+        }
 
-        if (getDataSource().getServerType().supportsStoredProcedures()) {
+        if (dataSource.getServerType().supportsStoredProcedures()) {
             String proKind = JDBCUtils.safeGetString(dbResult, "prokind");
             kind = CommonUtils.valueOf(PostgreProcedureKind.class, proKind, PostgreProcedureKind.f);
         } else {
@@ -390,14 +405,12 @@ public class PostgreProcedure extends AbstractProcedure<PostgreDataSource, Postg
                     // No OID so let's use old (bad) way
                     body = this.procSrc;
                 } else {
-                    try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Read procedure body")) {
-                        body = JDBCUtils.queryString(session, "SELECT pg_get_functiondef(" + getObjectId() + ")");
-                    } catch (SQLException e) {
-                        if (!CommonUtils.isEmpty(this.procSrc)) {
-                            log.debug("Error reading procedure body", e);
-                            // At least we have it
-                            body = this.procSrc;
-                        } else {
+                    if (isAggregate) {
+                        body = "-- Aggregate function";
+                    } else {
+                        try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Read procedure body")) {
+                            body = JDBCUtils.queryString(session, "SELECT pg_get_functiondef(" + getObjectId() + ")");
+                        } catch (SQLException e) {
                             throw new DBException("Error reading procedure body", e);
                         }
                     }
@@ -408,11 +421,11 @@ public class PostgreProcedure extends AbstractProcedure<PostgreDataSource, Postg
         if (this.isPersisted() && !omitHeader) {
             procDDL += ";\n";
 
-            if (CommonUtils.getOption(options, PostgreConstants.OPTION_DDL_SHOW_COLUMN_COMMENTS) && !CommonUtils.isEmpty(getDescription())) {
-                procDDL += "\nCOMMENT ON FUNCTION " + getFullQualifiedSignature() + " IS " + SQLUtils.quoteString(this, getDescription()) + ";\n";
+            if (CommonUtils.getOption(options, DBPScriptObject.OPTION_INCLUDE_COMMENTS) && !CommonUtils.isEmpty(getDescription())) {
+                procDDL += "\nCOMMENT ON " + getProcedureTypeName() + " " + getFullQualifiedSignature() + " IS " + SQLUtils.quoteString(this, getDescription()) + ";\n";
             }
 
-            if (CommonUtils.getOption(options, PostgreConstants.OPTION_DDL_SHOW_PERMISSIONS)) {
+            if (CommonUtils.getOption(options, DBPScriptObject.OPTION_INCLUDE_PERMISSIONS)) {
                 List<DBEPersistAction> actions = new ArrayList<>();
                 PostgreUtils.getObjectGrantPermissionActions(monitor, this, actions, options);
                 procDDL += "\n" + SQLUtils.generateScript(getDataSource(), actions.toArray(new DBEPersistAction[0]), false);
@@ -454,6 +467,9 @@ public class PostgreProcedure extends AbstractProcedure<PostgreDataSource, Postg
         }
         if (language != null) {
             decl.append("\tLANGUAGE ").append(language).append(lineSeparator);
+        }
+        if (isSecurityDefiner()) {
+            decl.append("\tSECURITY DEFINER").append(lineSeparator);
         }
         if (isWindow()) {
             decl.append("\tWINDOW").append(lineSeparator);
@@ -541,12 +557,12 @@ public class PostgreProcedure extends AbstractProcedure<PostgreDataSource, Postg
         return procTransform;
     }
 
-    @Property(category = CAT_STATS, viewable = false, order = 30)
+    @Property(category = DBConstants.CAT_STATISTICS, viewable = false, order = 30)
     public float getExecCost() {
         return execCost;
     }
 
-    @Property(category = CAT_STATS, viewable = false, order = 31)
+    @Property(category = DBConstants.CAT_STATISTICS, viewable = false, order = 31)
     public float getEstRows() {
         return estRows;
     }
@@ -594,7 +610,8 @@ public class PostgreProcedure extends AbstractProcedure<PostgreDataSource, Postg
             boolean hasParam = false;
             for (PostgreProcedureParameter param : params) {
                 if (param.getParameterKind() != DBSProcedureParameterKind.IN &&
-                    param.getParameterKind() != DBSProcedureParameterKind.INOUT)
+                    param.getParameterKind() != DBSProcedureParameterKind.INOUT &&
+                    param.getParameterKind() != ArgumentMode.v.getParameterKind())
                 {
                     continue;
                 }
@@ -609,7 +626,7 @@ public class PostgreProcedure extends AbstractProcedure<PostgreDataSource, Postg
                     typeContainer.isPublicSchema() ||
                     typeContainer.isCatalogSchema())
                 {
-                    paramsSignature.append(DBUtils.getQuotedIdentifier(dataType));
+                    paramsSignature.append(dataType.getName());
                 } else {
                     paramsSignature.append(dataType.getFullyQualifiedName(DBPEvaluationContext.DDL));
                 }
@@ -623,7 +640,7 @@ public class PostgreProcedure extends AbstractProcedure<PostgreDataSource, Postg
 
     @Nullable
     @Override
-    @Property(viewable = true, editable = true, updatable = true, multiline = true, order = 200)
+    @Property(viewable = true, editable = true, updatable = true, length = PropertyLength.MULTILINE, order = 200)
     public String getDescription()
     {
         return super.getDescription();
@@ -661,6 +678,11 @@ public class PostgreProcedure extends AbstractProcedure<PostgreDataSource, Postg
     @Association
     public List<PostgreDependency> getDependencies(DBRProgressMonitor monitor) throws DBCException {
         return PostgreDependency.readDependencies(monitor, this, true);
+    }
+
+    @Override
+    public boolean supportsObjectDefinitionOption(String option) {
+        return DBPScriptObject.OPTION_INCLUDE_COMMENTS.equals(option) || DBPScriptObject.OPTION_INCLUDE_PERMISSIONS.equals(option);
     }
 
     @Override

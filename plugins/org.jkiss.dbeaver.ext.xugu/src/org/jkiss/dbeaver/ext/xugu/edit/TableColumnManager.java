@@ -81,7 +81,11 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 		final TableColumn column = new TableColumn(parent);
 		column.setName(getNewColumnName(monitor, context, parent));
 		column.setDataType((DataType) columnType);
-		column.setTypeName(columnType == null ? "INTEGER" : columnType.getName());
+		try {
+			column.setTypeName(columnType == null ? "INTEGER" : columnType.getName());
+		} catch (DBException e) {
+			throw new RuntimeException(e);
+		}
 		column.setMaxLength(columnType != null && columnType.getDataKind() == DBPDataKind.STRING ? 100 : 0);
 		column.setValueType(columnType == null ? Types.INTEGER : columnType.getTypeID());
 		column.setOrdinalPosition(-1);
@@ -101,13 +105,8 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 			defaults = getNestedDeclaration(monitor, table, command, options).toString().split(" DEFAULT ");
 		}
 		DBPDataKind dataKind = command.getObject().getDataKind();
-		if (dataKind == DBPDataKind.STRING && defaults.length > 1) {
-			query = "ALTER TABLE " + table.getFullyQualifiedName(DBPEvaluationContext.DDL) + " ADD " + defaults[0]
-					+ " DEFAULT " + "'" + defaults[1] + "'";
-		} else {
-			query = "ALTER TABLE " + table.getFullyQualifiedName(DBPEvaluationContext.DDL) + " ADD "
-					+ getNestedDeclaration(monitor, table, command, options);
-		}
+		query = "ALTER TABLE " + table.getFullyQualifiedName(DBPEvaluationContext.DDL) + " ADD "
+				+ getNestedDeclaration(monitor, table, command, options);
 		if (command.getProperty(commentKey) != null && !"".equals(command.getProperty(commentKey))) {
 			query += " COMMENT '" + command.getObject().getComment(monitor) + "'";
 		}
@@ -190,8 +189,8 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 						if (command.getProperty("defaultValue").equals("")) {
 							sql += "\"" + column.getName() + "\"" + " DROP DEFAULT";
 						} else {
-							sql += "\"" + column.getName() + "\"" + " SET DEFAULT '"
-									+ command.getProperty("defaultValue") + "'";
+							sql += "\"" + column.getName() + "\"" + " SET DEFAULT "
+									+ command.getProperty("defaultValue");
 						}
 						break;
 					case "required":
@@ -220,7 +219,7 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 		try {
 			BaseTable table = column.getTable();
 			Schema schema = table.getSchema();
-			table.getDataSource().schemaCache.refreshObject(monitor, schema.getDataSource(), schema);
+			table.getDataSource().schemaCache.refreshObject(monitor, schema.getParent(), schema);
 		} catch (DBException e) {
 			log.error(e);
 		}
@@ -318,8 +317,9 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 	};
 
 	@Override
-	public void renameObject(DBECommandContext commandContext, TableColumn object, String newName) throws DBException {
-		processObjectRename(commandContext, object, newName);
+	public void renameObject(DBECommandContext commandContext, TableColumn object, Map<String, Object> options,
+			String newName) throws DBException {
+		processObjectRename(commandContext, object, options, newName);
 	}
 
 	@Override

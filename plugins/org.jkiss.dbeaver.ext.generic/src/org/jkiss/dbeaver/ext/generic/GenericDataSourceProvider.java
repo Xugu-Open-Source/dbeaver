@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,9 +33,12 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCURL;
 import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class GenericDataSourceProvider extends JDBCDataSourceProvider {
@@ -46,12 +49,20 @@ public class GenericDataSourceProvider extends JDBCDataSourceProvider {
     public GenericDataSourceProvider()
     {
         metaModels.put(GenericConstants.META_MODEL_STANDARD, new GenericMetaModelDescriptor());
+
+        List<String> replacedModels = new ArrayList<>();
         IExtensionRegistry extensionRegistry = Platform.getExtensionRegistry();
         IConfigurationElement[] extElements = extensionRegistry.getConfigurationElementsFor(EXTENSION_ID);
         for (IConfigurationElement ext : extElements) {
             GenericMetaModelDescriptor metaModel = new GenericMetaModelDescriptor(ext);
             metaModels.put(metaModel.getId(), metaModel);
-            for (String driverClass : metaModel.getDriverClass()) {
+            replacedModels.addAll(metaModel.getModelReplacements());
+        }
+        for (String rm : replacedModels) {
+            metaModels.remove(rm);
+        }
+        for (GenericMetaModelDescriptor metaModel : new ArrayList<>(metaModels.values())) {
+            for (String driverClass : ArrayUtils.safeArray(metaModel.getDriverClass())) {
                 metaModels.put(driverClass, metaModel);
             }
         }
@@ -109,10 +120,11 @@ public class GenericDataSourceProvider extends JDBCDataSourceProvider {
                 String[] propList = driverParametersString.split(",");
                 connectionProperties = new DBPPropertyDescriptor[propList.length];
                 for (int i = 0; i < propList.length; i++) {
+                    String propName = propList[i].trim();
                     connectionProperties[i] = new PropertyDescriptor(
                         ModelMessages.model_jdbc_driver_properties,
-                        propList[i],
-                        propList[i],
+                        propName,
+                        propName,
                         null,
                         String.class,
                         false,

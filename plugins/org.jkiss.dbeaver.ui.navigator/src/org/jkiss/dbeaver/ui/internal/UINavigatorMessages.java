@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -63,7 +63,10 @@ public class UINavigatorMessages extends NLS {
     public static String actions_navigator_delete_;
     public static String actions_navigator_delete_script;
     public static String actions_navigator_edit;
+    public static String actions_navigator_persist_delete_in_the_editor_title;
+    public static String actions_navigator_persist_delete_in_the_editor_message;
     public static String actions_navigator_error_dialog_delete_object_title;
+    public static String actions_navigator_error_dialog_delete_object_message;
     public static String actions_navigator_error_dialog_open_entity_title;
     public static String actions_navigator_error_dialog_open_resource_title;
     public static String actions_navigator_open;
@@ -71,26 +74,46 @@ public class UINavigatorMessages extends NLS {
     public static String actions_navigator_view_script_button;
     public static String actions_navigator_filter_objects;
     public static String actions_navigator_search_tip;
+    public static String actions_navigator_search_filter_connection_name;
+    public static String actions_navigator_search_filter_connection_description;
+    public static String actions_navigator_search_filter_container_name;
+    public static String actions_navigator_search_filter_container_description;
+    public static String actions_navigator_search_filter_object_name;
+    public static String actions_navigator_search_filter_object_description;
 
     public static String dialog_project_create_wizard_error_already_exists;
     public static String dialog_project_create_wizard_error_cannot_create;
     public static String dialog_project_create_wizard_error_cannot_create_message;
     public static String dialog_project_create_wizard_title;
     public static String dialog_project_goto_object_title;
+    public static String dialog_project_goto_object_checkbox_search_in_comments;
     
     public static String registry_entity_editor_descriptor_description;
     public static String registry_entity_editor_descriptor_name;
     public static String pref_page_database_general_group_navigator;
+    public static String pref_page_database_navigator_group_misc;
+    public static String pref_page_database_navigator_group_behavior;
 
     // DatabaseNavigator
     public static String pref_page_database_general_label_expand_navigator_tree;
+    public static String pref_page_database_general_label_restore_filter;
     public static String pref_page_database_general_label_restore_state_depth;
     public static String pref_page_database_general_label_restore_state_depth_tip;
     public static String pref_page_database_general_label_show_tips_in_tree;
     public static String pref_page_database_general_label_show_tips_in_tree_tip;
+    public static String pref_page_database_general_label_show_tooltips;
+    public static String pref_page_database_general_label_show_tooltips_tip;
+    public static String pref_page_database_general_label_show_contents_in_tooltips;
+    public static String pref_page_database_general_label_show_contents_in_tooltips_tip;
     public static String pref_page_database_general_label_order_elements_alphabetically;
     public static String pref_page_database_general_label_folders_first;
     public static String pref_page_database_general_label_folders_first_tip;
+    public static String pref_page_database_general_label_show_host_name;
+    public static String pref_page_database_general_label_show_host_name_tip;
+    public static String pref_page_database_general_label_show_statistics;
+    public static String pref_page_database_general_label_show_statistics_tip;
+    public static String pref_page_database_general_label_show_node_actions;
+    public static String pref_page_database_general_label_show_node_actions_tip;
     public static String pref_page_database_general_label_color_all_nodes;
     public static String pref_page_database_general_label_color_all_nodes_tip;
     public static String pref_page_database_general_label_show_folder_placeholders;
@@ -109,6 +132,7 @@ public class UINavigatorMessages extends NLS {
     public static String pref_page_database_general_label_double_click_connection_expand_collapse;
     public static String pref_page_navigator_default_editor_page_label;
     public static String pref_page_navigator_default_editor_page_tip;
+    public static String pref_page_navigator_default_editor_page_last;
 
     // ProjectSettings
     public static String pref_page_projects_settings_label_resource_location;
@@ -116,6 +140,7 @@ public class UINavigatorMessages extends NLS {
     public static String pref_page_projects_settings_label_folder;
     public static String pref_page_projects_settings_label_select;
     public static String pref_page_projects_settings_label_root_folder;
+    public static String pref_page_projects_settings_label_not_use_project_root;
     public static String pref_page_projects_settings_label_not_use_hidden_folders;
     public static String pref_page_projects_settings_label_not_store_resources_in_another_project;
     public static String pref_page_projects_settings_label_restart_require_refresh_global_settings;
@@ -154,6 +179,11 @@ public class UINavigatorMessages extends NLS {
 
     public static String confirm_entity_delete_title;
     public static String confirm_entity_delete_message;
+    public static String confirm_deleting_dependent_objects_title;
+    public static String confirm_deleting_dependent_objects;
+    public static String confirm_deleting_dependent_one_object;
+    public static String search_dependencies_error_title;
+    public static String search_dependencies_error_message;
 
     public static String confirm_local_folder_delete_title;
     public static String confirm_local_folder_delete_message;
@@ -174,16 +204,16 @@ public class UINavigatorMessages extends NLS {
 
     public static String label_configure_columns;
 
-	public static String label_description;
+    public static String label_description;
 
-	public static String label_name;
+    public static String label_name;
 
-	public static String label_select_columns;
+    public static String label_select_columns;
 
-	public static String label_show_all_projects;
-	public static String label_show_connected;
+    public static String label_show_all_projects;
+    public static String label_show_connected;
 
-	public static String pref_page_target_button_use_datasource_settings;
+    public static String pref_page_target_button_use_datasource_settings;
     public static String pref_page_target_link_show_datasource_settings;
     public static String pref_page_target_link_show_global_settings;
 
@@ -191,6 +221,26 @@ public class UINavigatorMessages extends NLS {
     public static String label_choose_catalog;
     public static String label_error_list;
     public static String label_instance;
+
+    public static String error_deleting_multiple_objects_from_different_datasources_title;
+    public static String error_deleting_multiple_objects_from_different_datasources_message;
+    public static String confirm_deleting_multiple_objects_title;
+    public static String confirm_deleting_multiple_objects_message;
+    public static String confirm_deleting_multiple_objects_table_group_name;
+    public static String confirm_deleting_multiple_objects_column_name;
+    public static String confirm_deleting_multiple_objects_column_description;
+    public static String confirm_deleting_delete_cascade_checkbox_label;
+    public static String confirm_deleting_delete_cascade_checkbox_tooltip;
+    public static String confirm_deleting_close_existing_connections_checkbox_label;
+    public static String confirm_deleting_close_existing_connections_checkbox_tooltip;
+    public static String confirm_deleting_delete_contents_checkbox;
+    public static String confirm_deleting_delete_contents_checkbox_tooltip;
+    public static String confirm_deleting_project_location_label;
+    public static String error_deleting_resource_title;
+    public static String error_deleting_resource_message;
+    public static String question_no_sql_available;
+    public static String error_sql_generation_title;
+    public static String error_sql_generation_message;
 
     static {
         // initialize resource bundle

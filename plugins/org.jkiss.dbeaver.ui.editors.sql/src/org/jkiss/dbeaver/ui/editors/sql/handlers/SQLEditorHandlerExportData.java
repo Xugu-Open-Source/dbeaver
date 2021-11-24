@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,14 @@ import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
 import org.eclipse.ui.handlers.HandlerUtil;
+import org.jkiss.dbeaver.model.impl.DataSourceContextProvider;
+import org.jkiss.dbeaver.model.sql.SQLScriptContext;
+import org.jkiss.dbeaver.ui.editors.EditorUtils;
 import org.jkiss.dbeaver.ui.editors.sql.SQLEditor;
+import org.jkiss.dbeaver.ui.editors.sql.SQLEditorParametersProvider;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
 
+import java.io.StringWriter;
 
 public class SQLEditorHandlerExportData extends AbstractHandler {
 
@@ -30,9 +35,27 @@ public class SQLEditorHandlerExportData extends AbstractHandler {
     public Object execute(ExecutionEvent event) throws ExecutionException {
         SQLEditor editor = RuntimeUtils.getObjectAdapter(HandlerUtil.getActiveEditor(event), SQLEditor.class);
         if (editor != null) {
-            editor.exportDataFromQuery();
+            editor.exportDataFromQuery(new ExportDataSQLScriptContext(editor));
         }
         return null;
     }
 
+    private static class ExportDataSQLScriptContext extends SQLScriptContext {
+        public ExportDataSQLScriptContext(SQLEditor editor) {
+            super(null, new DataSourceContextProvider(editor.getDataSource()), EditorUtils.getLocalFileFromInput(editor.getEditorInput()), new StringWriter(), new SQLEditorParametersProvider(editor.getSite()));
+        }
+
+        @Override
+        public boolean hasVariable(String name) {
+            return super.hasVariable(name) || super.getParameterDefaultValue(name) != null;
+        }
+
+        @Override
+        public Object getVariable(String name) {
+            if (super.hasVariable(name)) {
+                return super.getVariable(name);
+            }
+            return super.getParameterDefaultValue(name);
+        }
+    }
 }

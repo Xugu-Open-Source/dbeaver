@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,25 +16,30 @@
  */
 package org.jkiss.dbeaver.ext.teradata.model;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.generic.model.*;
 import org.jkiss.dbeaver.ext.generic.model.meta.GenericMetaModel;
-import org.jkiss.dbeaver.model.DBPDataSource;
-import org.jkiss.dbeaver.model.DBPDataSourceContainer;
-import org.jkiss.dbeaver.model.DBPEvaluationContext;
-import org.jkiss.dbeaver.model.DBUtils;
-import org.jkiss.dbeaver.model.data.DBDPreferences;
+import org.jkiss.dbeaver.model.*;
+import org.jkiss.dbeaver.model.data.DBDFormatSettings;
 import org.jkiss.dbeaver.model.data.DBDValueHandler;
 import org.jkiss.dbeaver.model.data.DBDValueHandlerProvider;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
+import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.data.handlers.JDBCContentValueHandler;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
+import org.jkiss.utils.CommonUtils;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -52,6 +57,15 @@ public class TeradataMetaModel extends GenericMetaModel implements DBDValueHandl
     }
 
     @Override
+    public GenericTableBase createTableImpl(GenericStructContainer container, @Nullable String tableName, @Nullable String tableType, @Nullable JDBCResultSet dbResult) {
+        if (tableType != null && isView(tableType)) {
+            return new GenericView(container, tableName, tableType, dbResult);
+        } else {
+            return new TeradataTable(container, tableName, tableType, dbResult);
+        }
+    }
+
+    @Override
     public String getTableDDL(DBRProgressMonitor monitor, GenericTableBase sourceObject, Map<String, Object> options) throws DBException {
         GenericDataSource dataSource = sourceObject.getDataSource();
         boolean isView = sourceObject.isView();
@@ -62,6 +76,11 @@ public class TeradataMetaModel extends GenericMetaModel implements DBDValueHandl
                     StringBuilder sql = new StringBuilder();
                     while (dbResult.nextRow()) {
                         sql.append(dbResult.getString(1));
+                    }
+                    String description = sourceObject.getDescription();
+                    if (CommonUtils.getOption(options, DBPScriptObject.OPTION_INCLUDE_COMMENTS) && description != null) {
+                        sql.append("\n\nCOMMENT ON TABLE ").append(sourceObject.getFullyQualifiedName(DBPEvaluationContext.DDL))
+                                .append(" IS ").append(SQLUtils.quoteString(sourceObject, description)).append(";");
                     }
                     return sql.toString();
                 }
@@ -107,10 +126,102 @@ public class TeradataMetaModel extends GenericMetaModel implements DBDValueHandl
 
     @Nullable
     @Override
-    public DBDValueHandler getValueHandler(DBPDataSource dataSource, DBDPreferences preferences, DBSTypedObject typedObject) {
+    public DBDValueHandler getValueHandler(DBPDataSource dataSource, DBDFormatSettings preferences, DBSTypedObject typedObject) {
         if ("JSON".equals(typedObject.getTypeName())) {
             return JDBCContentValueHandler.INSTANCE;
         }
         return null;
+    }
+
+    @Override
+    public boolean isTableCommentEditable() {
+        return true;
+    }
+
+    @Override
+    public boolean isTableColumnCommentEditable() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsTriggers(@NotNull GenericDataSource dataSource) {
+        return true;
+    }
+
+    @Override
+    public JDBCStatement prepareTableTriggersLoadStatement(@NotNull JDBCSession session, @NotNull GenericStructContainer genericStructContainer, @Nullable GenericTableBase forParent) throws SQLException {
+        String sql = "SELECT TriggerName as TRIGGER_NAME, TableName as OWNER,\n" +
+                "ActionTime,\n" +
+                "Event,\n" +
+                "CASE EnabledFlag\n" +
+                "WHEN 'Y' THEN 'ENABLED'\n" +
+                "WHEN 'N' THEN 'DISABLED'\n" +
+                "END as status,\n" +
+                "CASE Kind\n" +
+                "WHEN 'R' THEN 'ROW'\n" +
+                "WHEN 'S' THEN 'STATEMENT'\n" +
+                "end as triggerKind,\n" +
+                "RequestText as definition,\n" +
+                "CreateTimeStamp as createDate,\n" +
+                "TriggerComment as description\n" +
+                "FROM DBC.TriggersV\n" +
+                "WHERE SubjectTableDataBaseName=?\n" +
+                (forParent != null ? "AND TableName=?" : "");
+        JDBCPreparedStatement dbStat = session.prepareStatement(sql);
+        dbStat.setString(1, genericStructContainer.getName());
+        if (forParent != null) {
+            dbStat.setString(2, forParent.getName());
+        }
+        return dbStat;
+    }
+
+    @Override
+    public GenericTableTrigger createTableTriggerImpl(@NotNull JDBCSession session, @NotNull GenericStructContainer genericStructContainer, @NotNull GenericTableBase genericTableBase, String triggerName, @NotNull JDBCResultSet dbResult) throws DBException {
+        if (CommonUtils.isEmpty(triggerName)) {
+            triggerName = JDBCUtils.safeGetString(dbResult, 1);
+        }
+        String description = JDBCUtils.safeGetString(dbResult, "description");
+        return new TeradataTrigger(genericTableBase, triggerName, description, dbResult);
+    }
+
+    @Override
+    public List<? extends GenericTrigger> loadTriggers(DBRProgressMonitor monitor, @NotNull GenericStructContainer container, @Nullable GenericTableBase table) throws DBException {
+        if (table == null) {
+            return Collections.emptyList();
+        }
+        try (JDBCSession session = DBUtils.openMetaSession(monitor, container, "Read triggers")) {
+            String sql = "SELECT TriggerName,\n" +
+                    "ActionTime,\n" +
+                    "Event,\n" +
+                    "CASE EnabledFlag\n" +
+                    "WHEN 'Y' THEN 'ENABLED'\n" +
+                    "WHEN 'N' THEN 'DISABLED'\n" +
+                    "END as status,\n" +
+                    "CASE Kind\n" +
+                    "WHEN 'R' THEN 'ROW'\n" +
+                    "WHEN 'S' THEN 'STATEMENT'\n" +
+                    "end as triggerKind,\n" +
+                    "RequestText as definition,\n" +
+                    "CreateTimeStamp as createDate,\n" +
+                    "TriggerComment as description\n" +
+                    "FROM DBC.TriggersV\n" +
+                    "WHERE SubjectTableDataBaseName=?\n" +
+                    "AND TableName=?";
+            try (JDBCPreparedStatement dbStat = session.prepareStatement(sql)) {
+                dbStat.setString(1, table.getSchema().getName());
+                dbStat.setString(2, table.getName());
+                List<GenericTrigger> result = new ArrayList<>();
+                try (JDBCResultSet dbResult = dbStat.executeQuery()) {
+                    while (dbResult.next()) {
+                        String name = JDBCUtils.safeGetString(dbResult, 1);
+                        String description = JDBCUtils.safeGetString(dbResult, "description");
+                        result.add(new TeradataTrigger(table, name, description, dbResult));
+                    }
+                }
+                return result;
+            }
+        } catch (SQLException e) {
+            throw new DBException(e, container.getDataSource());
+        }
     }
 }

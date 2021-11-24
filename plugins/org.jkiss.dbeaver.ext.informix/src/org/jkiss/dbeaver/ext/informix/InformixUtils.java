@@ -1,8 +1,6 @@
-// Sequences, index source, trigger source, constraint syntax
-
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,15 +39,21 @@ public class InformixUtils {
 
     static final Log log = Log.getLog(InformixUtils.class);
 
-    private static List<String> getSource(DBRProgressMonitor monitor,
+    public static List<String> getSource(DBRProgressMonitor monitor,
                                           String sqlStatement, String dbObjectName,
                                           GenericDataSource datasource) throws DBException {
         try (JDBCSession session = DBUtils.openMetaSession(monitor, datasource, "Load source code")) {
             try (JDBCPreparedStatement dbStat = session.prepareStatement(sqlStatement)) {
                 List<String> result = new ArrayList<>();
                 try (JDBCResultSet dbResult = dbStat.executeQuery()) {
+                    boolean firstPart = true;
                     while (dbResult.nextRow()) {
-                        result.add(dbResult.getString(1));
+                        String procBodyPart = dbResult.getString(1);
+                        if (procBodyPart.startsWith("create") && !firstPart) {
+                            procBodyPart = "\n" + procBodyPart;
+                        }
+                        firstPart = false;
+                        result.add(procBodyPart);
                     }
                 }
                 return result;
@@ -59,7 +63,7 @@ public class InformixUtils {
         }
     }
 
-    private static String listToString(List<String> value, String delimiter) {
+    public static String listToString(List<String> value, String delimiter) {
         StringBuilder sbResult = new StringBuilder();
         for (String o : value) {
             //NOT APPLY .TRIM IN 'O' VARIABLE, PROBLEM TO RENDERIZE PROCEDURE BECAUSE LINE DELIMITED CRLF and LF generate  'Sintax error'

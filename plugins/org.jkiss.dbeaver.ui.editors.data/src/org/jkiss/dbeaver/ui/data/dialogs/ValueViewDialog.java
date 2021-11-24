@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,8 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPMessageType;
 import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
+import org.jkiss.dbeaver.model.data.DBDRowIdentifier;
 import org.jkiss.dbeaver.model.data.DBDValueHandler;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
@@ -41,10 +43,10 @@ import org.jkiss.dbeaver.model.struct.DBSAttributeBase;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.ui.controls.ColumnInfoPanel;
 import org.jkiss.dbeaver.ui.controls.resultset.internal.ResultSetMessages;
 import org.jkiss.dbeaver.ui.data.*;
 import org.jkiss.dbeaver.ui.data.managers.BaseValueManager;
-import org.jkiss.dbeaver.ui.controls.ColumnInfoPanel;
 import org.jkiss.utils.CommonUtils;
 
 /**
@@ -97,7 +99,9 @@ public abstract class ValueViewDialog extends Dialog implements IValueEditorStan
         throws DBException
     {
         IValueEditor editor = valueController.getValueManager().createEditor(
-            new ProxyValueController(valueController, placeholder));
+            valueController instanceof IAttributeController ?
+                new ProxyAttributeValueController((IAttributeController) valueController, placeholder) :
+                new ProxyValueController<>(valueController, placeholder));
         if (editor != null) {
             editor.createControl();
             Control control = editor.getControl();
@@ -286,11 +290,11 @@ public abstract class ValueViewDialog extends Dialog implements IValueEditorStan
 
     }
 
-    private static class ProxyValueController implements IValueController {
-        private final IValueController valueController;
-        private final Composite placeholder;
+    private static class ProxyValueController<VC extends IValueController> implements IValueController {
+        protected final VC valueController;
+        protected final Composite placeholder;
 
-        public ProxyValueController(IValueController valueController, Composite placeholder) {
+        ProxyValueController(VC valueController, Composite placeholder) {
             this.valueController = valueController;
             this.placeholder = placeholder;
         }
@@ -379,6 +383,37 @@ public abstract class ValueViewDialog extends Dialog implements IValueEditorStan
         @Override
         public void showMessage(String message, DBPMessageType messageType)
         {
+        }
+    }
+
+    private static class ProxyAttributeValueController extends ProxyValueController<IAttributeController> implements IAttributeController {
+
+        public ProxyAttributeValueController(IAttributeController valueController, Composite placeholder) {
+            super(valueController, placeholder);
+        }
+
+        @NotNull
+        @Override
+        public IRowController getRowController() {
+            return valueController.getRowController();
+        }
+
+        @NotNull
+        @Override
+        public DBDAttributeBinding getBinding() {
+            return valueController.getBinding();
+        }
+
+        @NotNull
+        @Override
+        public String getColumnId() {
+            return valueController.getColumnId();
+        }
+
+        @Nullable
+        @Override
+        public DBDRowIdentifier getRowIdentifier() {
+            return valueController.getRowIdentifier();
         }
     }
 }

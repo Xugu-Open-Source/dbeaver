@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -92,13 +92,41 @@ public class MySQLExecutionContext extends JDBCExecutionContext implements DBCEx
         }
         final MySQLCatalog oldActiveDatabase = getDefaultCatalog();
 
-        if (!setCurrentDatabase(monitor, catalog)) {
-            return;
+        // MySQL driver bug - it doesn't ley to change active schema in read-only mode (#9167)
+        boolean connectionReadOnly = isConnectionReadOnly(monitor);
+        if (connectionReadOnly) {
+            setConnectionReadOnly(monitor, false);
+        }
+        try {
+            if (!setCurrentDatabase(monitor, catalog)) {
+                return;
+            }
+        } finally {
+            if (connectionReadOnly) {
+                setConnectionReadOnly(monitor, true);
+            }
         }
         activeDatabaseName = catalog.getName();
 
         // Send notifications
         DBUtils.fireObjectSelectionChange(oldActiveDatabase, catalog);
+    }
+
+    private void setConnectionReadOnly(DBRProgressMonitor monitor, boolean readOnly) {
+        try {
+            getConnection(monitor).setReadOnly(readOnly);
+        } catch (Exception e) {
+            log.debug(e);
+        }
+    }
+
+    private boolean isConnectionReadOnly(DBRProgressMonitor monitor) {
+        try {
+            return getConnection(monitor).isReadOnly();
+        } catch (Exception e) {
+            log.debug(e);
+            return false;
+        }
     }
 
     @Override

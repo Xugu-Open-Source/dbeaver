@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,8 @@ public interface PostgreClass extends PostgreObject, DBSEntity, DBPRefreshableOb
         public static final RelKind t = new RelKind("t");  // TOAST table
         public static final RelKind f = new RelKind("f");  // = foreign table
         public static final RelKind p = new RelKind("p");  // partitionedtable
+        public static final RelKind I = new RelKind("I");  // partitioned index
+
         public static final RelKind R = new RelKind("R");  // partition
 
         // Redshift

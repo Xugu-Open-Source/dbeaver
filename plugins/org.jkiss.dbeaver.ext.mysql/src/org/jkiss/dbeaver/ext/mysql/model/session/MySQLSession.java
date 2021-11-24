@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,15 +21,16 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
 
 import java.sql.ResultSet;
+import java.util.Objects;
 
 /**
  * MySQL session
  */
 public class MySQLSession extends AbstractServerSession {
-    private long pid;
+    private final long pid;
     private String user;
     private String host;
-    private String db;
+    private final String db;
     private String command;
     private long time;
     private String state;
@@ -99,5 +100,18 @@ public class MySQLSession extends AbstractServerSession {
     public String toString()
     {
         return pid + "@" + db;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        MySQLSession that = (MySQLSession) o;
+        return pid == that.pid && Objects.equals(db, that.db);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(pid, db);
     }
 }

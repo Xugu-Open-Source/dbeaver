@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,28 +16,17 @@
  */
 package org.jkiss.dbeaver.ui.dialogs.connection;
 
-import org.eclipse.swt.SWT;
-import org.eclipse.swt.events.SelectionAdapter;
-import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.layout.GridData;
-import org.eclipse.swt.widgets.*;
+import org.eclipse.swt.widgets.Composite;
 import org.jkiss.code.NotNull;
-import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.connection.DBPAuthModelDescriptor;
-import org.jkiss.dbeaver.model.impl.auth.DBAAuthDatabaseNative;
+import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
+import org.jkiss.dbeaver.model.impl.auth.AuthModelDatabaseNative;
 import org.jkiss.dbeaver.registry.DataSourceProviderRegistry;
-import org.jkiss.dbeaver.registry.configurator.UIPropertyConfiguratorDescriptor;
-import org.jkiss.dbeaver.registry.configurator.UIPropertyConfiguratorRegistry;
-import org.jkiss.dbeaver.ui.IObjectPropertyConfigurator;
-import org.jkiss.dbeaver.ui.UIUtils;
-import org.jkiss.dbeaver.ui.internal.UIConnectionMessages;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.utils.CommonUtils;
-
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
 
 /**
  * ConnectionPageWithAuth
@@ -47,18 +36,16 @@ public abstract class ConnectionPageWithAuth extends ConnectionPageAbstract {
 
     private static final Log log = Log.getLog(DataSourceProviderRegistry.class);
 
-    private List<? extends DBPAuthModelDescriptor> allAuthModels;
-    private DBPAuthModelDescriptor selectedAuthModel;
-    private Composite modelConfigPlaceholder;
-    private IObjectPropertyConfigurator<DBPDataSourceContainer> authModelConfigurator;
+    private AuthModelSelector authModelSelector;
 
     protected void createAuthPanel(Composite parent, int hSpan) {
-        modelConfigPlaceholder = UIUtils.createControlGroup(parent, UIConnectionMessages.dialog_connection_auth_group, 2, GridData.FILL_HORIZONTAL, 0);
-        ((GridData)modelConfigPlaceholder.getLayoutData()).horizontalSpan = hSpan;
+        authModelSelector = new AuthModelSelector(parent, () -> getSite().updateButtons());
+        authModelSelector.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+        ((GridData)authModelSelector.getLayoutData()).horizontalSpan = hSpan;
     }
 
     protected Composite getAuthPanelComposite() {
-        return modelConfigPlaceholder;
+        return authModelSelector.getAuthPanelComposite();
     }
 
     @Override
@@ -67,125 +54,47 @@ public abstract class ConnectionPageWithAuth extends ConnectionPageAbstract {
 
         DBPDataSourceContainer activeDataSource = getSite().getActiveDataSource();
 
-        allAuthModels = DataSourceProviderRegistry.getInstance().getApplicableAuthModels(activeDataSource);
-        allAuthModels.sort(Comparator.comparing(DBPAuthModelDescriptor::getName));
-        String dsModelId = activeDataSource.getConnectionConfiguration().getAuthModelId();
-        if (dsModelId != null) {
-            Optional<? extends DBPAuthModelDescriptor> dsModel = allAuthModels.stream().filter(o -> o.getId().equals(dsModelId)).findFirst();
-            if (dsModel.isPresent()) {
-                selectedAuthModel = dsModel.get();
-            } else {
-                log.error("Model '" + dsModelId + "' not found");
-            }
+        DBPAuthModelDescriptor selectedAuthModel = null;
+        DBPConnectionConfiguration configuration = activeDataSource.getConnectionConfiguration();
+
+        if (site.isNew() && CommonUtils.isEmpty(configuration.getUserName())) {
+            configuration.setUserName(activeDataSource.getDriver().getDefaultUser());
         }
-        if (selectedAuthModel == null) {
-            String defaultAuthModelId = getDefaultAuthModelId(activeDataSource);
-            // Set default to native
-            for (DBPAuthModelDescriptor amd : allAuthModels) {
-                if (amd.getId().equals(defaultAuthModelId)) {
-                    selectedAuthModel = amd;
-                    break;
-                }
-            }
-            if (selectedAuthModel == null) {
-                // First one
-                selectedAuthModel = allAuthModels.get(0);
+
+        String dsModelId = configuration.getAuthModelId();
+        if (dsModelId != null) {
+            selectedAuthModel = DBWorkbench.getPlatform().getDataSourceProviderRegistry().getAuthModel(dsModelId);
+        }
+        if (selectedAuthModel != null) {
+            DBPAuthModelDescriptor amReplace = selectedAuthModel.getReplacedBy(activeDataSource.getDriver());
+            if (amReplace != null) {
+                log.debug("Auth model '" + selectedAuthModel.getId() + "' was replaced by '" + amReplace.getId() + "'");
+                selectedAuthModel = amReplace;
+                configuration.setAuthModelId(selectedAuthModel.getId());
             }
         }
 
-        changeAuthModel();
+        authModelSelector.loadSettings(getSite().getActiveDataSource(), selectedAuthModel, getDefaultAuthModelId(activeDataSource));
     }
 
     @NotNull
     protected String getDefaultAuthModelId(DBPDataSourceContainer dataSource) {
-        return DBAAuthDatabaseNative.ID;
+        return AuthModelDatabaseNative.ID;
     }
 
-    private void changeAuthModel() {
-        showAuthModelSettings();
-    }
-
-    protected void showAuthModelSettings() {
-        TabFolder parentFolder = UIUtils.getParentOfType(modelConfigPlaceholder, TabFolder.class);
-        if (parentFolder != null) {
-            parentFolder.setRedraw(false);
-        }
-
-        UIUtils.disposeChildControls(modelConfigPlaceholder);
-
-        Label authModelLabel = UIUtils.createControlLabel(modelConfigPlaceholder, UIConnectionMessages.dialog_connection_auth_group);
-        Combo authModelCombo = new Combo(modelConfigPlaceholder, SWT.DROP_DOWN | SWT.READ_ONLY);
-        authModelCombo.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING));
-        authModelCombo.addSelectionListener(new SelectionAdapter() {
-            @Override
-            public void widgetSelected(SelectionEvent e) {
-                DBPAuthModelDescriptor newAuthModel = allAuthModels.get(authModelCombo.getSelectionIndex());
-                if (selectedAuthModel != newAuthModel) {
-                    selectedAuthModel = newAuthModel;
-                    showAuthModelSettings();
-                }
-                modelConfigPlaceholder.setFocus();
-            }
-        });
-        for (DBPAuthModelDescriptor model : allAuthModels) {
-            authModelCombo.add(model.getName());
-        }
-        if (selectedAuthModel != null) {
-            authModelCombo.select(allAuthModels.indexOf(selectedAuthModel));
-        }
-        boolean authSelectorVisible = allAuthModels.size() >= 2;
-        authModelLabel.setVisible(authSelectorVisible);
-        ((GridData)authModelLabel.getLayoutData()).exclude = !authSelectorVisible;
-        authModelCombo.setVisible(authSelectorVisible);
-        ((GridData)authModelCombo.getLayoutData()).exclude = !authSelectorVisible;
-        ((Group)modelConfigPlaceholder).setText(authSelectorVisible ? UIConnectionMessages.dialog_connection_auth_group : UIConnectionMessages.dialog_connection_auth_group + " (" + selectedAuthModel.getName() + ")");
-
-        {
-            authModelConfigurator = null;
-            UIPropertyConfiguratorDescriptor uiConfiguratorDescriptor = UIPropertyConfiguratorRegistry.getInstance().getDescriptor(selectedAuthModel.getImplClassName());
-            if (uiConfiguratorDescriptor != null) {
-                try {
-                    authModelConfigurator = uiConfiguratorDescriptor.createConfigurator();
-                } catch (DBException e) {
-                    log.error(e);
-                }
-            }
-        }
-
-        if (authModelConfigurator != null) {
-            authModelConfigurator.createControl(modelConfigPlaceholder, () -> getSite().updateButtons());
-            authModelConfigurator.loadSettings(getSite().getActiveDataSource());
-        } else {
-            if (selectedAuthModel != null && !CommonUtils.isEmpty(selectedAuthModel.getDescription())) {
-                Label descLabel = new Label(modelConfigPlaceholder, SWT.NONE);
-                descLabel.setText(selectedAuthModel.getDescription());
-                GridData gd = new GridData(GridData.FILL_HORIZONTAL);
-                gd.horizontalSpan = 2;
-                descLabel.setLayoutData(gd);
-            }
-        }
-
-        if (modelConfigPlaceholder.getSize().x > 0 && parentFolder != null) {
-            parentFolder.layout(true, true);
-        }
-        if (parentFolder != null) {
-            parentFolder.setRedraw(true);
-        }
-    }
 
     @Override
     public void saveSettings(DBPDataSourceContainer dataSource) {
-        super.saveSettings(dataSource);
+        DBPAuthModelDescriptor selectedAuthModel = authModelSelector.getSelectedAuthModel();
         dataSource.getConnectionConfiguration().setAuthModelId(
             selectedAuthModel == null ? null : selectedAuthModel.getId());
-        if (authModelConfigurator != null) {
-            authModelConfigurator.saveSettings(dataSource);
-        }
+        authModelSelector.saveSettings(dataSource);
+        super.saveSettings(dataSource);
     }
 
     @Override
     public boolean isComplete() {
-        return authModelConfigurator == null || authModelConfigurator.isComplete();
+        return authModelSelector.isComplete();
     }
 
 }

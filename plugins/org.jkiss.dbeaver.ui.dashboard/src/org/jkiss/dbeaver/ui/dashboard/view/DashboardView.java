@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,15 @@
 package org.jkiss.dbeaver.ui.dashboard.view;
 
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.ui.IMemento;
-import org.eclipse.ui.IViewSite;
-import org.eclipse.ui.PartInitException;
+import org.eclipse.ui.*;
 import org.eclipse.ui.part.ViewPart;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.*;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.UIExecutionQueue;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.dashboard.control.DashboardListViewer;
+import org.jkiss.dbeaver.ui.dashboard.internal.UIDashboardMessages;
 import org.jkiss.dbeaver.ui.dashboard.model.DashboardContainer;
 import org.jkiss.dbeaver.ui.dashboard.model.DashboardGroupContainer;
 import org.jkiss.dbeaver.ui.dashboard.model.DashboardViewConfiguration;
@@ -41,6 +41,18 @@ public class DashboardView extends ViewPart implements IDataSourceContainerProvi
     private DashboardListViewer dashboardListViewer;
     private DashboardViewConfiguration configuration;
     private DBPDataSourceContainer dataSourceContainer;
+
+    public static DashboardView openView(IWorkbenchWindow workbenchWindow, DBPDataSourceContainer dataSourceContainer) {
+        try {
+            return (DashboardView) workbenchWindow.getActivePage().showView(
+                DashboardView.VIEW_ID,
+                dataSourceContainer.getProject().getName() + "/" + dataSourceContainer.getId(),
+                IWorkbenchPage.VIEW_ACTIVATE);
+        } catch (PartInitException e) {
+            DBWorkbench.getPlatformUI().showError(UIDashboardMessages.error_dashboard_view_cannot_open_title, UIDashboardMessages.error_dashboard_view_cannot_open_msg, e);
+        }
+        return null;
+    }
 
     public DashboardView() {
         super();
@@ -61,13 +73,18 @@ public class DashboardView extends ViewPart implements IDataSourceContainerProvi
             if (CommonUtils.isEmpty(secondaryId)) {
                 throw new IllegalStateException("Dashboard view requires active database connection");
             }
-            int divPos = secondaryId.lastIndexOf(':');
-            String dataSourceId = divPos == -1 ? secondaryId : secondaryId.substring(0, divPos);
-            int viewNumber = divPos == -1 ? 0 : CommonUtils.toInt(secondaryId.substring(divPos + 1));
-
-            dataSourceContainer = DBUtils.findDataSource(dataSourceId);
+            String projectName, dsId;
+            int divPos = secondaryId.indexOf("/");
+            if (divPos == -1) {
+                projectName = null;
+                dsId = secondaryId;
+            } else {
+                projectName = secondaryId.substring(0, divPos);
+                dsId = secondaryId.substring(divPos + 1);
+            }
+            dataSourceContainer = DBUtils.findDataSource(projectName, dsId);
             if (dataSourceContainer == null) {
-                throw new IllegalStateException("Database connection '" + dataSourceId + "' not found");
+                throw new IllegalStateException("Database connection '" + dsId + "' not found");
             }
 
             dataSourceContainer.getRegistry().addDataSourceListener(this);
@@ -131,7 +148,7 @@ public class DashboardView extends ViewPart implements IDataSourceContainerProvi
 
     private void updateStatus() {
         UIUtils.asyncExec(() -> {
-            setPartName(dataSourceContainer.getName() + (dataSourceContainer.isConnected() ? "" : " <off>"));
+            setPartName(dataSourceContainer.getName() + (dataSourceContainer.isConnected() ? "" : UIDashboardMessages.dashboard_view_status_off));
         });
     }
 

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.IJobChangeEvent;
@@ -33,6 +34,7 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.app.DBPProject;
+import org.jkiss.dbeaver.model.navigator.DBNDatabaseFolder;
 import org.jkiss.dbeaver.model.runtime.AbstractJob;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableWithResult;
@@ -54,6 +56,8 @@ public class SQLEditorHandlerOpenObjectConsole extends AbstractHandler {
 
     private static final Log log = Log.getLog(SQLEditorHandlerOpenObjectConsole.class);
 
+    private static final boolean OPEN_FILE_EDITOR = true;
+
     public SQLEditorHandlerOpenObjectConsole()
     {
     }
@@ -73,6 +77,12 @@ public class SQLEditorHandlerOpenObjectConsole extends AbstractHandler {
             }
             if (object instanceof DBSEntity) {
                 entities.add((DBSEntity) object);
+            }
+            if (object instanceof DBNDatabaseFolder) {
+                DBSObject parentObject = object.getParentObject(); // It can be table properties window or database navigator table folder (columns, keys etc.)
+                if (parentObject instanceof DBSEntity) {
+                    entities.add((DBSEntity) parentObject);
+                }
             }
         }
         if (navContext == null || navContext.getDataSourceContainer() == null) {
@@ -97,15 +107,31 @@ public class SQLEditorHandlerOpenObjectConsole extends AbstractHandler {
         UIUtils.runInUI(workbenchWindow, generator);
         String sql = CommonUtils.notEmpty(generator.getResult());
 
-        DBPProject project = navigatorContext.getProject();
-        SQLEditorHandlerOpenEditor.checkProjectIsOpen(project);
-        IFolder folder = SQLEditorHandlerOpenEditor.getCurrentScriptFolder(currentSelection);
-        IFile scriptFile = SQLEditorUtils.createNewScript(project, folder, navigatorContext);
+        openAndExecuteSQLScript(workbenchWindow, navigatorContext, title, doRun, currentSelection, sql);
+    }
 
-        FileEditorInput sqlInput = new FileEditorInput(scriptFile);
-        SQLEditor editor = (SQLEditor) workbenchWindow.getActivePage().openEditor(sqlInput, SQLEditor.class.getName());
+    public static void openAndExecuteSQLScript(
+        IWorkbenchWindow workbenchWindow,
+        SQLNavigatorContext navigatorContext,
+        String title,
+        boolean doRun,
+        ISelection currentSelection,
+        String sql) throws CoreException
+    {
+        SQLEditor editor;
+        if (OPEN_FILE_EDITOR) {
+            DBPProject project = navigatorContext.getProject();
+            SQLEditorHandlerOpenEditor.checkProjectIsOpen(project);
+            IFolder folder = SQLEditorHandlerOpenEditor.getCurrentScriptFolder(currentSelection);
+            IFile scriptFile = SQLEditorUtils.createNewScript(project, folder, navigatorContext);
 
-        if (editor != null) {
+            FileEditorInput sqlInput = new FileEditorInput(scriptFile);
+            editor = (SQLEditor) workbenchWindow.getActivePage().openEditor(sqlInput, SQLEditor.class.getName());
+        } else {
+            editor = SQLEditorHandlerOpenEditor.openSQLConsole(workbenchWindow, navigatorContext, title, sql);
+        }
+
+        if (editor != null && editor.getDocument() != null) {
             editor.getDocument().set(sql);
             AbstractJob execJob = new AbstractJob("Execute SQL in console") {
                 @Override

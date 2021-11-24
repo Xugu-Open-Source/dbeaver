@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -92,6 +92,10 @@ public class ProgressLoaderVisualizer<RESULT> implements ILoadVisualizer<RESULT>
         this.loadStartTime = System.currentTimeMillis();
     }
 
+    public ILoadService<RESULT> getLoadService() {
+        return loadService;
+    }
+
     @Override
     public boolean isCompleted() {
         return finished;
@@ -171,6 +175,7 @@ public class ProgressLoaderVisualizer<RESULT> implements ILoadVisualizer<RESULT>
                 String statusMessage = CommonUtils.truncateString(
                     progressMessage.replaceAll("\\s", " "), 64);
                 String status = statusMessage + " - " + elapsedString + "s";
+                e.gc.setFont(cancelButton.getFont());
                 Point statusSize = e.gc.textExtent(status);
 
                 int statusX = (buttonBounds.x + buttonBounds.width / 2) - statusSize.x / 2;

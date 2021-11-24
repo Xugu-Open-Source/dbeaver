@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,8 +70,10 @@ public final class DBFetchProgress {
             return fetchedRows % 100 == 0;
         } else if (fetchedRows < 100000) {
             return fetchedRows % 1000 == 0;
-        } else {
+        } else if (fetchedRows < 1000000) {
             return fetchedRows % 10000 == 0;
+        } else {
+            return fetchedRows % 100000 == 0;
         }
     }
 

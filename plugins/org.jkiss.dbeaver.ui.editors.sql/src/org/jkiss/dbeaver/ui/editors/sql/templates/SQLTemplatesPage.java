@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.eclipse.jface.text.source.ISourceViewer;
 import org.eclipse.jface.text.source.SourceViewer;
 import org.eclipse.jface.text.templates.ContextTypeRegistry;
 import org.eclipse.jface.text.templates.DocumentTemplateContext;
+import org.eclipse.jface.text.templates.GlobalTemplateVariables;
 import org.eclipse.jface.text.templates.Template;
 import org.eclipse.jface.text.templates.persistence.TemplateStore;
 import org.eclipse.swt.SWT;
@@ -113,7 +114,7 @@ public class SQLTemplatesPage extends AbstractTemplatesPage {
         contextViewer.getSelectionProvider().setSelection(textSelection);
         SQLContext context = getContext(document, template, textSelection.getOffset(), textSelection.getLength());
 
-        context.setVariable("selection", savedText); //$NON-NLS-1$
+        context.setVariable(GlobalTemplateVariables.SELECTION, savedText);
         if (context.getKey().length() == 0) {
             try {
                 document.replace(textSelection.getOffset(), 1, savedText);
@@ -165,11 +166,11 @@ public class SQLTemplatesPage extends AbstractTemplatesPage {
     }
 
     @Override
-    protected SourceViewer createPatternViewer(Composite parent)
-    {
+    protected SourceViewer createPatternViewer(Composite parent) {
         IDocument document = new Document();
         SQLEditorSourceViewer viewer = new SQLEditorSourceViewer(parent, null, null, false, SWT.V_SCROLL | SWT.H_SCROLL);
-        SQLEditorSourceViewerConfiguration configuration = new SQLEditorSourceViewerConfiguration(sqlEditor, EditorsPlugin.getDefault().getPreferenceStore());
+        //FIXME: reconciling is turned off here because it's a cause of deadlocks and severe UI glitches. The exact cause is unknown, find a more precise solution. [dbeaver/dbeaver#11452]
+        SQLEditorSourceViewerConfiguration configuration = new SQLEditorSourceViewerConfiguration(sqlEditor, EditorsPlugin.getDefault().getPreferenceStore(), null);
         viewer.configure(configuration);
         viewer.setEditable(false);
         viewer.setDocument(document);

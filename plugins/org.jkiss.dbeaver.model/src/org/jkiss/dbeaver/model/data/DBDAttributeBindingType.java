@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.jkiss.dbeaver.model.data;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCSession;
@@ -32,16 +33,21 @@ import java.util.List;
  */
 public class DBDAttributeBindingType extends DBDAttributeBindingNested implements DBPImageProvider {
 
+    private static final Log log = Log.getLog(DBDAttributeBindingType.class);
+
     @NotNull
     private final DBSAttributeBase attribute;
     private List<DBSEntityReferrer> referrers;
+    private int ordinalPosition;
 
     public DBDAttributeBindingType(
         @NotNull DBDAttributeBinding parent,
-        @NotNull DBSAttributeBase attribute)
+        @NotNull DBSAttributeBase attribute,
+        int ordinalPosition)
     {
         super(parent, DBUtils.findValueHandler(parent.getDataSource(), attribute));
         this.attribute = attribute;
+        this.ordinalPosition = ordinalPosition;
     }
 
     /**
@@ -49,9 +55,12 @@ public class DBDAttributeBindingType extends DBDAttributeBindingNested implement
      * @return attribute index (zero based)
      */
     @Override
-    public int getOrdinalPosition()
-    {
-        return attribute.getOrdinalPosition();
+    public int getOrdinalPosition() {
+        return ordinalPosition < 0 ? attribute.getOrdinalPosition() : ordinalPosition;
+    }
+
+    public void setOrdinalPosition(int ordinalPosition) {
+        this.ordinalPosition = ordinalPosition;
     }
 
     @Override
@@ -142,8 +151,11 @@ public class DBDAttributeBindingType extends DBDAttributeBindingNested implement
         if (ownerValue instanceof DBDComposite) {
             return ((DBDComposite) ownerValue).getAttributeValue(attribute);
         }
+
         DBDAttributeBinding parent = getParent(1);
-        throw new DBCException("Can't extract field '" + getName() + "' from type '" + (parent == null ? null : parent.getName()) + "': wrong value");
+        log.debug("Can't extract field '" + getName() + "' from type '" + (parent == null ? null : parent.getName()) + "': wrong value (" + ownerValue + ")");
+
+        throw new DBCException(DBValueFormatting.getDefaultValueDisplayString(ownerValue, DBDDisplayFormat.NATIVE));
     }
 
     @Nullable
@@ -208,6 +220,11 @@ public class DBDAttributeBindingType extends DBDAttributeBindingNested implement
     @Override
     public long getMaxLength() {
         return attribute.getMaxLength();
+    }
+
+    @Override
+    public long getTypeModifiers() {
+        return attribute.getTypeModifiers();
     }
 
     @Override

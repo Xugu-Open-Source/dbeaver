@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ import java.util.Map;
 /**
  * Oracle session manager
  */
-public class OracleServerSessionManager implements DBAServerSessionManager<OracleServerSession>, DBAServerSessionDetailsProvider {
+public class OracleServerSessionManager implements DBAServerSessionManager<OracleServerSession>, DBAServerSessionManagerSQL, DBAServerSessionDetailsProvider {
 
     public static final String PROP_KILL_SESSION = "killSession";
     public static final String PROP_IMMEDIATE = "immediate";
@@ -59,25 +59,10 @@ public class OracleServerSessionManager implements DBAServerSessionManager<Oracl
     }
 
     @Override
-    public Collection<OracleServerSession> getSessions(DBCSession session, Map<String, Object> options) throws DBException
-    {
+    public Collection<OracleServerSession> getSessions(DBCSession session, Map<String, Object> options) throws DBException {
         try {
-            StringBuilder sql = new StringBuilder();
-            sql.append(
-                "SELECT s.*, sq.SQL_FULLTEXT, io.* \n" +
-                "FROM GV$SESSION s \n" +
-                "LEFT JOIN gv$sql sq ON (s.sql_address = sq.address AND s.sql_hash_value = sq.hash_value AND s.sql_child_number = sq.child_number)\n" +
-                "LEFT JOIN gv$sess_io io ON ( s.sid = io.sid AND s.inst_id = io.inst_id )\n" +
-                //"LEFT JOIN v$sesstat stat ON ( s.sid = stat.sid)\n" +
-                //"LEFT OUTER JOIN v$process e ON (s.paddr = e.addr)\n" +
-                "WHERE 1=1");
-            if (!CommonUtils.getOption(options, OPTION_SHOW_BACKGROUND)) {
-                sql.append(" AND s.TYPE = 'USER'");
-            }
-            if (!CommonUtils.getOption(options, OPTION_SHOW_INACTIVE)) {
-                sql.append(" AND s.STATUS <> 'INACTIVE'");
-            }
-            try (JDBCPreparedStatement dbStat = ((JDBCSession) session).prepareStatement(sql.toString())) {
+
+            try (JDBCPreparedStatement dbStat = ((JDBCSession) session).prepareStatement(generateSessionReadQuery(options))) {
                 try (JDBCResultSet dbResult = dbStat.executeQuery()) {
                     List<OracleServerSession> sessions = new ArrayList<>();
                     while (dbResult.next()) {
@@ -105,7 +90,8 @@ public class OracleServerSessionManager implements DBAServerSessionManager<Oracl
                 sql.append("DISCONNECT SESSION ");
             }
             sql.append("'").append(sessionType.getSid()).append(',').append(sessionType.getSerial());
-            if (sessionType.getInstId() != 0) {
+            if (sessionType.getInstId() != 0 && sessionType.getInstId() != 1) {
+                // INSET_ID = 1 is hardcoded constant, means no RAC
                 sql.append(",@").append(sessionType.getInstId());
             }
             sql.append("'");
@@ -183,5 +169,43 @@ public class OracleServerSessionManager implements DBAServerSessionManager<Oracl
             }
         });      
         return extDetails;
+    }
+
+    @Override
+    public boolean canGenerateSessionReadQuery() {
+        return true;
+    }
+
+    @Override
+    public String generateSessionReadQuery(Map<String, Object> options) {
+        boolean atLeastV11 = dataSource.isAtLeastV11();
+
+        StringBuilder sql = new StringBuilder();
+        sql.append(
+            "SELECT s.*, ");
+        if (atLeastV11) {
+            sql.append("sq.SQL_FULLTEXT, ");
+        } else {
+            sql.append("sq.SQL_TEXT AS SQL_FULLTEXT, ");
+        }
+        sql.append("io.*\n" +
+            "FROM GV$SESSION s, gv$sql sq, gv$sess_io io\n" +
+            "WHERE s.sql_address = sq.address(+)\n" +
+            " AND s.sql_hash_value = sq.hash_value(+)" +
+            " AND s.sid = io.sid(+)" +
+            " AND s.inst_id = io.inst_id(+)");
+        //"LEFT JOIN v$sesstat stat ON ( s.sid = stat.sid)\n" +
+        //"LEFT OUTER JOIN v$process e ON (s.paddr = e.addr)\n" +
+        //"WHERE 1=1");
+        if (atLeastV11) {
+            sql.append(" AND s.sql_child_number = sq.child_number (+)");
+        }
+        if (!CommonUtils.getOption(options, OPTION_SHOW_BACKGROUND)) {
+            sql.append(" AND s.TYPE = 'USER'");
+        }
+        if (!CommonUtils.getOption(options, OPTION_SHOW_INACTIVE)) {
+            sql.append(" AND s.STATUS <> 'INACTIVE'");
+        }
+        return sql.toString();
     }
 }

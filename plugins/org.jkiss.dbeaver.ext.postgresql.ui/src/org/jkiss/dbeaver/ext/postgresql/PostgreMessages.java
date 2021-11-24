@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2017 Liu, Yuanyuan (liuyuanyuan@highgo.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -48,6 +48,8 @@ public class PostgreMessages extends NLS {
     public static String wizard_backup_page_setting_group_security;
     public static String wizard_backup_page_setting_group_security_label_info;
     public static String wizard_backup_page_setting_group_security_btn_authentication;
+    public static String wizard_backup_page_setting_authentication_save_password;
+    public static String wizard_backup_page_setting_authentication_save_password_tip;
     public static String wizard_backup_page_setting_group_security_btn_reset_default;
 
     /* wizard restore*/
@@ -62,9 +64,6 @@ public class PostgreMessages extends NLS {
     public static String wizard_restore_page_setting_title;
     public static String wizard_restore_page_setting_title_setting;
 
-    public static String tool_run_in_separate_transaction;
-    public static String tool_run_in_separate_transaction_tooltip;
-
     /* tool script */
     public static String wizard_script_title_import_db;
     public static String wizard_script_title_execute_script;
@@ -74,37 +73,6 @@ public class PostgreMessages extends NLS {
     public static String tool_script_description_import;
     public static String tool_script_label_input;
     public static String tool_script_label_input_file;
-
-    /* tool analyze */
-    public static String tool_analyze_title_table;
-    public static String tool_analyze_title_database;
-
-    /* tool refresh mat view */
-    public static String tool_refresh_mview_title_table;
-
-    /* tool vacuum */
-    public static String tool_vacuum_analyze_check_tooltip;
-    public static String tool_vacuum_dps_check_tooltip;
-    public static String tool_vacuum_freeze_check_tooltip;
-    public static String tool_vacuum_full_check_tooltip;
-    public static String tool_vacuum_group_option;
-    public static String tool_vacuum_title_database;
-    public static String tool_vacuum_title_table;
-
-    /* tool truncate */
-    public static String tool_truncate_checkbox_cascade;
-    public static String tool_truncate_checkbox_cascade_tooltip;
-    public static String tool_truncate_checkbox_only;
-    public static String tool_truncate_checkbox_only_tooltip;
-    public static String tool_truncate_checkbox_restart;
-    public static String tool_truncate_checkbox_restart_tooltip;
-    public static String tool_truncate_group_option;
-    public static String tool_truncate_title_table;
-
-    /* tool refresh mat view */
-    public static String tool_refresh_mview_group_option;
-    public static String tool_refresh_mview_with_data;
-    public static String tool_refresh_mview_with_data_tooltip;
 
     /* dialog create db */
     public static String dialog_create_db_group_definition;
@@ -132,17 +100,15 @@ public class PostgreMessages extends NLS {
     public static String dialog_create_extension_database;
 
     /* PostgresSSLConfigurator */
-    public static String dialog_connection_network_postgres_ssl_certificates;
-    public static String dialog_connection_network_postgres_ssl_certificates_root;
-    public static String dialog_connection_network_postgres_ssl_certificates_ca;
-    public static String dialog_connection_network_postgres_ssl_certificates_ssl;
-    public static String dialog_connection_network_postgres_ssl_certificates_ssl_key;
     public static String dialog_connection_network_postgres_ssl_advanced;
     public static String dialog_connection_network_postgres_ssl_advanced_ssl_mode;
     public static String dialog_connection_network_postgres_ssl_advanced_ssl_factory;
+    public static String dialog_connection_network_postgres_ssl_advanced_use_proxy;
+    public static String dialog_connection_network_postgres_ssl_advanced_use_proxy_tip;
 
     /* PostgreConnectionPage */
     public static String dialog_setting_connection_host;
+    public static String dialog_setting_connection_cloud_instance;
     public static String dialog_setting_connection_port;
     public static String dialog_setting_connection_database;
     public static String dialog_setting_connection_user;
@@ -153,6 +119,12 @@ public class PostgreMessages extends NLS {
     public static String dialog_setting_connection_nondefaultDatabase_tip;
     public static String dialog_setting_connection_show_templates;
     public static String dialog_setting_connection_show_templates_tip;
+    public static String dialog_setting_connection_show_not_available_for_conn;
+    public static String dialog_setting_connection_show_not_available_for_conn_tip;
+    public static String dialog_setting_connection_database_statistics;
+    public static String dialog_setting_connection_database_statistics_tip;
+    public static String dialog_setting_connection_read_all_data_types;
+    public static String dialog_setting_connection_read_all_data_types_tip;
     public static String dialog_setting_group_sql;
     public static String dialog_setting_sql_dd_plain_label;
     public static String dialog_setting_sql_dd_plain_tip;
@@ -160,6 +132,11 @@ public class PostgreMessages extends NLS {
     public static String dialog_setting_sql_dd_tag_tip;
     public static String dialog_setting_sql_dd_string;
     public static String dialog_setting_sql_dd_code_block;
+    public static String dialog_setting_group_performance;
+    public static String dialog_setting_connection_use_prepared_statements;
+    public static String dialog_setting_connection_use_prepared_statements_tip;
+    public static String dialog_setting_session_role;
+    public static String dialog_setting_session_role_tip;
 
     /* PostgreCreateRoleDialog */
     public static String dialog_create_role_title;

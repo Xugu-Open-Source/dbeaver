@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2013-2015 Denis Forveille (titou10.titou10@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,11 @@ package org.jkiss.dbeaver.ext.db2.model.app;
 
 import org.jkiss.dbeaver.ext.db2.DB2Constants;
 import org.jkiss.dbeaver.model.admin.sessions.AbstractServerSession;
-import org.jkiss.dbeaver.model.admin.sessions.DBAServerSession;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
 
 import java.sql.ResultSet;
+import java.util.Objects;
 
 /**
  * DB2 Application
@@ -33,11 +33,11 @@ import java.sql.ResultSet;
 public class DB2ServerApplication extends AbstractServerSession {
 
     private String databaseName;
-    private Long agentId;
+    private final Long agentId;
     private String authorisationId;
 
     private String applicationName;
-    private String applicationId;
+    private final String applicationId;
     private String applicationStatus;
     private String statusChangeTime;
     private String sequenceNo;
@@ -230,4 +230,16 @@ public class DB2ServerApplication extends AbstractServerSession {
         return tpmonClientApplicationName;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        DB2ServerApplication that = (DB2ServerApplication) o;
+        return Objects.equals(agentId, that.agentId) && Objects.equals(applicationId, that.applicationId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(agentId, applicationId);
+    }
 }

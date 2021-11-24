@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,32 +19,49 @@ package org.jkiss.dbeaver.ext.postgresql.model;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.ext.postgresql.PostgreConstants;
+import org.jkiss.dbeaver.ext.postgresql.PostgreUtils;
 import org.jkiss.dbeaver.ext.postgresql.model.data.PostgreBinaryFormatter;
-import org.jkiss.dbeaver.model.DBPDataKind;
-import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.ext.postgresql.sql.PostgreEscapeStringRule;
+import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.DBPEvaluationContext;
+import org.jkiss.dbeaver.model.DBPIdentifierCase;
+import org.jkiss.dbeaver.model.DBPKeywordType;
+import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
 import org.jkiss.dbeaver.model.data.DBDBinaryFormatter;
+import org.jkiss.dbeaver.model.exec.DBCLogicalOperator;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCDatabaseMetaData;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSource;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCSQLDialect;
 import org.jkiss.dbeaver.model.impl.sql.BasicSQLDialect;
 import org.jkiss.dbeaver.model.sql.SQLDialect;
-import org.jkiss.dbeaver.model.struct.DBSAttributeBase;
+import org.jkiss.dbeaver.model.sql.SQLExpressionFormatter;
+import org.jkiss.dbeaver.model.sql.parser.rules.SQLDollarQuoteRule;
+import org.jkiss.dbeaver.model.struct.DBSDataType;
+import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
+import org.jkiss.dbeaver.model.text.parser.TPRule;
+import org.jkiss.dbeaver.model.text.parser.TPRuleProvider;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.utils.ArrayUtils;
+import org.jkiss.utils.CommonUtils;
 
+import java.sql.Types;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 
 /**
  * PostgreSQL dialect
  */
-public class PostgreDialect extends JDBCSQLDialect {
-
+public class PostgreDialect extends JDBCSQLDialect implements TPRuleProvider {
     public static final String[] POSTGRE_NON_TRANSACTIONAL_KEYWORDS = ArrayUtils.concatArrays(
         BasicSQLDialect.NON_TRANSACTIONAL_KEYWORDS,
         new String[]{
             "SHOW", "SET"
         }
     );
+
     private static final String[][] PG_STRING_QUOTES = {
         {"'", "'"}
     };
@@ -57,6 +74,15 @@ public class PostgreDialect extends JDBCSQLDialect {
 
     private static final String[] EXEC_KEYWORDS = {
         "CALL"
+    };
+
+    //Function without arguments/parameters #8710
+    private static final String[] OTHER_TYPES_FUNCTION = {
+        "CURRENT_DATE",
+        "CURRENT_TIME",
+        "CURRENT_TIMESTAMP",
+        "CURRENT_ROLE",
+        "CURRENT_USER",
     };
 
     //region KeyWords
@@ -177,6 +203,7 @@ public class PostgreDialect extends JDBCSQLDialect {
         "REQUIRING",
         "RESPECT",
         "RESTORE",
+        "RULE",
 //            "RETURNED_CARDINALITY",
 //            "RETURNED_LENGTH",
 //            "RETURNED_OCTET_LENGTH",
@@ -246,7 +273,6 @@ public class PostgreDialect extends JDBCSQLDialect {
         "P"
     };
     //endregion
-
 
     //region FUNCTIONS KW
 
@@ -638,11 +664,13 @@ public class PostgreDialect extends JDBCSQLDialect {
         "GENERATE_SERIES",
         "GENERATE_SUBSCRIPTS"
     };
+
     //endregion
 
+    private PostgreServerExtension serverExtension;
 
     public PostgreDialect() {
-        super("PostgreSQL");
+        super("PostgreSQL", "postgresql");
     }
 
     public void addExtraKeywords(String... keywords) {
@@ -653,8 +681,8 @@ public class PostgreDialect extends JDBCSQLDialect {
         super.addFunctions(Arrays.asList(functions));
     }
 
-    public void initDriverSettings(JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
-        super.initDriverSettings(dataSource, metaData);
+    public void initDriverSettings(JDBCSession session, JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
+        super.initDriverSettings(session, dataSource, metaData);
 
         addExtraKeywords(
             "SHOW",
@@ -696,6 +724,8 @@ public class PostgreDialect extends JDBCSQLDialect {
         // Not sure about one char keywords. May confuse users
         //addExtraKeywords(POSTGRE_ONE_CHAR_KEYWORDS);
 
+        addKeywords(Arrays.asList(OTHER_TYPES_FUNCTION), DBPKeywordType.OTHER);
+
         addExtraFunctions(PostgreConstants.POSTGIS_FUNCTIONS);
 
         addExtraFunctions(POSTGRE_FUNCTIONS_ADMIN);
@@ -725,8 +755,17 @@ public class PostgreDialect extends JDBCSQLDialect {
         removeSQLKeyword("LENGTH");
 
         if (dataSource instanceof PostgreDataSource) {
-            ((PostgreDataSource) dataSource).getServerType().configureDialect(this);
+            serverExtension = ((PostgreDataSource) dataSource).getServerType();
+            serverExtension.configureDialect(this);
         }
+
+        // #12723 Redshift driver returns wrong infor about unquoted case
+        setUnquotedIdentCase(DBPIdentifierCase.LOWER);
+    }
+    
+    @Override
+    public void addKeywords(Collection<String> set, DBPKeywordType type) {
+        super.addKeywords(set, type);
     }
 
     @NotNull
@@ -736,8 +775,16 @@ public class PostgreDialect extends JDBCSQLDialect {
     }
 
     @Override
+    public char getStringEscapeCharacter() {
+        if (serverExtension != null && serverExtension.supportsBackslashStringEscape()) {
+            return '\\';
+        }
+        return super.getStringEscapeCharacter();
+    }
+
+    @Override
     public int getCatalogUsage() {
-        return SQLDialect.USAGE_NONE;
+        return SQLDialect.USAGE_DML;
     }
 
     @Override
@@ -753,7 +800,7 @@ public class PostgreDialect extends JDBCSQLDialect {
 
     @NotNull
     @Override
-    public MultiValueInsertMode getMultiValueInsertMode() {
+    public MultiValueInsertMode getDefaultMultiValueInsertMode() {
         return MultiValueInsertMode.GROUP_ROWS;
     }
 
@@ -762,17 +809,20 @@ public class PostgreDialect extends JDBCSQLDialect {
         return BLOCK_BOUND_KEYWORDS;
     }
 
-    @Nullable
-    @Override
-    public String[] getBlockHeaderStrings() {
-        return new String[] { "DECLARE" };
-    }
-
     @NotNull
     @Override
-    public String getTypeCastClause(DBSAttributeBase attribute, String expression) {
+    public String getTypeCastClause(DBSTypedObject attribute, String expression) {
         String typeName = attribute.getTypeName();
-        if (ArrayUtils.contains(PostgreDataType.getOidTypes(), typeName)) {
+        if (ArrayUtils.contains(PostgreDataType.getOidTypes(), typeName) || attribute.getTypeID() == Types.OTHER) {
+            if (attribute instanceof DBDAttributeBinding) {
+                DBSDataType dataType = ((DBDAttributeBinding) attribute).getDataType();
+                if (dataType != null) {
+                    DBSObject parentObject = dataType.getParentObject();
+                    if (parentObject instanceof PostgreSchema && dataType instanceof PostgreDataType) {
+                        typeName = ((PostgreDataType) dataType).getFullyQualifiedName(DBPEvaluationContext.DDL);
+                    }
+                }
+            }
             return expression + "::" + typeName;
         }
         return expression;
@@ -780,11 +830,20 @@ public class PostgreDialect extends JDBCSQLDialect {
 
     @NotNull
     @Override
-    public String escapeScriptValue(DBSAttributeBase attribute, @NotNull Object value, @NotNull String strValue) {
-        if (value.getClass().getName().equals(PostgreConstants.PG_OBJECT_CLASS)) {
+    public String escapeScriptValue(DBSTypedObject attribute, @NotNull Object value, @NotNull String strValue) {
+        if (PostgreUtils.isPGObject(value) ||
+            PostgreConstants.TYPE_BIT.equals(attribute.getTypeName()) ||
+            PostgreConstants.TYPE_INTERVAL.equals(attribute.getTypeName()) ||
+            attribute.getTypeID() == Types.OTHER)
+        {
             // TODO: we need to add value handlers for all PG data types.
-            // For now we use workaround: re[eresent objects as strings
+            // For now we use workaround: represent objects as strings
             return '\'' + escapeString(strValue) + '\'';
+        }
+        if (CommonUtils.isNaN(value) || CommonUtils.isInfinite(value)) {
+            // These special values should be quoted
+            // https://www.postgresql.org/docs/current/datatype-numeric.html#DATATYPE-NUMERIC-DECIMAL
+            return '\'' + String.valueOf(value) + '\'';
         }
         return super.escapeScriptValue(attribute, value, strValue);
     }
@@ -810,6 +869,20 @@ public class PostgreDialect extends JDBCSQLDialect {
         return true;
     }
 
+    @Override
+    public boolean supportsNestedComments() {
+        return true;
+    }
+
+    @Nullable
+    @Override
+    public SQLExpressionFormatter getCaseInsensitiveExpressionFormatter(@NotNull DBCLogicalOperator operator) {
+        if (operator == DBCLogicalOperator.LIKE) {
+            return (left, right) -> left + " ILIKE " + right;
+        }
+        return super.getCaseInsensitiveExpressionFormatter(operator);
+    }
+
     @NotNull
     @Override
     public DBDBinaryFormatter getNativeBinaryFormatter() {
@@ -829,15 +902,30 @@ public class PostgreDialect extends JDBCSQLDialect {
     }
 
     @Override
-    public String getColumnTypeModifiers(@NotNull DBPDataSource dataSource, @NotNull DBSTypedObject column, @NotNull String typeName, @NotNull DBPDataKind dataKind) {
-        if (dataKind == DBPDataKind.DATETIME) {
-            {
-                Integer scale = column.getScale();
-                if (scale != null) {
-                    return "(" + scale + ')';
-                }
-            }
+    protected boolean isStoredProcedureCallIncludesOutParameters() {
+        return false;
+    }
+
+    @Override
+    public void extendRules(@Nullable DBPDataSourceContainer dataSource, @NotNull List<TPRule> rules, @NotNull RulePosition position) {
+        if (position == RulePosition.INITIAL || position == RulePosition.PARTITION) {
+            boolean ddTagDefault = DBWorkbench.getPlatform().getPreferenceStore().getBoolean(PostgreConstants.PROP_DD_TAG_STRING);
+            boolean ddTagIsString = dataSource == null
+                ? ddTagDefault
+                : CommonUtils.getBoolean(dataSource.getActualConnectionConfiguration().getProviderProperty(PostgreConstants.PROP_DD_TAG_STRING), ddTagDefault);
+
+            boolean ddPlainDefault = DBWorkbench.getPlatform().getPreferenceStore().getBoolean(PostgreConstants.PROP_DD_PLAIN_STRING);
+            boolean ddPlainIsString = dataSource == null
+                ? ddPlainDefault
+                : CommonUtils.getBoolean(dataSource.getActualConnectionConfiguration().getProviderProperty(PostgreConstants.PROP_DD_PLAIN_STRING), ddPlainDefault);
+
+            rules.add(new SQLDollarQuoteRule(position == RulePosition.PARTITION, true, ddTagIsString, ddPlainIsString));
+            rules.add(new PostgreEscapeStringRule());
         }
-        return super.getColumnTypeModifiers(dataSource, column, typeName, dataKind);
+    }
+
+    @Override
+    public boolean supportsInsertAllDefaultValuesStatement() {
+        return true;
     }
 }

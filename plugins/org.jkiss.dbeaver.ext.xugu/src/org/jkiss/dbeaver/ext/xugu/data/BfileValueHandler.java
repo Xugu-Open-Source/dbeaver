@@ -43,9 +43,9 @@ public class BfileValueHandler extends JDBCContentValueHandler {
 		}
 
 		if (object == null) {
-			return new ContentBfile(session.getDataSource(), null);
+			return new ContentBfile(session.getExecutionContext(), null);
 		} else {
-			return new ContentBfile(session.getDataSource(), object);
+			return new ContentBfile(session.getExecutionContext(), object);
 		}
 	}
 
@@ -53,7 +53,7 @@ public class BfileValueHandler extends JDBCContentValueHandler {
 	public DBDContent getValueFromObject(@NotNull DBCSession session, @NotNull DBSTypedObject type, Object object,
 			boolean copy, boolean validateValue) throws DBCException {
 		if (object == null) {
-			return new ContentBfile(session.getDataSource(), null);
+			return new ContentBfile(session.getExecutionContext(), null);
 		} else if (object instanceof ContentBfile) {
 			return copy ? (ContentBfile) ((ContentBfile) object).cloneValue(session.getProgressMonitor())
 					: (ContentBfile) object;

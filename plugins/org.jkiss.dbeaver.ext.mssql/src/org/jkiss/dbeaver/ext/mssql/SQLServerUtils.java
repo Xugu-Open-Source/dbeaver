@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 package org.jkiss.dbeaver.ext.mssql;
 
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.mssql.model.*;
@@ -25,17 +26,24 @@ import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
+import org.jkiss.dbeaver.model.exec.DBCEntityMetaData;
+import org.jkiss.dbeaver.model.exec.DBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSource;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
+import org.jkiss.dbeaver.model.impl.jdbc.exec.JDBCConnectionImpl;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLDialect;
+import org.jkiss.dbeaver.model.sql.SQLQuery;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
+import org.jkiss.dbeaver.model.struct.rdb.DBSCatalog;
 import org.jkiss.dbeaver.model.struct.rdb.DBSForeignKeyModifyRule;
+import org.jkiss.dbeaver.model.struct.rdb.DBSTable;
 import org.jkiss.utils.CommonUtils;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 
 /**
@@ -128,6 +136,14 @@ public class SQLServerUtils {
 
     public static String getSystemTableName(SQLServerDatabase database, String tableName) {
         return SQLServerUtils.getSystemSchemaFQN(database.getDataSource(), database.getName(), SQLServerConstants.SQL_SERVER_SYSTEM_SCHEMA) + "." + tableName;
+    }
+
+    public static String getSystemTableFQN(@NotNull JDBCDataSource dataSource, @NotNull DBSCatalog database, @NotNull String tableName, boolean isSQLServer) {
+        return SQLServerUtils.getSystemSchemaFQN(
+            dataSource,
+            database.getName(),
+            isSQLServer? SQLServerConstants.SQL_SERVER_SYSTEM_SCHEMA : SQLServerConstants.SYBASE_SYSTEM_SCHEMA)
+            + "." + tableName;
     }
 
     public static String getExtendedPropsTableName(SQLServerDatabase database) {
@@ -235,6 +251,77 @@ public class SQLServerUtils {
             return ddl.replaceFirst(firstKeyword, "ALTER");
         }
         return ddl;
+    }
+
+    public static boolean isTableType(SQLServerTableBase table) {
+        return table instanceof SQLServerTableType;
+    }
+
+    public static SQLServerTableBase getTableFromQuery(DBCSession session, SQLQuery sqlQuery, SQLServerDataSource dataSource) throws DBException, SQLException {
+        DBCEntityMetaData singleSource = sqlQuery.getSingleSource();
+        String catalogName = null;
+        if (singleSource != null) {
+            catalogName = singleSource.getCatalogName();
+        }
+        Connection original = null;
+        if (session instanceof JDBCConnectionImpl) {
+            original = ((JDBCConnectionImpl) session).getOriginal();
+        }
+        if (catalogName == null && original != null) {
+            catalogName = original.getCatalog();
+        }
+        if (catalogName != null) {
+            SQLServerDatabase database = dataSource.getDatabase(catalogName);
+            String schemaName = null;
+            if (singleSource != null) {
+                schemaName = singleSource.getSchemaName();
+            }
+            if (schemaName == null && original != null) {
+                schemaName = original.getSchema();
+            }
+            if (database != null && schemaName != null) {
+                SQLServerSchema schema = database.getSchema(schemaName);
+                if (schema != null && singleSource != null) {
+                    return schema.getTable(session.getProgressMonitor(), singleSource.getEntityName());
+                }
+            }
+        }
+        return null;
+    }
+
+    public static JDBCPreparedStatement prepareTableStatisticLoadStatement(@NotNull JDBCSession session, @NotNull JDBCDataSource dataSource, @NotNull DBSCatalog catalog, long schemaId, @Nullable DBSTable table, boolean isSQLServer) throws SQLException {
+        String query;
+        if (isSQLServer) {
+            query = "SELECT t.name, p.rows, SUM(a.total_pages) * 8 AS totalSize, SUM(a.used_pages) * 8 AS usedSize\n" +
+                "FROM " + SQLServerUtils.getSystemTableFQN(dataSource, catalog, "tables", true) + " t\n" +
+                "INNER JOIN " + SQLServerUtils.getSystemTableFQN(dataSource, catalog, "indexes", true) + " i ON t.OBJECT_ID = i.object_id\n" +
+                "INNER JOIN " + SQLServerUtils.getSystemTableFQN(dataSource, catalog, "partitions", true) + " p ON i.object_id = p.OBJECT_ID AND i.index_id = p.index_id\n" +
+                "INNER JOIN " + SQLServerUtils.getSystemTableFQN(dataSource, catalog, "allocation_units", true) + " a ON p.partition_id = a.container_id\n" +
+                "LEFT OUTER JOIN " + SQLServerUtils.getSystemTableFQN(dataSource, catalog, "schemas", true) + " s ON t.schema_id = s.schema_id\n" +
+                "WHERE t.schema_id = ?\n" + (table != null ? "AND t.object_id=?\n" : "") +
+                "GROUP BY t.name, p.rows";
+        } else {
+            query = "SELECT convert(varchar(100),o.name) AS 'name',\n" +
+                "row_count(db_id(), o.id) AS 'rows',\n" +
+                "data_pages(db_id(), o.id, 0) AS 'pages',\n" +
+                "data_pages(db_id(), o.id, 0) * (@@maxpagesize) AS 'totalSize'\n" +
+                "FROM " + SQLServerUtils.getSystemTableFQN(dataSource, catalog, "sysobjects", false) +  " o\n" +
+                "WHERE type = 'U'\n" +
+                "AND o.uid = ?\n" +
+                (table != null ? " AND 'name'=?\n" : "") +
+                "ORDER BY 'name'";
+        }
+        JDBCPreparedStatement dbStat = session.prepareStatement(query);
+        dbStat.setLong(1, schemaId);
+        if (table != null) {
+            if (isSQLServer) {
+                SQLServerTable sqlServerTable = (SQLServerTable) table;
+                dbStat.setLong(2, sqlServerTable.getObjectId());
+            } else {
+                dbStat.setString(2, table.getName());
+            }
+        }
+        return dbStat;
     }
 
 }

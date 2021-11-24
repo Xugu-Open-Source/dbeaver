@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ package org.jkiss.dbeaver.tools.transfer.ui.wizard;
 import org.eclipse.jface.wizard.IWizardPage;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.SashForm;
+import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.layout.GridData;
-import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.jkiss.dbeaver.tools.transfer.DataTransferPipe;
 import org.jkiss.dbeaver.tools.transfer.DataTransferSettings;
@@ -30,8 +30,10 @@ import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.dialogs.ActiveWizardPage;
 
 /**
- * This page hosts other settings pages
+ * This page hosts other settings pages.
+ * Since 21.2.4 we don't use composite page anymore.
  */
+@Deprecated
 class DataTransferPageSettings extends ActiveWizardPage<DataTransferWizard> {
 
     private IWizardPage producerSettingsPage;
@@ -44,15 +46,25 @@ class DataTransferPageSettings extends ActiveWizardPage<DataTransferWizard> {
     }
 
     @Override
+    public String getTitle() {
+        DataTransferSettings dtSettings = getWizard().getSettings();
+
+        StringBuilder title = new StringBuilder();
+        String producerName = dtSettings.getProducer() == null ? "null" : dtSettings.getProducer().getName();
+        String consumerName = dtSettings.getConsumer() == null ? "null" : dtSettings.getConsumer().getName();
+        title.append(DTMessages.data_transfer_wizard_settings_title).append(" (").append(producerName).append(" to ").append(consumerName);
+        if (dtSettings.getProcessor() != null) {
+            title.append(", ").append(dtSettings.getProcessor().getName());
+        }
+        title.append(")");
+        return title.toString();
+    }
+
+    @Override
     public void createControl(Composite parent) {
         initializeDialogUnits(parent);
 
-        Composite composite = new Composite(parent, SWT.NULL);
-        GridLayout gl = new GridLayout(1, true);
-        gl.marginHeight = 0;
-        gl.marginWidth = 0;
-        composite.setLayout(gl);
-        composite.setLayoutData(new GridData(GridData.FILL_BOTH));
+        Composite composite = UIUtils.createComposite(parent, 1);
 
         setControl(composite);
     }
@@ -64,13 +76,14 @@ class DataTransferPageSettings extends ActiveWizardPage<DataTransferWizard> {
             DataTransferPipe dataPipe = dtSettings.getDataPipes().get(0);
 
             StringBuilder title = new StringBuilder();
-            title.append(DTMessages.data_transfer_wizard_settings_title).append(" (").append(dtSettings.getProducer().getName()).append(" to ").append(dtSettings.getConsumer().getName());
+            String producerName = dtSettings.getProducer() == null ? "null" : dtSettings.getProducer().getName();
+            String consumerName = dtSettings.getConsumer() == null ? "null" : dtSettings.getConsumer().getName();
+            title.append(DTMessages.data_transfer_wizard_settings_title).append(" (").append(producerName).append(" to ").append(consumerName);
             if (dtSettings.getProcessor() != null) {
                 title.append(", ").append(dtSettings.getProcessor().getName());
             }
             title.append(")");
             setTitle(title.toString());
-
 
             producerSettingsPage = getSettingsPage(dataPipe.getProducer());
             consumerSettingsPage = getSettingsPage(dataPipe.getConsumer());
@@ -88,7 +101,10 @@ class DataTransferPageSettings extends ActiveWizardPage<DataTransferWizard> {
             producerSettingsPage.setWizard(getWizard());
             Composite producerGroup = UIUtils.createPlaceholder(settingsComposite, 1);
             UIUtils.createInfoLabel(producerGroup, producerSettingsPage.getTitle());
-            producerSettingsPage.createControl(producerGroup);
+            Composite settingPanel = new Composite(producerGroup, SWT.NONE);
+            settingPanel.setLayoutData(new GridData(GridData.FILL_BOTH));
+            settingPanel.setLayout(new FillLayout());
+            producerSettingsPage.createControl(settingPanel);
             if (producerSettingsPage instanceof ActiveWizardPage) {
                 ((ActiveWizardPage) producerSettingsPage).activatePage();
             }
@@ -98,7 +114,10 @@ class DataTransferPageSettings extends ActiveWizardPage<DataTransferWizard> {
             consumerSettingsPage.setWizard(getWizard());
             Composite consumerGroup = UIUtils.createPlaceholder(settingsComposite, 1);
             UIUtils.createInfoLabel(consumerGroup, consumerSettingsPage.getTitle());
-            consumerSettingsPage.createControl(consumerGroup);
+            Composite settingPanel = new Composite(consumerGroup, SWT.NONE);
+            settingPanel.setLayoutData(new GridData(GridData.FILL_BOTH));
+            settingPanel.setLayout(new FillLayout());
+            consumerSettingsPage.createControl(settingPanel);
             if (consumerSettingsPage instanceof ActiveWizardPage) {
                 ((ActiveWizardPage) consumerSettingsPage).activatePage();
             }

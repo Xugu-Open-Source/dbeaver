@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.eclipse.jface.action.*;
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.dialogs.IDialogSettings;
 import org.eclipse.jface.resource.ColorRegistry;
+import org.eclipse.jface.util.IPropertyChangeListener;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.viewers.StructuredSelection;
@@ -38,12 +39,14 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.*;
 import org.eclipse.ui.IWorkbenchCommandConstants;
 import org.eclipse.ui.IWorkbenchPartSite;
+import org.eclipse.ui.IWorkbenchWindow;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.exec.DBCExecutionPurpose;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceListener;
@@ -93,6 +96,7 @@ public class QueryLogViewer extends Viewer implements QMMetaListener, DBPPrefere
     public static final String COLOR_TRANSACTION = "org.jkiss.dbeaver.txn.color.transaction.background";  // = new RGB(0xFF, 0xE4, 0xB5); //$NON-NLS-1$
 
     private static NumberFormat NUMBER_FORMAT = NumberFormat.getInstance();
+    private final IPropertyChangeListener themePropertiesListener;
 
     private static abstract class LogColumn {
         private final String id;
@@ -334,10 +338,10 @@ public class QueryLogViewer extends Viewer implements QMMetaListener, DBPPrefere
     private boolean useDefaultFilter = true;
     private boolean currentSessionOnly;
 
-    private final Color colorLightGreen;
-    private final Color colorLightRed;
-    private final Color colorLightYellow;
-    private final Color shadowColor;
+    private Color colorLightGreen;
+    private Color colorLightRed;
+    private Color colorLightYellow;
+    private Color shadowColor;
     private final Font boldFont;
     private final Font hintFont;
     private DragSource dndSource;
@@ -405,8 +409,6 @@ public class QueryLogViewer extends Viewer implements QMMetaListener, DBPPrefere
             UIUtils.addFocusTracker(site, QUERY_LOG_CONTROL_ID, logTable);
 
             logTable.addDisposeListener(e -> {
-                // Unregister from focus service
-                UIUtils.removeFocusTracker(QueryLogViewer.this.site, logTable);
                 dispose();
             });
         }
@@ -439,6 +441,23 @@ public class QueryLogViewer extends Viewer implements QMMetaListener, DBPPrefere
                 }
             }
         });
+
+
+        this.themePropertiesListener = event -> {
+            switch (event.getProperty()) {
+                case COLOR_UNCOMMITTED:
+                    colorLightGreen = colorRegistry.get(COLOR_UNCOMMITTED);
+                    break;
+                case COLOR_REVERTED:
+                    colorLightRed = colorRegistry.get(COLOR_REVERTED);
+                    break;
+                case COLOR_TRANSACTION:
+                    colorLightYellow = colorRegistry.get(COLOR_TRANSACTION);
+                    break;
+            }
+        };
+        this.site.getWorkbenchWindow().getWorkbench().getThemeManager().addPropertyChangeListener(themePropertiesListener);
+
     }
 
     private synchronized void scheduleLogRefresh() {
@@ -501,6 +520,10 @@ public class QueryLogViewer extends Viewer implements QMMetaListener, DBPPrefere
     }
 
     private void dispose() {
+        IWorkbenchWindow workbenchWindow = this.site.getWorkbenchWindow();
+        if (workbenchWindow != null) {
+            workbenchWindow.getWorkbench().getThemeManager().removePropertyChangeListener(themePropertiesListener);
+        }
         DBWorkbench.getPlatform().getPreferenceStore().removePropertyChangeListener(this);
         QMUtils.unregisterMetaListener(this);
         UIUtils.dispose(dndSource);
@@ -673,6 +696,10 @@ public class QueryLogViewer extends Viewer implements QMMetaListener, DBPPrefere
                 }
                 QMMObject object = event.getObject();
                 if (object instanceof QMMStatementExecuteInfo) {
+                    if (CommonUtils.isEmpty(((QMMStatementExecuteInfo) object).getQueryString())) {
+                        // Ignore empty statements
+                        continue;
+                    }
                     itemIndex = createOrUpdateItem(event, itemIndex);
                 } else if (object instanceof QMMTransactionInfo || object instanceof QMMTransactionSavepointInfo) {
                     itemIndex = createOrUpdateItem(event, itemIndex);
@@ -889,8 +916,14 @@ public class QueryLogViewer extends Viewer implements QMMetaListener, DBPPrefere
             if (object instanceof QMMStatementExecuteInfo) {
                 QMMStatementExecuteInfo stmtExec = (QMMStatementExecuteInfo) object;
                 if (dsContainer == null) {
-                    String containerId = stmtExec.getStatement().getSession().getContainerId();
-                    dsContainer = DBUtils.findDataSource(containerId);
+                    QMMSessionInfo session = stmtExec.getStatement().getSession();
+                    DBPProject project = session.getProject();
+                    String containerId = session.getContainerId();
+                    if (project != null) {
+                        dsContainer = project.getDataSourceRegistry().getDataSource(containerId);
+                    } else {
+                        dsContainer = DBUtils.findDataSource(containerId);
+                    }
                 }
                 String queryString = stmtExec.getQueryString();
                 if (!CommonUtils.isEmptyTrimmed(queryString)) {

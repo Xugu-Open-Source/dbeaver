@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -166,6 +166,16 @@ public enum SQLState {
             return ((SQLException) error).getSQLState();
         } else {
             return null;
+        }
+    }
+
+    public static int getCodeFromException(Throwable error) {
+        if (error instanceof DBException) {
+            return ((DBException) error).getErrorCode();
+        } else if (error instanceof SQLException) {
+            return ((SQLException) error).getErrorCode();
+        } else {
+            return 0;
         }
     }
 }

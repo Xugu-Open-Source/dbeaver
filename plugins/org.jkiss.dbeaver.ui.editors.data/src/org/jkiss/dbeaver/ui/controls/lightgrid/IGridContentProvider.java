@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package  org.jkiss.dbeaver.ui.controls.lightgrid;
 
 import org.eclipse.jface.viewers.IContentProvider;
 import org.eclipse.swt.graphics.Color;
+import org.eclipse.swt.graphics.Font;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBPImage;
@@ -35,6 +36,7 @@ public interface IGridContentProvider extends IContentProvider {
     int STATE_LINK          = 1;
     int STATE_HYPER_LINK    = 2;
     int STATE_TRANSFORMED   = 4;
+    int STATE_TOGGLE        = 8;
 
     int ALIGN_LEFT          = 0;
     int ALIGN_CENTER        = 1;
@@ -50,7 +52,7 @@ public interface IGridContentProvider extends IContentProvider {
 
     ElementState getDefaultState(@NotNull Object element);
 
-    int getColumnAlign(@Nullable Object element);
+    int getColumnPinIndex(@NotNull Object element);
 
     boolean isElementSupportsFilter(@Nullable Object element);
 
@@ -65,6 +67,11 @@ public interface IGridContentProvider extends IContentProvider {
      * @param cellText    pre-rendered cell text. Used for cache purposes.
      */
     int getCellState(Object colElement, Object rowElement, @Nullable String cellText);
+
+    int getCellAlign(@Nullable Object colElement, Object rowElement);
+
+    @Nullable
+    Font getCellFont(@Nullable Object colElement, Object rowElement);
 
     /**
      * @param formatString  Format string values or return raw values

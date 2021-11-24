@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getString(columnName);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnName, e);
             return null;
         }
@@ -70,7 +70,7 @@ public class JDBCUtils {
             } else {
                 return value;
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnName, e);
             return null;
         }
@@ -81,7 +81,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getString(columnIndex);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnIndex, e);
             return null;
         }
@@ -97,7 +97,7 @@ public class JDBCUtils {
             } else {
                 return value;
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnIndex, e);
             return null;
         }
@@ -107,7 +107,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getInt(columnName);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnName, e);
             return 0;
         }
@@ -117,7 +117,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getInt(columnIndex);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnIndex, e);
             return 0;
         }
@@ -133,7 +133,7 @@ public class JDBCUtils {
             } else {
                 return result;
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnName, e);
             return null;
         }
@@ -149,7 +149,7 @@ public class JDBCUtils {
             } else {
                 return result;
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnIndex, e);
             return null;
         }
@@ -159,7 +159,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getLong(columnName);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnName, e);
             return 0;
         }
@@ -169,7 +169,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getLong(columnIndex);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnIndex, e);
             return 0;
         }
@@ -181,7 +181,7 @@ public class JDBCUtils {
         try {
             final long result = dbResult.getLong(columnName);
             return dbResult.wasNull() ? null : result;
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnName, e);
             return null;
         }
@@ -191,7 +191,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getDouble(columnName);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnName, e);
             return 0.0;
         }
@@ -201,7 +201,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getDouble(columnIndex);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnIndex, e);
             return 0.0;
         }
@@ -211,7 +211,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getFloat(columnName);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnName, e);
             return 0;
         }
@@ -221,7 +221,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getFloat(columnIndex);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnIndex, e);
             return 0;
         }
@@ -232,7 +232,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getBigDecimal(columnName);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnName, e);
             return null;
         }
@@ -243,7 +243,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getBigDecimal(columnIndex);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnIndex, e);
             return null;
         }
@@ -258,7 +258,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getBoolean(columnName);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnName, e);
             return defValue;
         }
@@ -268,7 +268,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getBoolean(columnIndex);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnIndex, e);
             return false;
         }
@@ -279,7 +279,7 @@ public class JDBCUtils {
         try {
             final String strValue = dbResult.getString(columnName);
             return strValue != null && strValue.startsWith(trueValue);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnName, e);
             return false;
         }
@@ -290,7 +290,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getBytes(columnName);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnName, e);
             return null;
         }
@@ -301,7 +301,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getTimestamp(columnName);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnName, e);
             return null;
         }
@@ -312,7 +312,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getTimestamp(columnIndex);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnIndex, e);
             return null;
         }
@@ -323,7 +323,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getDate(columnName);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnName, e);
             return null;
         }
@@ -334,7 +334,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getDate(columnIndex);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnIndex, e);
             return null;
         }
@@ -345,7 +345,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getTime(columnName);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnName, e);
             return null;
         }
@@ -356,7 +356,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getTime(columnIndex);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnIndex, e);
             return null;
         }
@@ -367,7 +367,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getSQLXML(columnName);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnName, e);
             return null;
         }
@@ -378,7 +378,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getSQLXML(columnIndex);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnIndex, e);
             return null;
         }
@@ -389,7 +389,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getObject(columnName);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnName, e);
             return null;
         }
@@ -400,7 +400,7 @@ public class JDBCUtils {
     {
         try {
             return dbResult.getObject(columnIndex);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnIndex, e);
             return null;
         }
@@ -412,7 +412,7 @@ public class JDBCUtils {
         try {
             Array array = dbResult.getArray(columnName);
             return array == null ? null : (T) array.getArray();
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnName, e);
             return null;
         }
@@ -424,7 +424,7 @@ public class JDBCUtils {
         try {
             Array array = dbResult.getArray(columnIndex);
             return array == null ? null : array.getArray();
-        } catch (SQLException e) {
+        } catch (Exception e) {
             debugColumnRead(dbResult, columnIndex, e);
             return null;
         }
@@ -434,39 +434,6 @@ public class JDBCUtils {
     public static String normalizeIdentifier(@Nullable String value)
     {
         return value == null ? null : value.trim();
-    }
-
-    public static void dumpResultSet(ResultSet dbResult)
-    {
-        try {
-            ResultSetMetaData md = dbResult.getMetaData();
-            int count = md.getColumnCount();
-            dumpResultSetMetaData(dbResult);
-            while (dbResult.next()) {
-                for (int i = 1; i <= count; i++) {
-                    String colValue = dbResult.getString(i);
-                    System.out.print(colValue + "\t");
-                }
-                System.out.println();
-            }
-            System.out.println();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void dumpResultSetMetaData(ResultSet dbResult)
-    {
-        try {
-            ResultSetMetaData md = dbResult.getMetaData();
-            int count = md.getColumnCount();
-            for (int i = 1; i <= count; i++) {
-                System.out.print(md.getColumnName(i) + " [" + md.getColumnTypeName(i) + "]\t");
-            }
-            System.out.println();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
     }
 
     public static boolean isConnectionAlive(DBPDataSource dataSource, Connection connection)
@@ -579,6 +546,24 @@ public class JDBCUtils {
         }
     }
 
+    public static DBSForeignKeyModifyRule getCascadeFromName(String name)
+    {
+        switch (name) {
+            case "NO ACTION":
+                return DBSForeignKeyModifyRule.NO_ACTION;
+            case "CASCADE":
+                return DBSForeignKeyModifyRule.CASCADE;
+            case "SET NULL":
+                return DBSForeignKeyModifyRule.SET_NULL;
+            case "SET DEFAULT":
+                return DBSForeignKeyModifyRule.SET_DEFAULT;
+            case "RESTRICT":
+                return DBSForeignKeyModifyRule.RESTRICT;
+            default:
+                return DBSForeignKeyModifyRule.UNKNOWN;
+        }
+    }
+
     public static void executeSQL(Connection session, String sql, Object ... params) throws SQLException
     {
         try (PreparedStatement dbStat = session.prepareStatement(sql)) {
@@ -616,13 +601,22 @@ public class JDBCUtils {
         }
     }
 
-    public static void executeStatement(Connection session, String sql) throws SQLException
-    {
+    public static void executeStatement(Connection session, String sql, Object ... params) throws SQLException {
+        try (PreparedStatement dbStat = session.prepareStatement(sql)) {
+            if (params != null) {
+                for (int i = 0; i < params.length; i++) {
+                    dbStat.setObject(i + 1, params[i]);
+                }
+            }
+            dbStat.execute();
+        }
+    }
+
+    public static void executeStatement(Connection session, String sql) throws SQLException {
         try (Statement dbStat = session.createStatement()) {
             dbStat.execute(sql);
         }
     }
-
 
     @Nullable
     public static String queryString(JDBCSession session, String sql, Object... args) throws SQLException
@@ -662,7 +656,7 @@ public class JDBCUtils {
         }
     }
 
-    private static void debugColumnRead(ResultSet dbResult, String columnName, SQLException error)
+    private static void debugColumnRead(ResultSet dbResult, String columnName, Exception error)
     {
         String colFullId = columnName;
         if (dbResult instanceof JDBCResultSet) {
@@ -677,7 +671,7 @@ public class JDBCUtils {
         }
     }
 
-    private static void debugColumnRead(ResultSet dbResult, int columnIndex, SQLException error)
+    private static void debugColumnRead(ResultSet dbResult, int columnIndex, Exception error)
     {
         debugColumnRead(dbResult, "#" + columnIndex, error);
     }
@@ -755,6 +749,7 @@ public class JDBCUtils {
         }
     }
 
+    @NotNull
     public static DBPDataKind resolveDataKind(@Nullable DBPDataSource dataSource, String typeName, int typeID)
     {
         if (dataSource == null) {
@@ -786,5 +781,6 @@ public class JDBCUtils {
     public static boolean queryHasOutputParameters(SQLDialect sqlDialect, String sqlQuery) {
         return sqlQuery.contains("?");
     }
+
 
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,9 @@ import java.util.Map;
  */
 public class DBWHandlerConfiguration {
 
+    public static final String PROP_HOST = "host";
+    public static final String PROP_PORT = "port";
+
     @NotNull
     private final DBWHandlerDescriptor descriptor;
     private DBPDataSourceContainer dataSource;
@@ -41,11 +44,13 @@ public class DBWHandlerConfiguration {
     private String password;
     private boolean savePassword = true;
     private final Map<String, Object> properties;
+    private final Map<String, String> secureProperties;
 
     public DBWHandlerConfiguration(@NotNull DBWHandlerDescriptor descriptor, DBPDataSourceContainer dataSource) {
         this.descriptor = descriptor;
         this.dataSource = dataSource;
         this.properties = new HashMap<>();
+        this.secureProperties = new HashMap<>();
     }
 
     public DBWHandlerConfiguration(@NotNull DBWHandlerConfiguration configuration) {
@@ -56,6 +61,7 @@ public class DBWHandlerConfiguration {
         this.password = configuration.password;
         this.savePassword = configuration.savePassword;
         this.properties = new HashMap<>(configuration.properties);
+        this.secureProperties = new HashMap<>(configuration.secureProperties);
     }
 
     @NotNull
@@ -172,6 +178,25 @@ public class DBWHandlerConfiguration {
         this.properties.putAll(properties);
     }
 
+    @Nullable
+    public String getSecureProperty(@NotNull String name) {
+        return secureProperties.get(name);
+    }
+
+    @NotNull
+    public Map<String, String> getSecureProperties() {
+        return secureProperties;
+    }
+
+    public void setSecureProperty(@NotNull String name, @Nullable String value) {
+        secureProperties.put(name, value);
+    }
+
+    public void setSecureProperties(@NotNull Map<String, String> secureProperties) {
+        this.secureProperties.clear();
+        this.secureProperties.putAll(secureProperties);
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (!(obj instanceof DBWHandlerConfiguration)) {
@@ -185,16 +210,21 @@ public class DBWHandlerConfiguration {
                 CommonUtils.equalObjects(this.userName, source.userName) &&
                 CommonUtils.equalObjects(this.password, source.password) &&
                 this.savePassword == source.savePassword &&
-                CommonUtils.equalObjects(this.properties, source.properties);
+                CommonUtils.equalObjects(this.properties, source.properties) &&
+                CommonUtils.equalObjects(this.secureProperties, source.secureProperties);
     }
 
     public void resolveDynamicVariables(IVariableResolver variableResolver) {
         userName = GeneralUtils.replaceVariables(userName, variableResolver);
         password = GeneralUtils.replaceVariables(password, variableResolver);
-        for (String prop : this.properties.keySet()) {
-            Object value = this.properties.get(prop);
-            if (value instanceof String && !CommonUtils.isEmpty((String)value)) {
-                this.properties.put(prop, GeneralUtils.replaceVariables((String)value, variableResolver));
+        for (Map.Entry<String, Object> prop : properties.entrySet()) {
+            if (prop.getValue() instanceof String && CommonUtils.isNotEmpty((String) prop.getValue())) {
+                prop.setValue(GeneralUtils.replaceVariables((String) prop.getValue(), variableResolver));
+            }
+        }
+        for (Map.Entry<String, String> prop : secureProperties.entrySet()) {
+            if (CommonUtils.isNotEmpty(prop.getValue())) {
+                prop.setValue(GeneralUtils.replaceVariables(prop.getValue(), variableResolver));
             }
         }
     }
@@ -202,7 +232,8 @@ public class DBWHandlerConfiguration {
     public boolean hasValuableInfo() {
         return !CommonUtils.isEmpty(userName) ||
             !CommonUtils.isEmpty(password) ||
-            !CommonUtils.isEmpty(properties);
+            !CommonUtils.isEmpty(properties) ||
+            !CommonUtils.isEmpty(secureProperties);
     }
 
     @Override

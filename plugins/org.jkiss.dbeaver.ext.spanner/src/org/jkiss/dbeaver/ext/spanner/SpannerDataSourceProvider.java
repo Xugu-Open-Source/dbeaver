@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,22 +18,19 @@ package org.jkiss.dbeaver.ext.spanner;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.ext.generic.GenericDataSourceProvider;
 import org.jkiss.dbeaver.ext.spanner.model.SpannerDataSource;
 import org.jkiss.dbeaver.ext.spanner.model.SpannerMetaModel;
-import org.jkiss.dbeaver.ext.generic.GenericDataSourceProvider;
-import org.jkiss.dbeaver.ext.generic.model.meta.GenericMetaModel;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.app.DBPPlatform;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
-import org.jkiss.utils.CommonUtils;
 
 public class SpannerDataSourceProvider extends GenericDataSourceProvider {
-
-    private static final Log log = Log.getLog(SpannerDataSourceProvider.class);
+    public static final String COMMUNITY_DRIVER_ID = "spanner_jdbc";
+    public static final String OFFICIAL_DRIVER_ID = "spanner_jdbc_official";
 
     public SpannerDataSourceProvider()
     {
@@ -56,8 +53,10 @@ public class SpannerDataSourceProvider extends GenericDataSourceProvider {
 
     @Override
     public String getConnectionURL(DBPDriver driver, DBPConnectionConfiguration connectionInfo) {
-        StringBuilder url = new StringBuilder();
-        url.append("jdbc:cloudspanner://localhost;");
-        return url.toString();
+        if ( COMMUNITY_DRIVER_ID.equals(driver.getId())) {
+            return "jdbc:cloudspanner://localhost;";
+        } else {
+            return "jdbc:cloudspanner:/projects/%s/instances/%s/databases/%s";
+        }
     }
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,9 +33,9 @@ import org.jkiss.dbeaver.model.struct.rdb.DBSSchema;
 public class GenericSchema extends GenericObjectContainer implements DBSSchema, DBPSystemObject, DBPVirtualObject
 {
     @Nullable
-    private GenericCatalog catalog;
+    private final GenericCatalog catalog;
     @NotNull
-    private String schemaName;
+    private final String schemaName;
     private boolean virtualSchema;
 
     public GenericSchema(@NotNull GenericDataSource dataSource, @Nullable GenericCatalog catalog, @NotNull String schemaName)
@@ -74,7 +74,7 @@ public class GenericSchema extends GenericObjectContainer implements DBSSchema, 
 
     @Nullable
     @Override
-    @Property(viewable = true, multiline = true, order = 100)
+    //@Property(viewable = true, multiline = true, order = 100)
     public String getDescription()
     {
         return null;
@@ -86,8 +86,9 @@ public class GenericSchema extends GenericObjectContainer implements DBSSchema, 
         return catalog != null ? catalog : getDataSource().getContainer();
     }
 
+    @NotNull
     @Override
-    public Class<? extends DBSEntity> getChildType(@NotNull DBRProgressMonitor monitor)
+    public Class<? extends DBSEntity> getPrimaryChildType(@Nullable DBRProgressMonitor monitor)
         throws DBException
     {
         return GenericTable.class;

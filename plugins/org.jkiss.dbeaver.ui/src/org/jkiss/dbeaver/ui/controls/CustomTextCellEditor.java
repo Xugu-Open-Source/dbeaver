@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,6 +56,17 @@ public class CustomTextCellEditor extends TextCellEditor {
             wasNull = true;
         }
         super.doSetValue(CommonUtils.toString(value));
+    }
+
+    @Override
+    protected void fireApplyEditorValue() {
+        // Applying the editor value will cause the layout view to refresh,
+        // which will in turn cause the active cell editor to apply its value again.
+        // This can be avoided by deactivating the cell editor, so focusLost
+        // which is causing the issue will not be called.
+
+        super.deactivate();
+        super.fireApplyEditorValue();
     }
 
     protected int getDoubleClickTimeout() {

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,14 @@ package org.jkiss.dbeaver.ext.generic.edit;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.generic.GenericConstants;
 import org.jkiss.dbeaver.ext.generic.model.*;
 import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPObject;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
-import org.jkiss.dbeaver.model.edit.DBEObjectMaker;
+import org.jkiss.dbeaver.model.edit.DBEObjectManager;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
@@ -72,12 +73,17 @@ public class GenericTableManager extends SQLTableManager<GenericTableBase, Gener
     }
 
     @Override
+    public boolean canCreateObject(Object container) {
+        return super.canCreateObject(container);
+    }
+
+    @Override
     protected GenericTableBase createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context, Object container, Object copyFrom, Map<String, Object> options)
     {
         GenericStructContainer structContainer = (GenericStructContainer) container;
 
         boolean isView = false;
-        Object navContainer = options.get(DBEObjectMaker.OPTION_CONTAINER);
+        Object navContainer = options.get(DBEObjectManager.OPTION_CONTAINER);
         if (navContainer instanceof DBNDatabaseFolder) {
             List<DBXTreeNode> folderChildren = ((DBNDatabaseFolder) navContainer).getMeta().getChildren((DBNNode) navContainer);
             if (folderChildren.size() == 1 && folderChildren.get(0) instanceof DBXTreeItem && ((DBXTreeItem) folderChildren.get(0)).getPropertyName().equals("views")) {
@@ -110,12 +116,22 @@ public class GenericTableManager extends SQLTableManager<GenericTableBase, Gener
     }
 
     @Override
-    protected void addObjectExtraActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, List<DBEPersistAction> actions, NestedObjectCommand<GenericTableBase, PropertyHandler> command, Map<String, Object> options) {
-        if (command.getProperty(DBConstants.PROP_ID_DESCRIPTION) != null) {
+    protected void addObjectExtraActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, List<DBEPersistAction> actions, NestedObjectCommand<GenericTableBase, PropertyHandler> command, Map<String, Object> options) throws DBException {
+        GenericTableBase tableBase = command.getObject();
+        if (command.hasProperty(DBConstants.PROP_ID_DESCRIPTION)) {
             actions.add(new SQLDatabasePersistAction(
                     "Comment table",
-                    "COMMENT ON TABLE " + command.getObject().getFullyQualifiedName(DBPEvaluationContext.DDL) +
-                            " IS " + SQLUtils.quoteString(command.getObject(), command.getObject().getDescription())));
+                    "COMMENT ON TABLE " + tableBase.getFullyQualifiedName(DBPEvaluationContext.DDL) +
+                            " IS " + SQLUtils.quoteString(tableBase, CommonUtils.notEmpty(tableBase.getDescription()))));
+        }
+
+        if (!tableBase.isPersisted()) {
+            // Column comments for the newly created table
+            for (GenericTableColumn column : CommonUtils.safeCollection(tableBase.getAttributes(monitor))) {
+                if (!CommonUtils.isEmpty(column.getDescription())) {
+                    GenericTableColumnManager.addColumnCommentAction(actions, column, column.getTable());
+                }
+            }
         }
     }
 

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,8 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.exec.plan.*;
 import org.jkiss.dbeaver.model.impl.plan.AbstractExecutionPlanSerializer;
 import org.jkiss.dbeaver.model.impl.plan.ExecutionPlanDeserializer;
+import org.jkiss.dbeaver.model.sql.SQLDialect;
+import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.io.IOException;
@@ -51,6 +53,12 @@ public class MySQLPlanAnalyser extends AbstractExecutionPlanSerializer implement
     }
 
     public MySQLPlanAbstract explain(JDBCSession session, String query) throws DBCException {
+        final SQLDialect dialect = SQLUtils.getDialectFromObject(dataSource);
+        final String plainQuery = SQLUtils.stripComments(dialect, query).toUpperCase();
+        final String firstKeyword = SQLUtils.getFirstKeyword(dialect, plainQuery);
+        if (!"SELECT".equalsIgnoreCase(firstKeyword) && !"WITH".equalsIgnoreCase(firstKeyword)) {
+            throw new DBCException("Only SELECT statements could produce execution plan");
+        }
         if (supportsExplainJSON()) {
             return new MySQLPlanJSON(session, query);
         } else {
@@ -73,7 +81,7 @@ public class MySQLPlanAnalyser extends AbstractExecutionPlanSerializer implement
 
     @NotNull
     @Override
-    public DBCPlan planQueryExecution(@NotNull DBCSession session, @NotNull String query) throws DBCException {
+    public DBCPlan planQueryExecution(@NotNull DBCSession session, @NotNull String query, @NotNull DBCQueryPlannerConfiguration configuration) throws DBCException {
         return explain((JDBCSession) session, query);
     }
 
@@ -100,16 +108,16 @@ public class MySQLPlanAnalyser extends AbstractExecutionPlanSerializer implement
                 if (node instanceof MySQLPlanNodePlain) {
                     MySQLPlanNodePlain plainNode = (MySQLPlanNodePlain) node;
                     attributes.add("id", new JsonPrimitive(plainNode.getId()));
-                    attributes.add("select_type", new JsonPrimitive(plainNode.getSelectType()));
-                    attributes.add("table", new JsonPrimitive(plainNode.getTable()));
-                    attributes.add("type", new JsonPrimitive(plainNode.getNodeType()));
-                    attributes.add("possible_keys", new JsonPrimitive(plainNode.getPossibleKeys()));
-                    attributes.add("key", new JsonPrimitive(plainNode.getKey()));
-                    attributes.add("key_len", new JsonPrimitive(plainNode.getKeyLength()));
-                    attributes.add("ref", new JsonPrimitive(plainNode.getRef()));
+                    attributes.add("select_type", new JsonPrimitive(CommonUtils.notEmpty((plainNode.getSelectType()))));
+                    attributes.add("table", new JsonPrimitive(CommonUtils.notEmpty(plainNode.getTable())));
+                    attributes.add("type", new JsonPrimitive(CommonUtils.notEmpty(plainNode.getNodeType())));
+                    attributes.add("possible_keys", new JsonPrimitive(CommonUtils.notEmpty(plainNode.getPossibleKeys())));
+                    attributes.add("key", new JsonPrimitive(CommonUtils.notEmpty(plainNode.getKey())));
+                    attributes.add("key_len", new JsonPrimitive(CommonUtils.notEmpty(plainNode.getKeyLength())));
+                    attributes.add("ref", new JsonPrimitive(CommonUtils.notEmpty(plainNode.getRef())));
                     attributes.add("rows", new JsonPrimitive(plainNode.getRowCount()));
                     attributes.add("filtered", new JsonPrimitive(plainNode.getFiltered()));
-                    attributes.add("extra", new JsonPrimitive(plainNode.getExtra()));
+                    attributes.add("extra", new JsonPrimitive(CommonUtils.notEmpty(plainNode.getExtra())));
                 } else if (node instanceof MySQLPlanNodeJSON) {
                     MySQLPlanNodeJSON jsNode = (MySQLPlanNodeJSON) node;
                     for(Map.Entry<String, String>  e : jsNode.getNodeProps().entrySet()) {

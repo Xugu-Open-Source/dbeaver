@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,17 @@
 package org.jkiss.dbeaver.ext.mysql.data;
 
 import org.jkiss.code.Nullable;
-import org.jkiss.dbeaver.data.gis.handlers.GISGeometryValueHandler;
 import org.jkiss.dbeaver.ext.mysql.MySQLConstants;
 import org.jkiss.dbeaver.model.DBPDataKind;
 import org.jkiss.dbeaver.model.DBPDataSource;
-import org.jkiss.dbeaver.model.data.DBDPreferences;
+import org.jkiss.dbeaver.model.data.DBDFormatSettings;
 import org.jkiss.dbeaver.model.data.DBDValueHandler;
 import org.jkiss.dbeaver.model.data.DBDValueHandlerProvider;
 import org.jkiss.dbeaver.model.impl.jdbc.data.handlers.JDBCContentValueHandler;
+import org.jkiss.dbeaver.model.impl.jdbc.data.handlers.JDBCObjectValueHandler;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
+
+import java.util.Locale;
 
 /**
  * MySQL data types provider
@@ -34,19 +36,27 @@ public class MySQLValueHandlerProvider implements DBDValueHandlerProvider {
 
     @Nullable
     @Override
-    public DBDValueHandler getValueHandler(DBPDataSource dataSource, DBDPreferences preferences, DBSTypedObject typedObject)
+    public DBDValueHandler getValueHandler(DBPDataSource dataSource, DBDFormatSettings preferences, DBSTypedObject typedObject)
     {
-        if (typedObject.getDataKind() == DBPDataKind.DATETIME) {
-            return new MySQLDateTimeValueHandler(preferences.getDataFormatterProfile());
-        } else if (typedObject.getDataKind() == DBPDataKind.NUMERIC) {
-            return new MySQLNumberValueHandler(typedObject, preferences.getDataFormatterProfile());
-        } else if (typedObject.getTypeName().equalsIgnoreCase(MySQLConstants.TYPE_JSON)) {
-            return JDBCContentValueHandler.INSTANCE;
-        } else if (typedObject.getTypeName().equalsIgnoreCase(MySQLConstants.TYPE_GEOMETRY)) {
-            return new GISGeometryValueHandler(true);
-        } else {
-            return null;
+        DBPDataKind dataKind = typedObject.getDataKind();
+        if (dataKind == DBPDataKind.DATETIME) {
+            return new MySQLDateTimeValueHandler(preferences);
+        } else if (dataKind == DBPDataKind.NUMERIC) {
+            return new MySQLNumberValueHandler(typedObject, preferences);
         }
+
+        String typeName = typedObject.getTypeName().toLowerCase(Locale.ENGLISH);
+        switch (typeName) {
+            case MySQLConstants.TYPE_JSON:
+                return JDBCContentValueHandler.INSTANCE;
+            case MySQLConstants.TYPE_GEOMETRY:
+                return MySQLGeometryValueHandler.INSTANCE;
+            case MySQLConstants.TYPE_ENUM:
+            case MySQLConstants.TYPE_SET:
+                return JDBCObjectValueHandler.INSTANCE;
+        }
+
+        return null;
     }
 
 }

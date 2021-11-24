@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,15 @@
 
 package org.jkiss.dbeaver.model.gis;
 
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.data.gis.handlers.GeometryConverter;
 import org.jkiss.dbeaver.model.data.DBDValue;
-import org.jkiss.utils.CommonUtils;
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.CoordinateFilter;
 import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
+import org.locationtech.jts.io.WKTWriter;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -62,12 +63,27 @@ public class DBGeometry implements DBDValue {
         this.srid = srid;
     }
 
+    public DBGeometry(Object rawValue, int srid, Map<String, Object> properties) {
+        this.rawValue = rawValue;
+        this.srid = srid;
+        this.properties = properties == null ? null : new LinkedHashMap<>(properties);
+    }
+
+    @Nullable
     public Geometry getGeometry() {
         return rawValue instanceof Geometry ? (Geometry) rawValue : null;
     }
 
+    @Nullable
     public String getString() {
-        return rawValue == null ? null : CommonUtils.toString(rawValue);
+        if (rawValue == null) {
+            return null;
+        }
+        if (rawValue instanceof Geometry) {
+            // Use all possible dimensions (4 stands for XYZM) for the most verbose output
+            return new WKTWriter(4).write((Geometry) rawValue);
+        }
+        return rawValue.toString();
     }
 
     @Override
@@ -92,7 +108,8 @@ public class DBGeometry implements DBDValue {
 
     @Override
     public String toString() {
-        return rawValue == null ? null : rawValue.toString();
+        final String string = getString();
+        return string != null ? string : super.toString();
     }
 
     public int getSRID() {
@@ -101,6 +118,9 @@ public class DBGeometry implements DBDValue {
 
     public void setSRID(int srid) {
         this.srid = srid;
+        if (rawValue instanceof Geometry) {
+            ((Geometry) rawValue).setSRID(srid);
+        }
     }
 
     public DBGeometry flipCoordinates() throws DBException {
@@ -114,8 +134,31 @@ public class DBGeometry implements DBDValue {
         } else {
             jtsGeometry = jtsGeometry.copy();
         }
-        jtsGeometry.apply(GeometryConverter.INVERT_COORDINATE_FILTER);
-        return new DBGeometry(jtsGeometry, srid);
+        jtsGeometry.apply(InvertCoordinateFilter.INSTANCE);
+        return new DBGeometry(jtsGeometry, srid, properties);
+    }
+
+    @NotNull
+    public DBGeometry force2D() throws DBException {
+        Geometry jtsGeometry = getGeometry();
+        if (jtsGeometry == null) {
+            try {
+                jtsGeometry = new WKTReader().read(getString());
+            } catch (Exception e) {
+                throw new DBException("Error parsing geometry WKT", e);
+            }
+        }
+        for (Coordinate coordinate : jtsGeometry.getCoordinates()) {
+            if (!Double.isNaN(coordinate.getZ())) {
+                jtsGeometry = jtsGeometry.copy();
+                jtsGeometry.apply(Force2DCoordinateFilter.INSTANCE);
+                break;
+            }
+        }
+        if (jtsGeometry == getGeometry()) {
+            return this;
+        }
+        return new DBGeometry(jtsGeometry, srid, properties);
     }
 
     public Map<String, Object> getProperties() {
@@ -144,5 +187,25 @@ public class DBGeometry implements DBDValue {
             }
         }
         return true;
+    }
+
+    private static class InvertCoordinateFilter implements CoordinateFilter {
+        public static final InvertCoordinateFilter INSTANCE = new InvertCoordinateFilter();
+
+        @Override
+        public void filter(Coordinate coord) {
+            double oldX = coord.x;
+            coord.x = coord.y;
+            coord.y = oldX;
+        }
+    }
+
+    private static class Force2DCoordinateFilter implements CoordinateFilter {
+        public static final Force2DCoordinateFilter INSTANCE = new Force2DCoordinateFilter();
+
+        @Override
+        public void filter(Coordinate coord) {
+            coord.setZ(Double.NaN);
+        }
     }
 }

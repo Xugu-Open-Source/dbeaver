@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.data.DBDDataFilter;
 import org.jkiss.dbeaver.model.exec.*;
 import org.jkiss.dbeaver.model.impl.AbstractExecutionSource;
+import org.jkiss.dbeaver.model.impl.DataSourceContextProvider;
 import org.jkiss.dbeaver.model.meta.DBSerializable;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableContext;
@@ -61,10 +62,13 @@ public class DatabaseTransferProducer implements IDataTransferProducer<DatabaseP
 
     private static final Log log = Log.getLog(DatabaseTransferProducer.class);
 
-    @NotNull
     private DBSDataContainer dataContainer;
     @Nullable
     private DBDDataFilter dataFilter;
+    @Nullable
+    private String defaultCatalog;
+    @Nullable
+    private String defaultSchema;
 
     public DatabaseTransferProducer() {
     }
@@ -80,6 +84,10 @@ public class DatabaseTransferProducer implements IDataTransferProducer<DatabaseP
         this.dataFilter = dataFilter;
     }
 
+    public void setDataContainer(@NotNull DBSDataContainer dataContainer) {
+        this.dataContainer = dataContainer;
+    }
+
     @Override
     public DBSDataContainer getDatabaseObject()
     {
@@ -88,7 +96,7 @@ public class DatabaseTransferProducer implements IDataTransferProducer<DatabaseP
 
     @Override
     public String getObjectName() {
-        return dataContainer == null ? null : DBUtils.getObjectFullName(dataContainer, DBPEvaluationContext.DML);
+        return dataContainer == null ? "?" : DBUtils.getObjectFullName(dataContainer, DBPEvaluationContext.DML);
     }
 
     @Override
@@ -111,6 +119,11 @@ public class DatabaseTransferProducer implements IDataTransferProducer<DatabaseP
         return container != null ? container.getDriver().getIcon() : null;
     }
 
+    @Override
+    public boolean isConfigurationComplete() {
+        return dataContainer != null;
+    }
+
     private DBPDataSourceContainer getDataSourceContainer() {
         if (dataContainer != null) {
             return dataContainer.getDataSource().getContainer();
@@ -118,12 +131,31 @@ public class DatabaseTransferProducer implements IDataTransferProducer<DatabaseP
         return null;
     }
 
+    @Nullable
+    public String getDefaultCatalog() {
+        return defaultCatalog;
+    }
+
+    public void setDefaultCatalog(@Nullable String defaultCatalog) {
+        this.defaultCatalog = defaultCatalog;
+    }
+
+    @Nullable
+    public String getDefaultSchema() {
+        return defaultSchema;
+    }
+
+    public void setDefaultSchema(@Nullable String defaultSchema) {
+        this.defaultSchema = defaultSchema;
+    }
+
     @Override
     public void transferData(
         @NotNull DBRProgressMonitor monitor1,
         @NotNull IDataTransferConsumer consumer,
         @Nullable IDataTransferProcessor processor,
-        @NotNull DatabaseProducerSettings settings, DBTTask task)
+        @NotNull DatabaseProducerSettings settings,
+        @Nullable DBTTask task)
         throws DBException {
         String contextTask = DTMessages.data_transfer_wizard_job_task_export;
 
@@ -144,7 +176,7 @@ public class DatabaseTransferProducer implements IDataTransferProducer<DatabaseP
             }
 
             boolean newConnection = settings.isOpenNewConnections() && !getDatabaseObject().getDataSource().getContainer().getDriver().isEmbedded();
-            boolean forceDataReadTransactions = Boolean.TRUE.equals(dataSource.getDataSourceFeature(DBConstants.FEATURE_LOB_REQUIRE_TRANSACTIONS));
+            boolean forceDataReadTransactions = Boolean.TRUE.equals(dataSource.getDataSourceFeature(DBPDataSource.FEATURE_LOB_REQUIRE_TRANSACTIONS));
             boolean selectiveExportFromUI = settings.isSelectedColumnsOnly() || settings.isSelectedRowsOnly();
 
             try {
@@ -159,6 +191,7 @@ public class DatabaseTransferProducer implements IDataTransferProducer<DatabaseP
                 }
                 if (!selectiveExportFromUI && newConnection) {
                     context = DBUtils.getObjectOwnerInstance(getDatabaseObject()).openIsolatedContext(monitor, "Data transfer producer", context);
+                    DBExecUtils.setExecutionContextDefaults(monitor, dataSource, context, defaultCatalog, null, defaultSchema);
                 }
                 if (task != null) {
                     DBTaskUtils.initFromContext(monitor, task, context);
@@ -166,6 +199,7 @@ public class DatabaseTransferProducer implements IDataTransferProducer<DatabaseP
 
                 try (DBCSession session = context.openSession(monitor, DBCExecutionPurpose.UTIL, contextTask)) {
                     Boolean oldAutoCommit = null;
+                    DBCSavepoint savepoint = null;
                     try {
                         AbstractExecutionSource transferSource = new AbstractExecutionSource(dataContainer, context, consumer);
                         session.enableLogging(false);
@@ -175,9 +209,12 @@ public class DatabaseTransferProducer implements IDataTransferProducer<DatabaseP
                             // other complex structures only in transactional mode
                             try {
                                 DBCTransactionManager txnManager = DBUtils.getTransactionManager(context);
-                                if (txnManager != null) {
+                                if (txnManager != null && txnManager.isSupportsTransactions()) {
                                     oldAutoCommit = txnManager.isAutoCommit();
                                     txnManager.setAutoCommit(monitor, false);
+                                    if (txnManager.supportsSavepoints()) {
+                                        savepoint = txnManager.setSavepoint(monitor, "Data transfer start");
+                                    }
                                 }
                             } catch (DBCException e) {
                                 log.warn("Can't change auto-commit", e);
@@ -194,7 +231,7 @@ public class DatabaseTransferProducer implements IDataTransferProducer<DatabaseP
                                 try {
                                     DBCTransactionManager txnManager = DBUtils.getTransactionManager(session.getExecutionContext());
                                     if (txnManager != null && !txnManager.isAutoCommit()) {
-                                        txnManager.rollback(session, null);
+                                        txnManager.rollback(session, savepoint);
                                     }
                                 } catch (Throwable e1) {
                                     log.warn("Error rolling back transaction", e1);
@@ -234,18 +271,15 @@ public class DatabaseTransferProducer implements IDataTransferProducer<DatabaseP
                     } finally {
                         if (!selectiveExportFromUI && (newConnection || forceDataReadTransactions)) {
                             DBCTransactionManager txnManager = DBUtils.getTransactionManager(context);
-                            if (txnManager != null) {
-                                try {
-                                    txnManager.commit(session);
-                                } catch (Exception e) {
-                                    log.error("Can't finish transaction in data producer connection", e);
+                            if (txnManager != null && txnManager.isSupportsTransactions()) {
+                                if (!txnManager.isAutoCommit()) {
+                                    txnManager.rollback(session, savepoint);
+                                }
+                                if (savepoint != null) {
+                                    txnManager.releaseSavepoint(monitor, savepoint);
                                 }
                                 if (oldAutoCommit != null) {
-                                    try {
-                                        txnManager.setAutoCommit(session.getProgressMonitor(), oldAutoCommit);
-                                    } catch (Exception e) {
-                                        log.error("Can't finish transaction in data producer connection", e);
-                                    }
+                                    txnManager.setAutoCommit(monitor, oldAutoCommit);
                                 }
                             }
                         }
@@ -291,6 +325,12 @@ public class DatabaseTransferProducer implements IDataTransferProducer<DatabaseP
                 if (dataSource != null) {
                     state.put("project", dataSource.getProject().getName());
                     state.put("dataSource", dataSource.getId());
+                    if (object.defaultCatalog != null) {
+                        state.put("defaultCatalog", object.defaultCatalog);
+                    }
+                    if (object.defaultSchema != null) {
+                        state.put("defaultSchema", object.defaultSchema);
+                    }
                 }
                 SQLScriptElement query = queryContainer.getQuery();
                 state.put("query", query.getOriginalText());
@@ -321,6 +361,9 @@ public class DatabaseTransferProducer implements IDataTransferProducer<DatabaseP
                             case "entity": {
                                 String id = CommonUtils.toString(state.get("entityId"));
                                 producer.dataContainer = (DBSDataContainer) DBUtils.findObjectById(monitor, project, id);
+                                if (producer.dataContainer == null) {
+                                    throw new DBException("Can't find database object '" + id + "'");
+                                }
                                 break;
                             }
                             case "query": {
@@ -328,18 +371,19 @@ public class DatabaseTransferProducer implements IDataTransferProducer<DatabaseP
                                 String queryText = CommonUtils.toString(state.get("query"));
                                 DBPDataSourceContainer ds = project.getDataSourceRegistry().getDataSource(dsId);
                                 if (ds == null) {
-                                    log.debug("Can't find datasource "+ dsId);
-                                    return;
+                                    throw new DBCException("Can't find datasource "+ dsId);
                                 }
                                 if (!ds.isConnected()) {
                                     ds.connect(monitor, true, true);
                                 }
                                 DBPDataSource dataSource = ds.getDataSource();
                                 SQLQuery query = new SQLQuery(dataSource, queryText);
-                                TaskContextProvider taskContextProvider = new TaskContextProvider(runnableContext, dataSource, objectContext);
+                                DataSourceContextProvider taskContextProvider = new DataSourceContextProvider(dataSource);
                                 SQLScriptContext scriptContext = new SQLScriptContext(null,
                                     taskContextProvider, null, new PrintWriter(System.err, true), null);
                                 scriptContext.setVariables(DBTaskUtils.getVariables(objectContext));
+                                producer.defaultCatalog = CommonUtils.toString(state.get("defaultCatalog"), null);
+                                producer.defaultSchema = CommonUtils.toString(state.get("defaultSchema"), null);
                                 producer.dataContainer = new SQLQueryDataContainer(
                                     taskContextProvider,
                                     query,
@@ -363,37 +407,4 @@ public class DatabaseTransferProducer implements IDataTransferProducer<DatabaseP
             return producer;
         }
     }
-
-    public static class TaskContextProvider implements DBPContextProvider {
-        private final DBRRunnableContext runnableContext;
-        private final DBPDataSource dataSource;
-        private final DBTTask task;
-        private DBCExecutionContext executionContext;
-
-        TaskContextProvider(DBRRunnableContext runnableContext, DBPDataSource dataSource, DBTTask task) {
-            this.runnableContext = runnableContext;
-            this.dataSource = dataSource;
-            this.task = task;
-        }
-
-        @Override
-        public DBCExecutionContext getExecutionContext() {
-            if (executionContext == null) {
-                executionContext = DBUtils.getDefaultContext(dataSource, false);
-                try {
-                    runnableContext.run(true, true, monitor -> {
-                        try {
-                            DBTaskUtils.initFromContext(monitor, task, executionContext);
-                        } catch (DBException e) {
-                            throw new InvocationTargetException(e);
-                        }
-                    });
-                } catch (Exception e) {
-                    log.error("Error initializing context", e);
-                }
-            }
-            return executionContext;
-        }
-    }
-
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
 import org.jkiss.dbeaver.model.sql.SQLDialectMetadata;
 import org.jkiss.dbeaver.model.sql.registry.SQLDialectRegistry;
 import org.jkiss.dbeaver.registry.driver.DriverDescriptor;
+import org.jkiss.dbeaver.registry.driver.MissingDataSourceProvider;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
@@ -41,6 +42,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * DataSourceProviderDescriptor
@@ -51,6 +53,8 @@ public class DataSourceProviderDescriptor extends AbstractDescriptor implements 
 
     public static final String EXTENSION_ID = "org.jkiss.dbeaver.dataSourceProvider"; //$NON-NLS-1$
 
+    public static final DataSourceProviderDescriptor NULL_PROVIDER = new DataSourceProviderDescriptor(null, "NULL");
+
     private DataSourceProviderRegistry registry;
     private DataSourceProviderDescriptor parentProvider;
     private final String id;
@@ -60,7 +64,7 @@ public class DataSourceProviderDescriptor extends AbstractDescriptor implements 
     private final boolean temporary;
     private DBPImage icon;
     private DBPDataSourceProvider instance;
-    private DBXTreeItem treeDescriptor;
+    private DBXTreeDescriptor treeDescriptor;
     private final Map<String, DBXTreeNode> treeNodeMap = new HashMap<>();
     private boolean driversManagable;
     private final List<DBPPropertyDescriptor> driverProperties = new ArrayList<>();
@@ -109,7 +113,7 @@ public class DataSourceProviderDescriptor extends AbstractDescriptor implements 
                 this.treeDescriptor = this.loadTreeInfo(trees[0]);
             } else if (parentProvider != null) {
                 // Use parent's tree
-                this.treeDescriptor = new DBXTreeItem(this, null, parentProvider.treeDescriptor);
+                this.treeDescriptor = new DBXTreeDescriptor(this, parentProvider.treeDescriptor);
             }
 
             // Load tree injections
@@ -145,6 +149,26 @@ public class DataSourceProviderDescriptor extends AbstractDescriptor implements 
                         log.error("Error loading driver", e);
                     }
                 }
+
+                // Load provider properties
+                {
+                    for (IConfigurationElement propsElement : driversElement.getChildren(RegistryConstants.TAG_PROVIDER_PROPERTIES)) {
+                        String driversSpec = propsElement.getAttribute("drivers");
+                        List<DBPPropertyDescriptor> providerProperties = new ArrayList<>();
+                        for (IConfigurationElement prop : propsElement.getChildren(PropertyDescriptor.TAG_PROPERTY_GROUP)) {
+                            providerProperties.addAll(PropertyDescriptor.extractProperties(prop));
+                        }
+                        List<DriverDescriptor> appDrivers;
+                        if (CommonUtils.isEmpty(driversSpec) || driversSpec.equals("*")) {
+                            appDrivers = drivers;
+                        } else {
+                            String[] driverIds = driversSpec.split(",");
+                            appDrivers = drivers.stream()
+                                .filter(d -> ArrayUtils.contains(driverIds, d.getId())).collect(Collectors.toList());
+                        }
+                        appDrivers.forEach(d -> d.addProviderPropertyDescriptors(providerProperties));
+                    }
+                }
             }
         }
 
@@ -164,9 +188,9 @@ public class DataSourceProviderDescriptor extends AbstractDescriptor implements 
         this.id = id;
         this.name = id;
         this.description = "Missing datasource provider " + id;
-        this.implType = new ObjectType(DBPDataSourceProvider.class.getName());
+        this.implType = new ObjectType(MissingDataSourceProvider.class.getName());
         this.temporary = true;
-        this.treeDescriptor = new DBXTreeItem(this, null, null, id, id, false, true, false, false, true, null, null);
+        this.treeDescriptor = new DBXTreeDescriptor(this, null, null, id, id, false, true, false, false, true, null, null);
         this.scriptDialect = SQLDialectRegistry.getInstance().getDialect(BasicSQLDialect.ID);
     }
 
@@ -191,6 +215,7 @@ public class DataSourceProviderDescriptor extends AbstractDescriptor implements 
         return registry;
     }
 
+    @Override
     public DataSourceProviderDescriptor getParentProvider() {
         return parentProvider;
     }
@@ -239,7 +264,7 @@ public class DataSourceProviderDescriptor extends AbstractDescriptor implements 
     }
 
     @Override
-    public DBXTreeNode getTreeDescriptor()
+    public DBXTreeDescriptor getTreeDescriptor()
     {
         return treeDescriptor;
     }
@@ -353,9 +378,9 @@ public class DataSourceProviderDescriptor extends AbstractDescriptor implements 
     {
     }
 
-    private DBXTreeItem loadTreeInfo(IConfigurationElement config)
+    private DBXTreeDescriptor loadTreeInfo(IConfigurationElement config)
     {
-        DBXTreeItem treeRoot = new DBXTreeItem(
+        DBXTreeDescriptor treeRoot = new DBXTreeDescriptor(
             this,
             null,
             config,
@@ -388,6 +413,10 @@ public class DataSourceProviderDescriptor extends AbstractDescriptor implements 
             if (baseItem == null) {
                 return;
             }
+        }
+
+        if (CommonUtils.getBoolean(config.getAttribute("replaceChildren"))) {
+            baseItem.clearChildren();
         }
 
         String changeFolderType = config.getAttribute("changeFolderType");
@@ -442,7 +471,8 @@ public class DataSourceProviderDescriptor extends AbstractDescriptor implements 
                         config.getAttribute(RegistryConstants.ATTR_TYPE),
                         CommonUtils.getBoolean(config.getAttribute(RegistryConstants.ATTR_NAVIGABLE), true),
                         CommonUtils.getBoolean(config.getAttribute(RegistryConstants.ATTR_VIRTUAL)),
-                        config.getAttribute(RegistryConstants.ATTR_VISIBLE_IF));
+                        config.getAttribute(RegistryConstants.ATTR_VISIBLE_IF),
+                        CommonUtils.getBoolean(config.getAttribute(RegistryConstants.ATTR_OPTIONAL)));
                     break;
                 }
                 case RegistryConstants.TAG_ITEMS: {

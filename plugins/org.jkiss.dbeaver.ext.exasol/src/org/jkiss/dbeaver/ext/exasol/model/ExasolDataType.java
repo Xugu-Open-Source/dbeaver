@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2016 Karl Griesser (fullref@gmail.com)
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.ext.exasol.ExasolConstants;
 import org.jkiss.dbeaver.model.DBPDataKind;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPQualifiedObject;
@@ -29,6 +30,7 @@ import org.jkiss.dbeaver.model.exec.DBCLogicalOperator;
 import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSDataType;
 import org.jkiss.dbeaver.model.struct.DBSObject;
@@ -94,7 +96,7 @@ public class ExasolDataType extends ExasolObject<DBSObject> implements DBSDataTy
             case "INTEGER":
                 tempTypeDesc = new TypeDesc(DBPDataKind.NUMERIC, Types.INTEGER, precision, minimumScale, maximumScale, typeName);
                 break;
-            case "DECIMAL":
+            case ExasolConstants.TYPE_DECIMAL:
                 tempTypeDesc = new TypeDesc(DBPDataKind.NUMERIC, Types.DECIMAL, precision, minimumScale, maximumScale, typeName);
                 break;
             case "DOUBLE PRECISION":
@@ -121,10 +123,10 @@ public class ExasolDataType extends ExasolObject<DBSObject> implements DBSDataTy
             case "BOOLEAN":
                 tempTypeDesc = new TypeDesc(DBPDataKind.BOOLEAN, Types.BOOLEAN, precision, minimumScale, maximumScale, typeName);
                 break;
-            case "CHAR":
+            case ExasolConstants.TYPE_CHAR:
                 tempTypeDesc = new TypeDesc(DBPDataKind.STRING, Types.CHAR, precision, minimumScale, maximumScale, typeName);
                 break;
-            case "VARCHAR":
+            case ExasolConstants.TYPE_VARCHAR:
                 tempTypeDesc = new TypeDesc(DBPDataKind.STRING, Types.VARCHAR, precision, minimumScale, maximumScale, typeName);
                 break;
             case "LONG VARCHAR":
@@ -139,7 +141,7 @@ public class ExasolDataType extends ExasolObject<DBSObject> implements DBSDataTy
             case "TIMESTAMP WITH LOCAL TIME ZONE":
                 tempTypeDesc = new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP_WITH_TIMEZONE, precision, minimumScale, maximumScale, typeName);
                 break;
-            case "HASHTYPE":
+            case ExasolConstants.TYPE_HASHTYPE:
                 tempTypeDesc = new TypeDesc(DBPDataKind.STRING, Types.BINARY, precision, minimumScale, maximumScale, typeName);
                 break;
             default:
@@ -245,6 +247,11 @@ public class ExasolDataType extends ExasolObject<DBSObject> implements DBSDataTy
     }
 
     @Override
+    public long getTypeModifiers() {
+        return 0;
+    }
+
+    @Override
     @Property(viewable = true, editable = false, order = 6)
     public Integer getScale() {
         return scale;
@@ -263,7 +270,7 @@ public class ExasolDataType extends ExasolObject<DBSObject> implements DBSDataTy
 
     @Nullable
     @Override
-    @Property(viewable = false, editable = false, multiline = true)
+    @Property(viewable = false, editable = false, length = PropertyLength.MULTILINE)
     public String getDescription() {
         return null;
     }

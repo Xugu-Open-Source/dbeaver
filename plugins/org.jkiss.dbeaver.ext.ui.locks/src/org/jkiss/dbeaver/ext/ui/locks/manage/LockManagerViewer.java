@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2017 Andrew Khitrin (ahitrin@gmail.com) 
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +20,10 @@ package org.jkiss.dbeaver.ext.ui.locks.manage;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IContributionManager;
 import org.eclipse.jface.action.Separator;
-import org.eclipse.jface.viewers.*;
+import org.eclipse.jface.viewers.ColumnViewer;
+import org.eclipse.jface.viewers.ISelection;
+import org.eclipse.jface.viewers.IStructuredSelection;
+import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.SashForm;
@@ -34,12 +37,12 @@ import org.eclipse.ui.IWorkbenchSite;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.ext.ui.locks.LocksUIMessages;
 import org.jkiss.dbeaver.ext.ui.locks.graph.LockGraphicalView;
-import org.jkiss.dbeaver.model.impl.admin.locks.LockGraphManager;
 import org.jkiss.dbeaver.ext.ui.locks.table.LockTable;
 import org.jkiss.dbeaver.ext.ui.locks.table.LockTableDetail;
 import org.jkiss.dbeaver.model.admin.locks.DBAServerLock;
 import org.jkiss.dbeaver.model.admin.locks.DBAServerLockItem;
 import org.jkiss.dbeaver.model.admin.locks.DBAServerLockManager;
+import org.jkiss.dbeaver.model.impl.admin.locks.LockGraphManager;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.ui.UIIcon;
 import org.jkiss.dbeaver.ui.UIUtils;
@@ -183,13 +186,15 @@ public class LockManagerViewer {
 
     protected void refreshDetail(Map<String, Object> options) {
         StringBuilder sb = new StringBuilder("Wait - ");
-        sb.append(curLock.getTitle());
+        if (curLock != null) {
+            sb.append(curLock.getTitle());
+        }
         blockedLabel.setText(sb.toString());
         blockedTable.getOptions().putAll(options);
         blockedTable.getOptions().put(LockGraphManager.keyType, LockGraphManager.typeWait);
         blockedTable.loadData(false);
         sb.setLength(0);
-        if (curLock.getHoldBy() != null) {
+        if (curLock != null && curLock.getHoldBy() != null) {
             sb.append("Hold - ");
             sb.append(curLock.getHoldBy().getTitle());
             blockingLabel.setText(sb.toString());

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,6 +37,7 @@ import org.jkiss.dbeaver.core.CoreMessages;
 import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.app.DBPProject;
+import org.jkiss.dbeaver.model.navigator.DBNNode;
 import org.jkiss.dbeaver.model.net.DBWHandlerConfiguration;
 import org.jkiss.dbeaver.model.net.DBWNetworkProfile;
 import org.jkiss.dbeaver.registry.configurator.UIPropertyConfiguratorDescriptor;
@@ -108,9 +109,9 @@ public class PrefPageProjectNetworkProfiles extends AbstractPrefPage implements 
             profilesGroup.setLayoutData(gd);
 
             {
-                ToolBar toolbar = new ToolBar(profilesGroup, SWT.HORIZONTAL);
+                ToolBar toolbar = new ToolBar(profilesGroup, SWT.HORIZONTAL | SWT.RIGHT);
 
-                UIUtils.createToolItem(toolbar, "Create new profile", UIIcon.ROW_ADD, new SelectionAdapter() {
+                UIUtils.createToolItem(toolbar, "Create", "Create new profile", UIIcon.ROW_ADD, new SelectionAdapter() {
                     @Override
                     public void widgetSelected(SelectionEvent e) {
                         String profileName = "";
@@ -142,7 +143,7 @@ public class PrefPageProjectNetworkProfiles extends AbstractPrefPage implements 
                     }
                 });
 
-                UIUtils.createToolItem(toolbar, "Delete profile", UIIcon.ROW_DELETE, new SelectionAdapter() {
+                UIUtils.createToolItem(toolbar, "Delete", "Delete profile", UIIcon.ROW_DELETE, new SelectionAdapter() {
                     @Override
                     public void widgetSelected(SelectionEvent e) {
                         if (selectedProfile != null) {
@@ -384,7 +385,11 @@ public class PrefPageProjectNetworkProfiles extends AbstractPrefPage implements 
 
     @Override
     public void setElement(IAdaptable element) {
-        this.project = GeneralUtils.adapt(element, IProject.class);
+        if (element instanceof DBNNode) {
+            this.project = ((DBNNode) element).getOwnerProject().getEclipseProject();
+        } else {
+            this.project = GeneralUtils.adapt(element, IProject.class);
+        }
         this.projectMeta = DBWorkbench.getPlatform().getWorkspace().getProject(this.project);
     }
 

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.jkiss.dbeaver.ui.controls.resultset.view;
 
 import org.eclipse.jface.action.IMenuManager;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.dnd.Transfer;
 import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.graphics.FontData;
 import org.eclipse.swt.graphics.Point;
@@ -35,6 +36,9 @@ import org.jkiss.dbeaver.ui.controls.resultset.AbstractPresentation;
 import org.jkiss.dbeaver.ui.controls.resultset.IResultSetController;
 import org.jkiss.dbeaver.ui.controls.resultset.ResultSetCopySettings;
 import org.jkiss.utils.CommonUtils;
+
+import java.util.Collections;
+import java.util.Map;
 
 /**
  * Empty presentation.
@@ -68,8 +72,10 @@ public class EmptyPresentation extends AbstractPresentation {
             e.gc.setForeground(UIStyles.getDefaultTextForeground());
             //int fontSize = largeFont.getFontData()[0].getHeight();
             String emptyDataMessage = controller.getDecorator().getEmptyDataMessage();
-            Point emSize = e.gc.textExtent(emptyDataMessage);
-            UIUtils.drawMessageOverControl(placeholder, e, emptyDataMessage, -emSize.y);
+            if (!CommonUtils.isEmpty(emptyDataMessage)) {
+                Point emSize = e.gc.textExtent(emptyDataMessage);
+                UIUtils.drawMessageOverControl(placeholder, e, emptyDataMessage, -emSize.y);
+            }
             e.gc.setFont(normalFont);
             String emptyDataDescription = controller.getDecorator().getEmptyDataDescription();
             if (!CommonUtils.isEmpty(emptyDataDescription)) {
@@ -136,10 +142,10 @@ public class EmptyPresentation extends AbstractPresentation {
         return null;
     }
 
-    @Nullable
+    @NotNull
     @Override
-    public String copySelectionToString(ResultSetCopySettings settings) {
-        return null;
+    public Map<Transfer, Object> copySelection(ResultSetCopySettings settings) {
+        return Collections.emptyMap();
     }
 
     @Override

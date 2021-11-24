@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,13 @@
 package org.jkiss.dbeaver.ext.mysql;
 
 import org.jkiss.dbeaver.model.DBConstants;
+import org.jkiss.dbeaver.model.impl.net.SSLHandlerTrustStoreImpl;
 import org.jkiss.dbeaver.model.struct.rdb.DBSIndexType;
 
 /**
  * MySQL constants
  */
 public class MySQLConstants {
-
     public static final int DEFAULT_PORT = 3306;
     public static final String DEFAULT_HOST = "localhost";
     public static final String DEFAULT_USER = "root";
@@ -43,8 +43,14 @@ public class MySQLConstants {
     public static final String PROP_VERIFY_SERVER_SERT = "ssl.verify.server";
     public static final String PROP_SSL_CIPHER_SUITES = "ssl.cipher.suites";
     public static final String PROP_SSL_PUBLIC_KEY_RETRIEVE = "ssl.public.key.retrieve";
+    /** @deprecated Use {@link SSLHandlerTrustStoreImpl#PROP_SSL_CLIENT_CERT} instead */
+    @Deprecated
     public static final String PROP_SSL_CLIENT_CERT = "ssl.client.cert";
+    /** @deprecated Use {@link SSLHandlerTrustStoreImpl#PROP_SSL_CLIENT_KEY} instead */
+    @Deprecated
     public static final String PROP_SSL_CLIENT_KEY = "ssl.client.key";
+    /** @deprecated Use {@link SSLHandlerTrustStoreImpl#PROP_SSL_CA_CERT} instead */
+    @Deprecated
     public static final String PROP_SSL_CA_CERT = "ssl.ca.cert";
     public static final String PROP_SSL_DEBUG = "ssl.debug";
 
@@ -105,6 +111,7 @@ public class MySQLConstants {
     public static final String COL_SEQ_IN_INDEX = "SEQ_IN_INDEX";
     public static final String COL_NON_UNIQUE = "NON_UNIQUE";
     public static final String COL_COMMENT = "COMMENT";
+    public static final String COL_CHECK_CLAUSE = "CHECK_CLAUSE";
     
     public static final String COL_COLUMN_NAME = "COLUMN_NAME";
     public static final String COL_COLUMN_KEY = "COLUMN_KEY";
@@ -126,6 +133,7 @@ public class MySQLConstants {
     public static final String COL_DTD_IDENTIFIER = "DTD_IDENTIFIER";
     public static final String COL_ROUTINE_BODY = "ROUTINE_BODY";
     public static final String COL_ROUTINE_DEFINITION = "ROUTINE_DEFINITION";
+    public static final String COL_COLUMN_GENERATION_EXPRESSION = "GENERATION_EXPRESSION"; //$NON-NLS-1$
     public static final String COL_EXTERNAL_NAME = "EXTERNAL_NAME";
     public static final String COL_EXTERNAL_LANGUAGE = "EXTERNAL_LANGUAGE";
     public static final String COL_PARAMETER_STYLE = "PARAMETER_STYLE";
@@ -137,27 +145,28 @@ public class MySQLConstants {
     public static final String COL_CHARACTER_SET_CLIENT = "CHARACTER_SET_CLIENT";
 
     public static final String COL_TRIGGER_SCHEMA = "TRIGGER_SCHEMA";
-	public static final String COL_TRIGGER_NAME = "TRIGGER_NAME";
-	public static final String COL_TRIGGER_EVENT_MANIPULATION = "EVENT_MANIPULATION"; 	 
-	public static final String COL_TRIGGER_EVENT_OBJECT_SCHEMA = "EVENT_OBJECT_SCHEMA";
-	public static final String COL_TRIGGER_EVENT_OBJECT_TABLE = "EVENT_OBJECT_TABLE"; 	 
-	public static final String COL_TRIGGER_ACTION_ORDER = "ACTION_ORDER";
-	public static final String COL_TRIGGER_ACTION_CONDITION = "ACTION_CONDITION";
-	public static final String COL_TRIGGER_ACTION_STATEMENT = "ACTION_STATEMENT"; 	 
-	public static final String COL_TRIGGER_ACTION_ORIENTATION = "ACTION_ORIENTATION";
-	public static final String COL_TRIGGER_ACTION_TIMING = "ACTION_TIMING"; 	 
-	public static final String COL_TRIGGER_SQL_MODE = "SQL_MODE";
-	public static final String COL_TRIGGER_DEFINER = "DEFINER";
-	public static final String COL_TRIGGER_CHARACTER_SET_CLIENT = "CHARACTER_SET_CLIENT";
-	public static final String COL_TRIGGER_COLLATION_CONNECTION = "COLLATION_CONNECTION";
-	public static final String COL_TRIGGER_DATABASE_COLLATION = "DATABASE_COLLATION";
+    public static final String COL_TRIGGER_NAME = "TRIGGER_NAME";
+    public static final String COL_TRIGGER_EVENT_MANIPULATION = "EVENT_MANIPULATION";
+    public static final String COL_TRIGGER_EVENT_OBJECT_SCHEMA = "EVENT_OBJECT_SCHEMA";
+    public static final String COL_TRIGGER_EVENT_OBJECT_TABLE = "EVENT_OBJECT_TABLE";
+    public static final String COL_TRIGGER_ACTION_ORDER = "ACTION_ORDER";
+    public static final String COL_TRIGGER_ACTION_CONDITION = "ACTION_CONDITION";
+    public static final String COL_TRIGGER_ACTION_STATEMENT = "ACTION_STATEMENT";
+    public static final String COL_TRIGGER_ACTION_ORIENTATION = "ACTION_ORIENTATION";
+    public static final String COL_TRIGGER_ACTION_TIMING = "ACTION_TIMING";
+    public static final String COL_TRIGGER_SQL_MODE = "SQL_MODE";
+    public static final String COL_TRIGGER_DEFINER = "DEFINER";
+    public static final String COL_TRIGGER_CHARACTER_SET_CLIENT = "CHARACTER_SET_CLIENT";
+    public static final String COL_TRIGGER_COLLATION_CONNECTION = "COLLATION_CONNECTION";
+    public static final String COL_TRIGGER_DATABASE_COLLATION = "DATABASE_COLLATION";
     
     public static final String COL_CONSTRAINT_NAME = "CONSTRAINT_NAME";
     public static final String COL_CONSTRAINT_TYPE = "CONSTRAINT_TYPE";
 
     public static final String CONSTRAINT_FOREIGN_KEY = "FOREIGN KEY";
-    public static final String CONSTRAINT_PRIMARY_KEY = "PRIMARY KEY";
-    public static final String CONSTRAINT_UNIQUE = "UNIQUE";
+    public static final String CONSTRAINT_PRIMARY_KEY_NAME = "PRIMARY";
+    public static final String CONSTRAINT_UNIQUE = "UNIQUE KEY";
+    public static final String CONSTRAINT_CHECK = "CHECK";
 
     public static final String INDEX_PRIMARY = "PRIMARY";
 
@@ -202,9 +211,15 @@ public class MySQLConstants {
     public static final String TYPE_JSON = "json";
     public static final String TYPE_GEOMETRY = "geometry";
     public static final String TYPE_YEAR = "year";
+    public static final String TYPE_ENUM = "enum";
+    public static final String TYPE_SET = "set";
+    public static final String TYPE_VARBINARY = "VARBINARY";
 
     public static final String BIN_FOLDER = "bin";
-    public static final String ENV_VARIABLE_MYSQL_PWD = "MYSQL_PWD";
+    public static final String ENV_VAR_MYSQL_PWD = "MYSQL_PWD";
+
+    public static final String FLAG_VERSION = "-V";
 
     public static final String EXTRA_INFO_VIRTUAL_GENERATED = "VIRTUAL GENERATED";
+    public static final String EXTRA_INFO_DEFAULT_GENERATED = "DEFAULT_GENERATED";
 }

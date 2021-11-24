@@ -1,13 +1,36 @@
+/*
+ * DBeaver - Universal Database Manager
+ * Copyright (C) 2010-2021 DBeaver Corp and others
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.jkiss.dbeaver.tasks.nativetool;
 
 import org.eclipse.core.runtime.IStatus;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.auth.DBAAuthCredentials;
+import org.jkiss.dbeaver.model.auth.DBAAuthModel;
+import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
+import org.jkiss.dbeaver.model.connection.DBPDriver;
 import org.jkiss.dbeaver.model.connection.DBPNativeClientLocation;
+import org.jkiss.dbeaver.model.connection.DBPNativeClientLocationManager;
 import org.jkiss.dbeaver.model.exec.DBCException;
+import org.jkiss.dbeaver.model.impl.auth.AuthModelDatabaseNative;
 import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableContext;
@@ -18,6 +41,7 @@ import org.jkiss.dbeaver.model.task.DBTTaskHandler;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.ProgressStreamReader;
 import org.jkiss.dbeaver.utils.GeneralUtils;
+import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.IOUtils;
 
 import java.io.*;
@@ -33,7 +57,7 @@ public abstract class AbstractNativeToolHandler<SETTINGS extends AbstractNativeT
         @NotNull DBTTask task,
         @NotNull Locale locale,
         @NotNull Log log,
-        @NotNull Writer logStream,
+        @NotNull PrintStream logStream,
         @NotNull DBTTaskExecutionListener listener) throws DBException {
         SETTINGS settings = createTaskSettings(runnableContext, task);
         settings.setLogWriter(logStream);
@@ -53,12 +77,12 @@ public abstract class AbstractNativeToolHandler<SETTINGS extends AbstractNativeT
                 } catch (Exception e) {
                     error = e;
                 } finally {
-                    listener.taskFinished(settings, error);
+                    listener.taskFinished(settings, null, error);
                     Log.setLogWriter(null);
-                }
 
-                monitor.worked(1);
-                monitor.done();
+                    monitor.worked(1);
+                    monitor.done();
+                }
             });
         } catch (InvocationTargetException e) {
             throw new DBException("Error executing native tool", e.getTargetException());
@@ -83,10 +107,15 @@ public abstract class AbstractNativeToolHandler<SETTINGS extends AbstractNativeT
         DBPDataSourceContainer dataSourceContainer = settings.getDataSourceContainer();
         if (isNativeClientHomeRequired()) {
             String clientHomeId = dataSourceContainer.getConnectionConfiguration().getClientHomeId();
-            List<DBPNativeClientLocation> nativeClientLocations = dataSourceContainer.getDriver().getNativeClientLocations();
+            final DBPDriver driver = dataSourceContainer.getDriver();
+            final List<DBPNativeClientLocation> clientLocations = driver.getNativeClientLocations();
+            final DBPNativeClientLocationManager locationManager = driver.getNativeClientManager();
+            if (locationManager != null) {
+                clientLocations.addAll(locationManager.findLocalClientLocations());
+            }
             if (clientHomeId == null) {
-                if (!nativeClientLocations.isEmpty()) {
-                    settings.setClientHome(nativeClientLocations.get(0));
+                if (!clientLocations.isEmpty()) {
+                    settings.setClientHome(clientLocations.get(0));
                 } else {
                     settings.setClientHome(null);
                 }
@@ -94,7 +123,7 @@ public abstract class AbstractNativeToolHandler<SETTINGS extends AbstractNativeT
                     throw new DBCException("Client binaries location is not specified");
                 }
             } else {
-                DBPNativeClientLocation clientHome = DBUtils.findObject(nativeClientLocations, clientHomeId);
+                DBPNativeClientLocation clientHome = DBUtils.findObject(clientLocations, clientHomeId);
                 if (clientHome == null) {
                     clientHome = settings.findNativeClientHome(clientHomeId);
                 }
@@ -135,7 +164,7 @@ public abstract class AbstractNativeToolHandler<SETTINGS extends AbstractNativeT
 
     public abstract void fillProcessParameters(SETTINGS settings, PROCESS_ARG arg, List<String> cmd) throws IOException;
 
-    protected void setupProcessParameters(SETTINGS settings, PROCESS_ARG arg, ProcessBuilder process) {
+    protected void setupProcessParameters(DBRProgressMonitor monitor, SETTINGS settings, PROCESS_ARG arg, ProcessBuilder process) {
     }
 
     protected boolean isLogInputStream() {
@@ -163,7 +192,7 @@ public abstract class AbstractNativeToolHandler<SETTINGS extends AbstractNativeT
             if (this.isMergeProcessStreams()) {
                 processBuilder.redirectErrorStream(true);
             }
-            setupProcessParameters(settings, arg, processBuilder);
+            setupProcessParameters(monitor, settings, arg, processBuilder);
             Process process = processBuilder.start();
 
             startProcessHandler(monitor, task, settings, arg, processBuilder, process, log);
@@ -178,9 +207,7 @@ public abstract class AbstractNativeToolHandler<SETTINGS extends AbstractNativeT
                 }
                 try {
                     final int exitCode = process.exitValue();
-                    if (exitCode != 0) {
-                        throw new IOException("Process failed (exit code = " + exitCode + "). See error log.");
-                    }
+                    validateErrorCode(exitCode);
                 } catch (IllegalThreadStateException e) {
                     // Still running
                     continue;
@@ -196,6 +223,12 @@ public abstract class AbstractNativeToolHandler<SETTINGS extends AbstractNativeT
         }
 
         return true;
+    }
+
+    public void validateErrorCode(int exitCode) throws IOException {
+        if (exitCode != 0) {
+            throw new IOException("Process failed (exit code = " + exitCode + "). See error log.");
+        }
     }
 
     protected void notifyToolFinish(String toolName, long workTime) {
@@ -424,7 +457,6 @@ public abstract class AbstractNativeToolHandler<SETTINGS extends AbstractNativeT
                 } catch (IOException e) {
                     log.error(e);
                 }
-                monitor.done();
             }
         }
     }
@@ -432,7 +464,7 @@ public abstract class AbstractNativeToolHandler<SETTINGS extends AbstractNativeT
     private class LogReaderJob extends Thread {
         private DBTTask task;
         private SETTINGS settings;
-        private Writer logWriter;
+        private PrintStream logWriter;
         private ProcessBuilder processBuilder;
         private InputStream input;
 
@@ -462,9 +494,9 @@ public abstract class AbstractNativeToolHandler<SETTINGS extends AbstractNativeT
             cmdString.append(lf);
 
             try {
-                logWriter.write(cmdString.toString());
+                logWriter.print(cmdString.toString());
 
-                logWriter.write("Task '" + task.getName() + "' started at " + new Date() + lf);
+                logWriter.print("Task '" + task.getName() + "' started at " + new Date() + lf);
                 logWriter.flush();
 
                 InputStream in = input;
@@ -477,7 +509,7 @@ public abstract class AbstractNativeToolHandler<SETTINGS extends AbstractNativeT
                         }
                         buf.append((char) b);
                         if (b == '\n') {
-                            logWriter.write(buf.toString());
+                            logWriter.println(buf.toString());
                             logWriter.flush();
                             buf.setLength(0);
                         }
@@ -487,18 +519,10 @@ public abstract class AbstractNativeToolHandler<SETTINGS extends AbstractNativeT
 
             } catch (IOException e) {
                 // just skip
-                try {
-                    logWriter.write(e.getMessage() + lf);
-                } catch (IOException e1) {
-                    // ignore
-                }
+                logWriter.println(e.getMessage() + lf);
             } finally {
-                try {
-                    logWriter.write("Task '" + task.getName() + "' finished at " + new Date() + lf);
-                    logWriter.flush();
-                } catch (IOException e) {
-                    // ignore
-                }
+                logWriter.print("Task '" + task.getName() + "' finished at " + new Date() + lf);
+                logWriter.flush();
             }
         }
     }
@@ -533,6 +557,31 @@ public abstract class AbstractNativeToolHandler<SETTINGS extends AbstractNativeT
 
     protected String getOutputCharset() {
         return GeneralUtils.UTF8_ENCODING;
+    }
+
+    protected String getDataSourcePassword(DBRProgressMonitor monitor, SETTINGS settings) {
+        // Try to obtain password thru auth model (mnakes sense for IAM-like models)
+        String userPassword = null;
+        DBPDataSourceContainer dataSourceContainer = settings.getDataSourceContainer();
+        DBPConnectionConfiguration cfg = new DBPConnectionConfiguration(dataSourceContainer.getActualConnectionConfiguration());
+        DBAAuthModel authModel = cfg.getAuthModel();
+        if (authModel != AuthModelDatabaseNative.INSTANCE) {
+            DBAAuthCredentials credentials = authModel.loadCredentials(dataSourceContainer, cfg);
+            try {
+                Properties connProperties = new Properties();
+                authModel.initAuthentication(monitor, dataSourceContainer.getDataSource(), credentials, cfg, connProperties);
+                Object authPassword = connProperties.get(DBConstants.DATA_SOURCE_PROPERTY_PASSWORD);
+                if (authPassword != null) {
+                    userPassword = CommonUtils.toString(authPassword);
+                }
+            } catch (DBException e) {
+                // ignore
+            }
+        }
+        if (CommonUtils.isEmpty(userPassword)) {
+            userPassword = dataSourceContainer.getActualConnectionConfiguration().getUserPassword();
+        }
+        return userPassword;
     }
 
 }

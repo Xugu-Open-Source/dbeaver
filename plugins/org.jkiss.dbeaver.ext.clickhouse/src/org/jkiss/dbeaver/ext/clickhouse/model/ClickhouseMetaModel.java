@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.jkiss.dbeaver.ext.clickhouse.model;
 
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.generic.model.*;
 import org.jkiss.dbeaver.ext.generic.model.meta.GenericMetaModel;
@@ -29,6 +30,7 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCBasicDataTypeCache;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCDataType;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSObject;
 
 import java.sql.SQLException;
 import java.util.Map;
@@ -50,6 +52,24 @@ public class ClickhouseMetaModel extends GenericMetaModel
     @Override
     public JDBCBasicDataTypeCache<GenericStructContainer, ? extends JDBCDataType> createDataTypeCache(@NotNull GenericStructContainer container) {
         return new ClickhouseDataTypeCache(container);
+    }
+
+    @Override
+    public GenericSchema createSchemaImpl(@NotNull GenericDataSource dataSource, @Nullable GenericCatalog catalog, @NotNull String schemaName) throws DBException {
+        return new ClickhouseSchema(dataSource, catalog, schemaName);
+    }
+
+    @Override
+    public GenericTableBase createTableImpl(GenericStructContainer container, @Nullable String tableName, @Nullable String tableType, @Nullable JDBCResultSet dbResult) {
+        if (tableType != null && isView(tableType)) {
+            return new ClickhouseView(container, tableName, tableType, dbResult);
+        } else {
+            return new ClickhouseTable(
+                container,
+                tableName,
+                tableType,
+                dbResult);
+        }
     }
 
     @Override
@@ -103,4 +123,8 @@ public class ClickhouseMetaModel extends GenericMetaModel
         return getTableDDL(monitor, sourceObject, options);
     }
 
+    @Override
+    public boolean supportsNotNullColumnModifiers(DBSObject object) {
+        return false;
+    }
 }

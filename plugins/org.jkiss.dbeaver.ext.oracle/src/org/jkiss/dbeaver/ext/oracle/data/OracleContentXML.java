@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@
 package org.jkiss.dbeaver.ext.oracle.data;
 
 import org.jkiss.dbeaver.ext.oracle.model.OracleConstants;
-import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.exec.DBCException;
+import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.data.JDBCContentXML;
@@ -35,15 +35,15 @@ import java.sql.SQLXML;
  * XML content
  */
 public class OracleContentXML extends JDBCContentXML {
-    public OracleContentXML(DBPDataSource dataSource, SQLXML xml)
+    OracleContentXML(DBCExecutionContext executionContext, SQLXML xml)
     {
-        super(dataSource, xml);
+        super(executionContext, xml);
     }
 
     @Override
     protected OracleContentXML createNewContent()
     {
-        return new OracleContentXML(dataSource, null);
+        return new OracleContentXML(executionContext, null);
     }
 
     @Override
@@ -63,6 +63,10 @@ public class OracleContentXML extends JDBCContentXML {
                         paramIndex,
                         xmlObject);
                 }
+            } else if (xml != null) {
+                preparedStatement.setObject(
+                    paramIndex,
+                    xml);
             } else {
                 preparedStatement.setNull(paramIndex, java.sql.Types.SQLXML, columnType.getTypeName());
             }
@@ -75,18 +79,18 @@ public class OracleContentXML extends JDBCContentXML {
         }
     }
 
-    private Object createXmlObject(JDBCSession session, InputStream stream) throws DBCException
+    static Object createXmlObject(JDBCSession session, InputStream stream) throws DBCException
     {
         try {
             return BeanUtils.invokeStaticMethod(
-                DBUtils.getDriverClass(dataSource, OracleConstants.XMLTYPE_CLASS_NAME),
+                DBUtils.getDriverClass(session.getExecutionContext().getDataSource(), OracleConstants.XMLTYPE_CLASS_NAME),
                 "createXML",
                 new Class[] {java.sql.Connection.class, java.io.InputStream.class},
                 new Object[] {session.getOriginal(), stream});
         } catch (SQLException e) {
             throw new DBCException(e, session.getExecutionContext());
         } catch (Throwable e) {
-            throw new DBCException("Internal error when creating XMLType", e, session.getDataSource());
+            throw new DBCException("Internal error when creating XMLType", e, session.getExecutionContext());
         }
     }
 

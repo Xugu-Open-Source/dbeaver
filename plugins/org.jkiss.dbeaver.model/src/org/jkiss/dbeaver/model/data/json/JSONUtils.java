@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import com.google.gson.stream.JsonWriter;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableContext;
 import org.jkiss.dbeaver.runtime.serialize.DBPObjectSerializer;
@@ -31,8 +30,10 @@ import org.jkiss.utils.CommonUtils;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAccessor;
+import java.time.temporal.TemporalQueries;
 import java.util.*;
 
 /**
@@ -42,32 +43,37 @@ public class JSONUtils {
 
     private static final Log log = Log.getLog(JSONUtils.class);
 
-    private static SimpleDateFormat dateFormat;
-
-    static {
-        TimeZone tz = TimeZone.getTimeZone("UTC");
-        dateFormat = new SimpleDateFormat(DBConstants.DEFAULT_ISO_TIMESTAMP_FORMAT);
-        dateFormat.setTimeZone(tz);
-    }
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter
+        .ofPattern("yyyy-MM-dd['T'HH:mm:ss['.'SSS]['Z']]")
+        .withZone(ZoneId.of("UTC"));
 
     public static String formatDate(Date date) {
-        return dateFormat.format(date);
+        return LocalDateTime.ofInstant(date.toInstant(), ZoneId.of("UTC")).format(DATE_TIME_FORMATTER);
     }
 
-    public static Date parseDate(String str) {
-        if (CommonUtils.isEmpty(str)) {
+    @Nullable
+    public static Date parseDate(@Nullable Object value) {
+        if (value == null) {
             return null;
         }
-        try {
-            return dateFormat.parse(str);
-        } catch (ParseException e) {
-            log.error("Error parsing date");
-            return new Date(0L);
+        if (value instanceof Integer || value instanceof Long) {
+            return new Date(((Number) value).longValue());
         }
+        if (value instanceof String) {
+            final TemporalAccessor accessor = DATE_TIME_FORMATTER.parse((String) value);
+            final LocalDate localDate = accessor.query(TemporalQueries.localDate());
+            final LocalTime localTime = accessor.query(TemporalQueries.localTime());
+            if (localTime != null) {
+                return Date.from(LocalDateTime.of(localDate, localTime).toInstant(ZoneOffset.UTC));
+            } else {
+                return Date.from(localDate.atStartOfDay().toInstant(ZoneOffset.UTC));
+            }
+        }
+        throw new IllegalArgumentException("Cannot parse date from value '" + value + "'");
     }
 
     public static String formatISODate(Date date) {
-        return "ISODate(\"" + formatDate(date) + "\")";  //$NON-NLS-1$//$NON-NLS-2$
+        return "ISODate('" + formatDate(date) + "')";  //$NON-NLS-1$//$NON-NLS-2$
     }
 
     public static String escapeJsonString(String str) {
@@ -152,7 +158,11 @@ public class JSONUtils {
     }
 
     public static void serializeStringList(@NotNull JsonWriter json, @NotNull String tagName, @Nullable Collection<String> list) throws IOException {
-        if (!CommonUtils.isEmpty(list)) {
+        serializeStringList(json, tagName, list, false);
+    }
+
+    public static void serializeStringList(@NotNull JsonWriter json, @NotNull String tagName, @Nullable Collection<String> list, boolean force) throws IOException {
+        if (force || !CommonUtils.isEmpty(list)) {
             json.name(tagName);
             json.beginArray();
             for (String include : CommonUtils.safeCollection(list)) {
@@ -263,17 +273,22 @@ public class JSONUtils {
     public static Map<String, Object> getObject(@NotNull Map<String, Object> map, @NotNull String name) {
         Map<String, Object> object = (Map<String, Object>) map.get(name);
         if (object == null) {
-            return Collections.emptyMap();
+            return new LinkedHashMap<>();
         } else {
             return object;
         }
+    }
+
+    @Nullable
+    public static Map<String, Object> getObjectOrNull(@NotNull Map<String, Object> map, @NotNull String name) {
+        return (Map<String, Object>) map.get(name);
     }
 
     @NotNull
     public static Iterable<Map.Entry<String, Map<String, Object>>> getNestedObjects(@NotNull Map<String, Object> map, @NotNull String name) {
         Map<String, Map<String, Object>> object = (Map<String, Map<String, Object>>) map.get(name);
         if (object == null) {
-            return Collections.emptyList();
+            return new ArrayList<>();
         } else {
             return object.entrySet();
         }
@@ -301,8 +316,20 @@ public class JSONUtils {
         return CommonUtils.toBoolean(map.get(name));
     }
 
+    public static boolean getBoolean(Map<String, Object> map, String name, boolean defaultValue) {
+        return CommonUtils.getBoolean(map.get(name), defaultValue);
+    }
+
     public static int getInteger(Map<String, Object> map, String name) {
         return CommonUtils.toInt(map.get(name));
+    }
+
+    public static int getInteger(Map<String, Object> map, String name, int defaultValue) {
+        return CommonUtils.toInt(map.get(name), defaultValue);
+    }
+
+    public static long getLong(Map<String, Object> map, String name, long defaultValue) {
+        return CommonUtils.toLong(map.get(name), defaultValue);
     }
 
     @NotNull
@@ -310,6 +337,15 @@ public class JSONUtils {
         Object value = map.get(name);
         if (value instanceof List) {
             return  (List<Map<String, Object>>) value;
+        }
+        return Collections.emptyList();
+    }
+
+    @NotNull
+    public static List<String> getStringList(@NotNull Map<String, Object> map, @NotNull String name) {
+        Object value = map.get(name);
+        if (value instanceof List) {
+            return  (List<String>) value;
         }
         return Collections.emptyList();
     }

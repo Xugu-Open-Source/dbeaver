@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
  */
 package org.jkiss.dbeaver.ext.hana.model;
 
-import java.sql.SQLException;
-
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.generic.model.GenericTable;
 import org.jkiss.dbeaver.ext.generic.model.GenericTableBase;
@@ -28,8 +28,11 @@ import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
+import org.jkiss.dbeaver.model.gis.DBGeometryDimension;
 import org.jkiss.dbeaver.model.gis.GisAttribute;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+
+import java.sql.SQLException;
 
 public class HANATableColumn extends GenericTableColumn implements DBPNamedObject2, GisAttribute {
 
@@ -50,18 +53,54 @@ public class HANATableColumn extends GenericTableColumn implements DBPNamedObjec
     private static class GeometryInfo {
         private String type;
         private int srid = -1;
+        private int dimension = -1;
     }
 
     @Override
     public int getAttributeGeometrySRID(DBRProgressMonitor monitor) throws DBCException {
-        readGeometryInfo(monitor);
-        return geometryInfo.srid;
+        if (geometryInfo == null) {
+            readGeometryInfo(monitor);
+        }
+        if (geometryInfo != null) {
+            return geometryInfo.srid;
+        } else {
+            return -1;
+        }
     }
 
+    @NotNull
+    @Override
+    public DBGeometryDimension getAttributeGeometryDimension(DBRProgressMonitor monitor) throws DBCException {
+        if (geometryInfo == null) {
+            readGeometryInfo(monitor);
+        }
+        if (geometryInfo != null) {
+            // TODO: This does not cover XYM dimension, need to find a better solution
+            switch (geometryInfo.dimension) {
+                case 3:
+                    return DBGeometryDimension.XYZ;
+                case 4:
+                    return DBGeometryDimension.XYZM;
+                default:
+                    return DBGeometryDimension.XY;
+            }
+        } else {
+            return DBGeometryDimension.XY;
+        }
+
+    }
+
+    @Nullable
     @Override
     public String getAttributeGeometryType(DBRProgressMonitor monitor) throws DBCException {
-        readGeometryInfo(monitor);
-        return geometryInfo.type;
+        if (geometryInfo == null) {
+            readGeometryInfo(monitor);
+        }
+        if (geometryInfo != null) {
+            return geometryInfo.type;
+        } else {
+            return null;
+        }
     }
 
     private void readGeometryInfo(DBRProgressMonitor monitor) throws DBCException {
@@ -72,7 +111,7 @@ public class HANATableColumn extends GenericTableColumn implements DBPNamedObjec
         GeometryInfo gi = new GeometryInfo();
         try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load table inheritance info")) {
             try (JDBCPreparedStatement dbStat = session
-                    .prepareStatement("SELECT SRS_ID, DATA_TYPE_NAME FROM PUBLIC.ST_GEOMETRY_COLUMNS "
+                    .prepareStatement("SELECT SRS_ID, DATA_TYPE_NAME, COORD_DIMENSION FROM SYS.ST_GEOMETRY_COLUMNS "
                             + "WHERE SCHEMA_NAME=? AND TABLE_NAME=? AND COLUMN_NAME=?")) {
                 dbStat.setString(1, getTable().getSchema().getName());
                 dbStat.setString(2, getTable().getName());
@@ -88,6 +127,7 @@ public class HANATableColumn extends GenericTableColumn implements DBPNamedObjec
                             gi.srid -= FLAT_EARTH_SRID_START;
                         }
                         gi.type = dbResult.getString(2);
+                        gi.dimension = dbResult.getInt(3);
                     }
                 }
             }

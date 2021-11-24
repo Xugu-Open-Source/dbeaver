@@ -4,7 +4,7 @@
 
 <!--
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,9 +47,9 @@
             <property name="windowImages" value="/icons/dbeaver16.png,/icons/dbeaver32.png,/icons/dbeaver48.png,/icons/dbeaver64.png,/icons/dbeaver256.png"/>
             <property name="appName" value="DBeaver"/>
             <property name="startupForegroundColor" value="000000"/>
-            <property name="versionInfoCoord" value="155,265"/>
+            <property name="versionInfoCoord" value="155,260"/>
             <property name="versionInfoSize" value="12"/>
-            <property name="versionInfoColor" value="100,100,100"/>
+            <property name="versionInfoColor" value="255,255,255"/>
             <property name="startupMessageRect" value="323,270,242,25"/>
             <property name="startupProgressRect" value="323,255,242,10"/>
             <property name="cssTheme" value="org.eclipse.e4.ui.css.theme.e4_default"/>
@@ -73,7 +73,7 @@
             <property name="startupForegroundColor" value="000000"/>
             <property name="versionInfoCoord" value="155,265"/>
             <property name="versionInfoSize" value="12"/>
-            <property name="versionInfoColor" value="100,100,100"/>
+            <property name="versionInfoColor" value="255,255,255"/>
             <property name="startupMessageRect" value="323,270,242,25"/>
             <property name="startupProgressRect" value="323,255,242,10"/>
             <property name="cssTheme" value="org.eclipse.e4.ui.css.theme.e4_default"/>
@@ -86,7 +86,8 @@
     </extension>
 
     <extension point="org.jkiss.dbeaver.application">
-        <application id="dbeaver-ce-standalone"
+        <application id="dbeaver-ce"
+            family="DB"
             name="%productName"
             description="%productSubTitle"/>
     </extension>
@@ -111,6 +112,8 @@
         <image commandId="org.eclipse.ui.edit.redo" icon="icons/eclipse/redo.png" disabledIcon="icons/eclipse/redo_d.png"/>
 
         <image commandId="org.eclipse.ui.newWizard" icon="icons/eclipse/new_object.png" disabledIcon="icons/eclipse/new_object_d.png"/>
+        <image commandId="org.eclipse.ui.edit.text.zoomIn" icon="icons/eclipse/zoom_in.png" disabledIcon="icons/eclipse/zoom_in.png"/>
+        <image commandId="org.eclipse.ui.edit.text.zoomOut" icon="icons/eclipse/zoom_out.png" disabledIcon="icons/eclipse/zoom_out.png"/>
         <image commandId="org.eclipse.ui.edit.text.gotoLastEditPosition" icon="icons/eclipse/last_edit_location.png" disabledIcon="icons/eclipse/last_edit_location_d.png"/>
         <image commandId="org.eclipse.search.ui.openSearchDialog" icon="icons/eclipse/search.png" disabledIcon="icons/eclipse/search_d.png"/>
 
@@ -131,6 +134,29 @@
             icon="icons/templates_view.png"
             category="org.eclipse.ui"
             class="org.eclipse.ui.texteditor.templates.TemplatesView"/>
+        <view
+            name="%view.errorLog.name"
+            icon="icons/error_view.png"
+            category="org.eclipse.ui"
+            class="org.eclipse.ui.internal.views.log.LogView"
+            id="org.eclipse.pde.runtime.LogView">
+        </view>
+        <view
+            allowMultiple="true"
+            category="org.eclipse.ui"
+            class="org.eclipse.ui.views.properties.PropertySheet"
+            icon="icons/properties_view.png"
+            id="org.eclipse.ui.views.PropertySheet"
+            name="%view.properties.title">
+        </view>
+        <view
+            name="%view.search.title"
+            icon="icons/eclipse/search.png"
+            category="org.eclipse.ui"
+            class="org.eclipse.search2.internal.ui.SearchView"
+            allowMultiple="true"
+            id="org.eclipse.search.ui.views.SearchView">
+        </view>
         <!--view
                 id="org.eclipse.help.ui.HelpView"
                 category="org.jkiss.dbeaver.core.category"
@@ -148,6 +174,7 @@
                 </with>
             </activeWhen>
         </handler>
+        <handler commandId="org.eclipse.ui.edit.text.openLocalFile" class="org.jkiss.dbeaver.ui.app.standalone.actions.OpenLocalFileActionExt"/>
     </extension>
 
     <extension point="org.eclipse.ui.menus">
@@ -158,37 +185,43 @@
             <command commandId="org.eclipse.ui.edit.redo" label="%command.org.jkiss.dbeaver.core.edit.redo.name"/>
             <command commandId="org.eclipse.ui.edit.cut" label="%command.org.jkiss.dbeaver.core.edit.cut.name"/>
             <command commandId="org.eclipse.ui.edit.copy" label="%command.org.jkiss.dbeaver.core.edit.copy.name"/>
-            <command commandId="org.jkiss.dbeaver.core.edit.copy.special" label="%command.org.jkiss.dbeaver.core.edit.copy.special.name"/>
+            <command commandId="org.jkiss.dbeaver.core.edit.copy.special" label="%command.org.jkiss.dbeaver.core.edit.copy.special.name">
+                <visibleWhen checkEnabled="true"/>
+            </command>
             <command commandId="org.eclipse.ui.edit.paste" label="%command.org.jkiss.dbeaver.core.edit.paste.name"/>
             <command commandId="org.eclipse.ui.edit.delete" label="%command.org.jkiss.dbeaver.core.edit.delete.name"/>
             <separator name="find.ext" visible="true"/>
-            <command commandId="org.eclipse.ui.edit.findReplace" label="%command.org.jkiss.dbeaver.core.edit.findreplace.name"/>
+            <command commandId="org.eclipse.ui.edit.findReplace" label="%command.org.jkiss.dbeaver.core.edit.findreplace.name">
+                <visibleWhen checkEnabled="true"/>
+            </command>
             <command commandId="org.jkiss.dbeaver.core.navigator.bookmark.add"/>
             <separator name="additions" visible="true"/>
-        </menuContribution>
-
-        <!-- Edit menu -->
-
-        <menuContribution allPopups="false" locationURI="menu:org.eclipse.ui.main.menu?after=additions">
-            <menu id="edit" label="%menu.edit">
-                <command commandId="org.jkiss.dbeaver.ui.editors.sql.comment.single">
-                    <visibleWhen checkEnabled="true"/>
-                </command>
-                <command commandId="org.jkiss.dbeaver.ui.editors.sql.comment.multi">
-                    <visibleWhen checkEnabled="true"/>
-                </command>
-                <command commandId="org.jkiss.dbeaver.ui.editors.sql.word.wrap">
-                    <visibleWhen checkEnabled="true"/>
-                </command>
-                <command commandId="org.eclipse.ui.edit.text.upperCase">
-                    <visibleWhen checkEnabled="true"/>
-                </command>
-                <command commandId="org.eclipse.ui.edit.text.lowerCase">
-                    <visibleWhen checkEnabled="true"/>
-                </command>
-                <separator name="transforms" visible="true"/>
-                <separator name="data" visible="true"/>
-            </menu>
+            <separator name="format" visible="true"/>
+                <menu id="format" label="%menu.format">
+                    <command commandId="org.jkiss.dbeaver.ui.editors.sql.comment.single">
+                        <visibleWhen checkEnabled="true"/>
+                    </command>
+                    <command commandId="org.jkiss.dbeaver.ui.editors.sql.comment.multi">
+                        <visibleWhen checkEnabled="true"/>
+                    </command>
+                    <command commandId="org.jkiss.dbeaver.ui.editors.sql.word.wrap">
+                        <visibleWhen checkEnabled="true"/>
+                    </command>
+                    <command commandId="org.jkiss.dbeaver.ui.editors.sql.morph.delimited.list">
+                        <visibleWhen checkEnabled="true"/>
+                    </command>
+                    <command commandId="org.eclipse.ui.edit.text.upperCase">
+                        <visibleWhen checkEnabled="true"/>
+                    </command>
+                    <command commandId="org.eclipse.ui.edit.text.lowerCase">
+                        <visibleWhen checkEnabled="true"/>
+                    </command>
+                    <command commandId="org.jkiss.dbeaver.ui.editors.sql.trim.spaces">
+                        <visibleWhen checkEnabled="true"/>
+                    </command>
+                </menu>
+            <separator name="transforms" visible="true"/>
+            <separator name="data" visible="true"/>
         </menuContribution>
 
         <!-- File menu-->
@@ -197,6 +230,7 @@
             <command commandId="org.eclipse.ui.newWizard" label="%command.org.jkiss.dbeaver.core.file.new.name"/>
             <command commandId="org.eclipse.ui.file.save" label="%command.org.jkiss.dbeaver.core.file.save.name"/>
             <command commandId="org.eclipse.ui.file.saveAs" label="%command.org.jkiss.dbeaver.core.file.saveas.name"/>
+            <command commandId="org.eclipse.ui.file.saveAll"/>
             <command commandId="org.eclipse.ui.file.close" label="%command.org.jkiss.dbeaver.core.file.close.name"/>
             <command commandId="org.eclipse.ui.file.print" label="%command.org.jkiss.dbeaver.core.file.print.name"/>
             <command commandId="org.eclipse.ui.edit.rename" label="%command.org.jkiss.dbeaver.core.file.rename.name"/>
@@ -276,14 +310,15 @@
     </extension>
 
     <extension point="org.eclipse.ui.preferencePages">
-        <page id="org.jkiss.dbeaver.preferences.main" class="org.jkiss.dbeaver.ui.preferences.PrefPageDatabaseGeneral" name="%pref.page.name.db.configuration">
+        <page id="org.jkiss.dbeaver.preferences.main" class="org.jkiss.dbeaver.ui.preferences.PrefPageDatabaseUserInterface" name="%pref.page.name.db.configuration">
             <keywordReference id="org.jkiss.dbeaver.core.keyword.pref.db.general"/>
             <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.user.interface"/>
         </page>
-        <page category="org.jkiss.dbeaver.preferences.main" id="org.jkiss.dbeaver.preferences.main.errorHandle" class="org.jkiss.dbeaver.ui.preferences.PrefPageErrorHandle" name="%pref.page.name.errorHandle">
+        <page category="org.jkiss.dbeaver.preferences.main.connections" id="org.jkiss.dbeaver.preferences.main.errorHandle" class="org.jkiss.dbeaver.ui.preferences.PrefPageErrorHandle" name="%pref.page.name.errorHandle">
             <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
         </page>
-        <page category="org.jkiss.dbeaver.preferences.main.errorHandle" id="org.jkiss.dbeaver.preferences.main.errorLogs" class="org.jkiss.dbeaver.ui.preferences.PrefPageErrorLogs" name="%pref.page.name.errorLogs">
+        <page category="org.jkiss.dbeaver.preferences.main" id="org.jkiss.dbeaver.preferences.main.errorLogs" class="org.jkiss.dbeaver.ui.preferences.PrefPageErrorLogs" name="%pref.page.name.errorLogs">
             <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
         </page>
         <page category="org.jkiss.dbeaver.preferences.editors" id="org.jkiss.dbeaver.preferences.main.resultset" class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetMain" name="%pref.page.name.resultset">
@@ -297,26 +332,38 @@
         <page category="org.jkiss.dbeaver.preferences.main.resultset" id="org.jkiss.dbeaver.preferences.main.resultset.presentation" class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetPresentation" name="%pref.page.name.resultset.presentation">
             <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
         </page>
+        <page category="org.jkiss.dbeaver.preferences.main.resultset.presentation" id="org.jkiss.dbeaver.preferences.main.resultset.grid" class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetPresentationGrid" name="%pref.page.name.resultset.grid">
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
+             <keywordReference id="org.jkiss.dbeaver.core.keyword.pref.resultset.grid"/>
+        </page>
+        <page category="org.jkiss.dbeaver.preferences.main.resultset.presentation" id="org.jkiss.dbeaver.preferences.main.resultset.plain.text" class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetPresentationPlainText" name="%pref.page.name.resultset.plain.text">
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
+             <keywordReference id="org.jkiss.dbeaver.core.keyword.pref.resultset.plain.text"/>
+        </page>
         <page category="org.jkiss.dbeaver.preferences.main.resultset" id="org.jkiss.dbeaver.preferences.main.dataformat" class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageDataFormat" name="%pref.page.name.data.formats">
             <keywordReference id="org.jkiss.dbeaver.core.keyword.pref.db.dataformat"/>
             <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
         </page>
-        <page category="org.jkiss.dbeaver.preferences.main" id="org.jkiss.dbeaver.preferences.main.connections" class="org.jkiss.dbeaver.ui.preferences.PrefPageConnections" name="%pref.page.name.connections">
+        <page id="org.jkiss.dbeaver.preferences.main.connections" class="org.jkiss.dbeaver.ui.preferences.PrefPageConnectionsGeneral" name="%pref.page.name.connections">
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.connection"/>
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.database.connection"/>
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
+        </page>
+        <page category="org.jkiss.dbeaver.preferences.main.connections" id="org.jkiss.dbeaver.preferences.client.connections" class="org.jkiss.dbeaver.ui.preferences.PrefPageConnectionClient" name="%pref.page.name.client.connections">
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.connection"/>
+        </page>
+        <page category="org.jkiss.dbeaver.preferences.main.connections" id="org.jkiss.dbeaver.preferences.main.transactions" class="org.jkiss.dbeaver.ui.preferences.PrefPageTransactions" name="%pref.page.name.transactions">
             <keywordReference id="org.jkiss.dbeaver.core.keyword.connection"/>
             <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
         </page>
-        <page category="org.jkiss.dbeaver.preferences.main" id="org.jkiss.dbeaver.preferences.main.transactions" class="org.jkiss.dbeaver.ui.preferences.PrefPageTransactions" name="%pref.page.name.transactions">
-            <keywordReference id="org.jkiss.dbeaver.core.keyword.connection"/>
-            <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
-        </page>
-        <page category="org.jkiss.dbeaver.preferences.main" id="org.jkiss.dbeaver.preferences.main.meta" class="org.jkiss.dbeaver.ui.preferences.PrefPageMetaData" name="%pref.page.name.meta">
+        <page category="org.jkiss.dbeaver.preferences.main.connections" id="org.jkiss.dbeaver.preferences.main.meta" class="org.jkiss.dbeaver.ui.preferences.PrefPageMetaData" name="%pref.page.name.meta">
             <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
         </page>
         <page category="org.jkiss.dbeaver.preferences.main" id="org.jkiss.dbeaver.preferences.misc.qm" class="org.jkiss.dbeaver.ui.preferences.PrefPageQueryManager" name="%pref.page.name.query.manager">
             <keywordReference id="org.jkiss.dbeaver.core.keyword.pref.db.qm"/>
             <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
         </page>
-        <page category="org.jkiss.dbeaver.preferences.main" id="org.jkiss.dbeaver.preferences.drivers" class="org.jkiss.dbeaver.ui.preferences.PrefPageDrivers" name="%pref.page.name.drivers">
+        <page category="org.jkiss.dbeaver.preferences.main.connections" id="org.jkiss.dbeaver.preferences.drivers" class="org.jkiss.dbeaver.ui.preferences.PrefPageDrivers" name="%pref.page.name.drivers">
             <keywordReference id="org.jkiss.dbeaver.core.keyword.pref.ui.general"/>
             <keywordReference id="org.jkiss.dbeaver.core.keyword.connection"/>
             <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
@@ -325,17 +372,18 @@
             <keywordReference id="org.jkiss.dbeaver.core.keyword.connection"/>
             <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
         </page>
-        <page category="org.jkiss.dbeaver.preferences.main" id="org.jkiss.dbeaver.preferences.connectionTypes" class="org.jkiss.dbeaver.ui.preferences.PrefPageConnectionTypes" name="%pref.page.name.connectionTypes">
+        <page category="org.jkiss.dbeaver.preferences.drivers" id="org.jkiss.dbeaver.preferences.drivers.classpath" class="org.jkiss.dbeaver.ui.preferences.PrefPageDriversClasspath" name="%pref.page.name.drivers.classpath">
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.connection"/>
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
+        </page>
+        <page category="org.jkiss.dbeaver.preferences.main.connections" id="org.jkiss.dbeaver.preferences.connectionTypes" class="org.jkiss.dbeaver.ui.preferences.PrefPageConnectionTypes" name="%pref.page.name.connectionTypes">
             <keywordReference id="org.jkiss.dbeaver.core.keyword.connection"/>
             <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
         </page>
         <page category="org.jkiss.dbeaver.preferences.main" id="org.jkiss.dbeaver.preferences.navigator" class="org.jkiss.dbeaver.ui.preferences.PrefPageDatabaseNavigator" name="%pref.page.name.navigator">
             <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
         </page>
-        <page category="org.jkiss.dbeaver.preferences.main" id="org.jkiss.dbeaver.preferences.editors" class="org.jkiss.dbeaver.ui.preferences.PrefPageDatabaseEditors" name="%pref.page.name.editors">
-            <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
-        </page>
-        <page category="org.jkiss.dbeaver.preferences.editors" id="org.jkiss.dbeaver.preferences.main.entityeditor" class="org.jkiss.dbeaver.ui.preferences.PrefPageEntityEditor" name="%pref.page.name.entity.editor">
+        <page id="org.jkiss.dbeaver.preferences.editors" class="org.jkiss.dbeaver.ui.preferences.PrefPageDatabaseEditors" name="%pref.page.name.editors">
             <keywordReference id="org.jkiss.dbeaver.core.keyword.pref.editor.entity"/>
             <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
         </page>
@@ -372,6 +420,10 @@
         </activity>
         <!-- Hide Eclipse userstorage activities -->
         <activityPatternBinding activityId="hideE4Activity" pattern="org.eclipse.userstorage.*"/>
+    </extension>
+
+    <extension point="org.eclipse.core.runtime.preferences">
+        <initializer class="org.jkiss.dbeaver.ui.app.standalone.DBeaverApplicationPreferenceInitializer"/>
     </extension>
 
 </plugin>

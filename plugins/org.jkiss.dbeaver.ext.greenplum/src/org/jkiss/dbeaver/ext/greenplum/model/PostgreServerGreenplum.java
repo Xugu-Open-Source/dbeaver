@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2019 Dmitriy Dubson (ddubson@pivotal.io)
  * Copyright (C) 2019 Gavin Shaw (gshaw@pivotal.io)
  * Copyright (C) 2019 Zach Marcin (zmarcin@pivotal.io)
@@ -63,6 +63,8 @@ public class PostgreServerGreenplum extends PostgreServerExtensionBase {
                 return new GreenplumExternalTable(schema, dbResult);
             }
             return new GreenplumTable(schema, dbResult);
+        } else if (kind == PostgreClass.RelKind.m) {
+            return new GreenplumMaterializedView(schema, dbResult);
         }
         return super.createRelationOfClass(schema, kind, dbResult);
     }
@@ -71,6 +73,8 @@ public class PostgreServerGreenplum extends PostgreServerExtensionBase {
     public PostgreTableBase createNewRelation(DBRProgressMonitor monitor, PostgreSchema schema, PostgreClass.RelKind kind, Object copyFrom) throws DBException {
         if (kind == PostgreClass.RelKind.r) {
             return new GreenplumTable(schema);
+        } else if (kind == PostgreClass.RelKind.m) {
+            return new GreenplumMaterializedView(schema);
         }
         return super.createNewRelation(monitor, schema, kind, copyFrom);
     }
@@ -88,6 +92,11 @@ public class PostgreServerGreenplum extends PostgreServerExtensionBase {
     public void configureDialect(PostgreDialect dialect) {
         dialect.addExtraKeywords("DISTRIBUTED", "SEGMENT", "REJECT", "FORMAT", "MASTER", "WEB", "WRITABLE", "READABLE",
                 "LOG", "ERRORS");
+    }
+
+    @Override
+    public boolean supportsEntityMetadataInResults() {
+        return true;
     }
 
     @Override
@@ -112,5 +121,35 @@ public class PostgreServerGreenplum extends PostgreServerExtensionBase {
         } else {
             return super.readTableDDL(monitor, table);
         }
+    }
+
+    @Override
+    public boolean supportsHasOidsColumn() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsDatabaseSize() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsPartitions() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsAlterUserChangePassword() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsCopyFromStdIn() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsExternalTypes() {
+        return true;
     }
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,14 +20,14 @@ package org.jkiss.dbeaver.tools.transfer.registry;
 import org.eclipse.core.runtime.IConfigurationElement;
 import org.eclipse.core.runtime.IExtensionRegistry;
 import org.eclipse.core.runtime.Platform;
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.tools.transfer.IDataTransferNode;
 import org.jkiss.utils.CommonUtils;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 /**
  * DataTransferRegistry
@@ -40,18 +40,17 @@ public class DataTransferRegistry {
 
     private static final Log log = Log.getLog(DataTransferRegistry.class);
 
-    public synchronized static DataTransferRegistry getInstance()
-    {
+    public synchronized static DataTransferRegistry getInstance() {
         if (instance == null) {
             instance = new DataTransferRegistry(Platform.getExtensionRegistry());
         }
         return instance;
     }
 
-    private List<DataTransferNodeDescriptor> nodes = new ArrayList<>();
+    private final List<DataTransferNodeDescriptor> nodes = new ArrayList<>();
+    private final Map<String, DataTransferAttributeTransformerDescriptor> transformers = new LinkedHashMap<>();
 
-    private DataTransferRegistry(IExtensionRegistry registry)
-    {
+    private DataTransferRegistry(IExtensionRegistry registry) {
         // Load datasource providers from external plugins
         IConfigurationElement[] extElements = registry.getConfigurationElementsFor(EXTENSION_ID);
         for (IConfigurationElement ext : extElements) {
@@ -61,8 +60,14 @@ public class DataTransferRegistry {
                     continue;
                 }
                 nodes.add(new DataTransferNodeDescriptor(ext));
+            } else if ("transformer".equals(ext.getName())) {
+                // Load transformers
+                DataTransferAttributeTransformerDescriptor at = new DataTransferAttributeTransformerDescriptor(ext);
+                transformers.put(at.getId(), at);
             }
+
         }
+
         // Load references
         for (IConfigurationElement ext : extElements) {
             if ("node".equals(ext.getName())) {
@@ -79,20 +84,19 @@ public class DataTransferRegistry {
             }
         }
         nodes.sort(Comparator.comparing(DataTransferNodeDescriptor::getName));
+
+        //transformers.sort(Comparator.comparing(DataTransferAttributeTransformerDescriptor::getName));
     }
 
-    public List<DataTransferNodeDescriptor> getAvailableProducers(Collection<DBSObject> sourceObjects)
-    {
+    public List<DataTransferNodeDescriptor> getAvailableProducers(Collection<DBSObject> sourceObjects) {
         return getAvailableNodes(DataTransferNodeDescriptor.NodeType.PRODUCER, sourceObjects);
     }
 
-    public List<DataTransferNodeDescriptor> getAvailableConsumers(Collection<DBSObject> sourceObjects)
-    {
+    public List<DataTransferNodeDescriptor> getAvailableConsumers(Collection<DBSObject> sourceObjects) {
         return getAvailableNodes(DataTransferNodeDescriptor.NodeType.CONSUMER, sourceObjects);
     }
 
-    List<DataTransferNodeDescriptor> getAvailableNodes(DataTransferNodeDescriptor.NodeType nodeType, Collection<DBSObject> sourceObjects)
-    {
+    List<DataTransferNodeDescriptor> getAvailableNodes(DataTransferNodeDescriptor.NodeType nodeType, Collection<DBSObject> sourceObjects) {
         List<DataTransferNodeDescriptor> result = new ArrayList<>();
         for (DataTransferNodeDescriptor node : nodes) {
             if (node.getNodeType() == nodeType) {
@@ -107,8 +111,7 @@ public class DataTransferRegistry {
         return result;
     }
 
-    public List<DataTransferNodeDescriptor> getNodes(DataTransferNodeDescriptor.NodeType nodeType)
-    {
+    public List<DataTransferNodeDescriptor> getNodes(DataTransferNodeDescriptor.NodeType nodeType) {
         List<DataTransferNodeDescriptor> result = new ArrayList<>();
         for (DataTransferNodeDescriptor node : nodes) {
             if (node.getNodeType() == nodeType) {
@@ -118,8 +121,7 @@ public class DataTransferRegistry {
         return result;
     }
 
-    public DataTransferNodeDescriptor getNodeByType(Class<?> type)
-    {
+    public DataTransferNodeDescriptor getNodeByType(Class<? extends IDataTransferNode> type) {
         for (DataTransferNodeDescriptor node : nodes) {
             if (node.getNodeClass().equals(type)) {
                 return node;
@@ -128,8 +130,7 @@ public class DataTransferRegistry {
         return null;
     }
 
-    public DataTransferNodeDescriptor getNodeById(String id)
-    {
+    public DataTransferNodeDescriptor getNodeById(String id) {
         for (DataTransferNodeDescriptor node : nodes) {
             if (node.getId().equals(id)) {
                 return node;
@@ -147,5 +148,32 @@ public class DataTransferRegistry {
             }
         }
         return null;
+    }
+
+    @Nullable
+    public List<DataTransferProcessorDescriptor> getAvailableProcessors(Class<? extends IDataTransferNode> nodeType, Class<?> objectType) {
+        List<DataTransferProcessorDescriptor> processors = null;
+        for (DataTransferNodeDescriptor node : nodes) {
+            if (node.getNodeClass() == nodeType) {
+                if (node.appliesToType(objectType)) {
+                    return node.getAvailableProcessors(objectType);
+                }
+            }
+        }
+        return null;
+    }
+
+    @NotNull
+    public List<DataTransferAttributeTransformerDescriptor> getAttributeTransformers() {
+        return new ArrayList<>(transformers.values());
+    }
+
+    @Nullable
+    public DataTransferAttributeTransformerDescriptor getAttributeTransformer(String id) {
+        return transformers.get(id);
+    }
+
+    public DataTransferAttributeTransformerDescriptor getAttributeTransformerByName(String tName) {
+        return transformers.values().stream().filter(t -> t.getName().equals(tName)).findFirst().orElse(null);
     }
 }

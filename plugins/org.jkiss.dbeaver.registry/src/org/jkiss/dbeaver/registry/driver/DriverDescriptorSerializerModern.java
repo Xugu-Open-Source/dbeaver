@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,6 +63,7 @@ public class DriverDescriptorSerializerModern extends DriverDescriptorSerializer
             JSONUtils.field(json, RegistryConstants.ATTR_EMBEDDED, driver.isEmbedded());
             JSONUtils.field(json, RegistryConstants.ATTR_ANONYMOUS, driver.isAnonymousAccess());
             JSONUtils.field(json, "allowsEmptyPassword", driver.isAnonymousAccess());
+            JSONUtils.field(json, RegistryConstants.ATTR_INSTANTIABLE, driver.isInstantiable());
             if (driver.isCustomDriverLoader()) {
                 JSONUtils.field(json, RegistryConstants.ATTR_CUSTOM_DRIVER_LOADER, driver.isCustomDriverLoader());
             }

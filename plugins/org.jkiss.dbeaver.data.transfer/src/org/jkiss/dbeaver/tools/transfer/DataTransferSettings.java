@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,30 +20,41 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBPObject;
 import org.jkiss.dbeaver.model.data.json.JSONUtils;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableContext;
+import org.jkiss.dbeaver.model.runtime.DBRRunnableWithResult;
+import org.jkiss.dbeaver.model.runtime.MonitorRunnableContext;
+import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.DBStructUtils;
 import org.jkiss.dbeaver.model.task.DBTTask;
+import org.jkiss.dbeaver.model.task.DBTTaskSettings;
+import org.jkiss.dbeaver.model.task.DBTaskUtils;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.dbeaver.tools.transfer.internal.DTMessages;
 import org.jkiss.dbeaver.tools.transfer.registry.DataTransferNodeDescriptor;
 import org.jkiss.dbeaver.tools.transfer.registry.DataTransferProcessorDescriptor;
 import org.jkiss.dbeaver.tools.transfer.registry.DataTransferRegistry;
+import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * DataTransferSettings
  */
-public class DataTransferSettings {
-
+public class DataTransferSettings implements DBTTaskSettings<DBPObject> {
     private static final Log log = Log.getLog(DataTransferSettings.class);
 
     public static final int DEFAULT_THREADS_NUM = 1;
 
+    private final DataTransferState state;
+    private final Map<String, Object> configurationMap;
     private List<DataTransferPipe> dataPipes;
 
     private DataTransferNodeDescriptor producer;
@@ -52,11 +63,11 @@ public class DataTransferSettings {
     private final Map<DataTransferNodeDescriptor, IDataTransferSettings> nodeSettings = new HashMap<>();
 
     private DataTransferProcessorDescriptor processor;
-    private Map<DataTransferProcessorDescriptor, Map<Object, Object>> processorPropsHistory = new HashMap<>();
+    private final Map<DataTransferProcessorDescriptor, Map<String, Object>> processorPropsHistory = new HashMap<>();
     private boolean producerProcessor;
 
-    private IDataTransferProducer[] initProducers;
-    private @Nullable IDataTransferConsumer[] initConsumers;
+    private IDataTransferProducer<?>[] initProducers;
+    private @Nullable IDataTransferConsumer<?,?>[] initConsumers;
     private final List<DBSObject> initObjects = new ArrayList<>();
 
     private boolean consumerOptional;
@@ -66,31 +77,55 @@ public class DataTransferSettings {
     private transient int curPipeNum = 0;
 
     private boolean showFinalMessage = true;
+    // Hacky flag. Says that pipe selection is frozen.
+    // Makes sense for special case like multi-file import
+    private boolean pipeChangeRestricted;
+    // Hacky flag too. Skip nodes (producer and consumer) update
+    // if it's not required -- e.g., when we're editing an exiting task
+    private final boolean nodeUpdateRestricted;
 
     public DataTransferSettings(
-        @NotNull DBRRunnableContext runnableContext,
-        @Nullable Collection<IDataTransferProducer> producers,
-        @Nullable Collection<IDataTransferConsumer> consumers,
+        @Nullable Collection<? extends IDataTransferProducer> producers,
+        @Nullable Collection<? extends IDataTransferConsumer> consumers,
         @NotNull Map<String, Object> configuration,
+        @NotNull DataTransferState state,
         boolean selectDefaultNodes,
-        boolean isExport) {
+        boolean isExport,
+        boolean isExitingTask)
+    {
+        this.state = state;
+        this.nodeUpdateRestricted = isExitingTask;
+        this.configurationMap = configuration;
         initializePipes(producers, consumers, isExport);
-        loadConfiguration(runnableContext, configuration, selectDefaultNodes);
+        loadSettings(configuration);
+
+        if (!selectDefaultNodes) {
+            // Now cleanup all nodes. We needed them only to load default producer/consumer settings
+            this.producer = null;
+            this.consumer = null;
+            this.processor = null;
+        }
     }
 
     public DataTransferSettings(
-        @NotNull DBRRunnableContext runnableContext,
+        @NotNull DBRProgressMonitor monitor,
         @NotNull DBTTask task,
         @NotNull Log taskLog,
-        @NotNull Map<String, Object> configuration) {
+        @NotNull Map<String, Object> configuration,
+        @NotNull DataTransferState state) {
         this(
-            runnableContext,
-            getNodesFromLocation(runnableContext, task, taskLog, "producers", IDataTransferProducer.class),
-            getNodesFromLocation(runnableContext, task, taskLog, "consumers", IDataTransferConsumer.class),
+            getNodesFromLocation(monitor, task, state, taskLog, "producers", IDataTransferProducer.class),
+            getNodesFromLocation(monitor, task, state, taskLog, "consumers", IDataTransferConsumer.class),
             getTaskOrSavedSettings(task, configuration),
+            state,
             !task.getProperties().isEmpty(),
-            isExportTask(task)
+            isExportTask(task),
+            DBTaskUtils.isTaskExists(task)
         );
+    }
+
+    public DataTransferState getState() {
+        return state;
     }
 
     public static boolean isExportTask(DBTTask task) {
@@ -106,7 +141,29 @@ public class DataTransferSettings {
         return taskSettings;
     }
 
-    private void initializePipes(@Nullable Collection<IDataTransferProducer> producers, @Nullable Collection<IDataTransferConsumer> consumers, boolean isExport) {
+    public boolean isPipeChangeRestricted() {
+        return pipeChangeRestricted;
+    }
+
+    public void setPipeChangeRestricted(boolean pipeChangeRestricted) {
+        this.pipeChangeRestricted = pipeChangeRestricted;
+    }
+
+    public static DataTransferSettings loadSettings(DBRRunnableWithResult<DataTransferSettings> loader) throws DBException {
+        // Wait 1 minute maximum
+        RuntimeUtils.runTask(loader, "Load data transfer settings", 60000, false);
+        DataTransferSettings settings = loader.getResult();
+        if (settings == null) {
+            throw new DBException("Timeout while loading data transfer settings");
+        }
+        return settings;
+    }
+
+    private void initializePipes(
+        @Nullable Collection<? extends IDataTransferProducer> producers,
+        @Nullable Collection<? extends IDataTransferConsumer> consumers,
+        boolean isExport)
+    {
         this.initProducers = producers == null ? null : producers.toArray(new IDataTransferProducer[0]);
         this.initConsumers = consumers == null ? null : consumers.toArray(new IDataTransferConsumer[0]);
         this.dataPipes = new ArrayList<>();
@@ -137,7 +194,7 @@ public class DataTransferSettings {
             }
         } else if (!ArrayUtils.isEmpty(initProducers)) {
             // Make pipes
-            for (IDataTransferProducer source : initProducers) {
+            for (IDataTransferProducer<?> source : initProducers) {
                 if (source.getDatabaseObject() != null) initObjects.add(source.getDatabaseObject());
                 dataPipes.add(new DataTransferPipe(source, null));
             }
@@ -148,11 +205,11 @@ public class DataTransferSettings {
                 selectProducer(producerDesc);
                 consumerOptional = true;
             } else {
-                DBWorkbench.getPlatformUI().showError("Can't find producer", "Can't find data producer descriptor in registry");
+                DBWorkbench.getPlatformUI().showError(DTMessages.data_transfer_settings_title_find_producer, DTMessages.data_transfer_settings_message_find_data_producer);
             }
         } else if (!ArrayUtils.isEmpty(initConsumers)) {
             // Make pipes
-            for (IDataTransferConsumer target : initConsumers) {
+            for (IDataTransferConsumer<?,?> target : initConsumers) {
                 if (target.getDatabaseObject() != null) initObjects.add(target.getDatabaseObject());
                 dataPipes.add(new DataTransferPipe(null, target));
             }
@@ -163,7 +220,9 @@ public class DataTransferSettings {
                 selectConsumer(consumerDesc, null, false);
                 consumerOptional = false;
             } else {
-                DBWorkbench.getPlatformUI().showError("Can't find producer", "Can't find data propducer descriptor in registry");
+                DBWorkbench.getPlatformUI().showError(
+                    DTMessages.data_transfer_settings_title_find_consumer,
+                    DTMessages.data_transfer_settings_message_find_data_consumer);
             }
             producerOptional = true;
         } else {
@@ -172,7 +231,7 @@ public class DataTransferSettings {
         }
 
         if (!ArrayUtils.isEmpty(initConsumers)) {
-            for (IDataTransferConsumer target : initConsumers) {
+            for (IDataTransferConsumer<?,?> target : initConsumers) {
                 DataTransferNodeDescriptor node = registry.getNodeByType(target.getClass());
                 if (node != null) {
                     this.consumer = node;
@@ -181,7 +240,7 @@ public class DataTransferSettings {
         }
     }
 
-    private void loadConfiguration(DBRRunnableContext runnableContext, Map<String, Object> config, boolean selectDefaultNodes) {
+    public void loadSettings(Map<String, Object> config) {
         this.setMaxJobCount(CommonUtils.toInt(config.get("maxJobCount"), DataTransferSettings.DEFAULT_THREADS_NUM));
         this.setShowFinalMessage(CommonUtils.getBoolean(config.get("showFinalMessage"), this.isShowFinalMessage()));
 
@@ -193,6 +252,13 @@ public class DataTransferSettings {
                 String consumerId = CommonUtils.toString(config.get("consumer"));
                 if (!CommonUtils.isEmpty(consumerId)) {
                     DataTransferNodeDescriptor consumerNode = DataTransferRegistry.getInstance().getNodeById(consumerId);
+
+                    // Check that this consumer is allowed
+                    if (!CommonUtils.isEmpty(initObjects)) {
+                        if (!DataTransferRegistry.getInstance().getAvailableConsumers(initObjects).contains(consumerNode)) {
+                            consumerNode = null;
+                        }
+                    }
                     if (consumerNode != null) {
                         if (this.consumer == null){
                             savedConsumer = consumerNode;
@@ -200,7 +266,7 @@ public class DataTransferSettings {
                         } else {
                             savedConsumer = this.consumer;
                         }
-                        if (this.isConsumerOptional()) {
+                        if (consumerNode.hasProcessors()) {
                             processorNode = consumerNode;
                         }
                     }
@@ -210,6 +276,13 @@ public class DataTransferSettings {
                 String producerId = CommonUtils.toString(config.get("producer"));
                 if (!CommonUtils.isEmpty(producerId)) {
                     DataTransferNodeDescriptor producerNode = DataTransferRegistry.getInstance().getNodeById(producerId);
+                    // Check that this producer is allowed
+                    if (!CommonUtils.isEmpty(initObjects)) {
+                        if (!DataTransferRegistry.getInstance().getAvailableProducers(initObjects).contains(producerNode)) {
+                            producerNode = null;
+                        }
+                    }
+
                     if (producerNode != null) {
                         if (this.producer == null) {
                             savedProducer = producerNode;
@@ -217,7 +290,7 @@ public class DataTransferSettings {
                         } else {
                             savedProducer = this.producer;
                         }
-                        if (this.isProducerOptional()) {
+                        if (producerNode.hasProcessors()) {
                             processorNode = producerNode;
                         }
                     }
@@ -230,6 +303,9 @@ public class DataTransferSettings {
             String processorId = CommonUtils.toString(config.get("processor"));
             if (!CommonUtils.isEmpty(processorId)) {
                 savedProcessor = processorNode.getProcessor(processorId);
+                if (savedProcessor == null) {
+                    state.addError(new DBException("Processor '" + processorId + "' not found in '" + processorNode.getName() + "'"));
+                }
             }
         }
         if (this.consumerOptional && savedConsumer != null) {
@@ -237,6 +313,12 @@ public class DataTransferSettings {
         }
         if (this.producerOptional && savedProducer != null) {
             this.selectProducer(savedProducer, savedProcessor, false);
+        }
+
+        if (processorNode == consumer) {
+            producerProcessor = false;
+        } else {
+            producerProcessor = true;
         }
 
         // Load processor properties
@@ -257,7 +339,7 @@ public class DataTransferSettings {
                 String propNamesId = CommonUtils.toString(procSection.get("@propNames"));
                 DataTransferNodeDescriptor node = DataTransferRegistry.getInstance().getNodeById(nodeId);
                 if (node != null) {
-                    Map<Object, Object> props = new HashMap<>();
+                    Map<String, Object> props = new HashMap<>();
                     DataTransferProcessorDescriptor nodeProcessor = node.getProcessor(processorId);
                     if (nodeProcessor != null) {
                         for (String prop : CommonUtils.splitString(propNamesId, ',')) {
@@ -268,7 +350,9 @@ public class DataTransferSettings {
                 }
             }
         }
+    }
 
+    public void loadNodeSettings(DBRProgressMonitor monitor) {
         // Load nodes' settings (key is impl class simple name, value is descriptor)
         Map<String, DataTransferNodeDescriptor> nodeNames = new LinkedHashMap<>();
         if (producer != null) {
@@ -277,19 +361,26 @@ public class DataTransferSettings {
         if (consumer != null) {
             nodeNames.put(consumer.getNodeClass().getSimpleName(), consumer);
         }
+
+        MonitorRunnableContext runnableContext = new MonitorRunnableContext(monitor);
         for (Map.Entry<String, DataTransferNodeDescriptor> node : nodeNames.entrySet()) {
-            Map<String, Object> nodeSection = JSONUtils.getObject(config, node.getKey());
+            Map<String, Object> nodeSection = JSONUtils.getObject(configurationMap, node.getKey());
             IDataTransferSettings nodeSettings = this.getNodeSettings(node.getValue());
             if (nodeSettings != null) {
                 nodeSettings.loadSettings(runnableContext, this, nodeSection);
             }
         }
 
-        if (!selectDefaultNodes) {
-            // Now cleanup all nodes. We needed them only to load default producer/consumer settings
-            this.producer = null;
-            this.consumer = null;
-            this.processor = null;
+        // Initialize pipes with loaded settings
+        for (int i = 0; i < dataPipes.size(); i++) {
+            DataTransferPipe pipe = dataPipes.get(i);
+            if (pipe.getProducer() != null && pipe.getConsumer() != null) {
+                try {
+                    pipe.initPipe(this, i, dataPipes.size());
+                } catch (Exception e) {
+                    state.addError(e);
+                }
+            }
         }
     }
 
@@ -301,12 +392,12 @@ public class DataTransferSettings {
         return producerOptional;
     }
 
-    public IDataTransferProducer[] getInitProducers() {
+    public IDataTransferProducer<?>[] getInitProducers() {
         return initProducers;
     }
 
     @Nullable
-    public IDataTransferConsumer[] getInitConsumers() {
+    public IDataTransferConsumer<?,?>[] getInitConsumers() {
         return initConsumers;
     }
 
@@ -329,11 +420,11 @@ public class DataTransferSettings {
         return settings;
     }
 
-    public Map<DataTransferProcessorDescriptor, Map<Object, Object>> getProcessorPropsHistory() {
+    public Map<DataTransferProcessorDescriptor, Map<String, Object>> getProcessorPropsHistory() {
         return processorPropsHistory;
     }
 
-    public Map<Object, Object> getProcessorProperties() {
+    public Map<String, Object> getProcessorProperties() {
         if (processor == null) {
             log.debug("No processor selected - no properties");
             return null;
@@ -341,7 +432,7 @@ public class DataTransferSettings {
         return processorPropsHistory.get(processor);
     }
 
-    public void setProcessorProperties(Map<Object, Object> properties) {
+    public void setProcessorProperties(Map<String, Object> properties) {
         if (processor == null) {
             throw new IllegalStateException("No processor selected");
         }
@@ -350,6 +441,70 @@ public class DataTransferSettings {
 
     public List<DataTransferPipe> getDataPipes() {
         return dataPipes;
+    }
+
+    public void sortDataPipes(DBRProgressMonitor monitor) {
+        List<DBSEntity> entities = dataPipes.stream().sequential()
+                .filter(pipe -> pipe.getProducer() != null && pipe.getProducer().getDatabaseObject() instanceof DBSEntity)
+                .map(pipe -> (DBSEntity) pipe.getProducer().getDatabaseObject())
+                .collect(Collectors.toList());
+        List<DBSEntity> simpleTables = new ArrayList<>();
+        List<DBSEntity> cyclicTables = new ArrayList<>();
+        List<DBSEntity> views = new ArrayList<>();
+        try {
+            DBStructUtils.sortTableList(monitor, entities, simpleTables, cyclicTables, views);
+        } catch (DBException e) {
+            log.warn("Unable to sort database entities!");
+            return;
+        }
+        dataPipes.sort((pipe1, pipe2) -> { //fixme rewrite
+            IDataTransferProducer<?> producer1 = pipe1.getProducer();
+            IDataTransferProducer<?> producer2 = pipe2.getProducer();
+            if (producer1 == null && producer2 == null) {
+                return 0;
+            } else if (producer1 == null) {
+                return 1;
+            } else if (producer2 == null) {
+                return -1;
+            }
+            DBSObject dbsObject1 = producer1.getDatabaseObject();
+            DBSObject dbsObject2 = producer2.getDatabaseObject();
+            if (dbsObject1 == null && dbsObject2 == null) {
+                return 0;
+            } else if (dbsObject1 == null) {
+                return 1;
+            } else if (dbsObject2 == null) {
+                return -1;
+            }
+            if (!(dbsObject1 instanceof DBSEntity) && !(dbsObject2 instanceof DBSEntity)) {
+                return 0;
+            } else if (!(dbsObject1 instanceof DBSEntity)) {
+                return 1;
+            } else if (!(dbsObject2 instanceof DBSEntity)) {
+                return -1;
+            }
+            DBSEntity entity1 = (DBSEntity) dbsObject1;
+            DBSEntity entity2 = (DBSEntity) dbsObject2;
+            int idx1 = views.indexOf(entity1);
+            int idx2 = views.indexOf(entity2);
+            if (idx1 != -1 || idx2 != -1) {
+                return idx1 - idx2;
+            }
+            idx1 = cyclicTables.indexOf(entity1);
+            idx2 = cyclicTables.indexOf(entity2);
+            if (idx1 != -1 || idx2 != -1) {
+                return idx1 - idx2;
+            }
+            return simpleTables.indexOf(entity1) - simpleTables.indexOf(entity2);
+        });
+    }
+
+    public void processPipeEarlier(@NotNull DataTransferPipe pipe) {
+        CommonUtils.shiftLeft(dataPipes, pipe);
+    }
+
+    public void processPipeLater(@NotNull DataTransferPipe pipe) {
+        CommonUtils.shiftRight(dataPipes, pipe);
     }
 
     public synchronized DataTransferPipe acquireDataPipe(DBRProgressMonitor monitor) {
@@ -399,21 +554,19 @@ public class DataTransferSettings {
     public void selectConsumer(DataTransferNodeDescriptor consumer, DataTransferProcessorDescriptor processor, boolean rewrite) {
         this.consumer = consumer;
         this.processor = processor;
-        this.producerProcessor = false;
         if (consumer != null && processor != null) {
             if (!processorPropsHistory.containsKey(processor)) {
                 processorPropsHistory.put(processor, new HashMap<>());
             }
         }
         // Configure pipes
-        for (int i = 0; i < dataPipes.size(); i++) {
-            DataTransferPipe pipe = dataPipes.get(i);
+        for (DataTransferPipe pipe : dataPipes) {
             if (!rewrite && pipe.getConsumer() != null) {
                 continue;
             }
             if (consumer != null) {
                 try {
-                    IDataTransferConsumer consumerNode = (IDataTransferConsumer) consumer.createNode();
+                    IDataTransferConsumer<?,?> consumerNode = (IDataTransferConsumer<?,?>) consumer.createNode();
                     pipe.setConsumer(consumerNode);
                 } catch (DBException e) {
                     log.error(e);
@@ -429,7 +582,6 @@ public class DataTransferSettings {
         this.producer = producer;
         this.processor = processor;
         if (producer != null && processor != null) {
-            this.producerProcessor = true;
             if (!processorPropsHistory.containsKey(processor)) {
                 processorPropsHistory.put(processor, new HashMap<>());
             }
@@ -441,7 +593,7 @@ public class DataTransferSettings {
             }
             if (producer != null) {
                 try {
-                    pipe.setProducer((IDataTransferProducer) producer.createNode());
+                    pipe.setProducer((IDataTransferProducer<?>) producer.createNode());
                 } catch (DBException e) {
                     log.error(e);
                     pipe.setProducer(null);
@@ -470,7 +622,7 @@ public class DataTransferSettings {
         this.showFinalMessage = showFinalMessage;
     }
 
-    public static void saveNodesLocation(DBRRunnableContext runnableContext, DBTTask task, Map<String, Object> state, Collection<IDataTransferNode> nodes, String nodeType) {
+    public static void saveNodesLocation(DBRRunnableContext runnableContext, DBTTask task, Map<String, Object> state, Collection<IDataTransferNode<?>> nodes, String nodeType) {
         if (nodes != null) {
             List<Map<String, Object>> inputObjects = new ArrayList<>();
             for (Object inputObject : nodes) {
@@ -480,12 +632,13 @@ public class DataTransferSettings {
         }
     }
 
-    public static <T> List<T> getNodesFromLocation(@NotNull DBRRunnableContext runnableContext, DBTTask task, Log taskLog, String nodeType, Class<T> nodeClass) {
+    public static <T> List<T> getNodesFromLocation(@NotNull DBRProgressMonitor monitor, DBTTask task, DataTransferState state, Log taskLog, String nodeType, Class<T> nodeClass) {
         Map<String, Object> config = task.getProperties();
         List<T> result = new ArrayList<>();
         Object nodeList = config.get(nodeType);
         if (nodeList instanceof Collection) {
-            for (Object nodeObj : (Collection)nodeList) {
+            MonitorRunnableContext runnableContext = new MonitorRunnableContext(monitor);
+            for (Object nodeObj : (Collection<?>)nodeList) {
                 if (nodeObj instanceof Map) {
                     try {
                         Object node = JSONUtils.deserializeObject(runnableContext, task, (Map<String, Object>) nodeObj);
@@ -493,9 +646,7 @@ public class DataTransferSettings {
                             result.add(nodeClass.cast(node));
                         }
                     } catch (DBCException e) {
-                        if (!DBWorkbench.getPlatform().getApplication().isHeadlessMode()) {
-                            DBWorkbench.getPlatformUI().showError("Configuration error", "Error reading task configuration", e);
-                        }
+                        state.addError(e);
                         taskLog.error(e);
                     }
                 }
@@ -520,12 +671,15 @@ public class DataTransferSettings {
         this.consumerOptional = isExport;
         this.producerOptional = !isExport;
 
-        this.producer = null;
-        this.consumer = null;
-        if (!dataPipes.isEmpty()) {
-            DataTransferPipe pipe = dataPipes.get(0);
-            this.producer = pipe.getProducer() == null ? null : registry.getNodeByType(pipe.getProducer().getClass());
-            this.consumer = pipe.getConsumer() == null ? null : registry.getNodeByType(pipe.getConsumer().getClass());
+        // Don't update producer and consumer if it's not required (#9687)
+        if (!nodeUpdateRestricted) {
+            this.producer = null;
+            this.consumer = null;
+            if (!dataPipes.isEmpty()) {
+                DataTransferPipe pipe = dataPipes.get(0);
+                this.producer = pipe.getProducer() == null ? null : registry.getNodeByType(pipe.getProducer().getClass());
+                this.consumer = pipe.getConsumer() == null ? null : registry.getNodeByType(pipe.getConsumer().getClass());
+            }
         }
 
         DataTransferProcessorDescriptor savedProcessor = this.processor;
@@ -545,5 +699,4 @@ public class DataTransferSettings {
             }
         }
     }
-
 }

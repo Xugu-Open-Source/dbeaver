@@ -38,10 +38,12 @@ import org.jkiss.dbeaver.model.meta.IPropertyCacheValidator;
 import org.jkiss.dbeaver.model.meta.LazyProperty;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectState;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableForeignKey;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
+import org.jkiss.dbeaver.model.struct.rdb.DBSTrigger;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.dbeaver.ext.xugu.Utils;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
@@ -50,6 +52,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -182,7 +185,7 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 	 * @return 表注释
 	 * @throws DBException 数据库异常
 	 */
-	@Property(viewable = true, editable = true, updatable = true, multiline = true, order = 100)
+	@Property(viewable = true, editable = true, updatable = true, order = 100)
 	@LazyProperty(cacheValidator = CommentsValidator.class)
 	public String getComment(DBRProgressMonitor monitor) throws DBException {
 		if (comment == null) {
@@ -233,8 +236,8 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 					}
 				}
 			}
-			for (TableColumn col : getAttributes(monitor)) {
-				col.cacheComment();
+			for (DBSEntityAttribute col : getAttributes(monitor)) {
+				((TableColumn)col).cacheComment();
 			}
 		} catch (Exception e) {
 			log.warn("Error fetching table '" + getName() + "' column comments", e);
@@ -242,7 +245,7 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 	}
 
 	@Override
-	public Collection<TableColumn> getAttributes(@NotNull DBRProgressMonitor monitor) throws DBException {
+	public List<? extends DBSEntityAttribute> getAttributes(@NotNull DBRProgressMonitor monitor) throws DBException {
 		return getContainer().tableCache.getChildren(monitor, getContainer(), this);
 	}
 
@@ -259,7 +262,7 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 	}
 
 	@Association
-	public Collection<Trigger> getTriggers(DBRProgressMonitor monitor) throws DBException {
+	public List<? extends DBSTrigger> getTriggers(DBRProgressMonitor monitor) throws DBException {
 		if (this.isPersisted()) {
 			return triggerCache.getAllObjects(monitor, this);
 		}

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.jkiss.dbeaver.ui.actions;
 import org.eclipse.core.expressions.PropertyTester;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IEditorReference;
+import org.eclipse.ui.IWorkbenchWindow;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
@@ -189,7 +190,11 @@ public class DataSourcePropertyTester extends PropertyTester
      * Making each editor QM listener is too expensive.
      */
     private static void updateEditorsDirtyFlag() {
-        IEditorReference[] editors = UIUtils.getActiveWorkbenchWindow().getActivePage().getEditorReferences();
+        IWorkbenchWindow workbenchWindow = UIUtils.findActiveWorkbenchWindow();
+        if (workbenchWindow == null) {
+            return;
+        }
+        IEditorReference[] editors = workbenchWindow.getActivePage().getEditorReferences();
         for (IEditorReference ref : editors) {
             final IEditorPart editor = ref.getEditor(false);
             if (editor instanceof SQLEditor) {

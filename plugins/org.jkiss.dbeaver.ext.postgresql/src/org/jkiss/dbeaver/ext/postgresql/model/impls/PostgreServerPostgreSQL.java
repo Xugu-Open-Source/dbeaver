@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,14 @@
  */
 package org.jkiss.dbeaver.ext.postgresql.model.impls;
 
+import org.jkiss.dbeaver.ext.postgresql.PostgreConstants;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataSource;
-import org.jkiss.dbeaver.ext.postgresql.model.PostgreTableBase;
-import org.jkiss.dbeaver.ext.postgresql.model.PostgreTableRegular;
+import org.jkiss.dbeaver.ext.postgresql.model.PostgreSetting;
 
 /**
  * PostgreServerPostgreSQL
  */
 public class PostgreServerPostgreSQL extends PostgreServerExtensionBase {
-
     public static final String TYPE_ID = "postgresql";
 
     public PostgreServerPostgreSQL(PostgreDataSource dataSource) {
@@ -32,8 +31,58 @@ public class PostgreServerPostgreSQL extends PostgreServerExtensionBase {
     }
 
     @Override
+    public boolean supportsEntityMetadataInResults() {
+        return true;
+    }
+
+    @Override
     public String getServerTypeName() {
         return "PostgreSQL";
     }
-}
 
+    @Override
+    public boolean supportsPGConstraintExpressionColumn() {
+        return !dataSource.isServerVersionAtLeast(12, 0);
+    }
+
+    @Override
+    public boolean supportsHasOidsColumn() {
+        return !dataSource.isServerVersionAtLeast(12, 0);
+    }
+
+    @Override
+    public boolean supportsDatabaseSize() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsBackslashStringEscape() {
+        final PostgreSetting setting = dataSource.getSetting(PostgreConstants.OPTION_STANDARD_CONFORMING_STRINGS);
+        return setting != null && "off".equals(setting.getValue());
+    }
+
+    @Override
+    public boolean supportsDisablingAllTriggers() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsGeneratedColumns() {
+        return dataSource.isServerVersionAtLeast(12, 0);
+    }
+
+    @Override
+    public boolean supportsKeyAndIndexRename() {
+        return dataSource.isServerVersionAtLeast(9, 2);
+    }
+
+    @Override
+    public boolean supportsAlterUserChangePassword() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsCopyFromStdIn() {
+        return true;
+    }
+}

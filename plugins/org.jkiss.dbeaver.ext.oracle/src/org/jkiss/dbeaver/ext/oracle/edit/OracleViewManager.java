@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -62,7 +62,7 @@ public class OracleViewManager extends SQLTableManager<OracleView, OracleSchema>
     }
 
     @Override
-    protected void validateObjectProperties(ObjectChangeCommand command, Map<String, Object> options)
+    protected void validateObjectProperties(DBRProgressMonitor monitor, ObjectChangeCommand command, Map<String, Object> options)
         throws DBException {
         if (CommonUtils.isEmpty(command.getObject().getName())) {
             throw new DBException("View name cannot be empty");
@@ -88,7 +88,7 @@ public class OracleViewManager extends SQLTableManager<OracleView, OracleSchema>
         OracleSchema schema = (OracleSchema) container;
         OracleView newView = new OracleView(schema, "NEW_VIEW"); //$NON-NLS-1$
         setNewObjectName(monitor, schema, newView);
-        newView.setViewText("CREATE OR REPLACE VIEW " + newView.getFullyQualifiedName(DBPEvaluationContext.DDL) + " AS\nSELECT");
+        newView.setViewText("CREATE OR REPLACE VIEW " + newView.getFullyQualifiedName(DBPEvaluationContext.DDL) + " AS\nSELECT 1 AS A FROM DUAL");
         return newView;
     }
 
@@ -111,7 +111,7 @@ public class OracleViewManager extends SQLTableManager<OracleView, OracleSchema>
 
     private void createOrReplaceViewQuery(DBRProgressMonitor monitor, List<DBEPersistAction> actions, DBECommandComposite<OracleView, PropertyHandler> command) throws DBException {
         final OracleView view = command.getObject();
-        boolean hasComment = command.getProperty("comment") != null;
+        boolean hasComment = command.hasProperty("comment");
         if (!hasComment || command.getProperties().size() > 1) {
             String viewText = view.getViewText().trim();
             while (viewText.endsWith(";")) {
@@ -119,12 +119,12 @@ public class OracleViewManager extends SQLTableManager<OracleView, OracleSchema>
             }
             actions.add(new SQLDatabasePersistAction("Create view", viewText));
         }
-        String comment = view.getComment(monitor);
-        if (!CommonUtils.isEmpty(comment)) {
+        
+        if (hasComment) {
             actions.add(new SQLDatabasePersistAction(
                 "Comment table",
                 "COMMENT ON TABLE " + view.getFullyQualifiedName(DBPEvaluationContext.DDL) +
-                    " IS '" + view.getComment() + "'"));
+                    " IS '" + CommonUtils.notEmpty(view.getComment()) + "'"));
         }
     }
 

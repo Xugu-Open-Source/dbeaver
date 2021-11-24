@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ public class CustomSelectedTabFillHandler extends CSSPropertye4SelectedTabFillHa
 
         Widget widget = SWTElementHelpers.getWidget(element);
         if (widget == null || (widget instanceof Control && UIUtils.isInDialog((Control)widget))) {
-            return false;
+            return super.applyCSSProperty(element, property, value, pseudo, engine);
         }
 
         if (DBStyles.COLORED_BY_CONNECTION_TYPE.equals(widget.getData(CSSSWTConstants.CSS_CLASS_NAME_KEY))) {

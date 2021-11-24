@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,17 +18,17 @@ package org.jkiss.dbeaver.ui.navigator.actions;
 
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
+import org.eclipse.core.commands.ParameterizedCommand;
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.jface.action.IContributionItem;
 import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.viewers.ISelection;
+import org.eclipse.jface.viewers.ISelectionProvider;
+import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.osgi.util.NLS;
-import org.eclipse.ui.IWorkbenchCommandConstants;
-import org.eclipse.ui.IWorkbenchPage;
-import org.eclipse.ui.IWorkbenchPart;
-import org.eclipse.ui.IWorkbenchPartSite;
+import org.eclipse.ui.*;
 import org.eclipse.ui.actions.CompoundContributionItem;
 import org.eclipse.ui.commands.IElementUpdater;
 import org.eclipse.ui.handlers.HandlerUtil;
@@ -56,6 +56,7 @@ import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.internal.UINavigatorMessages;
 import org.jkiss.dbeaver.ui.navigator.NavigatorCommands;
 import org.jkiss.dbeaver.ui.navigator.NavigatorUtils;
+import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.ArrayList;
@@ -80,7 +81,12 @@ public class NavigatorHandlerObjectCreateNew extends NavigatorHandlerObjectCreat
         boolean isFolder = CommonUtils.toBoolean(event.getParameter(NavigatorCommands.PARAM_OBJECT_TYPE_FOLDER));
 
         final ISelection selection = HandlerUtil.getCurrentSelection(event);
-        DBNNode node = NavigatorUtils.getSelectedNode(selection);
+
+        if (selection.isEmpty()) {
+            return null;
+        }
+        DBNNode node = getNodeFromSelection(selection);
+
         if (node != null) {
             Class<?> newObjectType = null;
             if (objectType != null) {
@@ -93,10 +99,35 @@ public class NavigatorHandlerObjectCreateNew extends NavigatorHandlerObjectCreat
                         log.error("Error detecting new object type " + objectType, e);
                     }
                 }
+            } else {
+                // No explicit object type. Try to detect from selection
+                IWorkbenchPart activePart = HandlerUtil.getActivePart(event);
+                if (activePart != null) {
+                    List<IContributionItem> actions = fillCreateMenuItems(activePart.getSite(), node);
+                    for (IContributionItem item : actions) {
+                        if (item instanceof CommandContributionItem) {
+                            ParameterizedCommand command = ((CommandContributionItem) item).getCommand();
+                            if (command != null) {
+                                ActionUtils.runCommand(command.getId(), selection, command.getParameterMap(), activePart.getSite());
+                                return null;
+                            }
+                        }
+                    }
+                }
             }
             createNewObject(HandlerUtil.getActiveWorkbenchWindow(event), node, newObjectType, null, isFolder);
         }
         return null;
+    }
+
+    @Nullable
+    static DBNNode getNodeFromSelection(ISelection selection) {
+        DBNNode node = null;
+        if (selection instanceof IStructuredSelection && !selection.isEmpty()) {
+            Object selectedObject = ((IStructuredSelection)selection).getFirstElement();
+            node = RuntimeUtils.getObjectAdapter(selectedObject, DBNNode.class);
+        }
+        return node;
     }
 
     @Override
@@ -105,8 +136,41 @@ public class NavigatorHandlerObjectCreateNew extends NavigatorHandlerObjectCreat
         if (!updateUI) {
             return;
         }
+        IWorkbenchWindow workbenchWindow = element.getServiceLocator().getService(IWorkbenchWindow.class);
+        if (workbenchWindow == null || workbenchWindow.getActivePage() == null) {
+            return;
+        }
+        ISelectionProvider selectionProvider = UIUtils.getSelectionProvider(element.getServiceLocator());
+        if (selectionProvider == null) {
+            return;
+        }
+
         Object typeName = parameters.get(NavigatorCommands.PARAM_OBJECT_TYPE_NAME);
         Object objectIcon = parameters.get(NavigatorCommands.PARAM_OBJECT_TYPE_ICON);
+        if (typeName == null) {
+            // Try to get type from active selection
+            DBNNode node = getNodeFromSelection(selectionProvider.getSelection());
+            if (node != null && !node.isDisposed()) {
+                List<IContributionItem> actions = fillCreateMenuItems(workbenchWindow.getActivePage().getActivePart().getSite(), node);
+                for (IContributionItem item : actions) {
+                    if (item instanceof CommandContributionItem) {
+                        ParameterizedCommand command = ((CommandContributionItem) item).getCommand();
+                        if (command != null) {
+                            typeName = command.getParameterMap().get(NavigatorCommands.PARAM_OBJECT_TYPE_NAME);
+                            if (typeName != null) {
+                                // Prepend "Create new" as it is a single node
+                                typeName = NLS.bind(UINavigatorMessages.actions_navigator_create_new, typeName);
+                                // Do not use object icon ()
+//                                if (!(node instanceof DBNDatabaseFolder)) {
+//                                    objectIcon = command.getParameterMap().get(NavigatorCommands.PARAM_OBJECT_TYPE_ICON);
+//                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
         if (typeName != null) {
             element.setText(typeName.toString());
         } else {
@@ -115,7 +179,7 @@ public class NavigatorHandlerObjectCreateNew extends NavigatorHandlerObjectCreat
         if (objectIcon != null) {
             element.setIcon(DBeaverIcons.getImageDescriptor(new DBIcon(objectIcon.toString())));
         } else {
-            DBPImage image = getObjectTypeIcon(element);
+            DBPImage image = getObjectTypeIcon(selectionProvider);
             if (image == null) {
                 image = DBIcon.TYPE_OBJECT;
             }
@@ -135,8 +199,8 @@ public class NavigatorHandlerObjectCreateNew extends NavigatorHandlerObjectCreat
         return null;
     }
 
-    public static DBPImage getObjectTypeIcon(UIElement element) {
-        DBNNode node = NavigatorUtils.getSelectedNode(element);
+    public static DBPImage getObjectTypeIcon(ISelectionProvider selectionProvider) {
+        DBNNode node = getNodeFromSelection(selectionProvider.getSelection());
         if (node != null) {
             if (node instanceof DBNDatabaseNode && node.getParentNode() instanceof DBNDatabaseFolder) {
                 node = node.getParentNode();
@@ -201,20 +265,53 @@ public class NavigatorHandlerObjectCreateNew extends NavigatorHandlerObjectCreat
 
     private static void addDatabaseNodeCreateItems(@Nullable IWorkbenchPartSite site, List<IContributionItem> createActions, DBNDatabaseNode node) {
         if (node instanceof DBNDatabaseFolder) {
-            final List<DBXTreeNode> metaChildren = ((DBNDatabaseFolder) node).getMeta().getChildren(node);
+            DBXTreeFolder folderMeta = ((DBNDatabaseFolder) node).getMeta();
+            final List<DBXTreeNode> metaChildren = folderMeta.getChildren(node);
             if (!CommonUtils.isEmpty(metaChildren)) {
-                Class<?> nodeClass = ((DBNContainer) node).getChildrenClass();
+                // Test direct child node items
+                Class<?> nodeClass = null;
+                if (metaChildren.size() == 1 && metaChildren.get(0) instanceof DBXTreeItem) {
+                    nodeClass = node.getChildrenClass((DBXTreeItem)metaChildren.get(0));
+                }
+                {
+                    Class<?> childrenClass = ((DBNDatabaseFolder) node).getChildrenClass();
+                    if (nodeClass == null || (childrenClass != null && nodeClass.isAssignableFrom(childrenClass))) {
+                        // folder.getChildrenClass may return more precise type than node.getChildrenClass
+                        nodeClass = childrenClass;
+                    }
+                }
+                if (nodeClass == null) {
+                    nodeClass = ((DBNDatabaseFolder) node).getChildrenClass();
+                }
                 String nodeType = metaChildren.get(0).getChildrenTypeLabel(node.getDataSource(), null);
-                DBPImage nodeIcon = node.getNodeIconDefault();//metaChildren.get(0).getIcon(node);
                 if (nodeClass != null && nodeType != null) {
                     if (isCreateSupported(node, nodeClass)) {
+                        DBPImage nodeIcon = node.getNodeIconDefault();//metaChildren.get(0).getIcon(node);
                         IContributionItem item = makeCreateContributionItem(
                             site, nodeClass.getName(), nodeType, nodeIcon, false);
                         createActions.add(item);
                     }
                 }
             }
+            // Test explicit create types
+            DBXTreeFolder.ItemType[] itemTypes = folderMeta.getItemTypes();
+            if (itemTypes != null) {
+                for (DBXTreeFolder.ItemType itemType : itemTypes) {
+                    Class<Object> itemClass = folderMeta.getSource().getObjectClass(itemType.getClassName(), Object.class);
+                    if (itemClass != null) {
+                        if (isCreateSupported(node, itemClass)) {
+                            IContributionItem item = makeCreateContributionItem(
+                                site, itemType.getClassName(), itemType.getItemType(), itemType.getItemIcon(), false);
+                            createActions.add(item);
+                        }
+                    }
+                }
+            }
+
         } else {
+            if (node.getObject() == null) {
+                return;
+            }
             Class<?> nodeItemClass = node.getObject().getClass();
             DBNNode parentNode = node.getParentNode();
             if (isCreateSupported(
@@ -343,7 +440,7 @@ public class NavigatorHandlerObjectCreateNew extends NavigatorHandlerObjectCreat
                 return EMPTY_MENU;
             }
             IWorkbenchPartSite site = activePart.getSite();
-            DBNNode node = NavigatorUtils.getSelectedNode(site.getSelectionProvider());
+            DBNNode node = getNodeFromSelection(site.getSelectionProvider().getSelection());
 
             List<IContributionItem> createActions = fillCreateMenuItems(site, node);
             return createActions.toArray(new IContributionItem[0]);

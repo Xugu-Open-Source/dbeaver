@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -297,10 +297,10 @@ public class DBVEntity extends DBVObject implements DBSEntity, DBPQualifiedObjec
 
     @NotNull
     @Override
-    public Collection<? extends DBSEntityAttribute> getAttributes(@NotNull DBRProgressMonitor monitor) throws DBException {
+    public List<? extends DBSEntityAttribute> getAttributes(@NotNull DBRProgressMonitor monitor) throws DBException {
         DBSEntity realEntity = getRealEntity(monitor);
         if (realEntity != null) {
-            final Collection<? extends DBSEntityAttribute> realAttributes = realEntity.getAttributes(monitor);
+            final List<? extends DBSEntityAttribute> realAttributes = realEntity.getAttributes(monitor);
             if (!CommonUtils.isEmpty(realAttributes)) {
                 List<DBVEntityAttribute> customAttributes = getCustomAttributes();
                 if (!CommonUtils.isEmpty(customAttributes)) {
@@ -344,8 +344,9 @@ public class DBVEntity extends DBVObject implements DBSEntity, DBPQualifiedObjec
                     if (nextAttribute == null) {
                         if (create) {
                             nextAttribute = new DBVEntityAttribute(this, topAttribute, path[i].getName());
+                            topAttribute.addChild(nextAttribute);
                         } else {
-                            log.debug("Can't find hierarchical attribute '" + binding + "'");
+                            log.debug("Can't find nested attribute '" + binding + "' in '" + topAttribute.getName());
                             return null;
                         }
                     }
@@ -399,7 +400,7 @@ public class DBVEntity extends DBVObject implements DBSEntity, DBPQualifiedObjec
                 "VIRTUAL_PK"));
         }
         for (DBVEntityConstraint constraint : entityConstraints) {
-            if (constraint.getConstraintType().isUnique()) {
+            if (constraint.getConstraintType().isUnique() && !CommonUtils.isEmpty(constraint.getAttributes())) {
                 return constraint;
             }
         }
@@ -515,8 +516,9 @@ public class DBVEntity extends DBVObject implements DBSEntity, DBPQualifiedObjec
         for (DBSEntityAttribute column : allColumns) {
             if (column != keyColumn &&
                 column.getDataKind() == DBPDataKind.STRING &&
-                column.getMaxLength() < MAX_DESC_COLUMN_LENGTH &&
-                column.getMaxLength() >= MIN_DESC_COLUMN_LENGTH) {
+                (column.getMaxLength() <= 0 ||
+                    (column.getMaxLength() < MAX_DESC_COLUMN_LENGTH &&
+                    column.getMaxLength() >= MIN_DESC_COLUMN_LENGTH))) {
                 stringColumns.put(column.getName(), column);
             }
         }
@@ -634,7 +636,7 @@ public class DBVEntity extends DBVObject implements DBSEntity, DBPQualifiedObjec
     @Override
     public String getFullyQualifiedName(DBPEvaluationContext context) {
         return DBUtils.getFullQualifiedName(getDataSource(),
-            container,
+            container instanceof DBVModel ? null : container,
             this);
     }
 
@@ -663,7 +665,7 @@ public class DBVEntity extends DBVObject implements DBSEntity, DBPQualifiedObjec
 
     @NotNull
     @Override
-    public List<DBDLabelValuePair> getDictionaryEnumeration(@NotNull DBRProgressMonitor monitor, @NotNull DBSEntityAttribute keyColumn, Object keyPattern, @Nullable List<DBDAttributeValue> preceedingKeys, boolean sortByValue, boolean sortAsc, int maxResults) throws DBException {
+    public List<DBDLabelValuePair> getDictionaryEnumeration(@NotNull DBRProgressMonitor monitor, @NotNull DBSEntityAttribute keyColumn, Object keyPattern, @Nullable List<DBDAttributeValue> preceedingKeys, boolean sortByValue, boolean sortAsc, boolean caseInsensitiveSearch, int maxResults) throws DBException {
         DBSEntity realEntity = getRealEntity(monitor);
         if (realEntity instanceof DBSDictionary) {
             return ((DBSDictionary) realEntity).getDictionaryEnumeration(
@@ -673,6 +675,7 @@ public class DBVEntity extends DBVObject implements DBSEntity, DBPQualifiedObjec
                 preceedingKeys,
                 sortByValue,
                 sortAsc,
+                caseInsensitiveSearch,
                 maxResults);
         }
         return Collections.emptyList();

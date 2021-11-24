@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ package org.jkiss.dbeaver.model.runtime;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.runtime.IVariableResolver;
 import org.jkiss.dbeaver.utils.GeneralUtils;
+import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.IOUtils;
 
@@ -50,8 +51,9 @@ public class DBRProcessDescriptor
         String commandLine = variablesResolver == null ?
             command.getCommand() :
             GeneralUtils.replaceVariables(command.getCommand(), variablesResolver);
+        commandLine = CommonUtils.notEmpty(commandLine);
 
-        processBuilder = new ProcessBuilder(GeneralUtils.parseCommandLine(commandLine));
+        processBuilder = new ProcessBuilder(RuntimeUtils.splitCommandLine(commandLine, !RuntimeUtils.isWindows()));
         // Set working directory
         if (!CommonUtils.isEmpty(command.getWorkingDirectory())) {
             processBuilder.directory(new File(command.getWorkingDirectory()));
@@ -88,9 +90,9 @@ public class DBRProcessDescriptor
         return process;
     }
 
-    public boolean isRunning()
-    {
-        return process != null;
+    public boolean isRunning() {
+        Process theProcess = this.process;
+        return theProcess != null && theProcess.isAlive();
     }
 
     public int getExitValue()
@@ -195,4 +197,23 @@ public class DBRProcessDescriptor
         }
         return buf.toString();
     }
+
+    public String dumpOutput() {
+        if (process == null) {
+            return null;
+        }
+        StringWriter buf = new StringWriter();
+        try {
+            InputStream inputStream = process.getInputStream();
+            if (inputStream != null) {
+                // Note: do not close reader because it will close process error stream
+                Reader input = new InputStreamReader(inputStream, GeneralUtils.getDefaultConsoleEncoding());
+                IOUtils.copyText(input, buf);
+            }
+        } catch (IOException e) {
+            e.printStackTrace(new PrintWriter(buf, true));
+        }
+        return buf.toString();
+    }
+
 }

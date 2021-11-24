@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@
  */
 package org.jkiss.dbeaver.registry;
 
-import org.eclipse.core.resources.IFile;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPDataSourceConfigurationStorage;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
@@ -33,11 +33,11 @@ interface DataSourceSerializer
         DBRProgressMonitor monitor,
         DBPDataSourceConfigurationStorage configurationStorage,
         List<DataSourceDescriptor> localDataSources,
-        IFile configFile)
+        File configFile)
         throws DBException, IOException;
 
     void parseDataSources(
-        IFile configFile,
+        File configFile,
         DBPDataSourceConfigurationStorage configurationStorage,
         boolean refresh,
         DataSourceRegistry.ParseResults parseResults)

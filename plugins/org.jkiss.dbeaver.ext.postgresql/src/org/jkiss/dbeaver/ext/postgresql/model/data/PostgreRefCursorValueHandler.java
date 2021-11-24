@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ public class PostgreRefCursorValueHandler extends JDBCStructValueHandler {
     @Override
     protected Object fetchColumnValue(DBCSession session, JDBCResultSet resultSet, DBSTypedObject type, int index) throws DBCException, SQLException {
         String cursorName = resultSet.getString(index);
-        return new PostgreRefCursor(cursorName);
+        return new PostgreRefCursor((JDBCSession) session, cursorName);
 /*
         // Fetch as string (#1735)
         // Fetching cursor as object will close it so it won;'t be possible to use cursor in consequent queries

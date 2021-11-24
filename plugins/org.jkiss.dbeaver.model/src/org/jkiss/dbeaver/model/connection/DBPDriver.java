@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@ import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLDialectMetadata;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -42,6 +41,9 @@ public interface DBPDriver extends DBPNamedObject
      */
     @NotNull
     DBPDataSourceProvider getDataSourceProvider();
+
+    @NotNull
+    DBPDataSourceProviderDescriptor getProviderDescriptor();
 
     @NotNull
     String getId();
@@ -66,6 +68,9 @@ public interface DBPDriver extends DBPNamedObject
     DBPImage getIcon();
 
     @NotNull
+    DBPImage getPlainIcon();
+
+    @NotNull
     DBPImage getIconBig();
 
     @Nullable
@@ -73,6 +78,15 @@ public interface DBPDriver extends DBPNamedObject
 
     @Nullable
     String getDefaultPort();
+
+    @Nullable
+    String getDefaultDatabase();
+
+    @Nullable
+    String getDefaultServer();
+
+    @Nullable
+    String getDefaultUser();
 
     @Nullable
     String getSampleURL();
@@ -96,14 +110,19 @@ public interface DBPDriver extends DBPNamedObject
     boolean isLicenseRequired();
     boolean isCustomDriverLoader();
     boolean isUseURL();
+    boolean isCustomEndpointInformation();
+
     // Can be created
     boolean isInstantiable();
-    // Driver shipped along with JDK/DBeaver, doesn't need any additional libraries
+    // Driver shipped along with JDK/DBeaver, doesn't need any additional libraries. Basically it is ODBC driver.
     boolean isInternalDriver();
     // Custom driver: created by user
     boolean isCustom();
     // Temporary driver: used for automatically created drivers when connection  configuration is broken
     boolean isTemporary();
+
+    boolean isDisabled();
+    DBPDriver getReplacedBy();
 
     int getPromotedScore();
 
@@ -111,7 +130,7 @@ public interface DBPDriver extends DBPNamedObject
     DBXTreeNode getNavigatorRoot();
 
     @NotNull
-    Collection<DBPPropertyDescriptor> getConnectionPropertyDescriptors();
+    DBPPropertyDescriptor[] getProviderPropertyDescriptors();
 
     @NotNull
     Map<String, Object> getDefaultConnectionProperties();
@@ -147,8 +166,12 @@ public interface DBPDriver extends DBPNamedObject
     List<? extends DBPDriverFileSource> getDriverFileSources();
 
     @NotNull
-    Object getDriverInstance(@NotNull DBRProgressMonitor monitor) throws DBException;
+    <T> T getDriverInstance(@NotNull DBRProgressMonitor monitor) throws DBException;
 
     void loadDriver(DBRProgressMonitor monitor) throws DBException;
+
+    default String getFullId() {
+        return getProviderId() + ":" + getId();
+    }
 
 }

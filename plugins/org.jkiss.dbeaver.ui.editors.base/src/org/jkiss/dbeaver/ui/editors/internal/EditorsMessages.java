@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,6 +60,17 @@ public class EditorsMessages extends NLS {
 
 	public static String dialog_struct_columns_select_column;
 	public static String dialog_struct_columns_type;
+
+	public static String dialog_morph_delimited_shell_text;
+	public static String dialog_morph_delimited_source_group;
+	public static String dialog_morph_delimited_source_group_delimiter;
+	public static String dialog_morph_delimited_target_group_label;
+	public static String dialog_morph_delimited_target_group_delim_result;
+	public static String dialog_morph_delimited_target_group_delim_quote;
+	public static String dialog_morph_delimited_target_group_spinner_wrap_line;
+	public static String dialog_morph_delimited_target_group_spinner_wrap_line_tip;
+	public static String dialog_morph_delimited_target_group_leading_text;
+	public static String dialog_morph_delimited_target_group_trailing_text;
 
 	static {
 		// initialize resource bundle

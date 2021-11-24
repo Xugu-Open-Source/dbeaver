@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ import org.eclipse.swt.accessibility.AccessibleEvent;
 import org.eclipse.swt.accessibility.AccessibleListener;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.dnd.Clipboard;
+import org.eclipse.swt.dnd.TextTransfer;
+import org.eclipse.swt.dnd.Transfer;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridLayout;
@@ -32,11 +34,15 @@ import org.eclipse.ui.IWorkbenchPartSite;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
+import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.lightgrid.*;
-import org.jkiss.dbeaver.ui.controls.resultset.AbstractPresentation;
-import org.jkiss.dbeaver.ui.controls.resultset.ResultSetPreferences;
+import org.jkiss.dbeaver.ui.controls.resultset.*;
+import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
+
+import java.util.Map;
 
 /**
  * ResultSetControl
@@ -47,10 +53,11 @@ public class Spreadsheet extends LightGrid implements Listener {
     public enum DoubleClickBehavior {
         NONE,
         EDITOR,
-        INLINE_EDITOR
+        INLINE_EDITOR,
+        COPY_VALUE,
+        COPY_PASTE_VALUE
     }
 
-    public static final int MAX_DEF_COLUMN_WIDTH = 300;
     public static final int MAX_INLINE_EDIT_WITH = 300;
 
     @NotNull
@@ -97,7 +104,7 @@ public class Spreadsheet extends LightGrid implements Listener {
         super.setRowHeaderVisible(true);
         super.setLinesVisible(true);
         super.setHeaderVisible(true);
-        super.setMaxColumnDefWidth(MAX_DEF_COLUMN_WIDTH);
+        super.setMaxColumnDefWidth(DBWorkbench.getPlatform().getPreferenceStore().getInt(ResultSetPreferences.RESULT_SET_MAX_COLUMN_DEF_WIDTH));
 
         super.addListener(SWT.MouseDoubleClick, this);
         super.addListener(SWT.MouseDown, this);
@@ -193,12 +200,12 @@ public class Spreadsheet extends LightGrid implements Listener {
 
         GridCell newCell = posToCell(newPos);
         if (newCell != null) {
-            setCursor(newCell, keepSelection, true);
+            setCursor(newCell, keepSelection, true, true);
         }
         return true;
     }
 
-    void setCursor(@NotNull GridCell cell, boolean keepSelection, boolean showColumn)
+    void setCursor(@NotNull GridCell cell, boolean keepSelection, boolean showColumn, boolean notify)
     {
         Event selectionEvent = new Event();
         // Move row
@@ -222,9 +229,11 @@ public class Spreadsheet extends LightGrid implements Listener {
         }
         super.selectCell(pos);
 
-        // Change selection event
-        selectionEvent.data = cell;
-        notifyListeners(SWT.Selection, selectionEvent);
+        if (notify) {
+            // Change selection event
+            selectionEvent.data = cell;
+            notifyListeners(SWT.Selection, selectionEvent);
+        }
     }
 
     public void addCursorChangeListener(Listener listener)
@@ -243,8 +252,10 @@ public class Spreadsheet extends LightGrid implements Listener {
                 if (!ctrlPressed &&
                     (event.keyCode == SWT.CR ||
                     (event.keyCode >= SWT.KEYPAD_0 && event.keyCode <= SWT.KEYPAD_9) ||
+                    (event.keyCode == '-' || event.keyCode == '+' || event.keyCode == SWT.KEYPAD_ADD || event.keyCode == SWT.KEYPAD_SUBTRACT) ||
                     (event.keyCode >= 'a' && event.keyCode <= 'z') ||
-                    (event.keyCode >= '0' && event.keyCode <= '9')))
+                    (event.keyCode >= '0' && event.keyCode <= '9')) ||
+                    Character.isLetterOrDigit(event.character))
                 {
                     Control editorControl = tableEditor.getEditor();
                     if (editorControl == null || editorControl.isDisposed()) {
@@ -296,6 +307,37 @@ public class Spreadsheet extends LightGrid implements Listener {
                         case INLINE_EDITOR:
                             presentation.openValueEditor(true);
                             break;
+                        case COPY_VALUE: {
+                            ResultSetCopySettings copySettings = new ResultSetCopySettings();
+                            copySettings.setFormat(DBDDisplayFormat.EDIT);
+                            ResultSetUtils.copyToClipboard(
+                                presentation.copySelection(copySettings)
+                            );
+                            break;
+                        }
+
+                        case COPY_PASTE_VALUE: {
+                                IResultSetValueReflector valueReflector = GeneralUtils.adapt(
+                                    presentation.getController().getContainer(),
+                                    IResultSetValueReflector.class);
+                                if (valueReflector != null) {
+                                    DBDAttributeBinding currentAttribute = presentation.getCurrentAttribute();
+                                    ResultSetRow currentRow = presentation.getController().getCurrentRow();
+                                    if (currentAttribute != null && currentRow != null) {
+                                        Object cellValue = presentation.getController().getModel().getCellValue(currentAttribute, currentRow);
+                                        ResultSetCopySettings copySettings = new ResultSetCopySettings();
+                                        Map<Transfer, Object> selFormats = presentation.copySelection(copySettings);
+                                        Object textValue = selFormats.get(TextTransfer.getInstance());
+                                        if (textValue != null) {
+                                            valueReflector.insertCurrentCellValue(currentAttribute, cellValue, CommonUtils.toString(textValue));
+                                        }
+                                    }
+                                } else {
+                                    // No value reflector - open inline editor then
+                                    presentation.openValueEditor(true);
+                                }
+                            break;
+                        }
                     }
                 }
                 break;

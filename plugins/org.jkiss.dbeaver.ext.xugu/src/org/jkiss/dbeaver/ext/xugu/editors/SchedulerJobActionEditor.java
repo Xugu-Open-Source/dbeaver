@@ -34,7 +34,7 @@ public class SchedulerJobActionEditor extends SQLSourceViewer<SchedulerJob> {
 	@Override
 	protected String getSourceText(DBRProgressMonitor monitor) throws DBException {
 		SchedulerJob schedulerJob = getSourceObject();
-		return schedulerJob.getAction().toString();
+		return schedulerJob.getActionDef();
 	}
 
 	@Override

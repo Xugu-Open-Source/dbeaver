@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ public class UINavigatorPreferencesInitializer extends AbstractPreferenceInitial
 
         // Navigator
         PrefUtils.setDefaultPreferenceValue(store, NavigatorPreferences.NAVIGATOR_EXPAND_ON_CONNECT, false);
+        PrefUtils.setDefaultPreferenceValue(store, NavigatorPreferences.NAVIGATOR_RESTORE_FILTER, false);
         PrefUtils.setDefaultPreferenceValue(store, NavigatorPreferences.NAVIGATOR_RESTORE_STATE_DEPTH, 0);
         PrefUtils.setDefaultPreferenceValue(store, NavigatorPreferences.NAVIGATOR_COLOR_ALL_NODES, false);
         PrefUtils.setDefaultPreferenceValue(store, NavigatorPreferences.NAVIGATOR_SYNC_EDITOR_DATASOURCE, false);
@@ -51,8 +52,13 @@ public class UINavigatorPreferencesInitializer extends AbstractPreferenceInitial
         PrefUtils.setDefaultPreferenceValue(store, NavigatorPreferences.NAVIGATOR_SHOW_SQL_PREVIEW, true);
         PrefUtils.setDefaultPreferenceValue(store, NavigatorPreferences.NAVIGATOR_SHOW_OBJECT_TIPS, true);
         PrefUtils.setDefaultPreferenceValue(store, NavigatorPreferences.NAVIGATOR_LONG_LIST_FETCH_SIZE, 5000);
+        PrefUtils.setDefaultPreferenceValue(store, NavigatorPreferences.NAVIGATOR_SHOW_STATISTICS_INFO, true);
+        PrefUtils.setDefaultPreferenceValue(store, NavigatorPreferences.NAVIGATOR_SHOW_CONNECTION_HOST_NAME, true);
+        PrefUtils.setDefaultPreferenceValue(store, NavigatorPreferences.NAVIGATOR_SHOW_NODE_ACTIONS, true);
         PrefUtils.setDefaultPreferenceValue(store, NavigatorPreferences.ENTITY_EDITOR_DETACH_INFO, true);
 
+        PrefUtils.setDefaultPreferenceValue(store, NavigatorPreferences.NAVIGATOR_SHOW_TOOLTIPS, true);
+        PrefUtils.setDefaultPreferenceValue(store, NavigatorPreferences.NAVIGATOR_SHOW_CONTENTS_IN_TOOLTIP, false);
     }
 
 

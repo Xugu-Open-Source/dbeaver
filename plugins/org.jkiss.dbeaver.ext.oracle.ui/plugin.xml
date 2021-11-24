@@ -2,7 +2,7 @@
 <?eclipse version="3.2"?>
 <!--
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -125,7 +125,7 @@
     </extension>
 
     <extension point="org.jkiss.dbeaver.ui.propertyConfigurator">
-        <propertyConfigurator class="org.jkiss.dbeaver.ext.oracle.model.auth.OracleAuthDatabaseNative" uiClass="org.jkiss.dbeaver.ext.oracle.ui.config.OracleAuthDatabaseNativeConfigurator"/>
+        <propertyConfigurator class="org.jkiss.dbeaver.ext.oracle.model.auth.OracleAuthModelDatabaseNative" uiClass="org.jkiss.dbeaver.ext.oracle.ui.config.OracleAuthDatabaseNativeConfigurator"/>
 <!--        <propertyConfigurator class="org.jkiss.dbeaver.ext.oracle.model.auth.OracleAuthOS" uiClass="org.jkiss.dbeaver.ext.oracle.ui.config.OracleAuthOSConfigurator"/>-->
     </extension>
 
@@ -194,6 +194,8 @@
             <objectType name="org.jkiss.dbeaver.ext.oracle.model.OracleDataType" if="!object.predefined"/>
             <objectType name="org.jkiss.dbeaver.ext.oracle.model.OracleTrigger"/>
             <objectType name="org.jkiss.dbeaver.ext.oracle.model.OracleTableIndex"/>
+            <objectType name="org.jkiss.dbeaver.ext.oracle.model.OracleJavaClass"/>
+            <objectType name="org.jkiss.dbeaver.ext.oracle.model.OracleJob"/>
         </editor>
         <editor id="source.definition" class="org.jkiss.dbeaver.ext.oracle.ui.editors.OracleSourceDefinitionEditor"
                 label="%editor.package.body.name" description="%editor.package.body.description" icon="#sql_text" position="additions_middle"
@@ -294,7 +296,7 @@
                     singleton="false">
                 <objectType name="org.jkiss.dbeaver.ext.oracle.model.OracleTable"/>
                 <objectType name="org.jkiss.dbeaver.ext.oracle.model.OracleTableIndex"/>
-                <objectType name="org.jkiss.dbeaver.ext.oracle.model.OracleSchema"/>
+                <!--<objectType name="org.jkiss.dbeaver.ext.oracle.model.OracleSchema"/>-->
             </tool>
             <tool
                     class="org.jkiss.dbeaver.ext.oracle.ui.tools.maintenance.OracleToolTruncate"
@@ -304,6 +306,24 @@
                     label="Truncate"
                     singleton="false">
                 <objectType name="org.jkiss.dbeaver.ext.oracle.model.OracleTable"/>
+            </tool>
+            <tool
+                    class="org.jkiss.dbeaver.ext.oracle.ui.tools.maintenance.OracleToolTriggerDisable"
+                    description="Disable trigger(s)"
+                    id="org.jkiss.dbeaver.ext.oracle.ui.tools.maintenance.OracleToolTriggerDisable"
+                    group="org.jkiss.dbeaver.ext.oracle.ui.tools.maintenance"
+                    label="Disable trigger"
+                    singleton="false">
+                <objectType name="org.jkiss.dbeaver.ext.oracle.model.OracleTableTrigger" if="object.status == 'ENABLED'"/>
+            </tool>
+            <tool
+                    class="org.jkiss.dbeaver.ext.oracle.ui.tools.maintenance.OracleToolTriggerEnable"
+                    description="Enable trigger(s)"
+                    id="org.jkiss.dbeaver.ext.oracle.ui.tools.maintenance.OracleToolTriggerEnable"
+                    group="org.jkiss.dbeaver.ext.oracle.ui.tools.maintenance"
+                    label="Enable trigger"
+                    singleton="false">
+                <objectType name="org.jkiss.dbeaver.ext.oracle.model.OracleTableTrigger" if="object.status == 'DISABLED'"/>
             </tool>
         </tools>
     </extension>

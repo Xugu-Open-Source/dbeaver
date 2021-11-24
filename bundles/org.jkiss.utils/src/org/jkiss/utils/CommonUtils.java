@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,9 @@ import org.jkiss.code.Nullable;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
+import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Common utils
@@ -87,10 +90,10 @@ public class CommonUtils {
         return res.toString();
     }
 
-    @Nullable
+    @NotNull
     public static String escapeFileName(@Nullable String str) {
         if (str == null) {
-            return null;
+            return "";
         }
         StringBuilder res = new StringBuilder(str.length());
         for (int i = 0; i < str.length(); i++) {
@@ -201,6 +204,38 @@ public class CommonUtils {
             return new ArrayList<>();
         } else {
             return new ArrayList<>(theList);
+        }
+    }
+
+    /**
+     * Swaps the element with its neighbor to the left in the specified list.
+     * If the element is not present in the list or it is the leftmost element in the list,
+     * the list remains unchanged.
+     *
+     * @param list list
+     * @param element element
+     * @param <T> type of the list
+     */
+    public static <T> void shiftLeft(@NotNull List<? super T> list, @NotNull T element) {
+        int idx = list.indexOf(element);
+        if (idx > 0) {
+            Collections.swap(list, idx - 1, idx);
+        }
+    }
+
+    /**
+     * Swaps the element with its neighbor to the right in the specified list.
+     * If the element is not present in the list or it is the rightmost element in the list,
+     * the list remains unchanged.
+     *
+     * @param list list
+     * @param element element
+     * @param <T> type of the list
+     */
+    public static <T> void shiftRight(@NotNull List<? super T> list, @NotNull T element) {
+        int idx = list.indexOf(element);
+        if (idx != -1 && idx != list.size() - 1) {
+            Collections.swap(list, idx, idx + 1);
         }
     }
 
@@ -388,6 +423,21 @@ public class CommonUtils {
         }
     }
 
+    public static boolean isNumber(@Nullable Object object) {
+        if (object == null) {
+            return false;
+        } else if (object instanceof Number) {
+            return true;
+        } else {
+            try {
+                Double.parseDouble(toString(object));
+                return true;
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+    }
+
     public static double toDouble(@Nullable Object object) {
         if (object == null) {
             return 0.0;
@@ -414,6 +464,44 @@ public class CommonUtils {
                 return def;
             }
         }
+    }
+
+    public static float toFloat(@Nullable Object object) {
+        if (object == null) {
+            return 0.0f;
+        } else if (object instanceof Number) {
+            return ((Number) object).floatValue();
+        } else {
+            try {
+                return Float.parseFloat(toString(object));
+            } catch (NumberFormatException e) {
+                return Float.NaN;
+            }
+        }
+    }
+
+    public static float toFloat(@Nullable Object object, float def) {
+        if (object == null) {
+            return def;
+        } else if (object instanceof Number) {
+            return ((Number) object).floatValue();
+        } else {
+            try {
+                return Float.parseFloat(toString(object));
+            } catch (NumberFormatException e) {
+                return def;
+            }
+        }
+    }
+
+    public static boolean isNaN(@Nullable Object value) {
+        return (value instanceof Float && ((Float) value).isNaN())
+            || (value instanceof Double && ((Double) value).isNaN());
+    }
+
+    public static boolean isInfinite(@Nullable Object value) {
+        return (value instanceof Float && ((Float) value).isInfinite())
+            || (value instanceof Double && ((Double) value).isInfinite());
     }
 
     @NotNull
@@ -683,7 +771,7 @@ public class CommonUtils {
         return String.format("%1$"+length+ "s", string);
     }
 
-    public static boolean startsWithIgnoreCase(@NotNull String str, @NotNull String startPart) {
+    public static boolean startsWithIgnoreCase(@Nullable String str, @Nullable String startPart) {
         if (isEmpty(str) || isEmpty(startPart)) {
             return false;
         }
@@ -772,5 +860,157 @@ public class CommonUtils {
         return (cal1.get(Calendar.ERA) == cal2.get(Calendar.ERA) &&
             cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
             cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR));
+    }
+
+    public static String escapeBourneShellString(@NotNull String s) {
+        return "'" + s.replace("'", "'\\''") + "'";
+    }
+
+    public static String unescapeBourneShellString(@NotNull String s) {
+        if (!s.startsWith("'") || !s.endsWith("'") || s.length() < 2) { //not an escaped bourne shell string
+            return s;
+        }
+        return s.substring(1, s.length() - 1).replace("'\\''", "'");
+    }
+
+    /**
+     * Checks whether the supplied <code>ch</code> is within
+     * the range of the specified <code>radix</code> value.
+     *
+     * @param ch    character codepoint to be checked
+     * @param radix desired radix
+     * @return <code>true</code> if the character fits
+     * into the radix, <code>false</code> otherwise
+     */
+    public static boolean isDigit(int ch, int radix) {
+        if (radix <= 0 || radix > 36)
+            return false;
+        if (ch >= '0' && ch <= '9')
+            return radix > ch - '0';
+        if (ch >= 'a' && ch <= 'z')
+            return radix > ch - 'a' + 10;
+        if (ch >= 'A' && ch <= 'Z')
+            return radix > ch - 'A' + 10;
+        return false;
+    }
+
+    @NotNull
+    @SafeVarargs
+    public static <T> Set<T> unmodifiableSet(@NotNull T... vararg) {
+        return Collections.unmodifiableSet(new HashSet<>(Arrays.asList(vararg)));
+    }
+
+    /**
+     * Checks if the {@code index} is within the bounds of the range from
+     * {@code 0} (inclusive) to {@code length} (exclusive).
+     *
+     * <p>The {@code index} is defined to be out of bounds if any of the
+     * following inequalities is true:
+     * <ul>
+     *  <li>{@code index < 0}</li>
+     *  <li>{@code index >= length}</li>
+     *  <li>{@code length < 0}, which is implied from the former inequalities</li>
+     * </ul>
+     *
+     * @param index the index
+     * @param length the upper-bound (exclusive) of the range
+     * @return {@code true} if it is within bounds of the range
+     */
+    public static boolean isValidIndex(int index, int length) {
+        return 0 <= index && index < length;
+    }
+
+    @NotNull
+    public static String escapeHtml(@Nullable String text) {
+        if (text == null) {
+            return "&nbsp;";
+        }
+        return text
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\r\n", "<br>")
+            .replace("\r", "<br>")
+            .replace("\n", "<br>");
+    }
+
+    /**
+     * Finds the object with the best matching name. Here we consider a case sensitive match better then a case insensitive one.
+     *
+     * @param objects container with objects
+     * @param name to match
+     * @param nameExtractor function which extracts the name from object
+     * @param <T> type of objects to search from
+     * @return the best match or {@code null} if nothing found
+     */
+    @Nullable
+    public static <T> T findBestCaseAwareMatch(@NotNull Iterable<? extends T> objects, @NotNull String name,
+                                               @NotNull Function<? super T, String> nameExtractor) {
+        T firstCaseInsensitiveMatch = null;
+        for (T obj: objects) {
+            String objectName = nameExtractor.apply(obj);
+            if (name.equals(objectName)) { //case sensitive match
+                return obj;
+            }
+            if (firstCaseInsensitiveMatch == null && name.equalsIgnoreCase(objectName)) {
+                firstCaseInsensitiveMatch = obj;
+            }
+        }
+        return firstCaseInsensitiveMatch;
+    }
+
+    /**
+     * Groups values into a map of their shared key and a list of matching values using that key.
+     * <p>
+     * <h3>Group strings by their first character</h3>
+     * <pre>{@code
+     * final List<String> values = Arrays.asList("aaa", "abb", "bbb", "bab", "ccc");
+     * final Map<Character, List<String>> groups = group(values, x -> x.charAt(0));
+     *
+     * Assert.assertEquals(Arrays.asList("aaa", "abb"), groups.get('a'));
+     * Assert.assertEquals(Arrays.asList("bbb", "bab"), groups.get('b'));
+     * Assert.assertEquals(Arrays.asList("ccc"), groups.get('c'));
+     * }</pre>
+     * @param values values to group
+     * @param keyExtractor a function that extracts key from value that is used to group values
+     * @return map of a shared key and a list of matching values
+     */
+    @NotNull
+    public static <K, V> Map<K, List<V>> group(@NotNull Collection<V> values, @NotNull Function<? super V, ? extends K> keyExtractor) {
+        final Map<K, List<V>> grouped = new HashMap<>();
+        for (V value : values) {
+            final K key = keyExtractor.apply(value);
+            final List<V> group = grouped.computeIfAbsent(key, k -> new ArrayList<>());
+            group.add(value);
+        }
+        return grouped;
+    }
+
+    /**
+     * Clamps given value to range between lower and upper bounds.
+     *
+     * @param value the value to clamp
+     * @param min   the lower boundary to clamp {@code value} to
+     * @param max   the upper boundary to clamp {@code value} to
+     * @return {@code min} if {@code value} is less than {@code min}, {@code max} if {@code value} is greater than {@code max}, otherwise {@code value}
+     */
+    public static int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(value, max));
+    }
+
+    /**
+     * Replaces every subsequence of the input sequence that matches the
+     * pattern with the result of applying the given replacer function to the
+     * match result of this matcher corresponding to that subsequence.
+     */
+    @NotNull
+    public static String replaceAll(@NotNull String input, @NotNull String regex, @NotNull Function<Matcher, String> replacer) {
+        final Matcher matcher = Pattern.compile(regex).matcher(input);
+        final StringBuffer sb = new StringBuffer();
+        while (matcher.find()) {
+            matcher.appendReplacement(sb, replacer.apply(matcher));
+        }
+        matcher.appendTail(sb);
+        return sb.toString();
     }
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,15 @@ package org.jkiss.dbeaver.ext.bigquery.model;
 import org.jkiss.dbeaver.ext.generic.model.GenericSQLDialect;
 
 /**
- * Snowflake constants
+ * BigQuery SQL dialect
  */
 public class BigQuerySQLDialect extends GenericSQLDialect {
     public BigQuerySQLDialect() {
-        super("BigQuery");
+        super("BigQuery", "google_bigquery");
+    }
+
+    @Override
+    public char getStringEscapeCharacter() {
+        return '\\';
     }
 }

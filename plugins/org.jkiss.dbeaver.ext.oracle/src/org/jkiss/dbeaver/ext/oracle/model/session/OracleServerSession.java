@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.jkiss.dbeaver.model.meta.Property;
 
 import java.sql.ResultSet;
 import java.sql.Timestamp;
+import java.util.Objects;
 
 /**
  * Session
@@ -33,10 +34,9 @@ public class OracleServerSession extends AbstractServerSession {
     public static final String CAT_PROCESS = "Process";
     public static final String CAT_IO = "IO";
     public static final String CAT_WAIT = "Wait";
-    //public static final String CAT_STAT = "Statistics";
 
     private long instId;
-    private long sid;
+    private final long sid;
     private long serial;
     private long sqlChildNumber; // SergDzh: to show in list
     private String user;
@@ -46,7 +46,7 @@ public class OracleServerSession extends AbstractServerSession {
     private String state;
     private String sqlId;
     private String sql;
-    private String event;
+    private final String event;
     private long secondsInWait;
     private long elapsedTime;
     private Timestamp logonTime;
@@ -273,4 +273,16 @@ public class OracleServerSession extends AbstractServerSession {
         return sid + " - " + event;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        OracleServerSession that = (OracleServerSession) o;
+        return sid == that.sid && Objects.equals(event, that.event);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(sid, event);
+    }
 }

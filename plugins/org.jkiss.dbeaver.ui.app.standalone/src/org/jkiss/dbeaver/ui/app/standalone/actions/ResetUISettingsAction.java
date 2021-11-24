@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import org.eclipse.jface.action.Action;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
+import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.app.standalone.DBeaverApplication;
 import org.jkiss.dbeaver.ui.app.standalone.internal.CoreApplicationMessages;
@@ -39,7 +40,8 @@ public class ResetUISettingsAction extends Action
         if (UIUtils.confirmAction(
             window == null ? null : window.getShell(),
             CoreApplicationMessages.actions_menu_reset_ui_settings_title,
-            CoreApplicationMessages.actions_menu_reset_ui_settings_message))
+            CoreApplicationMessages.actions_menu_reset_ui_settings_message,
+            DBIcon.STATUS_WARNING))
         {
             DBeaverApplication.getInstance().setResetUIOnRestart(true);
             IWorkbench workbench = PlatformUI.getWorkbench();

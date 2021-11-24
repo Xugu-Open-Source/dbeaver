@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,17 @@
 package org.jkiss.dbeaver.ext.spanner.model;
 
 /**
- * Snowflake constants
+ * Spanner constants
  */
 public class SpannerConstants {
 
+	// Community driver constants.
     public static final String DRIVER_PROP_PROJECT_ID = "Project";
     public static final String DRIVER_PROP_INSTANCE_ID = "Instance";
     public static final String DRIVER_PROP_DATABASE_ID = "Database";
     public static final String DRIVER_PROP_PVTKEYPATH = "PvtKeyPath";
+    
+    // Official driver constants
+    public static final String DRIVER_PROP_CREDENTIALS_FILE = "credentials";
 
 }

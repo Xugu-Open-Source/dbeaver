@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,11 +27,10 @@ import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.tools.transfer.IDataTransferConsumer;
 import org.jkiss.dbeaver.tools.transfer.IDataTransferNode;
 import org.jkiss.dbeaver.tools.transfer.IDataTransferProducer;
-import org.jkiss.dbeaver.tools.transfer.registry.DataTransferProcessorDescriptor;
+import org.jkiss.dbeaver.tools.transfer.ui.internal.DTUIMessages;
 import org.jkiss.dbeaver.tools.transfer.ui.wizard.DataTransferWizard;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 public abstract class DataTransferHandler extends AbstractHandler {
@@ -43,18 +42,15 @@ public abstract class DataTransferHandler extends AbstractHandler {
         if (!(selection instanceof IStructuredSelection)) {
             return null;
         }
-        DataTransferProcessorDescriptor processorDescriptor = null;
         IStructuredSelection ss = (IStructuredSelection)selection;
-        final List<IDataTransferProducer> producers = new ArrayList<>();
-        final List<IDataTransferConsumer> consumers = new ArrayList<>();
-        for (Iterator<?> iter = ss.iterator(); iter.hasNext(); ) {
-            Object object = iter.next();
-
-            IDataTransferNode node = adaptTransferNode(object);
+        final List<IDataTransferProducer<?>> producers = new ArrayList<>();
+        final List<IDataTransferConsumer<?,?>> consumers = new ArrayList<>();
+        for (Object object : ss) {
+            IDataTransferNode<?> node = adaptTransferNode(object);
             if (node instanceof IDataTransferProducer) {
-                producers.add((IDataTransferProducer) node);
+                producers.add((IDataTransferProducer<?>) node);
             } else if (node instanceof IDataTransferConsumer) {
-                consumers.add((IDataTransferConsumer) node);
+                consumers.add((IDataTransferConsumer<?, ?>) node);
             }
         }
 
@@ -66,13 +62,15 @@ public abstract class DataTransferHandler extends AbstractHandler {
                     producers,
                     consumers);
             } catch (Exception e) {
-                DBWorkbench.getPlatformUI().showError("Data transfer error", "Error opening data transfer wizard", e);
+                DBWorkbench.getPlatformUI().showError(DTUIMessages.data_transfer_handler_title_data_transfer_error, DTUIMessages.data_transfer_handler_message_data_transfer_error, e);
             }
+        } else {
+            DBWorkbench.getPlatformUI().showError(DTUIMessages.data_transfer_handler_title_data_transfer_error, "Can't perform data transfer: selected objects are not recognized as data producers or data consumers");
         }
 
         return null;
     }
 
-    protected abstract IDataTransferNode adaptTransferNode(Object object);
+    protected abstract IDataTransferNode<?> adaptTransferNode(Object object);
 
 }

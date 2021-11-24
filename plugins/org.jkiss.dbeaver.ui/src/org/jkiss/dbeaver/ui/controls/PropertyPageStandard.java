@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2020 DBeaver Corp and others
+ * Copyright (C) 2010-2021 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  */
 package org.jkiss.dbeaver.ui.controls;
 
+import org.eclipse.core.runtime.IAdaptable;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.ui.IWorkbenchPart;
@@ -65,6 +66,7 @@ public class PropertyPageStandard extends PropertySheetPage implements ILazyProp
             }
         );
         setPropertySourceProvider(this);
+
         // Register lazy load listener
         PropertiesContributor.getInstance().addLazyListener(this);
     }
@@ -132,7 +134,12 @@ public class PropertyPageStandard extends PropertySheetPage implements ILazyProp
             for (PropertySourceCache cache : curSelection) {
                 if (cache.object == object) {
                     if (!cache.cached) {
-                        cache.propertySource = RuntimeUtils.getObjectAdapter(object, IPropertySource.class);
+                        if (object instanceof IAdaptable) {
+                            cache.propertySource = ((IAdaptable) object).getAdapter(IPropertySource.class);
+                        }
+                        if (cache.propertySource == null) {
+                            cache.propertySource = RuntimeUtils.getObjectAdapter(object, IPropertySource.class);
+                        }
                         cache.cached = true;
                     }
                     return cache.propertySource;
@@ -144,7 +151,7 @@ public class PropertyPageStandard extends PropertySheetPage implements ILazyProp
                 new PropertySourceCollection((Collection<?>) object));
         } else if (object instanceof Map) {
             return new PropertySourceDelegate(
-                new PropertySourceMap((Map<?, ?>) object));
+                new PropertySourceMap((Map<String, ?>) object));
         }
         return RuntimeUtils.getObjectAdapter(object, IPropertySource.class);
     }
