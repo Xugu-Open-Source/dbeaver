@@ -4,11 +4,11 @@
 
 ## 部署说明
 
-### 下载安装 DBeaver 7.0.2
+### 下载安装 DBeaver 21.2.4
 
 下载地址：[https://github.com/dbeaver/dbeaver/releases](https://github.com/dbeaver/dbeaver/releases)
 
-### 注册插件至 DBeaver 7.0.2
+### 注册插件至 DBeaver 21.2.4
 
 1. 将插件 jar 包放入 `DBeaver（安装目录）/plugins` 目录中
 2. 使用文本编辑器打开 `DBeaver（安装目录）/configuration/org.eclipse.equinox.simpleconfigurator/bundles.info` 文件
@@ -44,11 +44,11 @@ views|额外的页面类目录（自主实现）
 
 ### 环境要求
 
-- JDK 8
+- JDK 11
 - Eclipse IDE for RCP and RAP Developers
 - Apache Maven 3
 - Git
-- DBeaver 7.0.2
+- DBeaver 21.2.4
 
 ### 安装依赖插件
 
