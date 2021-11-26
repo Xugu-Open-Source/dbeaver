@@ -1982,7 +1982,7 @@ public class SQLEditor extends SQLEditorBase implements
         vars.put(VAR_FILE_EXT,
             file == null ? "" : file.getFullPath().getFileExtension());
         vars.put(VAR_DRIVER_NAME, dataSourceContainer == null ? "?" : dataSourceContainer.getDriver().getFullName());
-        vars.put("valid", dataSourceContainer == null ? "[¡Á]" : dataSourceContainer.isConnected() ? "[¡Ì]" : "[¡Á]");
+        vars.put("valid", dataSourceContainer == null ? "[Ã—]" : dataSourceContainer.isConnected() ? "[âˆš]" : "[Ã—]");
         vars.put("userName", dataSourceContainer == null ? "" : dataSourceContainer.getConnectionConfiguration().getUserName() == null ? "" : " [" + dataSourceContainer.getConnectionConfiguration().getUserName() + "]");
         vars.put("databaseName", dataSourceContainer == null ? "" : dataSourceContainer.getConnectionConfiguration().getDatabaseName() == null ? "" : " [" + dataSourceContainer.getConnectionConfiguration().getDatabaseName() + "]");
 
@@ -2469,7 +2469,7 @@ public class SQLEditor extends SQLEditorBase implements
                                         break;
                                     default:
                                         curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, !export && getActivePreferenceStore().getBoolean(SQLPreferenceConstants.RESULT_SET_CLOSE_ON_ERROR), queryListener);
-                                        throw new RuntimeException("½âÎöÁ¬½ÓÃüÁîÊ§°Ü£¬Êı¾İ¶ÎË÷ÒıÔ½½ç£º" + partIndex);
+                                        throw new RuntimeException("è§£æè¿æ¥å‘½ä»¤å¤±è´¥ï¼Œæ•°æ®æ®µç´¢å¼•è¶Šç•Œï¼š" + partIndex);
                                 }
                                 builder = new StringBuilder();
                                 ++partIndex;
@@ -2504,8 +2504,8 @@ public class SQLEditor extends SQLEditorBase implements
                         dataSourceContainer.reconnect(monitor);
                         curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, !export && getActivePreferenceStore().getBoolean(SQLPreferenceConstants.RESULT_SET_CLOSE_ON_ERROR), queryListener);
                         dataSourceContainer.persistConfiguration();
-                        DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "µÇÂ¼³É¹¦",
-                                String.format("µÇÂ¼³É¹¦£¬µ±Ç°Á¬½ÓĞÅÏ¢£º\nÖ÷»ú£º%s:%s\n¿âÃû£º%s\nÓÃ»§Ãû£º%s", hostName, hostPort, catalog, username),
+                        DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "ç™»å½•æˆåŠŸ",
+                                String.format("ç™»å½•æˆåŠŸï¼Œå½“å‰è¿æ¥ä¿¡æ¯ï¼š\nä¸»æœºï¼š%s:%s\nåº“åï¼š%s\nç”¨æˆ·åï¼š%s", hostName, hostPort, catalog, username),
                                 DBPMessageType.INFORMATION, () -> {
                                     try {
                                         Thread.sleep(10000);
@@ -2525,8 +2525,8 @@ public class SQLEditor extends SQLEditorBase implements
                             dataSourceContainer.disconnect(monitor);
                             dataSourceContainer.reconnect(monitor);
                             curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, !export && getActivePreferenceStore().getBoolean(SQLPreferenceConstants.RESULT_SET_CLOSE_ON_ERROR), queryListener);
-                            DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "µÇÂ¼Ê§°Ü",
-                                    String.format("µÇÂ¼Ê§°Ü£¬ÒÑÎªÄú»Ö¸´µ½Ô­Á¬½Ó£º\nÖ÷»ú£º%s:%s\n¿âÃû£º%s\nÓÃ»§Ãû£º%s", originHostName, originHostPort, originDatabaseName, originUsername),
+                            DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "ç™»å½•å¤±è´¥",
+                                    String.format("ç™»å½•å¤±è´¥ï¼Œå·²ä¸ºæ‚¨æ¢å¤åˆ°åŸè¿æ¥ï¼š\nä¸»æœºï¼š%s:%s\nåº“åï¼š%s\nç”¨æˆ·åï¼š%s", originHostName, originHostPort, originDatabaseName, originUsername),
                                     DBPMessageType.ERROR, () -> {
                                         try {
                                             Thread.sleep(10000);
@@ -2535,9 +2535,9 @@ public class SQLEditor extends SQLEditorBase implements
                                         }
                                     });
                         } catch (DBException e1) {
-                            throw new RuntimeException("»ØÍËµ½Ô­Êı¾İÔ´Ê§°Ü", e);
+                            throw new RuntimeException("å›é€€åˆ°åŸæ•°æ®æºå¤±è´¥", e);
                         }
-                        throw new RuntimeException("Á¬½ÓÊ§°Ü£º" + e.getCause().getLocalizedMessage(), e);
+                        throw new RuntimeException("è¿æ¥å¤±è´¥ï¼š" + e.getCause().getLocalizedMessage(), e);
                     } finally {
                         monitor.done();
                     }
@@ -2547,9 +2547,9 @@ public class SQLEditor extends SQLEditorBase implements
                         try {
                             dataSourceContainer.disconnect(monitor);
                         } catch (DBException e) {
-                            throw new RuntimeException("¶Ï¿ªÊı¾İÔ´Ê§°Ü", e1);
+                            throw new RuntimeException("æ–­å¼€æ•°æ®æºå¤±è´¥", e1);
                         }
-                        throw new RuntimeException("»ØÍËµ½Ô­Êı¾İÔ´Ê§°Ü", e1);
+                        throw new RuntimeException("å›é€€åˆ°åŸæ•°æ®æºå¤±è´¥", e1);
                     }
                     initSeparateConnection(dataSourceContainer.getDataSource(), null);
                 } else {
@@ -2576,8 +2576,8 @@ public class SQLEditor extends SQLEditorBase implements
                     dataSourceContainer.reconnect(monitor);
                     dataSourceContainer.persistConfiguration();
                     curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, !export && getActivePreferenceStore().getBoolean(SQLPreferenceConstants.RESULT_SET_CLOSE_ON_ERROR), queryListener);
-                    DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "µÇÂ¼³É¹¦",
-                            String.format("µÇÂ¼³É¹¦£¬µ±Ç°Á¬½ÓĞÅÏ¢£º\nÖ÷»ú£º%s:%s\n¿âÃû£º%s\nÓÃ»§Ãû£º%s", originHostName, originHostPort, useCatalog, config.getUserName()),
+                    DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "ç™»å½•æˆåŠŸ",
+                            String.format("ç™»å½•æˆåŠŸï¼Œå½“å‰è¿æ¥ä¿¡æ¯ï¼š\nä¸»æœºï¼š%s:%s\nåº“åï¼š%s\nç”¨æˆ·åï¼š%s", originHostName, originHostPort, useCatalog, config.getUserName()),
                             DBPMessageType.INFORMATION, () -> {
                                 try {
                                     Thread.sleep(10000);
@@ -2593,8 +2593,8 @@ public class SQLEditor extends SQLEditorBase implements
                         dataSourceContainer.disconnect(monitor);
                         dataSourceContainer.reconnect(monitor);
                         curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, !export && getActivePreferenceStore().getBoolean(SQLPreferenceConstants.RESULT_SET_CLOSE_ON_ERROR), queryListener);
-                        DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "µÇÂ¼Ê§°Ü",
-                                String.format("µÇÂ¼Ê§°Ü£¬ÒÑÎªÄú»Ö¸´µ½Ô­Á¬½Ó£º\nÖ÷»ú£º%s:%s\n¿âÃû£º%s\nÓÃ»§Ãû£º%s", originHostName, originHostPort, originDatabaseName, config.getUserName()),
+                        DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "ç™»å½•å¤±è´¥",
+                                String.format("ç™»å½•å¤±è´¥ï¼Œå·²ä¸ºæ‚¨æ¢å¤åˆ°åŸè¿æ¥ï¼š\nä¸»æœºï¼š%s:%s\nåº“åï¼š%s\nç”¨æˆ·åï¼š%s", originHostName, originHostPort, originDatabaseName, config.getUserName()),
                                 DBPMessageType.ERROR, () -> {
                                     try {
                                         Thread.sleep(10000);
@@ -2603,9 +2603,9 @@ public class SQLEditor extends SQLEditorBase implements
                                     }
                                 });
                     } catch (DBException e1) {
-                        throw new RuntimeException("»ØÍËµ½Ô­Êı¾İÔ´Ê§°Ü", e);
+                        throw new RuntimeException("å›é€€åˆ°åŸæ•°æ®æºå¤±è´¥", e);
                     }
-                    throw new RuntimeException("Á¬½ÓÊ§°Ü£º" + e.getCause().getLocalizedMessage(), e);
+                    throw new RuntimeException("è¿æ¥å¤±è´¥ï¼š" + e.getCause().getLocalizedMessage(), e);
                 } finally {
                     monitor.done();
                 }
@@ -2615,9 +2615,9 @@ public class SQLEditor extends SQLEditorBase implements
                     try {
                         dataSourceContainer.disconnect(monitor);
                     } catch (DBException e) {
-                        throw new RuntimeException("¶Ï¿ªÊı¾İÔ´Ê§°Ü", e1);
+                        throw new RuntimeException("æ–­å¼€æ•°æ®æºå¤±è´¥", e1);
                     }
-                    throw new RuntimeException("»ØÍËµ½Ô­Êı¾İÔ´Ê§°Ü", e1);
+                    throw new RuntimeException("å›é€€åˆ°åŸæ•°æ®æºå¤±è´¥", e1);
                 }
                 initSeparateConnection(dataSourceContainer.getDataSource(), null);
             } else {

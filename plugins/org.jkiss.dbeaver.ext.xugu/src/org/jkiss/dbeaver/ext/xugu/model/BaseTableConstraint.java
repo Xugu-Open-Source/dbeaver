@@ -27,7 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 约束信息基类
+ * 绾︽潫淇℃伅鍩虹被
  */
 public abstract class BaseTableConstraint extends JDBCTableConstraint<BaseTable> {
 	private ObjectStatus status;

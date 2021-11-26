@@ -37,7 +37,7 @@ import org.jkiss.utils.CommonUtils;
 import java.sql.SQLException;
 
 /**
- * Ö´ĞĞÉÏÏÂÎÄ
+ * æ‰§è¡Œä¸Šä¸‹æ–‡
  */
 public class ExecutionContext extends JDBCExecutionContext implements DBCExecutionContextDefaults<DBSCatalog, Schema> {
 	private static final Log log = Log.getLog(ExecutionContext.class);
@@ -66,7 +66,7 @@ public class ExecutionContext extends JDBCExecutionContext implements DBCExecuti
 
 	@Override
 	public DBSCatalog getDefaultCatalog() {
-		// TODO »ñÈ¡Ä¬ÈÏÄ¿Â¼
+		// TODO è·å–é»˜è®¤ç›®å½•
 		return null;
 	}
 
@@ -105,13 +105,13 @@ public class ExecutionContext extends JDBCExecutionContext implements DBCExecuti
 		setCurrentSchema(monitor, schema);
 		activeSchemaName = schema.getName();
 
-		// ·¢ËÍÍ¨Öª
+		// å‘é€é€šçŸ¥
 		DBUtils.fireObjectSelectionChange(oldSelectedEntity, schema);
 	}
 
 	@Override
 	public boolean refreshDefaults(DBRProgressMonitor monitor, boolean useBootstrapSettings) throws DBException {
-		// ¼ì²éÄ¬ÈÏ¼¤»îÄ£Ê½
+		// æ£€æŸ¥é»˜è®¤æ¿€æ´»æ¨¡å¼
 		try (JDBCSession session = openSession(monitor, DBCExecutionPurpose.META, "Query active schema")) {
 			if (useBootstrapSettings) {
 				DBPConnectionBootstrap bootstrap = getBootstrapSettings();
@@ -119,7 +119,7 @@ public class ExecutionContext extends JDBCExecutionContext implements DBCExecuti
 					setCurrentSchema(monitor, bootstrap.getDefaultSchemaName());
 				}
 			}
-			// »ñÈ¡¼¤»îÄ£Ê½
+			// è·å–æ¿€æ´»æ¨¡å¼
 			this.activeSchemaName = Utils.getCurrentSchema(session, null);
 			if (this.activeSchemaName != null) {
 				if (this.activeSchemaName.isEmpty()) {

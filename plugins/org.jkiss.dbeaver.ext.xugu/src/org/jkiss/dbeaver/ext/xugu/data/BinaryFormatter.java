@@ -20,7 +20,7 @@ import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 import org.jkiss.dbeaver.model.impl.data.formatters.BinaryFormatterHex;
 
 /**
- * ¶ş½øÖÆ¸ñÊ½»¯Æ÷
+ * äºŒè¿›åˆ¶æ ¼å¼åŒ–å™¨
  */
 public class BinaryFormatter extends BinaryFormatterHex {
 	public static final BinaryFormatter INSTANCE = new BinaryFormatter();

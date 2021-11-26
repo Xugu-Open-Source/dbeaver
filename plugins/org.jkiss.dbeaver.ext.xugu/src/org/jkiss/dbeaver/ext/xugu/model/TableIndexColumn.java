@@ -22,7 +22,7 @@ import org.jkiss.dbeaver.model.impl.struct.AbstractTableIndexColumn;
 import org.jkiss.dbeaver.model.meta.Property;
 
 /**
- * Ë÷Òı×Ö¶ÎĞÅÏ¢Àà£¬°üº¬Ë÷ÒıºÍ×Ö¶ÎĞÅÏ¢
+ * ç´¢å¼•å­—æ®µä¿¡æ¯ç±»ï¼ŒåŒ…å«ç´¢å¼•å’Œå­—æ®µä¿¡æ¯
  */
 public class TableIndexColumn extends AbstractTableIndexColumn {
 	private TableIndex index;

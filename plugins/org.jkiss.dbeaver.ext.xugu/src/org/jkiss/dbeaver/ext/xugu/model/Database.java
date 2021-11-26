@@ -28,7 +28,7 @@ import java.sql.ResultSet;
 import java.util.Collection;
 
 /**
- * °üº¬Êı¾İ¿â»ù±¾ĞÅÏ¢£¬ÆäÖĞÄ£Ê½ĞÅÏ¢ÓÉ dataSource »ñÈ¡
+ * åŒ…å«æ•°æ®åº“åŸºæœ¬ä¿¡æ¯ï¼Œå…¶ä¸­æ¨¡å¼ä¿¡æ¯ç”± dataSource è·å–
  */
 public class Database extends BaseGlobalObject {
 	private DataSource dataSource;

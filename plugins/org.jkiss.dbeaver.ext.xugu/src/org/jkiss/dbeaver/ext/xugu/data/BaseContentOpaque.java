@@ -37,7 +37,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 /**
- * »ù±¾ÄÚÈİ·â×°
+ * åŸºæœ¬å†…å®¹å°è£…
  */
 public abstract class BaseContentOpaque<OPAQUE_TYPE extends Object> extends JDBCContentLOB {
 	protected static final Log LOG = Log.getLog(AbstractObjectManager.class);
@@ -52,7 +52,7 @@ public abstract class BaseContentOpaque<OPAQUE_TYPE extends Object> extends JDBC
 
 	@Override
 	public long getLOBLength() throws DBCException {
-		// TODO »ñÈ¡ LOB ³¤¶È
+		// TODO è·å– LOB é•¿åº¦
 		return 0;
 	}
 
@@ -109,31 +109,31 @@ public abstract class BaseContentOpaque<OPAQUE_TYPE extends Object> extends JDBC
 	}
 
 	/**
-	 * »ñÈ¡·â×°ÀàĞÍ
+	 * è·å–å°è£…ç±»å‹
 	 * 
-	 * @return ·â×°ÀàĞÍÃû³Æ
+	 * @return å°è£…ç±»å‹åç§°
 	 */
 	protected abstract String getOpaqueType();
 
 	/**
-	 * ´´½¨ĞÂ¶ÔÏó
+	 * åˆ›å»ºæ–°å¯¹è±¡
 	 * 
-	 * @param connection Êı¾İ¿âÁ¬½Ó
-	 * @return ·â×°ÀàĞÍ
-	 * @throws DBCException Êı¾İ¿â¿Í»§¶ËÒì³£
-	 * @throws IOException  ÎÄ¼ş¶ÁĞ´Òì³£
-	 * @throws SQLException Êı¾İ¿âÒì³£
+	 * @param connection æ•°æ®åº“è¿æ¥
+	 * @return å°è£…ç±»å‹
+	 * @throws DBCException æ•°æ®åº“å®¢æˆ·ç«¯å¼‚å¸¸
+	 * @throws IOException  æ–‡ä»¶è¯»å†™å¼‚å¸¸
+	 * @throws SQLException æ•°æ®åº“å¼‚å¸¸
 	 */
 	protected abstract OPAQUE_TYPE createNewObject(Connection connection)
 			throws DBCException, IOException, SQLException;
 
 	/**
-	 * ¸ù¾İ·â×°ÀàĞÍ´´½¨´æ´¢
+	 * æ ¹æ®å°è£…ç±»å‹åˆ›å»ºå­˜å‚¨
 	 * 
-	 * @param monitor ½ø³Ì¼àÊÓÆ÷
-	 * @param opaque  ·â×°ÀàĞÍ
-	 * @return ÄÚÈİ´æ´¢¶ÔÏó
-	 * @throws DBCException Êı¾İ¿â¿Í»§¶ËÒì³£
+	 * @param monitor è¿›ç¨‹ç›‘è§†å™¨
+	 * @param opaque  å°è£…ç±»å‹
+	 * @return å†…å®¹å­˜å‚¨å¯¹è±¡
+	 * @throws DBCException æ•°æ®åº“å®¢æˆ·ç«¯å¼‚å¸¸
 	 */
 	protected abstract DBDContentStorage makeStorageFromOpaque(DBRProgressMonitor monitor, OPAQUE_TYPE opaque)
 			throws DBCException;

@@ -41,7 +41,7 @@ import java.util.Arrays;
 import java.util.Locale;
 
 /**
- * SQL ·½ÑÔ
+ * SQL æ–¹è¨€
  */
 class SqlDialect extends JDBCSQLDialect {
 	public static final String[] EXEC_KEYWORDS = new String[] { "EXEC" };
@@ -73,7 +73,7 @@ class SqlDialect extends JDBCSQLDialect {
 		crlfBroken = !dataSource.isServerVersionAtLeast(11, 0);
 		preferenceStore = dataSource.getContainer().getPreferenceStore();
 
-		// TODO ÐÞ¸ÄÎªÐé¹ÈÏµÍ³º¯Êý
+		// TODO ä¿®æ”¹ä¸ºè™šè°·ç³»ç»Ÿå‡½æ•°
 		addFunctions(Arrays.asList("SUBSTR", "APPROX_COUNT_DISTINCT", "REGEXP_SUBSTR", "REGEXP_INSTR", "REGEXP_REPLACE",
 				"REGEXP_LIKE", "REGEXP_COUNT",
 				// Additions from #323

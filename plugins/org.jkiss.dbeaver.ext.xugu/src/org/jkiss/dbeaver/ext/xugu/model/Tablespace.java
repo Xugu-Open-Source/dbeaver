@@ -37,56 +37,56 @@ import java.sql.SQLException;
 import java.util.Collection;
 
 /**
- * ±í¿Õ¼äĞÅÏ¢Àà£¬°üº¬±í¿Õ¼ä»ù±¾ĞÅÏ¢
+ * è¡¨ç©ºé—´ä¿¡æ¯ç±»ï¼ŒåŒ…å«è¡¨ç©ºé—´åŸºæœ¬ä¿¡æ¯
  */
 public class Tablespace extends BaseGlobalObject implements DBPRefreshableObject {
 	private static final Log log = Log.getLog(Tablespace.class);
 
 	public enum Status {
 		/**
-		 * ±í¿Õ¼ä×´Ì¬Ã¶¾Ù
+		 * è¡¨ç©ºé—´çŠ¶æ€æšä¸¾
 		 */
 		ONLINE, OFFLINE, READ_ONLY
 	}
 
 	public enum Contents {
 		/**
-		 * ±í¿Õ¼äÄÚÈİÃ¶¾Ù
+		 * è¡¨ç©ºé—´å†…å®¹æšä¸¾
 		 */
 		PERMANENT, TEMPORARY
 	}
 
 	public enum Logging {
 		/**
-		 * ±í¿Õ¼äÈÕÖ¾Ã¶¾Ù
+		 * è¡¨ç©ºé—´æ—¥å¿—æšä¸¾
 		 */
 		LOGGING, NOLOGGING,
 	}
 
 	public enum ExtentManagement {
 		/**
-		 * ±í¿Õ¼äÍØÕ¹¹ÜÀíÃ¶¾Ù
+		 * è¡¨ç©ºé—´æ‹“å±•ç®¡ç†æšä¸¾
 		 */
 		DICTIONARY, LOCAL
 	}
 
 	public enum AllocationType {
 		/**
-		 * ±í¿Õ¼ä·ÖÅäÀàĞÍÃ¶¾Ù
+		 * è¡¨ç©ºé—´åˆ†é…ç±»å‹æšä¸¾
 		 */
 		SYSTEM, UNIFORM, USER,
 	}
 
 	public enum SegmentSpaceManagement {
 		/**
-		 * ±í¿Õ¼ä¶Î¿Õ¼ä¹ÜÀíÃ¶¾Ù
+		 * è¡¨ç©ºé—´æ®µç©ºé—´ç®¡ç†æšä¸¾
 		 */
 		MANUAL, AUTO
 	}
 
 	public enum Retention {
 		/**
-		 * ±í¿Õ¼ä±£ÁôÃ¶¾Ù
+		 * è¡¨ç©ºé—´ä¿ç•™æšä¸¾
 		 */
 		GUARANTEE, NOGUARANTEE, NOT_APPLY
 	}

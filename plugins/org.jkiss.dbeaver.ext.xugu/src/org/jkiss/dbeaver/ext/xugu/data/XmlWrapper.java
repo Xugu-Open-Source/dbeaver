@@ -29,7 +29,7 @@ import java.sql.SQLException;
 import java.sql.SQLXML;
 
 /**
- * XML °ü×°Æ÷
+ * XML åŒ…è£…å™¨
  */
 public class XmlWrapper implements SQLXML {
 	private final Object xmlType;

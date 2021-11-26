@@ -39,7 +39,7 @@ import java.sql.Types;
 import java.util.Collection;
 
 /**
- * 数据类型方法
+ * 鏁版嵁绫诲瀷鏂规硶
  */
 public class DataTypeMethod extends BaseDataTypeMember implements DBSEntityMethod, DBSParametrizedObject {
 	private String methodType;

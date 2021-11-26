@@ -23,21 +23,27 @@ import org.jkiss.dbeaver.ext.xugu.Constants;
 import org.jkiss.dbeaver.model.data.DBDDataFormatterProfile;
 import org.jkiss.dbeaver.model.data.DBDFormatSettings;
 import org.jkiss.dbeaver.model.exec.DBCException;
+import org.jkiss.dbeaver.model.exec.DBCResultSet;
 import org.jkiss.dbeaver.model.exec.DBCSession;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.data.handlers.JDBCDateTimeValueHandler;
+import org.jkiss.dbeaver.model.sql.SQLState;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import org.jkiss.utils.time.ExtendedDateFormat;
 
 import java.lang.reflect.Method;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.sql.Types;
 import java.text.Format;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
 
 /**
- * 时间戳值处理器
+ * 鏃堕棿鎴冲�煎鐞嗗櫒
  */
 public class TimestampValueHandler extends JDBCDateTimeValueHandler {
 	private static final SimpleDateFormat DEFAULT_DATETIME_FORMAT = new ExtendedDateFormat(
@@ -97,4 +103,67 @@ public class TimestampValueHandler extends JDBCDateTimeValueHandler {
 		 */
 		return super.getFormatterId(column);
 	}
+	
+    @Override
+    public Object fetchValueObject(@NotNull DBCSession session, @NotNull DBCResultSet resultSet, @NotNull DBSTypedObject type, int index) throws DBCException {
+        try {
+            if (resultSet instanceof JDBCResultSet) {
+                JDBCResultSet dbResults = (JDBCResultSet) resultSet;
+
+                // check for native format
+                if (formatSettings.isUseNativeDateTimeFormat()) {
+                    try {
+                        return dbResults.getString(index + 1);
+                    } catch (SQLException e) {
+                        log.debug("Can't read date/time value as string: " + e.getMessage());
+                    }
+                }
+
+                // It seems that some drivers doesn't support reading date/time values with explicit calendar
+                // So let's use simple version
+                switch (type.getTypeID()) {
+                    case Types.TIME:
+                        return dbResults.getTime(index + 1);
+                    case Types.DATE:
+                        return dbResults.getDate(index + 1);
+                    default:
+                        Object value = dbResults.getObject(index + 1);
+                        return getValueFromObject(session, type, value, false, false);
+                }
+            } else {
+                return resultSet.getAttributeValue(index);
+            }
+        } catch (SQLException e) {
+            try {
+                if (e.getCause() instanceof ParseException ||
+                    e.getCause() instanceof UnsupportedOperationException) {
+                    // [SQLite] workaround.
+                    Object objectValue = ((JDBCResultSet) resultSet).getObject(index + 1);
+                    if (objectValue instanceof Date) {
+                        return objectValue;
+                    } else if (objectValue instanceof String) {
+                        // Do not convert to Date object because table column has STRING type
+                        // and it will be converted in string at late binding stage making incorrect string value: Date.toString()
+                        return objectValue;
+                    } else if (objectValue != null) {
+                        // Perhaps some database-specific timestamp representation. E.lg. H2 TimestampWithTimezone
+                        return objectValue.toString();
+                    } else {
+                        return null;
+                    }
+                } else if (
+                    SQLState.SQL_42000.getCode().equals(e.getSQLState()) ||
+                        SQLState.SQL_S1009.getCode().equals(e.getSQLState()) ||
+                        SQLState.SQL_HY000.getCode().equals(e.getSQLState())) {
+                    // [MySQL, Netezza] workaround. Time value may be interval (should be read as string)
+                    return ((JDBCResultSet) resultSet).getString(index + 1);
+                }
+            } catch (SQLException e1) {
+                // Ignore
+                log.debug("Can't retrieve datetime object", e1);
+                return null;
+            }
+            throw new DBCException(e, session.getExecutionContext());
+        }
+    }
 }

@@ -26,7 +26,7 @@ import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import java.sql.ResultSet;
 
 /**
- * ×÷Òµ²ÎÊıĞÅÏ¢Àà
+ * ä½œä¸šå‚æ•°ä¿¡æ¯ç±»
  */
 public class SchedulerJobArgument implements DBSParameter {
 	private final SchedulerJob job;
@@ -50,7 +50,7 @@ public class SchedulerJobArgument implements DBSParameter {
 	@Nullable
 	@Override
 	public String getDescription() {
-		// TODO »ñÈ¡ÃèÊö
+		// TODO è·å–æè¿°
 		return null;
 	}
 

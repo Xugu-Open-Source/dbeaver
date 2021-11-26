@@ -36,7 +36,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /**
- * Íâ¼üĞÅÏ¢Àà£¬°üº¬Íâ¼üÏà¹ØµÄ»ù±¾ĞÅÏ¢
+ * å¤–é”®ä¿¡æ¯ç±»ï¼ŒåŒ…å«å¤–é”®ç›¸å…³çš„åŸºæœ¬ä¿¡æ¯
  */
 public class TableForeignKey extends BaseTableConstraint implements DBSTableForeignKey {
 	private static final Log log = Log.getLog(TableForeignKey.class);
@@ -69,7 +69,7 @@ public class TableForeignKey extends BaseTableConstraint implements DBSTableFore
 			refOwnerName = JDBCUtils.safeGetString(dbResult, "SCHEMA_NAME");
 			refTableName = dbResult.getString("REF_TABLE_NAME");
 		} catch (SQLException e) {
-			throw new DBException("·ÃÎÊ½á¹û¼¯Ê§°Ü", e);
+			throw new DBException("è®¿é—®ç»“æœé›†å¤±è´¥", e);
 		}
 
 		this.enable = JDBCUtils.safeGetBoolean(dbResult, "ENABLE");

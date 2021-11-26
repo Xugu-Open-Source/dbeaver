@@ -22,11 +22,11 @@ import org.jkiss.utils.CommonUtils;
 import org.jkiss.dbeaver.ext.xugu.Constants;
 
 /**
- * DDL 格式
+ * DDL 鏍煎紡
  */
 public enum DDLFormat {
 	/**
-	 * DDL 格式枚举
+	 * DDL 鏍煎紡鏋氫妇
 	 */
 	FULL("Full DDL", true, true, true), NO_STORAGE("No storage information", false, true, true),
 	COMPACT("Compact form", false, false, false);

@@ -44,7 +44,7 @@ import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.editors.ControlPropertyCommandListener;
 
 /**
- * È¨ÏŞ±à¼­Æ÷£¬±»ÓÃÓÚÉèÖÃÓÃ»§»ò½ÇÉ«µÄÈ¨ÏŞ½çÃæ
+ * æƒé™ç¼–è¾‘å™¨ï¼Œè¢«ç”¨äºè®¾ç½®ç”¨æˆ·æˆ–è§’è‰²çš„æƒé™ç•Œé¢
  */
 public class AuthorityEditor {
 	private UserEditorGeneral userEditor;
@@ -93,10 +93,10 @@ public class AuthorityEditor {
 	}
 
 	/**
-	 * ¼ÓÔØÈ¨ÏŞ
+	 * åŠ è½½æƒé™
 	 * 
-	 * @param databaseAuthorities Êı¾İ¿âÈ¨ÏŞ¼¯
-	 * @param objectAuthorities   ¶ÔÏóÈ¨ÏŞ¼¯
+	 * @param databaseAuthorities æ•°æ®åº“æƒé™é›†
+	 * @param objectAuthorities   å¯¹è±¡æƒé™é›†
 	 */
 	public void loadDatabaseAuthorities(ArrayList<String> databaseAuthorities, ArrayList<String> objectAuthorities,ArrayList<String> subObjectAuthorities) {
 		this.databaseAuthorities = databaseAuthorities;
@@ -105,20 +105,20 @@ public class AuthorityEditor {
 	}
 
 	/**
-	 * ¼ÓÔØ¿â¼¶È¨ÏŞÊÓÍ¼
+	 * åŠ è½½åº“çº§æƒé™è§†å›¾
 	 */
 	public void loadDatabaseAuthorityView() {
-		// ¼ÓÔØ×é¼ş
-		//¿â¼¶È¨ÏŞÏÂÀ­¿ò
+		// åŠ è½½ç»„ä»¶
+		//åº“çº§æƒé™ä¸‹æ‹‰æ¡†
 		databaseAuthorityCombo = UIUtils.createLabelCombo(parent1, Messages.editors_authority_editor_db_combo, 0);
 		databaseAuthorityCombo.setLayoutData(new GridData(375, 28));
-		//ÊÚÓè°´Å¥
+		//æˆäºˆæŒ‰é’®
 		addDatabaseAuthority = UIUtils.createPushButton(parent1, Messages.editors_authority_editor_grant, null);
 		addDatabaseAuthority.setLayoutData(new GridData(400, 28));
-		//»ØÊÕ°´Å¥
+		//å›æ”¶æŒ‰é’®
 		removeDatabaseAuthority = UIUtils.createPushButton(parent1, Messages.editors_authority_editor_revoke, null);
 		removeDatabaseAuthority.setLayoutData(new GridData(400, 28));
-		//ÊÚÓè¿â¼¶È¨ÏŞÁĞ±í
+		//æˆäºˆåº“çº§æƒé™åˆ—è¡¨
 		databaseAuthorityList = new org.eclipse.swt.widgets.List(parent1, SWT.V_SCROLL | SWT.MULTI);
 		databaseAuthorityList.setLayoutData(new GridData(379, 200));
 		databaseAuthorityList.setEnabled(false);
@@ -129,7 +129,7 @@ public class AuthorityEditor {
 			ControlPropertyCommandListener.create(roleEditor, databaseAuthorityList,
 					RolePropertyHandler.DATABASE_AUTHORITY);
 		}
-		// ¼ÓÔØ¿â¼¶ºÍ¶ÔÏó¼¶È¨ÏŞµ½×é¼şÖĞ
+		// åŠ è½½åº“çº§å’Œå¯¹è±¡çº§æƒé™åˆ°ç»„ä»¶ä¸­
 		for (int i = 0; i < Constants.DEF_DATABASE_AUTHORITY_LIST.length; i++) {
 			databaseAuthorityCombo.add(Constants.DEF_DATABASE_AUTHORITY_LIST[i]);
 		}
@@ -138,13 +138,13 @@ public class AuthorityEditor {
 				databaseAuthorityList.add(databaseAuthorities.get(i));
 			}
 		}
-		// ¶Ô°´Å¥Ìí¼Ó¼àÌıÊÂ¼ş
+		// å¯¹æŒ‰é’®æ·»åŠ ç›‘å¬äº‹ä»¶
 		addDatabaseAuthority.addSelectionListener(new SelectionListener() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
 				String authority = databaseAuthorityCombo.getText();
 				if (authority != null && authority.length() != 0) {
-					// ÏÈÅĞ¶ÏlistÎÄ±¾¿òÖĞÊÇ·ñÒÑÓĞ£¬ÒÑÓĞÔò²»Ìí¼Ó
+					// å…ˆåˆ¤æ–­listæ–‡æœ¬æ¡†ä¸­æ˜¯å¦å·²æœ‰ï¼Œå·²æœ‰åˆ™ä¸æ·»åŠ 
 					String[] nowItems = databaseAuthorityList.getItems();
 					boolean hasItem = false;
 					for (int i = 0, l = nowItems.length; i < l; i++) {
@@ -156,9 +156,9 @@ public class AuthorityEditor {
 					if (!hasItem) {
 						databaseAuthorityList.add(authority);
 					}
-					// È«²¿Ñ¡ÖĞ
+					// å…¨éƒ¨é€‰ä¸­
 					databaseAuthorityList.selectAll();
-					// ¼¤»îÏà¹Ø×é¼şĞŞ¸Ä¼àÌı
+					// æ¿€æ´»ç›¸å…³ç»„ä»¶ä¿®æ”¹ç›‘å¬
 					databaseAuthorityList.notifyListeners(SWT.Modify, new Event());
 					databaseAuthorityList.deselectAll();
 				}
@@ -166,7 +166,7 @@ public class AuthorityEditor {
 
 			@Override
 			public void widgetDefaultSelected(SelectionEvent e) {
-				// TODO Ğ¡²¿¼şÄ¬ÈÏÒÑÑ¡ÔñÊÂ¼ş
+				// TODO å°éƒ¨ä»¶é»˜è®¤å·²é€‰æ‹©äº‹ä»¶
 			}
 		});
 		removeDatabaseAuthority.addSelectionListener(new SelectionListener() {
@@ -174,14 +174,14 @@ public class AuthorityEditor {
 			public void widgetSelected(SelectionEvent e) {
 				String authority = databaseAuthorityCombo.getText();
 				if (authority != null && authority.length() != 0) {
-					// ½«ÏÂÀ­¿òÖĞÑ¡ÖĞµÄÈ¨ÏŞ´ÓÁĞ±í¿òÖĞÉ¾³ı
+					// å°†ä¸‹æ‹‰æ¡†ä¸­é€‰ä¸­çš„æƒé™ä»åˆ—è¡¨æ¡†ä¸­åˆ é™¤
 					int index = databaseAuthorityList.indexOf(authority);
 					if (index != -1) {
 						databaseAuthorityList.remove(index);
 					}
-					// È«²¿Ñ¡ÖĞ
+					// å…¨éƒ¨é€‰ä¸­
 					databaseAuthorityList.selectAll();
-					// ¼¤»îÏà¹Ø×é¼şµÄĞŞ¸Ä¼àÌı
+					// æ¿€æ´»ç›¸å…³ç»„ä»¶çš„ä¿®æ”¹ç›‘å¬
 					databaseAuthorityList.notifyListeners(SWT.Modify, new Event());
 					databaseAuthorityList.deselectAll();
 				}
@@ -189,18 +189,18 @@ public class AuthorityEditor {
 
 			@Override
 			public void widgetDefaultSelected(SelectionEvent e) {
-				// TODO Ğ¡²¿¼şÄ¬ÈÏÒÑÑ¡ÔñÊÂ¼ş
+				// TODO å°éƒ¨ä»¶é»˜è®¤å·²é€‰æ‹©äº‹ä»¶
 			}
 		});
 	}
 
 	/**
-	 * ¼ÓÔØ¶ÔÏó¼¶È¨ÏŞÊÓÍ¼
+	 * åŠ è½½å¯¹è±¡çº§æƒé™è§†å›¾
 	 * 
-	 * @param owner ¶ÔÏóÊôÖ÷
+	 * @param owner å¯¹è±¡å±ä¸»
 	 */
 	public void loadObjectAuthorityView(BaseGlobalObject owner) {
-		// ¼ÓÔØ×é¼ş
+		// åŠ è½½ç»„ä»¶
 		subloginGroupLeft = UIUtils.createControlGroup(parent2, Messages.editors_authority_editor_subTitle1, 1,
 				GridData.VERTICAL_ALIGN_BEGINNING | GridData.FILL_HORIZONTAL, 400);
 		subloginGroupRight = UIUtils.createControlGroup(parent2, Messages.editors_authority_editor_subTitle2, 1,
@@ -216,7 +216,7 @@ public class AuthorityEditor {
 		subObjectAuthorityList.setLayoutData(new GridData(370, 190));
 		subObjectAuthorityList.setEnabled(false);
 		subObjectAuthorityList.setParent(subloginGroupRight);
-		// ¼ÓÔØ¼àÌı
+		// åŠ è½½ç›‘å¬
 		if (editorType == 1) {
 			ControlPropertyCommandListener.create(userEditor, subObjectTypeCombo, UserPropertyHandler.SUB_TARGET_TYPE);
 			ControlPropertyCommandListener.create(userEditor, subObjectCombo, UserPropertyHandler.SUB_TARGET_OBJECT);
@@ -228,7 +228,7 @@ public class AuthorityEditor {
 			ControlPropertyCommandListener.create(roleEditor, subObjectAuthorityList,
 					RolePropertyHandler.SUB_OBJECT_AUTHORITY);
 		}
-		//Ìí¼ÓÒÑÓĞ¶ş¼¶È¨ÏŞÖÁÁĞ±í
+		//æ·»åŠ å·²æœ‰äºŒçº§æƒé™è‡³åˆ—è¡¨
 		if(subObjectAuthorities!=null) {
 			for (int i = 0; i < subObjectAuthorities.size(); i++) {
 				subObjectAuthorityList.add(subObjectAuthorities.get(i));
@@ -248,7 +248,7 @@ public class AuthorityEditor {
 				String type = subObjectTypeCombo.getText();
 				String object = objectCombo.getText();
 				String[] authorityList = null;
-				// ¼ÓÔØ¶ÔÏóĞÅÏ¢
+				// åŠ è½½å¯¹è±¡ä¿¡æ¯
 				subObjectCombo.removeAll();
 				String objectList = "";
 				if (editorType == 1) {
@@ -276,16 +276,16 @@ public class AuthorityEditor {
 						objectAuthorityCombo.add(authorityList[i]);
 					}
 				}	
-				// Çå¿Õ¶ş¼¶È¨ÏŞÁĞ±í
+				// æ¸…ç©ºäºŒçº§æƒé™åˆ—è¡¨
 //				subObjectAuthorityList.removeAll();
 			}
 
 			@Override
 			public void widgetDefaultSelected(SelectionEvent e) {
-				// TODO Ğ¡²¿¼şÄ¬ÈÏÒÑÑ¡ÔñÊÂ¼ş
+				// TODO å°éƒ¨ä»¶é»˜è®¤å·²é€‰æ‹©äº‹ä»¶
 			}
 		});
-		// ¶ş¼¶¶ÔÏóÈ¨ÏŞ¼àÌı
+		// äºŒçº§å¯¹è±¡æƒé™ç›‘å¬
 		subObjectCombo.addSelectionListener(new SelectionListener() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
@@ -296,15 +296,15 @@ public class AuthorityEditor {
 				String keyWord = "";
 				switch (subType) {
 				case "TRIGGER":
-					keyWord = "´¥·¢Æ÷";
+					keyWord = "è§¦å‘å™¨";
 					break;
 				case "COLUMN":
-					keyWord = "ÁĞ";
+					keyWord = "åˆ—";
 					break;
 				default:
 					break;
 				}
-				// ´ÓÈ«²¿¶ÔÏóÈ¨ÏŞÖĞ¼ÓÔØ·ûºÏÌõ¼şµÄÒÑÓĞ¶ş¼¶¶ÔÏóÈ¨ÏŞ
+				// ä»å…¨éƒ¨å¯¹è±¡æƒé™ä¸­åŠ è½½ç¬¦åˆæ¡ä»¶çš„å·²æœ‰äºŒçº§å¯¹è±¡æƒé™
 //				subObjectAuthorityList.removeAll();
 				Iterator<String> it = objectAuthorities.iterator();
 				while (it.hasNext()) {
@@ -318,12 +318,12 @@ public class AuthorityEditor {
 
 			@Override
 			public void widgetDefaultSelected(SelectionEvent e) {
-				// TODO Ğ¡²¿¼şÄ¬ÈÏÒÑÑ¡ÔñÊÂ¼ş
+				// TODO å°éƒ¨ä»¶é»˜è®¤å·²é€‰æ‹©äº‹ä»¶
 			}
 		});
 
-		// Ò»¼¶¶ÔÏó¼¶È¨ÏŞ´¦Àí
-		// Ä£Ê½ÏÂÀ­¿ò
+		// ä¸€çº§å¯¹è±¡çº§æƒé™å¤„ç†
+		// æ¨¡å¼ä¸‹æ‹‰æ¡†
 		schemaCombo = UIUtils.createLabelCombo(subloginGroupLeft, Messages.editors_authority_editor_schema_combo, 0);
 		Collection<Schema> schemaList;
 		schemaList = owner.getDataSource().schemaCache.getCachedObjects();
@@ -331,22 +331,22 @@ public class AuthorityEditor {
 		while (it.hasNext()) {
 			schemaCombo.add(it.next().getName());
 		}
-		// ¶ÔÏóÀàĞÍÏÂÀ­¿ò
+		// å¯¹è±¡ç±»å‹ä¸‹æ‹‰æ¡†
 		objectTypeCombo = UIUtils.createLabelCombo(subloginGroupLeft, Messages.editors_authority_editor_obj_type_combo,
 				0);
 		for (int i = 0, l = Constants.DEF_OBJECT_TYPE_LIST.length; i < l; i++) {
 			objectTypeCombo.add(Constants.DEF_OBJECT_TYPE_LIST[i]);
 		}
-		// ¶ÔÏóÏÂÀ­¿ò
+		// å¯¹è±¡ä¸‹æ‹‰æ¡†
 		objectCombo = UIUtils.createLabelCombo(subloginGroupLeft, Messages.editors_authority_editor_obj_list_combo, 0);
-		// ¿ÉÑ¡¶ÔÏóÈ¨ÏŞÏÂÀ­¿ò(°üÀ¨È«²¿Ò»¶ş¼¶È¨ÏŞ)
+		// å¯é€‰å¯¹è±¡æƒé™ä¸‹æ‹‰æ¡†(åŒ…æ‹¬å…¨éƒ¨ä¸€äºŒçº§æƒé™)
 		objectAuthorityCombo = UIUtils.createLabelCombo(parent2, Messages.editors_authority_editor_authority_combo, 0);
-		// ÒÑÑ¡¶ÔÏóÈ¨ÏŞÁĞ±í¿ò
+		// å·²é€‰å¯¹è±¡æƒé™åˆ—è¡¨æ¡†
 		objectAuthorityList = new org.eclipse.swt.widgets.List(subloginGroupLeft, SWT.V_SCROLL | SWT.MULTI);
 		objectAuthorityList.setLayoutData(new GridData(370, 135));
 		objectAuthorityList.setEnabled(false);
 		objectAuthorityList.setParent(subloginGroupLeft);
-		// ¼ÓÔØ¼àÌı
+		// åŠ è½½ç›‘å¬
 		if (editorType == 1) {
 			ControlPropertyCommandListener.create(userEditor, objectAuthorityList,
 					UserPropertyHandler.OBJECT_AUTHORITY);
@@ -364,7 +364,7 @@ public class AuthorityEditor {
 		addObjectAuthority.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 		removeObjectAuthority = UIUtils.createPushButton(parent2, Messages.editors_authority_editor_revoke, null);
 		removeObjectAuthority.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-		//Ìí¼ÓÒÑÓĞÒ»¼¶¶ÔÏó¼¶È¨ÏŞÖÁÁĞ±í
+		//æ·»åŠ å·²æœ‰ä¸€çº§å¯¹è±¡çº§æƒé™è‡³åˆ—è¡¨
 		if(objectAuthorities!=null) {
 			for (int i = 0; i < objectAuthorities.size(); i++) {
 				objectAuthorityList.add(objectAuthorities.get(i));
@@ -378,7 +378,7 @@ public class AuthorityEditor {
 			public void widgetSelected(SelectionEvent e) {
 				String type = objectTypeCombo.getText();
 				String schema = schemaCombo.getText();
-				// ¼ÓÔØ¶ÔÏóĞÅÏ¢
+				// åŠ è½½å¯¹è±¡ä¿¡æ¯
 				objectCombo.removeAll();
 				String objectList = "";
 				if (editorType == 1) {
@@ -391,7 +391,7 @@ public class AuthorityEditor {
 				for (int i = 0, l = objects.length; i < l; i++) {
 					objectCombo.add(objects[i]);
 				}
-				// ¼ÓÔØÈ¨ÏŞĞÅÏ¢
+				// åŠ è½½æƒé™ä¿¡æ¯
 				String[] authorityList = null;
 				switch (type) {
 				case "TABLE":
@@ -421,13 +421,13 @@ public class AuthorityEditor {
 						objectAuthorityCombo.add(authorityList[i]);
 					}
 				}
-				// Çå¿ÕÒ»¼¶È¨ÏŞÁĞ±í
+				// æ¸…ç©ºä¸€çº§æƒé™åˆ—è¡¨
 //				objectAuthorityList.removeAll();
-				// µ±Ò»¼¶¶ÔÏó¸Ä±äÊ±¶ş¼¶¶ÔÏóÈ¨ÏŞËæÖ®Çå¿Õ
+				// å½“ä¸€çº§å¯¹è±¡æ”¹å˜æ—¶äºŒçº§å¯¹è±¡æƒé™éšä¹‹æ¸…ç©º
 				subObjectCombo.removeAll();
 				subObjectTypeCombo.removeAll();
 //				subObjectAuthorityList.removeAll();
-				// È»ºó¸ù¾İÒ»¼¶¶ÔÏóÀàĞÍÖØĞÂ¼ÓÔØ¶ş¼¶¶ÔÏóÈ¨ÏŞÀàĞÍ
+				// ç„¶åæ ¹æ®ä¸€çº§å¯¹è±¡ç±»å‹é‡æ–°åŠ è½½äºŒçº§å¯¹è±¡æƒé™ç±»å‹
 				final String tableType = "TABLE";
 				final String viewType = "VIEW";
 				if (tableType.equals(type) || viewType.equals(type)) {
@@ -438,12 +438,12 @@ public class AuthorityEditor {
 
 			@Override
 			public void widgetDefaultSelected(SelectionEvent e) {
-				// TODO Ğ¡²¿¼şÄ¬ÈÏÒÑÑ¡ÔñÊÂ¼ş
+				// TODO å°éƒ¨ä»¶é»˜è®¤å·²é€‰æ‹©äº‹ä»¶
 			}
 		};
 		objectTypeCombo.addSelectionListener(itemChangeListener);
 		schemaCombo.addSelectionListener(itemChangeListener);
-		// Ò»¼¶¶ÔÏóÈ¨ÏŞ¼àÌı
+		// ä¸€çº§å¯¹è±¡æƒé™ç›‘å¬
 		objectCombo.addSelectionListener(new SelectionListener() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
@@ -453,27 +453,27 @@ public class AuthorityEditor {
 				String keyWord = "";
 				switch (type) {
 				case "TABLE":
-					keyWord = "±í";
+					keyWord = "è¡¨";
 					break;
 				case "VIEW":
-					keyWord = "ÊÓÍ¼";
+					keyWord = "è§†å›¾";
 					break;
 				case "SEQUENCE":
-					keyWord = "ĞòÁĞÖµ";
+					keyWord = "åºåˆ—å€¼";
 					break;
 				case "TRIGGER":
-					keyWord = "´¥·¢Æ÷";
+					keyWord = "è§¦å‘å™¨";
 					break;
 				case "PACKAGE":
-					keyWord = "°ü";
+					keyWord = "åŒ…";
 					break;
 				case "PROCEDURE":
-					keyWord = "´æ´¢¹ı³Ì»òº¯Êı";
+					keyWord = "å­˜å‚¨è¿‡ç¨‹æˆ–å‡½æ•°";
 					break;
 				default:
 					break;
 				}
-				// ÖØĞÂ¼ÓÔØÈ¨ÏŞÏÂÀ­¿ò Ñ¡¶¨ÎªÒ»¼¶¶ÔÏóÈ¨ÏŞ
+				// é‡æ–°åŠ è½½æƒé™ä¸‹æ‹‰æ¡† é€‰å®šä¸ºä¸€çº§å¯¹è±¡æƒé™
 				objectAuthorityCombo.removeAll();
 				String[] authorityList = null;
 				switch (type) {
@@ -504,7 +504,7 @@ public class AuthorityEditor {
 						objectAuthorityCombo.add(authorityList[i]);
 					}
 				}
-				// ¼ÓÔØ·ûºÏÌõ¼şµÄÒÑÓĞÈ¨ÏŞ
+				// åŠ è½½ç¬¦åˆæ¡ä»¶çš„å·²æœ‰æƒé™
 //				objectAuthorityList.removeAll();
 //				Iterator<String> it = objectAuthorities.iterator();
 //				while (it.hasNext()) {
@@ -513,11 +513,11 @@ public class AuthorityEditor {
 //						objectAuthorityList.add(temp.substring(0, temp.indexOf(":")));
 //					}
 //				}
-				// µ±Ò»¼¶¶ÔÏó¸Ä±äÊ±¶ş¼¶¶ÔÏóÈ¨ÏŞËæÖ®Çå¿Õ
+				// å½“ä¸€çº§å¯¹è±¡æ”¹å˜æ—¶äºŒçº§å¯¹è±¡æƒé™éšä¹‹æ¸…ç©º
 				subObjectCombo.removeAll();
 				subObjectTypeCombo.removeAll();
 //				subObjectAuthorityList.removeAll();
-				// È»ºó¸ù¾İÒ»¼¶¶ÔÏóÖØĞÂ¼ÓÔØ¶ş¼¶¶ÔÏóÈ¨ÏŞÀàĞÍ
+				// ç„¶åæ ¹æ®ä¸€çº§å¯¹è±¡é‡æ–°åŠ è½½äºŒçº§å¯¹è±¡æƒé™ç±»å‹
 				final String tableType = "TABLE";
 				final String viewType = "VIEW";
 				if (tableType.equals(type) || viewType.equals(type)) {
@@ -528,7 +528,7 @@ public class AuthorityEditor {
 
 			@Override
 			public void widgetDefaultSelected(SelectionEvent e) {
-				// TODO Ğ¡²¿¼şÄ¬ÈÏÒÑÑ¡ÔñÊÂ¼ş
+				// TODO å°éƒ¨ä»¶é»˜è®¤å·²é€‰æ‹©äº‹ä»¶
 			}
 		});
 		addObjectAuthority.addSelectionListener(new SelectionListener() {
@@ -540,19 +540,19 @@ public class AuthorityEditor {
 				String tableColumnString = subObjectCombo.getText();
 				String authorityText = objectAuthorityCombo.getText();
 				if (schemaNameString.isEmpty()) {
-					new WarningDialog(UIUtils.getActiveWorkbenchShell(), "ÇëÑ¡Ôñ´ıÊÚÓèÈ¨ÏŞµÄÄ£Ê½Ãû³Æ").open();
+					new WarningDialog(UIUtils.getActiveWorkbenchShell(), "è¯·é€‰æ‹©å¾…æˆäºˆæƒé™çš„æ¨¡å¼åç§°").open();
 					return;
 				}
 				if (objectTypeString.isEmpty()) {
-					new WarningDialog(UIUtils.getActiveWorkbenchShell(), "ÇëÑ¡Ôñ´ıÊÚÓèÈ¨ÏŞµÄ¶ÔÏóÀàĞÍ").open();
+					new WarningDialog(UIUtils.getActiveWorkbenchShell(), "è¯·é€‰æ‹©å¾…æˆäºˆæƒé™çš„å¯¹è±¡ç±»å‹").open();
 					return;
 				}
 				if (objectNameString.isEmpty()) {
-					new WarningDialog(UIUtils.getActiveWorkbenchShell(), "ÇëÑ¡Ôñ´ıÊÚÓèÈ¨ÏŞµÄ¶ÔÏóÃû³Æ").open();
+					new WarningDialog(UIUtils.getActiveWorkbenchShell(), "è¯·é€‰æ‹©å¾…æˆäºˆæƒé™çš„å¯¹è±¡åç§°").open();
 					return;
 				}
 				if (authorityText.isEmpty()) {
-					new WarningDialog(UIUtils.getActiveWorkbenchShell(), "ÇëÑ¡ÔñÊÚÓèµÄÈ¨ÏŞÃû³Æ").open();
+					new WarningDialog(UIUtils.getActiveWorkbenchShell(), "è¯·é€‰æ‹©æˆäºˆçš„æƒé™åç§°").open();
 					return;
 				}
 				String authority = authorityText + ":" + "\"" + schemaNameString + "\"" + "." + "\"" + objectNameString + "\"";
@@ -605,7 +605,7 @@ public class AuthorityEditor {
 
 			@Override
 			public void widgetDefaultSelected(SelectionEvent e) {
-				// TODO Ğ¡²¿¼şÄ¬ÈÏÒÑÑ¡ÔñÊÂ¼ş
+				// TODO å°éƒ¨ä»¶é»˜è®¤å·²é€‰æ‹©äº‹ä»¶
 			}
 		});
 		removeObjectAuthority.addSelectionListener(new SelectionListener() {
@@ -671,7 +671,7 @@ public class AuthorityEditor {
 
 			@Override
 			public void widgetDefaultSelected(SelectionEvent e) {
-				// TODO Ğ¡²¿¼şÄ¬ÈÏÒÑÑ¡ÔñÊÂ¼ş
+				// TODO å°éƒ¨ä»¶é»˜è®¤å·²é€‰æ‹©äº‹ä»¶
 			}
 		});
 	}
@@ -686,7 +686,7 @@ public class AuthorityEditor {
 
 		@Override
 		protected Control createDialogArea(Composite parent) {
-			getShell().setText("ÊÚÓèÈ¨ÏŞ");
+			getShell().setText("æˆäºˆæƒé™");
 
 			Control container = super.createDialogArea(parent);
 			Composite composite = UIUtils.createPlaceholder((Composite) container, 2, 5);

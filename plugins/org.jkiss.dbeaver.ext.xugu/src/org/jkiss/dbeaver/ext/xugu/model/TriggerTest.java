@@ -27,52 +27,52 @@ SourceObject {
 
 	
 	/**
-	 * ¿âid
+	 * åº“id
 	 */
 	private Integer dbId;
 	
 	/**
-	 * Ä£Ê½id
+	 * æ¨¡å¼id
 	 */
 	private Integer schemaId;
 	
 	/**
-	 * ÓÃ»§id
+	 * ç”¨æˆ·id
 	 */
 	private Integer userId;
 	
 	/**
-	 * ´¥·¢Æ÷Ãû
+	 * è§¦å‘å™¨å
 	 */
 	private String trigName;
 	
 	/**
-	 * ´¥·¢Æ÷ÊÂ¼ş  1£º²åÈë£¬2£º¸üĞÂ£¬4£ºÉ¾³ı
+	 * è§¦å‘å™¨äº‹ä»¶  1ï¼šæ’å…¥ï¼Œ2ï¼šæ›´æ–°ï¼Œ4ï¼šåˆ é™¤
 	 */
 	private String triggeringEvent;
 	
 	/**
-	 * ´¥·¢Æ÷ÀàĞÍ  1£ºĞĞ¼¶´¥·¢Æ÷£¨for each row£©  2:Óï¾ä´¥·¢Æ÷£¨for statement£©
+	 * è§¦å‘å™¨ç±»å‹  1ï¼šè¡Œçº§è§¦å‘å™¨ï¼ˆfor each rowï¼‰  2:è¯­å¥è§¦å‘å™¨ï¼ˆfor statementï¼‰
 	 */
 	private String triggerType;
 	
 	/**
-	 * ´¥·¢Ìõ¼ş
+	 * è§¦å‘æ¡ä»¶
 	 */
 	private String trigCond;
 	
 	/**
-	 * ¶¯×÷ÀàĞÍ
+	 * åŠ¨ä½œç±»å‹
 	 */
 	private String actionType;
 	
 	/**
-	 * ´¥·¢Æ÷¶¨Òå
+	 * è§¦å‘å™¨å®šä¹‰
 	 */
 	private String define;
 	
 	/**
-	 * ´¥·¢Æ÷ÊÇ·ñÆôÓÃ
+	 * è§¦å‘å™¨æ˜¯å¦å¯ç”¨
 	 */
 	private String isAble;
 	
@@ -82,12 +82,12 @@ SourceObject {
 	private String valid;
 	
 	/**
-	 * ´¥·¢Æ÷×÷ÓÃ¶ÔÏóÃû
+	 * è§¦å‘å™¨ä½œç”¨å¯¹è±¡å
 	 */
 	private String objectName;
 	
 	/**
-	 * ´¥·¢Æ÷×÷ÓÃ¶ÔÏóÀàĞÍ
+	 * è§¦å‘å™¨ä½œç”¨å¯¹è±¡ç±»å‹
 	 */
 	private String objectType;
 	

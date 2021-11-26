@@ -62,7 +62,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * ÊÓÍ¼¹ÜÀíÆ÷£¬½øĞĞÊÓÍ¼µÄ´´½¨ºÍÉ¾³ı£¬ĞŞ¸ÄÏàµ±ÓÚ´´½¨²¢Ìæ»»
+ * è§†å›¾ç®¡ç†å™¨ï¼Œè¿›è¡Œè§†å›¾çš„åˆ›å»ºå’Œåˆ é™¤ï¼Œä¿®æ”¹ç›¸å½“äºåˆ›å»ºå¹¶æ›¿æ¢
  */
 public class ViewManager extends SQLObjectEditor<View, Schema> implements DBEObjectRenamer<View> {
 	@Override
@@ -156,13 +156,13 @@ public class ViewManager extends SQLObjectEditor<View, Schema> implements DBEObj
 	protected void addObjectRenameActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
 			List<DBEPersistAction> actions, SQLObjectEditor<View, Schema>.ObjectRenameCommand command,
 			Map<String, Object> options) {
-		// É¾³ıÔ­Ê¼ÊÓÍ¼
+		// åˆ é™¤åŸå§‹è§†å›¾
 		String dropSql = "DROP VIEW " + DBUtils.getQuotedIdentifier(command.getObject().getSchema()) + "." +
 				DBUtils.getQuotedIdentifier(command.getObject().getDataSource(), command.getOldName());
 		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop view sql: " + dropSql);
 		actions.add(new SQLDatabasePersistAction("Drop view", dropSql));
 
-		// ´´½¨ĞÂÊÓÍ¼
+		// åˆ›å»ºæ–°è§†å›¾
 		String oldCreateSql = command.getObject().getViewText();
 		Pattern pattern = Pattern.compile("VIEW\\s+\\S+\\s+AS", Pattern.CASE_INSENSITIVE);
 		Matcher matcher = pattern.matcher(oldCreateSql);
@@ -170,7 +170,7 @@ public class ViewManager extends SQLObjectEditor<View, Schema> implements DBEObj
 		if (matcher.find()) {
 			oldViewName = matcher.group();
 		} else {
-			throw new IllegalStateException("ÊÓÍ¼Ãû±í´ïÊ½Æ¥ÅäÊ§°Ü");
+			throw new IllegalStateException("è§†å›¾åè¡¨è¾¾å¼åŒ¹é…å¤±è´¥");
 		}
 		oldViewName = oldViewName.substring(4, oldViewName.length()-2).trim();
 		String newViewName = DBUtils.getQuotedIdentifier(command.getObject().getSchema()) +"." +

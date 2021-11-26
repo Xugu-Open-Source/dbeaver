@@ -36,7 +36,7 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * ´æ´¢¹ı³Ì²ÎÊı
+ * å­˜å‚¨è¿‡ç¨‹å‚æ•°
  */
 public class ProcedureParameter implements DBSProcedureParameter, DBSTypedObject {
 	private final BaseProcedure procedure;
@@ -59,7 +59,7 @@ public class ProcedureParameter implements DBSProcedureParameter, DBSTypedObject
 			String mode,int position, String defalutValue,Integer precision,Integer scale) {
 		this.procedure = procedure;
 		this.name = name;
-		// ¶Ôint×ö×ª»¯
+		// å¯¹intåšè½¬åŒ–
 		final String typeInt = "INT";
 		if (typeInt.equals(datatype.toUpperCase())) {
 			datatype = "INTEGER";
@@ -93,7 +93,7 @@ public class ProcedureParameter implements DBSProcedureParameter, DBSTypedObject
 	@Nullable
 	@Override
 	public String getDescription() {
-		// TODO »ñÈ¡ÃèÊö·û
+		// TODO è·å–æè¿°ç¬¦
 		return null;
 	}
 
@@ -119,10 +119,10 @@ public class ProcedureParameter implements DBSProcedureParameter, DBSTypedObject
 	public String getName() {
 		if (CommonUtils.isEmpty(name)) {
 			if (dataLevel == 0) {
-				// º¯Êı½á¹û¼¯
+				// å‡½æ•°ç»“æœé›†
 				return "RESULT";
 			} else {
-				// ¼¯ºÏÔªËØ
+				// é›†åˆå…ƒç´ 
 				return "ELEMENT";
 			}
 		}

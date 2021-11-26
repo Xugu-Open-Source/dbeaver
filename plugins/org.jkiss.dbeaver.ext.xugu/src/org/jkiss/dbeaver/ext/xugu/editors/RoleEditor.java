@@ -41,7 +41,7 @@ import org.jkiss.dbeaver.ui.editors.AbstractDatabaseObjectEditor;
 import org.jkiss.dbeaver.ui.editors.DatabaseEditorUtils;
 
 /**
- * ½ÇÉ«±à¼­Æ÷
+ * è§’è‰²ç¼–è¾‘å™¨
  */
 public class RoleEditor extends AbstractDatabaseObjectEditor<Role> {
 
@@ -93,9 +93,9 @@ public class RoleEditor extends AbstractDatabaseObjectEditor<Role> {
 		roleNameText = UIUtils.createLabelText(roleGroup, Messages.dialog_role_name, getDatabaseObject().getName());
 		roleNameText.setEditable(false);
 
-		// È¨ÏŞ´¦Àí
+		// æƒé™å¤„ç†
 		{
-			// ¼ÓÔØÓÃ»§ÖĞµÄÈ¨ÏŞĞÅÏ¢²¢·ÖÎª¿â¼¶È¨ÏŞºÍ¶ÔÏó¼¶È¨ÏŞÁ½Àà ¶ÔÏóÈ¨ÏŞÓÖ·ÖÎªÁ½¸ö¼¶±ğ
+			// åŠ è½½ç”¨æˆ·ä¸­çš„æƒé™ä¿¡æ¯å¹¶åˆ†ä¸ºåº“çº§æƒé™å’Œå¯¹è±¡çº§æƒé™ä¸¤ç±» å¯¹è±¡æƒé™åˆåˆ†ä¸ºä¸¤ä¸ªçº§åˆ«
 			dataAuthorities = getDatabaseObject().getRoleDatabaseAuthorities();
 			objAuthorities = getDatabaseObject().getRoleObjectAuthorities();
 			subObjAuthorities = getDatabaseObject().getRoleSubObjectAuthorities();
@@ -218,7 +218,7 @@ public class RoleEditor extends AbstractDatabaseObjectEditor<Role> {
 
 	@Override
 	public void setFocus() {
-		// TODO ÉèÖÃ¾Û½¹
+		// TODO è®¾ç½®èšç„¦
 	}
 
 }

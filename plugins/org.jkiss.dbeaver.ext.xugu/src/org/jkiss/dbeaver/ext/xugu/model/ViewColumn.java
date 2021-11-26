@@ -36,7 +36,7 @@ public class ViewColumn extends TableColumn {
 		setName(this.colName);
 		setOrdinalPosition(this.colNo);
 		
-		// 对数据类型、精度标度进行统一处理
+		// 瀵规暟鎹被鍨嬨�佺簿搴︽爣搴﹁繘琛岀粺涓�澶勭悊
 		final String typeDatetime = "DATETIME";
 		final String typeChar = "CHAR";
 		final String typeNumeric = "NUMERIC";

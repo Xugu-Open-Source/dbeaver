@@ -23,7 +23,7 @@ import org.jkiss.dbeaver.model.impl.struct.AbstractTableConstraintColumn;
 import org.jkiss.dbeaver.model.meta.Property;
 
 /**
- * Ô¼Êø×Ö¶ÎĞÅÏ¢Àà£¬°üº¬Ô¼ÊøºÍ×Ö¶ÎĞÅÏ¢
+ * çº¦æŸå­—æ®µä¿¡æ¯ç±»ï¼ŒåŒ…å«çº¦æŸå’Œå­—æ®µä¿¡æ¯
  */
 public class TableConstraintColumn extends AbstractTableConstraintColumn {
 	private AbstractTableConstraint<BaseTable> constraint;

@@ -29,7 +29,7 @@ import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import java.sql.ResultSet;
 
 /**
- * Êı¾İÀàĞÍ·½·¨²ÎÊı
+ * æ•°æ®ç±»å‹æ–¹æ³•å‚æ•°
  */
 public class DataTypeMethodParameter implements DBSParameter {
 
@@ -68,7 +68,7 @@ public class DataTypeMethodParameter implements DBSParameter {
 	@Nullable
 	@Override
 	public String getDescription() {
-		// TODO »ñÈ¡ÃèÊö·û
+		// TODO è·å–æè¿°ç¬¦
 		return null;
 	}
 

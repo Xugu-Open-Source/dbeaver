@@ -23,12 +23,12 @@ import org.jkiss.dbeaver.model.struct.DBSObject;
 import java.sql.ResultSet;
 
 /**
- * 表分区的基类，包括分区类型等分区基本信息
+ * 琛ㄥ垎鍖虹殑鍩虹被锛屽寘鎷垎鍖虹被鍨嬬瓑鍒嗗尯鍩烘湰淇℃伅
  */
 public abstract class BasePartition<PARENT extends DBSObject> extends BaseObject<PARENT> {
 	public enum PartitionType {
 		/**
-		 * 分区类型枚举
+		 * 鍒嗗尯绫诲瀷鏋氫妇
 		 */
 		RANGE, HASH, LIST, AUTO
 	}
@@ -126,7 +126,7 @@ public abstract class BasePartition<PARENT extends DBSObject> extends BaseObject
 	}
 
 	public void setPartiValue(String value) {
-		// 对于时间类型进行特殊处理（加入引号）
+		// 瀵逛簬鏃堕棿绫诲瀷杩涜鐗规畩澶勭悊锛堝姞鍏ュ紩鍙凤級
 		final String dash = "-";
 		final String singleQuote = "'";
 		final String comma = ",";

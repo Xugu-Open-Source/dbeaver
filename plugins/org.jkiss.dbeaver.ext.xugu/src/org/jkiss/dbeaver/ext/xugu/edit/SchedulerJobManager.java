@@ -39,7 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * ¶¨Ê±×÷Òµ¹ÜÀíÆ÷£¬½øĞĞ¶¨Ê±×÷ÒµµÄ´´½¨£¬ĞŞ¸ÄºÍÉ¾³ı
+ * å®šæ—¶ä½œä¸šç®¡ç†å™¨ï¼Œè¿›è¡Œå®šæ—¶ä½œä¸šçš„åˆ›å»ºï¼Œä¿®æ”¹å’Œåˆ é™¤
  */
 public class SchedulerJobManager extends SQLObjectEditor<SchedulerJob, Schema> implements DBEObjectRenamer<SchedulerJob> {
 	@Override
@@ -127,17 +127,17 @@ public class SchedulerJobManager extends SQLObjectEditor<SchedulerJob, Schema> i
 			Map<String, Object> options) {
 		SchedulerJob job = command.getObject();
 		StringBuilder builder = new StringBuilder("dbms_scheduler.create_job(");
-		//±ØÑ¡²ÎÊı
+		//å¿…é€‰å‚æ•°
 		String jobName = Optional.ofNullable(job.getName())
-				.orElseThrow(()-> new IllegalArgumentException("×÷ÒµÃû³Æ²»ÄÜÎª¿Õ"));
+				.orElseThrow(()-> new IllegalArgumentException("ä½œä¸šåç§°ä¸èƒ½ä¸ºç©º"));
 		builder.append("'").append(jobName).append("'");
 		String jobType = Optional.ofNullable(job.getJobType())
-				.orElseThrow(()-> new IllegalArgumentException("×÷ÒµÀàĞÍ²»ÄÜÎª¿Õ"));
+				.orElseThrow(()-> new IllegalArgumentException("ä½œä¸šç±»å‹ä¸èƒ½ä¸ºç©º"));
 		builder.append(",'").append(jobType).append("'");
 		String jobAction = Optional.ofNullable(job.getActionDef())
-				.orElseThrow(()-> new IllegalArgumentException("×÷Òµ¶¯×÷²»ÄÜÎª¿Õ"));
+				.orElseThrow(()-> new IllegalArgumentException("ä½œä¸šåŠ¨ä½œä¸èƒ½ä¸ºç©º"));
 		builder.append(",'").append(jobAction).append("'");
-		//¿ÉÑ¡²ÎÊı
+		//å¯é€‰å‚æ•°
 		builder.append(",").append(Optional.ofNullable(job.getParamNum()).orElse(0));
 		String beginTime = job.getBeginTime();
 		if (beginTime == null) {

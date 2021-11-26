@@ -41,7 +41,7 @@ import org.jkiss.dbeaver.ui.editors.object.struct.EditForeignKeyPage;
 import org.jkiss.utils.CommonUtils;
 
 /**
- * Íâ¼ü¹ÜÀíÆ÷£¬½øĞĞÍâ¼üµÄÔö¼Ó
+ * å¤–é”®ç®¡ç†å™¨ï¼Œè¿›è¡Œå¤–é”®çš„å¢åŠ 
  */
 public class ForeignKeyManager extends SQLForeignKeyManager<TableForeignKey, BaseTable> {
 	@Nullable

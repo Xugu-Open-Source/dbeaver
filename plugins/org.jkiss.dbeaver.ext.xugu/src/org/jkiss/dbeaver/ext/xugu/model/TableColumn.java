@@ -42,7 +42,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * ±í×Ö¶ÎĞÅÏ¢Àà£¬°üº¬×Ö¶ÎÏà¹ØµÄ»ù±¾ĞÅÏ¢
+ * è¡¨å­—æ®µä¿¡æ¯ç±»ï¼ŒåŒ…å«å­—æ®µç›¸å…³çš„åŸºæœ¬ä¿¡æ¯
  */
 public class TableColumn extends JDBCTableColumn<BaseTable>
 		implements DBSTableColumn, DBSTypedObjectEx, DBPHiddenObject, DBPNamedObject2 {
@@ -76,7 +76,7 @@ public class TableColumn extends JDBCTableColumn<BaseTable>
 	private boolean notNull;
 	
 	/**
-	 * ×ÔÔöÊôĞÔ
+	 * è‡ªå¢å±æ€§
 	 */
 	private Boolean isIdenBoolean;
 	private Integer minInteger;
@@ -84,7 +84,7 @@ public class TableColumn extends JDBCTableColumn<BaseTable>
 	private Integer stepInteger;
 	
 	/**
-	 * ÀëÉ¢²ÉÑù
+	 * ç¦»æ•£é‡‡æ ·
 	 */
 	private Integer samplingInterval;
 
@@ -95,9 +95,9 @@ public class TableColumn extends JDBCTableColumn<BaseTable>
 	public TableColumn(DBRProgressMonitor monitor, BaseTable table, ResultSet dbResult) throws DBException {
 		super(table, true);
 		// Read default value first because it is of LONG type and has to be read before others
-		// ¸ù¾İ±íºÍÊÓÍ¼Çø·ÖÒª»ñÈ¡µÄ×Ö¶Î
+		// æ ¹æ®è¡¨å’Œè§†å›¾åŒºåˆ†è¦è·å–çš„å­—æ®µ
 		if (dbResult != null) {
-			// type=0Ê±Îª±í type=1Ê±ÎªÊÓÍ¼
+			// type=0æ—¶ä¸ºè¡¨ type=1æ—¶ä¸ºè§†å›¾
 			if (table.getType().getTypeName().equals(ObjectType.TABLE.getTypeName())) {
 				this.dbId = JDBCUtils.safeGetInt(dbResult, "DB_ID");
 				this.tableId = JDBCUtils.safeGetInt(dbResult, "TABLE_ID");
@@ -145,7 +145,7 @@ public class TableColumn extends JDBCTableColumn<BaseTable>
 				setName(this.colName);
 				setOrdinalPosition(this.colNo);
 			}
-			// ¶ÔÊı¾İÀàĞÍ¡¢¾«¶È±ê¶È½øĞĞÍ³Ò»´¦Àí
+			// å¯¹æ•°æ®ç±»å‹ã€ç²¾åº¦æ ‡åº¦è¿›è¡Œç»Ÿä¸€å¤„ç†
 			final String typeDatetime = "DATETIME";
 			final String typeChar = "CHAR";
 			final String typeNumeric = "NUMERIC";
@@ -196,7 +196,7 @@ public class TableColumn extends JDBCTableColumn<BaseTable>
 			if (typeMod == DataTypeModifier.REF) {
 				this.valueType = Types.REF;
 			}
-			// ÉèÖÃ·Ç¿Õ
+			// è®¾ç½®éç©º
 			setRequired(this.notNull);
 			if (typeNumeric.equals(this.typeName)) {
 				setScale(this.scale);
@@ -350,7 +350,7 @@ public class TableColumn extends JDBCTableColumn<BaseTable>
 	@LazyProperty(cacheValidator = CommentLoadValidator.class)
 	public String getComment(DBRProgressMonitor monitor) {
 		if (comment == null) {
-			// ¼ÓÔØ±íÖĞËùÓĞÁĞ×¢ÊÍ
+			// åŠ è½½è¡¨ä¸­æ‰€æœ‰åˆ—æ³¨é‡Š
 			getTable().loadColumnComments(monitor);
 		}
 		return comment;

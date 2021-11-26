@@ -33,7 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Ë÷ÒıĞÅÏ¢Àà£¬°üº¬Ë÷ÒıÏà¹ØµÄ»ù±¾ĞÅÏ¢
+ * ç´¢å¼•ä¿¡æ¯ç±»ï¼ŒåŒ…å«ç´¢å¼•ç›¸å…³çš„åŸºæœ¬ä¿¡æ¯
  */
 public class TableIndex extends JDBCTableIndex<Schema, BaseTablePhysical> {
 	private List<TableIndexColumn> columns;

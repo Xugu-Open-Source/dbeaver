@@ -21,7 +21,7 @@ import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 
 /**
- * ½ÇÉ«È¨ÏŞĞÅÏ¢Àà
+ * è§’è‰²æƒé™ä¿¡æ¯ç±»
  */
 public class RoleAuthority extends BaseAuthority {
 	boolean isDatabase;

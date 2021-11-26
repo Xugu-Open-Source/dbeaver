@@ -1,1 +1,0 @@
-# apache-poi-eclipse-bundle

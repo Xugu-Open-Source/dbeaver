@@ -26,7 +26,7 @@ import org.jkiss.dbeaver.model.exec.compile.DBCCompileLogBase;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 
 /**
- * ¶ÔÏóÑéÖ¤¶¯×÷
+ * å¯¹è±¡éªŒè¯åŠ¨ä½œ
  */
 public class ObjectValidateAction extends ObjectPersistAction {
 	private final SourceObject object;
@@ -42,7 +42,7 @@ public class ObjectValidateAction extends ObjectPersistAction {
 			return;
 		}
 		DBCCompileLog log = new DBCCompileLogBase();
-		// »ñÈ¡jdbc·µ»ØµÄ´íÎóĞÅÏ¢
+		// è·å–jdbcè¿”å›çš„é”™è¯¯ä¿¡æ¯
 		BaseTaskHandler.logObjectErrors((JDBCSession) session, log, object, getObjectType());
 		if (!log.getErrorStack().isEmpty()) {
 			StringBuilder message = new StringBuilder();

@@ -20,7 +20,7 @@ import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.meta.Property;
 
 /**
- * ÓÃ»§È¨ÏŞĞÅÏ¢Àà
+ * ç”¨æˆ·æƒé™ä¿¡æ¯ç±»
  */
 public class UserAuthority extends BaseAuthority {
 	private User parent;

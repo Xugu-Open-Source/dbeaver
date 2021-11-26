@@ -21,11 +21,11 @@ import org.jkiss.dbeaver.model.edit.prop.DBEPropertyHandler;
 import org.jkiss.dbeaver.model.edit.prop.DBEPropertyReflector;
 
 /**
- * ½ÇÉ«ÊôĞÔ´¦ÀíÆ÷£¬½«½çÃæÂß¼­Óë´¦ÀíÂß¼­½øĞĞÓ³Éä
+ * è§’è‰²å±æ€§å¤„ç†å™¨ï¼Œå°†ç•Œé¢é€»è¾‘ä¸å¤„ç†é€»è¾‘è¿›è¡Œæ˜ å°„
  */
 public enum RolePropertyHandler implements DBEPropertyHandler<Role>, DBEPropertyReflector<Role> {
 	/**
-	 * ½ÇÉ«ÊôĞÔÃ¶¾Ù
+	 * è§’è‰²å±æ€§æšä¸¾
 	 */
 	NAME, ROLE_LIST, DATABASE_AUTHORITY, OBJECT_AUTHORITY, SUB_OBJECT_AUTHORITY, TARGET_SCHEMA, TARGET_TYPE,
 	TARGET_OBJECT, SUB_TARGET_TYPE, SUB_TARGET_OBJECT;
@@ -41,7 +41,7 @@ public enum RolePropertyHandler implements DBEPropertyHandler<Role>, DBEProperty
 	}
 
 	/**
-	 * ÎªÁËĞŞ¸ÄÓÃ»§Ãû¶ø±£Áô¾ÉÃû³Æ£¬²»×ö¼´Ê±·´Éä¸üĞÂ
+	 * ä¸ºäº†ä¿®æ”¹ç”¨æˆ·åè€Œä¿ç•™æ—§åç§°ï¼Œä¸åšå³æ—¶åå°„æ›´æ–°
 	 */
 	@Override
 	public void reflectValueChange(Role object, Object oldValue, Object newValue) {

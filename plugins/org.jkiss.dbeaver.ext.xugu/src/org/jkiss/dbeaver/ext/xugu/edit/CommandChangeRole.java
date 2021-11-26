@@ -33,7 +33,7 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.utils.CommonUtils;
 
 /**
- * ½ÇÉ«ÊôĞÔĞŞ¸ÄÂß¼­£¬¸ù¾İ½çÃæÉÏÉèÖÃµÄÓÃ»§Ïà¹ØÊôĞÔÉú³ÉÖ¸¶¨Êı¾İ¿â²Ù×÷ action
+ * è§’è‰²å±æ€§ä¿®æ”¹é€»è¾‘ï¼Œæ ¹æ®ç•Œé¢ä¸Šè®¾ç½®çš„ç”¨æˆ·ç›¸å…³å±æ€§ç”ŸæˆæŒ‡å®šæ•°æ®åº“æ“ä½œ action
  */
 public class CommandChangeRole extends DBECommandComposite<Role, RolePropertyHandler> {
 	protected CommandChangeRole(Role role) {
@@ -58,7 +58,7 @@ public class CommandChangeRole extends DBECommandComposite<Role, RolePropertyHan
 			Map<String, Object> options) {
 		List<DBEPersistAction> actions = new ArrayList<>();
 		boolean newRole = !getObject().isPersisted();
-		// ´´½¨ĞÂ½ÇÉ«
+		// åˆ›å»ºæ–°è§’è‰²
 		if (newRole) {
 			String user = getObject().getUserDesc();
 			Role role = getObject();
@@ -68,14 +68,14 @@ public class CommandChangeRole extends DBECommandComposite<Role, RolePropertyHan
 			}
 			actions.add(new SQLDatabasePersistAction("Create role", sql));
 		}
-		// ĞŞ¸Ä½ÇÉ«È¨ÏŞ
+		// ä¿®æ”¹è§’è‰²æƒé™
 		else {
-			// ¶ÔÈ¨ÏŞ×ö¶îÍâ´¦Àí
-			// ¿â¼¶È¨ÏŞ
+			// å¯¹æƒé™åšé¢å¤–å¤„ç†
+			// åº“çº§æƒé™
 			Collection<RoleAuthority> databaseAuthorities = getObject().getRoleDatabaseAuthorities();
-			// ¶ÔÏó¼¶È¨ÏŞ
+			// å¯¹è±¡çº§æƒé™
 			Collection<RoleAuthority> objectAuthorities = getObject().getRoleObjectAuthorities();
-			// ¶ş¼¶¶ÔÏóÈ¨ÏŞ
+			// äºŒçº§å¯¹è±¡æƒé™
 			Collection<RoleAuthority> subObjectAuthorities = getObject().getRoleSubObjectAuthorities();
 			Iterator<RoleAuthority> it = null;
 			if(subObjectAuthorities!=null) {
@@ -84,7 +84,7 @@ public class CommandChangeRole extends DBECommandComposite<Role, RolePropertyHan
 
 			while (it.hasNext()) {
 				RoleAuthority authority = it.next();
-				if (!(authority.getName().contains("ÁĞ") || authority.getName().contains("´¥·¢Æ÷"))) {
+				if (!(authority.getName().contains("åˆ—") || authority.getName().contains("è§¦å‘å™¨"))) {
 					subObjectAuthorities.remove(authority);
 				}
 			}
@@ -99,7 +99,7 @@ public class CommandChangeRole extends DBECommandComposite<Role, RolePropertyHan
 					if(databaseAuthorities==null) {
 						break;
 					}
-					// ±éÀúĞÂÈ¨ÏŞÁĞ±í£¬Èô¾ÉÈ¨ÏŞ²»´æÔÚÓÚÆäÖĞ£¬Ôò×örevoke²Ù×÷
+					// éå†æ–°æƒé™åˆ—è¡¨ï¼Œè‹¥æ—§æƒé™ä¸å­˜åœ¨äºå…¶ä¸­ï¼Œåˆ™åšrevokeæ“ä½œ
 					it = databaseAuthorities.iterator();
 					newAuthorities = (String[]) entry.getValue();
 					while (it.hasNext()) {
@@ -111,14 +111,14 @@ public class CommandChangeRole extends DBECommandComposite<Role, RolePropertyHan
 								break;
 							}
 						}
-						// ¾ÉÈ¨ÏŞ²»ÔÚÁĞ±íÖĞÔòrevoke
+						// æ—§æƒé™ä¸åœ¨åˆ—è¡¨ä¸­åˆ™revoke
 						if (!inListFlag && authority != null) {
 							actions.add(new SQLDatabasePersistAction("Revoke role",
 									"REVOKE " + Utils.transformAuthority(authority.getName(), true) + " FROM "
 											+ getObject().getName()));
 						}
 					}
-					// ±éÀú¾ÉÈ¨ÏŞÁĞ±í£¬ÈôĞÂÈ¨ÏŞ²»´æÔÚÓÚÆäÖĞ£¬Ôò×ögrant²Ù×÷
+					// éå†æ—§æƒé™åˆ—è¡¨ï¼Œè‹¥æ–°æƒé™ä¸å­˜åœ¨äºå…¶ä¸­ï¼Œåˆ™åšgrantæ“ä½œ
 					it = databaseAuthorities.iterator();
 					for (int i = 0, l = newAuthorities.length; i < l; i++) {
 						boolean inListFlag = false;
@@ -129,7 +129,7 @@ public class CommandChangeRole extends DBECommandComposite<Role, RolePropertyHan
 								break;
 							}
 						}
-						// ĞÂÈ¨ÏŞ²»ÔÚÁĞ±íÖĞÔògrant
+						// æ–°æƒé™ä¸åœ¨åˆ—è¡¨ä¸­åˆ™grant
 						if (!inListFlag) {
 							actions.add(new SQLDatabasePersistAction("Grant user",
 									"GRANT " + Utils.transformAuthority(newAuthorities[i], true) + " TO "
@@ -146,7 +146,7 @@ public class CommandChangeRole extends DBECommandComposite<Role, RolePropertyHan
 					schema = getProperties().get("TARGET_SCHEMA").toString();
 					object = getProperties().get("TARGET_OBJECT").toString();
 					realTargetName = "\"" + schema + "\".\"" + object + "\"";
-					// ±éÀúĞÂÈ¨ÏŞÁĞ±í£¬Èô¾ÉÈ¨ÏŞ²»´æÔÚÓÚÆäÖĞ£¬Ôò×örevoke²Ù×÷
+					// éå†æ–°æƒé™åˆ—è¡¨ï¼Œè‹¥æ—§æƒé™ä¸å­˜åœ¨äºå…¶ä¸­ï¼Œåˆ™åšrevokeæ“ä½œ
 					while (it.hasNext()) {
 						authority = it.next();
 						boolean inListFlag = false;
@@ -165,14 +165,14 @@ public class CommandChangeRole extends DBECommandComposite<Role, RolePropertyHan
 								break;
 							}
 						}
-						// ¾ÉÈ¨ÏŞ²»ÔÚÁĞ±íÖĞÔòrevoke
+						// æ—§æƒé™ä¸åœ¨åˆ—è¡¨ä¸­åˆ™revoke
 						if (!inListFlag && authority != null) {
 							actions.add(new SQLDatabasePersistAction("Revoke role",
 									"REVOKE " + Utils.transformAuthority(authority.getName(), false) + " " + "\""
 											+ schema + "\".\"" + object + "\"" + " FROM " + getObject().getName()));
 						}
 					}
-					// ±éÀú¾ÉÈ¨ÏŞÁĞ±í£¬ÈôĞÂÈ¨ÏŞ²»´æÔÚÓÚÆäÖĞ£¬Ôò×ögrant²Ù×÷
+					// éå†æ—§æƒé™åˆ—è¡¨ï¼Œè‹¥æ–°æƒé™ä¸å­˜åœ¨äºå…¶ä¸­ï¼Œåˆ™åšgrantæ“ä½œ
 					it = objectAuthorities.iterator();
 					for (int i = 0, l = newAuthorities.length; i < l; i++) {
 						boolean inListFlag = false;
@@ -184,7 +184,7 @@ public class CommandChangeRole extends DBECommandComposite<Role, RolePropertyHan
 								break;
 							}
 						}
-						// ĞÂÈ¨ÏŞ²»ÔÚÁĞ±íÖĞÔògrant
+						// æ–°æƒé™ä¸åœ¨åˆ—è¡¨ä¸­åˆ™grant
 						if (!inListFlag) {
 							actions.add(new SQLDatabasePersistAction("Grant role",
 									"GRANT " + Utils.transformAuthority(newAuthorities[i], false) + " " + realTargetName
@@ -206,7 +206,7 @@ public class CommandChangeRole extends DBECommandComposite<Role, RolePropertyHan
 						
 					ArrayList<String> arrayList = new ArrayList();
 				
-					// ±éÀúĞÂÈ¨ÏŞÁĞ±í£¬Èô¾ÉÈ¨ÏŞ²»´æÔÚÓÚÆäÖĞ£¬Ôò×örevoke²Ù×÷
+					// éå†æ–°æƒé™åˆ—è¡¨ï¼Œè‹¥æ—§æƒé™ä¸å­˜åœ¨äºå…¶ä¸­ï¼Œåˆ™åšrevokeæ“ä½œ
 					while (it.hasNext()) {
 						authority = it.next();
 						boolean inListFlag = false;
@@ -223,7 +223,7 @@ public class CommandChangeRole extends DBECommandComposite<Role, RolePropertyHan
 //						if(inListFlag||count == newAuthorities.length) {
 //							continue;
 //						}
-						// ¾ÉÈ¨ÏŞ²»ÔÚÁĞ±íÖĞÔòrevoke
+						// æ—§æƒé™ä¸åœ¨åˆ—è¡¨ä¸­åˆ™revoke
 						if (!inListFlag && authority != null) {
 							if (!"COLUMN".equals(subObjectType)) {
 								actions.add(new SQLDatabasePersistAction("Revoke role",
@@ -231,7 +231,7 @@ public class CommandChangeRole extends DBECommandComposite<Role, RolePropertyHan
 												+ schema + "\".\"" + object + "\"" + " FROM " + getObject().getName()));
 								arrayList.add( Utils.transformAuthority(authority.getName(), false)+object);
 							}
-							// ¶ÔÁĞ¶ÔÏó×öÌØÊâ´¦Àí
+							// å¯¹åˆ—å¯¹è±¡åšç‰¹æ®Šå¤„ç†
 							else {
 								actions.add(new SQLDatabasePersistAction("Revoke role",
 										"REVOKE " + Utils.transformColumnAuthority(authority.getName()) + "("
@@ -241,7 +241,7 @@ public class CommandChangeRole extends DBECommandComposite<Role, RolePropertyHan
 							}
 						}
 					}
-					// ±éÀú¾ÉÈ¨ÏŞÁĞ±í£¬ÈôĞÂÈ¨ÏŞ²»´æÔÚÓÚÆäÖĞ£¬Ôò×ögrant²Ù×÷
+					// éå†æ—§æƒé™åˆ—è¡¨ï¼Œè‹¥æ–°æƒé™ä¸å­˜åœ¨äºå…¶ä¸­ï¼Œåˆ™åšgrantæ“ä½œ
 					it = subObjectAuthorities.iterator();
 					int length = subObjectAuthorities.size();
 					for (int i = 0, l = newAuthorities.length; i < l; i++) {
@@ -259,7 +259,7 @@ public class CommandChangeRole extends DBECommandComposite<Role, RolePropertyHan
 //						if(inListFlag||count == length) {
 //							continue;
 //						}
-						// ĞÂÈ¨ÏŞ²»ÔÚÁĞ±íÖĞÔògrant
+						// æ–°æƒé™ä¸åœ¨åˆ—è¡¨ä¸­åˆ™grant
 						if (!inListFlag) {
 							if (!"COLUMN".equals(subObjectType)) {
 								actions.add(new SQLDatabasePersistAction("Grant role",
@@ -267,7 +267,7 @@ public class CommandChangeRole extends DBECommandComposite<Role, RolePropertyHan
 												+ realTargetName + " TO " + getObject().getName()));
 								arrayList.add( Utils.transformAuthority(authority.getName(), false)+realTargetName);
 							}
-							// ¶ÔÁĞÀàĞÍ×öÌØÊâ´¦Àí
+							// å¯¹åˆ—ç±»å‹åšç‰¹æ®Šå¤„ç†
 							else {
 								actions.add(new SQLDatabasePersistAction("Grant role",
 										"GRANT " + Utils.transformColumnAuthority(newAuthorities[i]) + "(" + subObject

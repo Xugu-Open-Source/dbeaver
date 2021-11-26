@@ -74,7 +74,7 @@ public class ExportTool implements IUserInterfaceTool {
 		DBSObject first = it.next();
 		DataSource dataSource = (DataSource) first.getDataSource();
 		Shell fileSaveShell = new Shell(window.getShell());
-		fileSaveShell.setText("Êı¾İ¿â¶¨Òåµ¼³ö¹¤¾ß");
+		fileSaveShell.setText("æ•°æ®åº“å®šä¹‰å¯¼å‡ºå·¥å…·");
 		fileSaveShell.setLayout(new GridLayout());
 		org.eclipse.swt.widgets.Table objectTable = new org.eclipse.swt.widgets.Table(fileSaveShell, SWT.BORDER);
 		objectTable.setLinesVisible(true);
@@ -82,13 +82,13 @@ public class ExportTool implements IUserInterfaceTool {
 		objectTable.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
 		TableColumn c0 = new TableColumn(objectTable, SWT.CENTER);
 		c0.setWidth(100);
-		c0.setText("¶ÔÏóÀàĞÍ");
+		c0.setText("å¯¹è±¡ç±»å‹");
 		TableColumn c1 = new TableColumn(objectTable, SWT.CENTER);
 		c1.setWidth(300);
-		c1.setText("¶ÔÏóÃû³Æ");
+		c1.setText("å¯¹è±¡åç§°");
 		TableColumn c2 = new TableColumn(objectTable, SWT.CENTER);
 		c2.setWidth(500);
-		c2.setText("±£´æÂ·¾¶");
+		c2.setText("ä¿å­˜è·¯å¾„");
 		List<ExportObject<? extends DBSObject>> expObjs = new ArrayList<>();
 		String dateString = format.format(new Date());
 		for (DBSObject object : objects) {
@@ -280,7 +280,7 @@ public class ExportTool implements IUserInterfaceTool {
 						setupDataAndUi(fileSaveShell, objectTable, expObj, objectName, filePath);
 						break;
 					default:
-						throw new IllegalStateException("Î´Öª´æ´¢ÀàĞÍ£º" + type);
+						throw new IllegalStateException("æœªçŸ¥å­˜å‚¨ç±»å‹ï¼š" + type);
 				}
 			} else if (object instanceof Trigger) {
 				Trigger trigger = (Trigger) object;
@@ -340,7 +340,7 @@ public class ExportTool implements IUserInterfaceTool {
 		}
 
 		Button exportButton = new Button(fileSaveShell, SWT.PUSH);
-		exportButton.setText("¿ªÊ¼µ¼³ö");
+		exportButton.setText("å¼€å§‹å¯¼å‡º");
 		exportButton.addSelectionListener(widgetSelectedAdapter(event -> {
 			Parsing parsing = new Parsing();
 			TableType tableType = TableType.valueOf(dataSource.getRoleFlag());
@@ -413,7 +413,7 @@ public class ExportTool implements IUserInterfaceTool {
 								ddl = parsing.loadTheRoleDDL(connection, object.getObject().getName());
 								break;
 							default:
-								throw new IllegalStateException("½ÇÉ«µ¼³ö±ØĞëÒÔ DBA »ò SYSDBA ½ÇÉ«µÇÂ¼");
+								throw new IllegalStateException("è§’è‰²å¯¼å‡ºå¿…é¡»ä»¥ DBA æˆ– SYSDBA è§’è‰²ç™»å½•");
 							}
 							break;
 						case USER:
@@ -426,7 +426,7 @@ public class ExportTool implements IUserInterfaceTool {
 										tableType);
 								break;
 							default:
-								throw new IllegalStateException("ÓÃ»§µ¼³ö±ØĞëÒÔ DBA »ò SYSDBA ½ÇÉ«µÇÂ¼");
+								throw new IllegalStateException("ç”¨æˆ·å¯¼å‡ºå¿…é¡»ä»¥ DBA æˆ– SYSDBA è§’è‰²ç™»å½•");
 							}
 							break;
 						case JOB:
@@ -500,7 +500,7 @@ public class ExportTool implements IUserInterfaceTool {
 									tableType);
 							break;
 						default:
-							throw new IllegalStateException("ÔİÎ´Ö§³ÖµÄ¶ÔÏóÀàĞÍ£º" + object.getType());
+							throw new IllegalStateException("æš‚æœªæ”¯æŒçš„å¯¹è±¡ç±»å‹ï¼š" + object.getType());
 						}
 						writer.write(ddl);
 					} catch (Exception ex) {
@@ -508,7 +508,7 @@ public class ExportTool implements IUserInterfaceTool {
 					}
 				}
 				if (exceptions.isEmpty()) {
-					MessageDialog.openInformation(fileSaveShell, "µ¼³ö³É¹¦", "Ö´ĞĞÊı¾İ¿â¶ÔÏóµ¼³öÍê³É£¡");
+					MessageDialog.openInformation(fileSaveShell, "å¯¼å‡ºæˆåŠŸ", "æ‰§è¡Œæ•°æ®åº“å¯¹è±¡å¯¼å‡ºå®Œæˆï¼");
 				} else {
 					StringBuilder builder = new StringBuilder();
 					exceptions.forEach((key, value) -> {
@@ -526,14 +526,14 @@ public class ExportTool implements IUserInterfaceTool {
 						}
 						builder.append("\n\n");
 					});
-					MessageDialog.openError(fileSaveShell, "µ¼³öÊ§°Ü", "ÏÂÁĞ¶ÔÏóµ¼³öÊ§°Ü£º\n" + builder);
+					MessageDialog.openError(fileSaveShell, "å¯¼å‡ºå¤±è´¥", "ä¸‹åˆ—å¯¹è±¡å¯¼å‡ºå¤±è´¥ï¼š\n" + builder);
 					return;
 				}
 			} catch (SQLException ex) {
-				MessageDialog.openError(fileSaveShell, "µ¼³öÊ§°Ü", "Á¬½Ó»ñÈ¡Ê§°Ü£º" + ex.getLocalizedMessage());
+				MessageDialog.openError(fileSaveShell, "å¯¼å‡ºå¤±è´¥", "è¿æ¥è·å–å¤±è´¥ï¼š" + ex.getLocalizedMessage());
 				return;
 			} catch (Exception ex) {
-				MessageDialog.openError(fileSaveShell, "µ¼³öÊ§°Ü", "µ¼³öÊ±³öÏÖÒì³££º" + ex.getLocalizedMessage());
+				MessageDialog.openError(fileSaveShell, "å¯¼å‡ºå¤±è´¥", "å¯¼å‡ºæ—¶å‡ºç°å¼‚å¸¸ï¼š" + ex.getLocalizedMessage());
 				return;
 			}
 		}));
@@ -638,8 +638,8 @@ public class ExportTool implements IUserInterfaceTool {
 		}
 
 		private static enum Type {
-			DATABASE("¿â"), SCHEMA("Ä£Ê½"), ROLE("½ÇÉ«"), USER("ÓÃ»§"), JOB("¶¨Ê±×÷Òµ"), TABLE("±í"), VIEW("ÊÓÍ¼"), SEQUENCE("ĞòÁĞ"), PACKAGE("°ü"),
-			PROCEDURE("´æ´¢¹ı³Ì"), FUNCTION("´æ´¢º¯Êı"), TRIGGER("´¥·¢Æ÷"), SYNONYM("Í¬Òå´Ê"), UDT("×Ô¶¨ÒåÊı¾İÀàĞÍ");
+			DATABASE("åº“"), SCHEMA("æ¨¡å¼"), ROLE("è§’è‰²"), USER("ç”¨æˆ·"), JOB("å®šæ—¶ä½œä¸š"), TABLE("è¡¨"), VIEW("è§†å›¾"), SEQUENCE("åºåˆ—"), PACKAGE("åŒ…"),
+			PROCEDURE("å­˜å‚¨è¿‡ç¨‹"), FUNCTION("å­˜å‚¨å‡½æ•°"), TRIGGER("è§¦å‘å™¨"), SYNONYM("åŒä¹‰è¯"), UDT("è‡ªå®šä¹‰æ•°æ®ç±»å‹");
 
 			private final String name;
 

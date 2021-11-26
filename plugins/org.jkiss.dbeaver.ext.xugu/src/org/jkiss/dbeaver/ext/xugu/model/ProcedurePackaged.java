@@ -35,7 +35,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 存储过程打包
+ * 瀛樺偍杩囩▼鎵撳寘
  */
 public class ProcedurePackaged extends BaseProcedure<Package> implements DBPUniqueObject {
  

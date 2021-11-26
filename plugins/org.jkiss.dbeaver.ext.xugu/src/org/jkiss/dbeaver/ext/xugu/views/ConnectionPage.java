@@ -49,7 +49,7 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 /**
- * 创建连接页面
+ * 鍒涘缓杩炴帴椤甸潰
  */
 public class ConnectionPage extends ConnectionPageAbstract implements IDialogPageProvider {
 	private Text hostText;

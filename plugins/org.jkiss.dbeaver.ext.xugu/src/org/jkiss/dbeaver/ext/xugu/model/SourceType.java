@@ -18,11 +18,11 @@
 package org.jkiss.dbeaver.ext.xugu.model;
 
 /**
- * Ô´ÀàĞÍ
+ * æºç±»å‹
  */
 public enum SourceType {
 	/**
-	 * Ô´ÀàĞÍÃ¶¾Ù
+	 * æºç±»å‹æšä¸¾
 	 */
 	TYPE(false), PROCEDURE(false), FUNCTION(false), PACKAGE(false), TRIGGER(false), TABLESPACE(false), VIEW(true),
 	MATERIALIZED_VIEW(true);

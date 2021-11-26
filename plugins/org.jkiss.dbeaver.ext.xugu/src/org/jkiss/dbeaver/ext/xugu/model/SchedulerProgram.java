@@ -34,7 +34,7 @@ import java.sql.SQLException;
 import java.util.Collection;
 
 /**
- * ¶©ÔÄ³ÌĞò
+ * è®¢é˜…ç¨‹åº
  */
 public class SchedulerProgram extends BaseSchemaObject {
 	private static final String CAT_ADVANCED = "Advanced";

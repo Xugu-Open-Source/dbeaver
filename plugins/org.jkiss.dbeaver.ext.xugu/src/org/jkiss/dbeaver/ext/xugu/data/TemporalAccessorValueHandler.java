@@ -28,7 +28,7 @@ import java.sql.Types;
 import java.time.format.DateTimeFormatter;
 
 /**
- * 时间访问值处理器
+ * 鏃堕棿璁块棶鍊煎鐞嗗櫒
  */
 public class TemporalAccessorValueHandler extends JDBCTemporalAccessorValueHandler {
 	private static final DateTimeFormatter DEFAULT_DATETIME_FORMAT = DateTimeFormatter

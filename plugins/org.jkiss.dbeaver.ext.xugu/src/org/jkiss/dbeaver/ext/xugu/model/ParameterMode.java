@@ -21,11 +21,11 @@ import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureParameterKind;
 import org.jkiss.utils.CommonUtils;
 
 /**
- * 参数模式
+ * 鍙傛暟妯″紡
  */
 public enum ParameterMode {
 	/**
-	 * 参数模式枚举
+	 * 鍙傛暟妯″紡鏋氫妇
 	 */
 	IN(DBSProcedureParameterKind.IN), OUT(DBSProcedureParameterKind.OUT), INOUT(DBSProcedureParameterKind.INOUT);
 

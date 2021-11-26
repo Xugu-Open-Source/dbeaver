@@ -31,13 +31,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * ±íĞÅÏ¢ÑÜÉúÀà£¬°üº¬±íÏà¹ØµÄ»ù±¾ĞÅÏ¢
+ * è¡¨ä¿¡æ¯è¡ç”Ÿç±»ï¼ŒåŒ…å«è¡¨ç›¸å…³çš„åŸºæœ¬ä¿¡æ¯
  */
 public class Table extends BaseTablePhysical implements DBPScriptObject {
 	private static final Log log = Log.getLog(Table.class);
 
 	/**
-	 * ĞŞ¸ÄÁËÓÃ»§ĞÅÏ¢µÄ×Ö¶Î
+	 * ä¿®æ”¹äº†ç”¨æˆ·ä¿¡æ¯çš„å­—æ®µ
 	 */
 	private int dbId;
 	private int userId;
@@ -85,9 +85,9 @@ public class Table extends BaseTablePhysical implements DBPScriptObject {
 
 	public Table(DBRProgressMonitor monitor, Schema schema, ResultSet dbResult) {
 		super(schema, dbResult);
-		// xfc ĞŞ¸ÄÁËÄ£Ê½Ãû»ñÈ¡µÄ·½Ê½
+		// xfc ä¿®æ”¹äº†æ¨¡å¼åè·å–çš„æ–¹å¼
 		if (dbResult != null) {
-			// ½á¹û¼¯²»Îª¿ÕÊ±£¬persisted ÉèÎª true
+			// ç»“æœé›†ä¸ä¸ºç©ºæ—¶ï¼Œpersisted è®¾ä¸º true
 			this.setPersisted(true);
 
 			this.tableName = JDBCUtils.safeGetString(dbResult, "TABLE_NAME");

@@ -54,7 +54,7 @@ import org.jkiss.dbeaver.ui.UITask;
 import org.jkiss.dbeaver.ui.UIUtils;
 
 /**
- * ¶ş¼¶·ÖÇø¹ÜÀíÆ÷£¬½øĞĞ¶ş¼¶·ÖÇøµÄ´´½¨ºÍÉ¾³ı£¬ĞŞ¸Ä½öÖ§³ÖÉèÖÃÊÇ·ñÔÚÏß£¬°üº¬Ò»¸öÄÚ²¿½çÃæÀà£¬ÓÃÓÚ½øĞĞÊôĞÔÉè¶¨
+ * äºŒçº§åˆ†åŒºç®¡ç†å™¨ï¼Œè¿›è¡ŒäºŒçº§åˆ†åŒºçš„åˆ›å»ºå’Œåˆ é™¤ï¼Œä¿®æ”¹ä»…æ”¯æŒè®¾ç½®æ˜¯å¦åœ¨çº¿ï¼ŒåŒ…å«ä¸€ä¸ªå†…éƒ¨ç•Œé¢ç±»ï¼Œç”¨äºè¿›è¡Œå±æ€§è®¾å®š
  */
 public class TableSubPartitionManager extends SQLObjectEditor<TableSubPartition, BaseTablePhysical> {
 	@Override
@@ -66,7 +66,7 @@ public class TableSubPartitionManager extends SQLObjectEditor<TableSubPartition,
 	protected TableSubPartition createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context,
 			final Object container, Object from, Map<String, Object> options) {
 		BaseTablePhysical parent = (BaseTablePhysical) container;
-		// ½öÔÊĞí¶ÔĞÂ´´½¨µÄ±í½øĞĞÌí¼Ó¶ş¼¶·ÖÇø²Ù×÷
+		// ä»…å…è®¸å¯¹æ–°åˆ›å»ºçš„è¡¨è¿›è¡Œæ·»åŠ äºŒçº§åˆ†åŒºæ“ä½œ
 		if (parent.isPersisted() == false) {
 			return new UITask<TableSubPartition>() {
 				@Override
@@ -111,7 +111,7 @@ public class TableSubPartitionManager extends SQLObjectEditor<TableSubPartition,
 			List<DBEPersistAction> actions,
 			SQLObjectEditor<TableSubPartition, BaseTablePhysical>.ObjectCreateCommand command,
 			Map<String, Object> options) throws DBException {
-		// ±í´æÔÚÊ±£¬½ûÓÃ¶ş¼¶·ÖÇø²Ù×÷
+		// è¡¨å­˜åœ¨æ—¶ï¼Œç¦ç”¨äºŒçº§åˆ†åŒºæ“ä½œ
 		if (command.getObject().getParentObject().isPersisted() == true) {
 			new UITask<String>() {
 				@Override
@@ -131,7 +131,7 @@ public class TableSubPartitionManager extends SQLObjectEditor<TableSubPartition,
 			List<DBEPersistAction> actions,
 			SQLObjectEditor<TableSubPartition, BaseTablePhysical>.ObjectDeleteCommand command,
 			Map<String, Object> options) {
-		// ²»ÔÊĞí¶Ô¶ş¼¶·ÖÇø½øĞĞÉ¾³ı²Ù×÷
+		// ä¸å…è®¸å¯¹äºŒçº§åˆ†åŒºè¿›è¡Œåˆ é™¤æ“ä½œ
 		if (command.getObject().getParentObject().isPersisted() == true) {
 			new UITask<String>() {
 				@Override
@@ -144,7 +144,7 @@ public class TableSubPartitionManager extends SQLObjectEditor<TableSubPartition,
 				}
 			}.execute();
 		}
-		// ÈôÊÇĞÂÔö±íÇé¿öÊ±ÔòÖ±½Ó½«¸Ä¶ÔÏó´Ó»º´æÖĞÌŞ³ı
+		// è‹¥æ˜¯æ–°å¢è¡¨æƒ…å†µæ—¶åˆ™ç›´æ¥å°†æ”¹å¯¹è±¡ä»ç¼“å­˜ä¸­å‰”é™¤
 		else {
 			command.getObject().getParentObject().subPartitionCache.removeObject(command.getObject(), true);
 		}
@@ -155,7 +155,7 @@ public class TableSubPartitionManager extends SQLObjectEditor<TableSubPartition,
 			List<DBEPersistAction> actionList,
 			SQLObjectEditor<TableSubPartition, BaseTablePhysical>.ObjectChangeCommand command,
 			Map<String, Object> options) throws DBException {
-		// µ±±í´æÔÚÊ±²Å¿É½øĞĞĞŞ¸Ä action
+		// å½“è¡¨å­˜åœ¨æ—¶æ‰å¯è¿›è¡Œä¿®æ”¹ action
 		final String onlineKey = "online";
 		if (command.getObject().getParentObject().isPersisted() == true && command.getProperty(onlineKey) != null) {
 			StringBuilder sql = new StringBuilder("ALTER TABLE ");

@@ -45,7 +45,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * °ü¹ÜÀíÆ÷£¬½øĞĞ°üµÄ´´½¨ºÍÉ¾³ı£¨ĞŞ¸ÄµÈÍ¬ÓÚ´´½¨²¢Ìæ»»£©
+ * åŒ…ç®¡ç†å™¨ï¼Œè¿›è¡ŒåŒ…çš„åˆ›å»ºå’Œåˆ é™¤ï¼ˆä¿®æ”¹ç­‰åŒäºåˆ›å»ºå¹¶æ›¿æ¢ï¼‰
  */
 public class PackageManager extends SQLObjectEditor<Package, Schema> {
 	private final static Pattern PATTERN_OR = Pattern.compile("(OR)", Pattern.CASE_INSENSITIVE);
@@ -140,7 +140,7 @@ public class PackageManager extends SQLObjectEditor<Package, Schema> {
 	private void createOrReplaceProcedureQuery(List<DBEPersistAction> actionList, Package pack) {
 		try {
 			String header = pack.getObjectDefinitionText(new VoidProgressMonitor(), DBPScriptObject.EMPTY_OPTIONS);
-			// ¶Ô header ½øĞĞÔ¤´¦Àí£¬Ç¿ÖÆÔö¼Ó CREATE OR REPLACE ¹Ø¼ü×Ö
+			// å¯¹ header è¿›è¡Œé¢„å¤„ç†ï¼Œå¼ºåˆ¶å¢åŠ  CREATE OR REPLACE å…³é”®å­—
 			Matcher m1 = PATTERN_OR.matcher(header);
 			String keyWord1 = "OR";
 
@@ -160,7 +160,7 @@ public class PackageManager extends SQLObjectEditor<Package, Schema> {
 				actionList.add(new ObjectValidateAction(pack, ObjectType.PACKAGE, "Create package header", header));
 			}
 			String body = pack.getExtendedDefinitionText(new VoidProgressMonitor());
-			// ¶Ô body ½øĞĞÔ¤´¦Àí£¬Ç¿ÖÆÔö¼Ó CREATE OR REPLACE ¹Ø¼ü×Ö
+			// å¯¹ body è¿›è¡Œé¢„å¤„ç†ï¼Œå¼ºåˆ¶å¢åŠ  CREATE OR REPLACE å…³é”®å­—
 			Matcher m3 = PATTERN_OR.matcher(body);
 			Matcher m4 = PATTERN_PACKAGE.matcher(body);
 			if (m3.find()) {

@@ -20,13 +20,13 @@ package org.jkiss.dbeaver.ext.xugu;
 import org.eclipse.osgi.util.NLS;
 
 /**
- * 执行 DBA SQL
+ * 鎵ц DBA SQL
  */
 public class ExecuteSqlDba extends NLS {
 	static final String BUNDLE_NAME = "org.jkiss.dbeaver.ext.xugu.ExecuteSQL_Cloud_DBA";
 
 	/**
-	 * 初始化资源包
+	 * 鍒濆鍖栬祫婧愬寘
 	 */
 	static {
 		NLS.initializeMessages(BUNDLE_NAME, ExecuteSqlDba.class);

@@ -59,7 +59,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * ´æ´¢¹ı³ÌÑÜÉúÀà£¬°üÀ¨´æ´¢¹ı³ÌÃû¡¢¶¨Òå¡¢²ÎÊıµÈ¾ßÌåĞÅÏ¢
+ * å­˜å‚¨è¿‡ç¨‹è¡ç”Ÿç±»ï¼ŒåŒ…æ‹¬å­˜å‚¨è¿‡ç¨‹åã€å®šä¹‰ã€å‚æ•°ç­‰å…·ä½“ä¿¡æ¯
  */
 public class ProcedureStandalone extends BaseProcedure<Schema> implements SourceObject, DBPRefreshableObject {
 	private static final Log log = Log.getLog(ProcedureStandalone.class);
@@ -74,7 +74,7 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 //	
 //	
 //	/**
-//	 * »ñÈ¡²ÎÊıÎ»ÖÃ
+//	 * è·å–å‚æ•°ä½ç½®
 //	 * @return
 //	 */
 //	public List getPositions() {
@@ -89,7 +89,7 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 		this.valid = JDBCUtils.safeGetBoolean(dbResult, "VALID");
 		this.comment = JDBCUtils.safeGetString(dbResult, "COMMENTS");
 		this.createTime = JDBCUtils.safeGetTimestamp(dbResult, "CREATE_TIME");
-		// Í¨¹ı define ×Ö¶ÎÊÖ¶¯½âÎö²ÎÊıÁĞ±í£¨½öÖ§³Ö²é¿´£©
+		// é€šè¿‡ define å­—æ®µæ‰‹åŠ¨è§£æå‚æ•°åˆ—è¡¨ï¼ˆä»…æ”¯æŒæŸ¥çœ‹ï¼‰
 		this.sourceDeclaration = JDBCUtils.safeGetString(dbResult, "DEFINE");
 
 		String paraName;
@@ -102,7 +102,7 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 //		System.out.println(sourceDeclaration);
 		CreateProcedureBean createProcedureBean = null;
 		if (JDBCUtils.safeGetString(dbResult, "RET_TYPE") == null) {
-			// Í¨¹ıparser½âÎö°ü½âÎö´æ´¢¹ı³Ì²ÎÊı¡£
+			// é€šè¿‡parserè§£æåŒ…è§£æå­˜å‚¨è¿‡ç¨‹å‚æ•°ã€‚
 			List<CreateProcedureBean> procedureBeans = null;
 			try {
 				procedureBeans = XuguParserApi.parseCreateProcedure(sourceDeclaration);
@@ -163,11 +163,11 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 				}
 				procedureParameter = new ProcedureParameter(monitor, this, paraName, dataType, paraType,
 						paraPosition, paraDefault, precision, scale);
-				// monitor,procedureÊµÀı£¬²ÎÊıÃû£¬Êı¾İÀàĞÍ£¬²ÎÊıÄ£Ê½£¬²ÎÊıÎ»ÖÃ£¬Ä¬ÈÏÖµ¡£
+				// monitor,procedureå®ä¾‹ï¼Œå‚æ•°åï¼Œæ•°æ®ç±»å‹ï¼Œå‚æ•°æ¨¡å¼ï¼Œå‚æ•°ä½ç½®ï¼Œé»˜è®¤å€¼ã€‚
 				procParams.add(procedureParameter);
 			}
 		} else {
-			// Í¨¹ıparser½âÎö°ü½âÎö´æ´¢¹ı³Ì²ÎÊı¡£
+			// é€šè¿‡parserè§£æåŒ…è§£æå­˜å‚¨è¿‡ç¨‹å‚æ•°ã€‚
 			List<CreateFunctionBean> functionBeans = null;
 			try {
 				functionBeans = XuguParserApi.parseCreateFunction(sourceDeclaration);
@@ -212,7 +212,7 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 				}
 				procedureParameter = new ProcedureParameter(monitor, this, paraName, dataType, paraType,
 						paraPosition, paraDefault, precision, scale);
-				// monitor,procedureÊµÀı£¬²ÎÊıÃû£¬Êı¾İÀàĞÍ£¬²ÎÊıÄ£Ê½£¬²ÎÊıÎ»ÖÃ£¬Ä¬ÈÏÖµ¡£
+				// monitor,procedureå®ä¾‹ï¼Œå‚æ•°åï¼Œæ•°æ®ç±»å‹ï¼Œå‚æ•°æ¨¡å¼ï¼Œå‚æ•°ä½ç½®ï¼Œé»˜è®¤å€¼ã€‚
 				procParams.add(procedureParameter);
 			}
 			
@@ -237,14 +237,14 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 //					}
 //					procedureParameter = new ProcedureParameter(monitor, this, paraName, dataType, paraType, paraPosition,
 //							paraDefault,precision,scale);
-//					// monitor,procedureÊµÀı£¬²ÎÊıÃû£¬Êı¾İÀàĞÍ£¬²ÎÊıÄ£Ê½£¬²ÎÊıÎ»ÖÃ£¬Ä¬ÈÏÖµ¡£
+//					// monitor,procedureå®ä¾‹ï¼Œå‚æ•°åï¼Œæ•°æ®ç±»å‹ï¼Œå‚æ•°æ¨¡å¼ï¼Œå‚æ•°ä½ç½®ï¼Œé»˜è®¤å€¼ã€‚
 //					procParams.add(procedureParameter);
 //				}
 //			}
 		}
 
 //		if(JDBCUtils.safeGetString(dbResult, "RET_TYPE")==null) {
-//			//Í¨¹ıparser½âÎö°ü½âÎö´æ´¢¹ı³Ì²ÎÊı¡£
+//			//é€šè¿‡parserè§£æåŒ…è§£æå­˜å‚¨è¿‡ç¨‹å‚æ•°ã€‚
 //			XuguParserApi xuguParserApi = new XuguParserApi();
 //			CreateProcedureBean createProcedureBean = xuguParserApi.parseCreateProcedure(sourceDeclaration);
 //			for(int i = 0; i<createProcedureBean.getParamSize();i++) {
@@ -257,7 +257,7 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 //					paraDefault = "";
 //				}
 //				procedureParameter =  new ProcedureParameter(monitor, this,paraName,paraType,dataType,paraPosition,paraDefault);
-//				//monitor,procedureÊµÀı£¬²ÎÊıÃû£¬Êı¾İÀàĞÍ£¬²ÎÊıÄ£Ê½£¬²ÎÊıÎ»ÖÃ£¬Ä¬ÈÏÖµ¡£
+//				//monitor,procedureå®ä¾‹ï¼Œå‚æ•°åï¼Œæ•°æ®ç±»å‹ï¼Œå‚æ•°æ¨¡å¼ï¼Œå‚æ•°ä½ç½®ï¼Œé»˜è®¤å€¼ã€‚
 //				procParams.add(procedureParameter);
 //			}
 //		}else {
@@ -273,7 +273,7 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 //						paraDefault = "";
 //					}
 //					procedureParameter =  new ProcedureParameter(monitor, this,paraName,paraType,dataType,paraPosition,paraDefault);
-//					//monitor,procedureÊµÀı£¬²ÎÊıÃû£¬Êı¾İÀàĞÍ£¬²ÎÊıÄ£Ê½£¬²ÎÊıÎ»ÖÃ£¬Ä¬ÈÏÖµ¡£
+//					//monitor,procedureå®ä¾‹ï¼Œå‚æ•°åï¼Œæ•°æ®ç±»å‹ï¼Œå‚æ•°æ¨¡å¼ï¼Œå‚æ•°ä½ç½®ï¼Œé»˜è®¤å€¼ã€‚
 //					procParams.add(procedureParameter);
 //			}
 //		}
@@ -298,7 +298,7 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 //					for (int i = 0; i < params.length; i++) {
 //						params[i] = params[i].trim();
 //						
-//						//½âÎö²ÎÊıÄ£Ê½
+//						//è§£æå‚æ•°æ¨¡å¼
 //						String mode = "IN";
 //						int modeNum = 0;
 //						Pattern pattern = Pattern.compile("\\s+IN\\s+OUT\\s+", Pattern.CASE_INSENSITIVE);
@@ -319,7 +319,7 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 //							modeNum = 1;
 //						}
 //						
-//						//»ñÈ¡³ıÈ¥²ÎÊıÃûºÍ²ÎÊıÄ£Ê½µÄ×Ö·û´®
+//						//è·å–é™¤å»å‚æ•°åå’Œå‚æ•°æ¨¡å¼çš„å­—ç¬¦ä¸²
 //						pattern = Pattern.compile("\\s+");
 //						String[] items = pattern.split(params[i]);
 //						String remainPart = "";
@@ -327,7 +327,7 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 //							remainPart += items[index] + " ";
 //						}
 //						
-//						//½âÎöÄ¬ÈÏÖµ
+//						//è§£æé»˜è®¤å€¼
 //						String defaultValue;
 //						String dataType;
 //						pattern = Pattern.compile("\\s+DEFAULT\\s+|\\s*:=\\s*", Pattern.CASE_INSENSITIVE);
@@ -340,7 +340,7 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 //							dataType = remainPart;
 //						}
 //
-//			            //¼ÇÂ¼²ÎÊıÎ»ÖÃ
+//			            //è®°å½•å‚æ•°ä½ç½®
 //			        	++position;
 //						procParams.add(new ProcedureParameter(monitor, this, items[0],
 //								dataType.trim(), mode, position, defaultValue.trim()));
@@ -358,8 +358,8 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 		int commentFlagCount = 0;
 		char[] chars = define.toCharArray();
 		for (int i = 0; i < chars.length; ++i) {
-			// ÅĞ¶ÏÊÇ·ñÊÇ×¢ÊÍ×´Ì¬£¬µ±commentFlagCountÎª2Ê±Îª×¢ÊÍ×´Ì¬
-			// µ±Îª×¢ÊÍ×´Ì¬Ê±£¬ÈôÓöµ½»»ĞĞ£¬ÔòÇå³ı×¢ÊÍ×´Ì¬
+			// åˆ¤æ–­æ˜¯å¦æ˜¯æ³¨é‡ŠçŠ¶æ€ï¼Œå½“commentFlagCountä¸º2æ—¶ä¸ºæ³¨é‡ŠçŠ¶æ€
+			// å½“ä¸ºæ³¨é‡ŠçŠ¶æ€æ—¶ï¼Œè‹¥é‡åˆ°æ¢è¡Œï¼Œåˆ™æ¸…é™¤æ³¨é‡ŠçŠ¶æ€
 			if (commentFlagCount == 2) {
 				if (chars[i] == '\n' || chars[i] == '\r') {
 					commentFlagCount = 0;
@@ -367,8 +367,8 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 				}
 				continue;
 			} else {
-				// µ±²»ÊÇ×¢ÊÍ×´Ì¬Ê±£¬ÈôÓöµ½×¢ÊÍ·û-£¬Ôò×¢ÊÍ·û¼ÆÊı+1
-				// Èô²»ÊÇ×¢ÊÍ·û-£¬ÔòÖØÖÃ×¢ÊÍ·û¼ÆÊı
+				// å½“ä¸æ˜¯æ³¨é‡ŠçŠ¶æ€æ—¶ï¼Œè‹¥é‡åˆ°æ³¨é‡Šç¬¦-ï¼Œåˆ™æ³¨é‡Šç¬¦è®¡æ•°+1
+				// è‹¥ä¸æ˜¯æ³¨é‡Šç¬¦-ï¼Œåˆ™é‡ç½®æ³¨é‡Šç¬¦è®¡æ•°
 				if (chars[i] == '-') {
 					++commentFlagCount;
 					continue;
@@ -376,8 +376,8 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 					commentFlagCount = 0;
 				}
 
-				// Èç¹ûÊÇµÚÒ»¸ö×óÀ¨ºÅ£¬Ôò¼ÇÂ¼Îª²ÎÊı´®¿ªÊ¼Î»ÖÃ
-				// Èç¹ûÒÑ¼ÇÂ¼¿ªÊ¼Î»ÖÃ£¬ÔòÎª×óÄÚµ¥À¨ºÅ£¬×óÄÚµ¥À¨ºÅ¼ÆÊı+1
+				// å¦‚æœæ˜¯ç¬¬ä¸€ä¸ªå·¦æ‹¬å·ï¼Œåˆ™è®°å½•ä¸ºå‚æ•°ä¸²å¼€å§‹ä½ç½®
+				// å¦‚æœå·²è®°å½•å¼€å§‹ä½ç½®ï¼Œåˆ™ä¸ºå·¦å†…å•æ‹¬å·ï¼Œå·¦å†…å•æ‹¬å·è®¡æ•°+1
 				if (startIndex == -1 && chars[i] == '(') {
 					String remainString = define.substring(i);
 					Pattern pattern = Pattern.compile("\\s(IS|AS)\\s", Pattern.CASE_INSENSITIVE);
@@ -393,8 +393,8 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 					++innerSingleLeftBracket;
 					continue;
 				}
-				// Èç¹ûÄÚ²¿À¨ºÅ¶ÔÎª0£¬ÇÒÎªÓÒÀ¨ºÅ£¬Ôò¼ÇÂ¼Îª²ÎÊı´®½áÊøÎ»ÖÃ
-				// Èç¹û×óÄÚµ¥À¨ºÅ¼ÆÊı²»ÎªÁã£¬Ôòµ±Ç°ÓÒÀ¨ºÅÎª×óÄÚµ¥À¨ºÅµÄÅä¶Ô£¬×óÄÚµ¥À¨ºÅ-1
+				// å¦‚æœå†…éƒ¨æ‹¬å·å¯¹ä¸º0ï¼Œä¸”ä¸ºå³æ‹¬å·ï¼Œåˆ™è®°å½•ä¸ºå‚æ•°ä¸²ç»“æŸä½ç½®
+				// å¦‚æœå·¦å†…å•æ‹¬å·è®¡æ•°ä¸ä¸ºé›¶ï¼Œåˆ™å½“å‰å³æ‹¬å·ä¸ºå·¦å†…å•æ‹¬å·çš„é…å¯¹ï¼Œå·¦å†…å•æ‹¬å·-1
 				if (innerSingleLeftBracket == 0 && chars[i] == ')') {
 
 					endIndex = i;

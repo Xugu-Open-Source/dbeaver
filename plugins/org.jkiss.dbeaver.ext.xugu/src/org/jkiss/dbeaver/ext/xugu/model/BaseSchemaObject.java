@@ -27,7 +27,7 @@ import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 
 /**
- * 基本模式对象
+ * 鍩烘湰妯″紡瀵硅薄
  */
 public abstract class BaseSchemaObject extends BaseObject<Schema> implements DBPQualifiedObject,DBPNamedObject2 {
 	protected BaseSchemaObject(Schema schema, String name, boolean persisted) {

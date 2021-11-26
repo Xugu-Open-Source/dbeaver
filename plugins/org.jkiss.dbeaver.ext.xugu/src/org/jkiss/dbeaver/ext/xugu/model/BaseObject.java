@@ -24,7 +24,7 @@ import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.utils.CommonUtils;
 
 /**
- * »ù±¾¶ÔÏóÀà
+ * åŸºæœ¬å¯¹è±¡ç±»
  */
 public abstract class BaseObject<PARENT extends DBSObject> implements DBSObject, DBPSaveableObject {
 	protected final PARENT parent;
@@ -52,7 +52,7 @@ public abstract class BaseObject<PARENT extends DBSObject> implements DBSObject,
 	}
 
 	/**
-	 * ·µ»Ø¸¸¶ÔÏó
+	 * è¿”å›çˆ¶å¯¹è±¡
 	 */
 	@Override
 	public PARENT getParentObject() {
@@ -60,7 +60,7 @@ public abstract class BaseObject<PARENT extends DBSObject> implements DBSObject,
 	}
 
 	/**
-	 * ·µ»ØÊı¾İÔ´
+	 * è¿”å›æ•°æ®æº
 	 */
 	@NotNull
 	@Override
@@ -69,7 +69,7 @@ public abstract class BaseObject<PARENT extends DBSObject> implements DBSObject,
 	}
 
 	/**
-	 * ·µ»ØÃû³Æ
+	 * è¿”å›åç§°
 	 */
 	@NotNull
 	@Override
@@ -79,25 +79,25 @@ public abstract class BaseObject<PARENT extends DBSObject> implements DBSObject,
 	}
 
 	/**
-	 * ÉèÖÃÃû³Æ
+	 * è®¾ç½®åç§°
 	 * 
-	 * @param name ¶ÔÏóÃû³Æ
+	 * @param name å¯¹è±¡åç§°
 	 */
 	public void setName(String name) {
 		this.name = name;
 	}
 
 	/**
-	 * »ñÈ¡¶ÔÏó ID
+	 * è·å–å¯¹è±¡ ID
 	 * 
-	 * @return ¶ÔÏó ID
+	 * @return å¯¹è±¡ ID
 	 */
 	public long getObjectId() {
 		return objectId;
 	}
 
 	/**
-	 * ÊÇ·ñ´æÔÚ
+	 * æ˜¯å¦å­˜åœ¨
 	 */
 	@Override
 	public boolean isPersisted() {
@@ -105,7 +105,7 @@ public abstract class BaseObject<PARENT extends DBSObject> implements DBSObject,
 	}
 
 	/**
-	 * ÉèÖÃÊÇ·ñ´æÔÚ
+	 * è®¾ç½®æ˜¯å¦å­˜åœ¨
 	 */
 	@Override
 	public void setPersisted(boolean persisted) {

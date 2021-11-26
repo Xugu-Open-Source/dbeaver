@@ -29,7 +29,7 @@ import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import java.sql.SQLException;
 
 /**
- * 对象值处理器
+ * 瀵硅薄鍊煎鐞嗗櫒
  */
 public class ObjectValueHandler extends JDBCAbstractValueHandler {
 	public static final ObjectValueHandler INSTANCE = new ObjectValueHandler();

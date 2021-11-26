@@ -60,7 +60,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Ë÷Òı¹ÜÀíÆ÷£¬ ½øĞĞË÷ÒıµÄÔö¼ÓºÍÉ¾³ı
+ * ç´¢å¼•ç®¡ç†å™¨ï¼Œ è¿›è¡Œç´¢å¼•çš„å¢åŠ å’Œåˆ é™¤
  */
 public class IndexManager extends SQLIndexManager<TableIndex, BaseTablePhysical> {
 
@@ -109,7 +109,7 @@ public class IndexManager extends SQLIndexManager<TableIndex, BaseTablePhysical>
 	}
 
 	/**
-	 * ÖØĞÂ×é×°´´½¨ index Óï¾ä£¬Ôö¼Ó local ¹Ø¼ü×Ö
+	 * é‡æ–°ç»„è£…åˆ›å»º index è¯­å¥ï¼Œå¢åŠ  local å…³é”®å­—
 	 */
 	@Override
 	protected void addObjectCreateActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
@@ -143,7 +143,7 @@ public class IndexManager extends SQLIndexManager<TableIndex, BaseTablePhysical>
 		actions.add(new SQLDatabasePersistAction(ModelMessages.model_jdbc_create_new_index, decl.toString()));
 
 		actions.remove(0);
-		// ¾Ö²¿»òÈ«¾ÖË÷Òı
+		// å±€éƒ¨æˆ–å…¨å±€ç´¢å¼•
 		if (index.isLocal()) {
 			decl.append(" LOCAL");
 		} else {
@@ -153,7 +153,7 @@ public class IndexManager extends SQLIndexManager<TableIndex, BaseTablePhysical>
 	}
 
 	/**
-	 * ÖØĞ´Ì“¹ÈË÷ÒıÊı¾İÀàĞÍÓï·¨
+	 * é‡å†™è™›è°·ç´¢å¼•æ•°æ®ç±»å‹è¯­æ³•
 	 */
 	@Override
 	protected void appendIndexType(TableIndex index, StringBuilder decl) {
@@ -183,7 +183,7 @@ public class IndexManager extends SQLIndexManager<TableIndex, BaseTablePhysical>
 	}
 
 	/**
-	 * ÎªÁËÉèÖÃlocalÊôĞÔÊµÏÖµÄ¼Ì³Ğ×ÔEditIndexPageµÄ½çÃæÀà
+	 * ä¸ºäº†è®¾ç½®localå±æ€§å®ç°çš„ç»§æ‰¿è‡ªEditIndexPageçš„ç•Œé¢ç±»
 	 */
 	private class InnerIndexPage extends EditIndexPage {
 		private Combo globalCombo;

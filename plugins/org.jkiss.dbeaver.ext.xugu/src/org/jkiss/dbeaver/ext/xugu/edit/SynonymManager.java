@@ -52,7 +52,7 @@ import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.utils.CommonUtils;
 
 /**
- * Í¬Òå´Ê¹ÜÀíÆ÷£¬½øĞĞÍ¬Òå´ÊµÄ´´½¨ºÍÉ¾³ı£¬²»Ö§³ÖĞŞ¸Ä£¬°üº¬Ò»¸öÄÚ²¿½çÃæÀà£¬ÓÃÓÚ½øĞĞÊôĞÔÉè¶¨
+ * åŒä¹‰è¯ç®¡ç†å™¨ï¼Œè¿›è¡ŒåŒä¹‰è¯çš„åˆ›å»ºå’Œåˆ é™¤ï¼Œä¸æ”¯æŒä¿®æ”¹ï¼ŒåŒ…å«ä¸€ä¸ªå†…éƒ¨ç•Œé¢ç±»ï¼Œç”¨äºè¿›è¡Œå±æ€§è®¾å®š
  */
 public class SynonymManager extends SQLObjectEditor<Synonym, Schema> implements DBEObjectRenamer<Synonym> {
 	@Override
@@ -62,7 +62,7 @@ public class SynonymManager extends SQLObjectEditor<Synonym, Schema> implements 
 
 	protected void validateObjectProperties(ObjectChangeCommand command) throws DBException {
 		if (CommonUtils.isEmpty(command.getObject().getName())) {
-			throw new DBException("Í¬Òå´ÊÃû³Æ²»ÄÜÎª¿Õ");
+			throw new DBException("åŒä¹‰è¯åç§°ä¸èƒ½ä¸ºç©º");
 		}
 	}
 
@@ -202,7 +202,7 @@ public class SynonymManager extends SQLObjectEditor<Synonym, Schema> implements 
 				synonym.setPublic(isPublicButton.getSelection());
 				super.okPressed();
 			} else {
-				WarningDialog warnDialog = new WarningDialog(UIUtils.getActiveWorkbenchShell(), "Í¬Òå´ÊÃû³Æ²»ÄÜÎª¿Õ");
+				WarningDialog warnDialog = new WarningDialog(UIUtils.getActiveWorkbenchShell(), "åŒä¹‰è¯åç§°ä¸èƒ½ä¸ºç©º");
 				warnDialog.open();
 			}
 		}

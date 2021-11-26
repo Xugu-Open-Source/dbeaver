@@ -65,7 +65,7 @@ public class BackupTool implements IUserInterfaceTool {
 			try {
 				return database.getSchemas(monitor).stream();
 			} catch (DBException e) {
-				throw new IllegalStateException(String.format("»ñÈ¡Êı¾İ¿â£¨%s£©µÄÄ£Ê½ÁĞ±íÊ§°Ü", database.getName()), e);
+				throw new IllegalStateException(String.format("è·å–æ•°æ®åº“ï¼ˆ%sï¼‰çš„æ¨¡å¼åˆ—è¡¨å¤±è´¥", database.getName()), e);
 			}
 		}).collect(Collectors.toSet());
 		Collection<Table> tables = schemas.stream().flatMap(schema -> {
@@ -73,12 +73,12 @@ public class BackupTool implements IUserInterfaceTool {
 				return schema.getTables(monitor).stream();
 			} catch (DBException e) {
 				throw new IllegalStateException(
-						String.format("»ñÈ¡¿â£¨%s£©Ä£Ê½£¨%s£©µÄ±íÁĞ±íÊ§°Ü", schema.getParent().getName(), schema.getName()), e);
+						String.format("è·å–åº“ï¼ˆ%sï¼‰æ¨¡å¼ï¼ˆ%sï¼‰çš„è¡¨åˆ—è¡¨å¤±è´¥", schema.getParent().getName(), schema.getName()), e);
 			}
 		}).collect(Collectors.toSet());
 		Collection<SelectedObject> selectedObjects = new ArrayList<>();
 		Shell selectShell = new Shell(window.getShell());
-		selectShell.setText("Êı¾İ¿â±¸·İ¹¤¾ß");
+		selectShell.setText("æ•°æ®åº“å¤‡ä»½å·¥å…·");
 		selectShell.setLayout(new GridLayout());
 		org.eclipse.swt.widgets.Table objectTable = new org.eclipse.swt.widgets.Table(selectShell, SWT.BORDER);
 		objectTable.setLinesVisible(true);
@@ -89,10 +89,10 @@ public class BackupTool implements IUserInterfaceTool {
 		c0.setText("");
 		TableColumn c1 = new TableColumn(objectTable, SWT.CENTER);
 		c1.setWidth(80);
-		c1.setText("¶ÔÏóÀàĞÍ");
+		c1.setText("å¯¹è±¡ç±»å‹");
 		TableColumn c2 = new TableColumn(objectTable, SWT.CENTER);
 		c2.setWidth(300);
-		c2.setText("¶ÔÏóÃû³Æ");
+		c2.setText("å¯¹è±¡åç§°");
 		String dateString = format.format(new Date());
 		{
 			String fileName = String.format("%s_%s.dump", SelectedObject.Type.SYSTEM, dateString);
@@ -229,10 +229,10 @@ public class BackupTool implements IUserInterfaceTool {
 			editor.setEditor(objectNameText, item, 2);
 		}
 		Button backupButton = new Button(selectShell, SWT.PUSH);
-		backupButton.setText("¿ªÊ¼±¸·İ");
+		backupButton.setText("å¼€å§‹å¤‡ä»½");
 		backupButton.addSelectionListener(widgetSelectedAdapter(e -> {
 			Shell comfirmShell = new Shell(selectShell);
-			comfirmShell.setText("È·ÈÏ±¸·İÎÄ¼şÃû");
+			comfirmShell.setText("ç¡®è®¤å¤‡ä»½æ–‡ä»¶å");
 			comfirmShell.setLayout(new GridLayout());
 			org.eclipse.swt.widgets.Table comfirmTable = new org.eclipse.swt.widgets.Table(comfirmShell, SWT.BORDER);
 			comfirmTable.setLinesVisible(true);
@@ -240,15 +240,15 @@ public class BackupTool implements IUserInterfaceTool {
 			comfirmTable.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
 			TableColumn objectTypeColumn = new TableColumn(comfirmTable, SWT.NONE);
 			objectTypeColumn.setWidth(80);
-			objectTypeColumn.setText("¶ÔÏóÀàĞÍ");
+			objectTypeColumn.setText("å¯¹è±¡ç±»å‹");
 			TableColumn objectNameColumn = new TableColumn(comfirmTable, SWT.CENTER);
 			objectNameColumn.setWidth(300);
-			objectNameColumn.setText("¶ÔÏóÃû³Æ");
+			objectNameColumn.setText("å¯¹è±¡åç§°");
 			TableColumn fileNameColumn = new TableColumn(comfirmTable, SWT.CENTER);
 			fileNameColumn.setWidth(300);
-			fileNameColumn.setText("ÎÄ¼şÃû³Æ");
+			fileNameColumn.setText("æ–‡ä»¶åç§°");
 			if (selectedObjects.isEmpty()) {
-				throw new RuntimeException("ÇëÏÈÑ¡ÔñĞèÒª±¸·İµÄ¶ÔÏó");
+				throw new RuntimeException("è¯·å…ˆé€‰æ‹©éœ€è¦å¤‡ä»½çš„å¯¹è±¡");
 			}
 			for (SelectedObject object : selectedObjects) {
 				TableItem item = new TableItem(comfirmTable, SWT.NONE);
@@ -275,7 +275,7 @@ public class BackupTool implements IUserInterfaceTool {
 				editor.setEditor(fileNameText, item, 2);
 			}
 			Button comfirmButton = new Button(comfirmShell, SWT.PUSH);
-			comfirmButton.setText("ÒÑÈ·ÈÏ£¬Á¢¼´¿ªÊ¼");
+			comfirmButton.setText("å·²ç¡®è®¤ï¼Œç«‹å³å¼€å§‹");
 			comfirmButton.addSelectionListener(widgetSelectedAdapter(event -> {
 				BackupExecutor executor = new BackupExecutor(dataSource);
 				Map<SelectedObject, Exception> exceptions = new HashMap<>();
@@ -311,11 +311,11 @@ public class BackupTool implements IUserInterfaceTool {
 						}
 						break;
 					default:
-						exceptions.put(object, new UnsupportedOperationException("Î´Ö§³ÖµÄ¶ÔÏó£º" + object));
+						exceptions.put(object, new UnsupportedOperationException("æœªæ”¯æŒçš„å¯¹è±¡ï¼š" + object));
 					}
 				}
 				if (exceptions.isEmpty()) {
-					MessageDialog.openInformation(comfirmShell, "±¸·İ³É¹¦", "Ö´ĞĞÊı¾İ¿â¶ÔÏó±¸·İÍê³É£¡");
+					MessageDialog.openInformation(comfirmShell, "å¤‡ä»½æˆåŠŸ", "æ‰§è¡Œæ•°æ®åº“å¯¹è±¡å¤‡ä»½å®Œæˆï¼");
 					comfirmShell.dispose();
 				} else {
 					StringBuilder builder = new StringBuilder();
@@ -333,7 +333,7 @@ public class BackupTool implements IUserInterfaceTool {
 						}
 						builder.append("\n\n");
 					});
-					MessageDialog.openError(comfirmShell, "±¸·İÊ§°Ü", "ÏÂÁĞ¶ÔÏó±¸·İÊ§°Ü£º\n" + builder);
+					MessageDialog.openError(comfirmShell, "å¤‡ä»½å¤±è´¥", "ä¸‹åˆ—å¯¹è±¡å¤‡ä»½å¤±è´¥ï¼š\n" + builder);
 					return;
 				}
 			}));
@@ -425,7 +425,7 @@ public class BackupTool implements IUserInterfaceTool {
 		}
 
 		private static enum Type {
-			SYSTEM("ÏµÍ³"), DATABASE("¿â"), SCHEMA("Ä£Ê½"), TABLE("±í");
+			SYSTEM("ç³»ç»Ÿ"), DATABASE("åº“"), SCHEMA("æ¨¡å¼"), TABLE("è¡¨");
 
 			private final String name;
 

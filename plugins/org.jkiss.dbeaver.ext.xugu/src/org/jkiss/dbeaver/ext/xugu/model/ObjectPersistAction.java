@@ -19,7 +19,7 @@ package org.jkiss.dbeaver.ext.xugu.model;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 
 /**
- * ³Ö¾Ã»¯¶¯×÷
+ * æŒä¹…åŒ–åŠ¨ä½œ
  */
 public class ObjectPersistAction extends SQLDatabasePersistAction {
 	private final ObjectType objectType;

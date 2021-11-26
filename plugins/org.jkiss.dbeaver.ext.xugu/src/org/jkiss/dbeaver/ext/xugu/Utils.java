@@ -65,7 +65,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * ¹¤¾ßÀà£¬Ìá¹©³£ÓÃ·½·¨
+ * å·¥å…·ç±»ï¼Œæä¾›å¸¸ç”¨æ–¹æ³•
  */
 public class Utils {
 	private static final Log LOG = Log.getLog(Utils.class);
@@ -145,10 +145,10 @@ public class Utils {
 	}
 
 	/**
-	 * ÅĞ¶Ï×Ö·û´®ÊÇ·ñ¿ÉÓÃ
+	 * åˆ¤æ–­å­—ç¬¦ä¸²æ˜¯å¦å¯ç”¨
 	 * 
-	 * @param str ´ıÅĞ¶Ï×Ö·û´®
-	 * @return ÅĞ¶Ï½á¹û
+	 * @param str å¾…åˆ¤æ–­å­—ç¬¦ä¸²
+	 * @return åˆ¤æ–­ç»“æœ
 	 */
 	public static boolean checkString(String str) {
 		if (str == null || "".equals(str.trim())) {
@@ -205,7 +205,7 @@ public class Utils {
 		String action = "";
 		ResourceBundle  resourceBundle = ResourceBundle.getBundle("org.jkiss.dbeaver.ext.xugu.authority",Locale.CHINA);
 		if (authority != null) {
-			// ´¦Àí¶¯´Ê
+			// å¤„ç†åŠ¨è¯
 			final String authRead = resourceBundle.getString("read");
 			final String authUpdate = resourceBundle.getString("update");
 			if (authority.contains(authRead)) {
@@ -223,7 +223,7 @@ public class Utils {
 		String any = "ANY";
 		ResourceBundle  resourceBundle = ResourceBundle.getBundle("org.jkiss.dbeaver.ext.xugu.authority",Locale.CHINA);
 		if (authority != null) {
-			// ´¦Àí¶¯´Ê
+			// å¤„ç†åŠ¨è¯
 			final String authCreate = resourceBundle.getString("create");
 			final String authAlter = resourceBundle.getString("alter");
 			final String authDrop = resourceBundle.getString("drop");
@@ -257,7 +257,7 @@ public class Utils {
 				action = "REFERENCES";
 			}
 
-			// ´¦ÀíÃû´Ê
+			// å¤„ç†åè¯
 			final String anthDatabase = resourceBundle.getString("database");
 			final String authSchema = resourceBundle.getString("schema");
 			final String authTable = resourceBundle.getString("table");
@@ -429,13 +429,13 @@ public class Utils {
 	}
 
 	/**
-	 * xfc ĞŞ¸ÄÁË»ñÈ¡¶ÔÏó×´Ì¬µÄsqlºÍÂß¼­
+	 * xfc ä¿®æ”¹äº†è·å–å¯¹è±¡çŠ¶æ€çš„sqlå’Œé€»è¾‘
 	 * 
-	 * @param monitor    Êı¾İ¿â½ø³Ì¼àÊÓÆ÷
-	 * @param object     ÓĞ×´Ì¬µÄ¶ÔÏó
-	 * @param objectType ¶ÔÏóÀàĞÍ
-	 * @return »ñÈ¡¶ÔÏó×´Ì¬½á¹û
-	 * @throws DBCException µ±·¢Éú SQLException Ê±·â×°Å×³ö
+	 * @param monitor    æ•°æ®åº“è¿›ç¨‹ç›‘è§†å™¨
+	 * @param object     æœ‰çŠ¶æ€çš„å¯¹è±¡
+	 * @param objectType å¯¹è±¡ç±»å‹
+	 * @return è·å–å¯¹è±¡çŠ¶æ€ç»“æœ
+	 * @throws DBCException å½“å‘ç”Ÿ SQLException æ—¶å°è£…æŠ›å‡º
 	 */
 	public static boolean getObjectStatus(DBRProgressMonitor monitor, StatefulObject object, ObjectType objectType)
 			throws DBCException {
@@ -478,7 +478,7 @@ public class Utils {
 				break;
 			}
 			try (JDBCPreparedStatement dbStat = session.prepareStatement(validSql)) {
-				// ÔÚÊı¾İ¿âÖĞ obj_type ×Ö¶ÎÎª int ÀàĞÍ
+				// åœ¨æ•°æ®åº“ä¸­ obj_type å­—æ®µä¸º int ç±»å‹
 				dbStat.setLong(1,
 						objectType == ObjectType.INDEX ? object.getSchema().getId() : object.getSchema().getId());
 				dbStat.setString(2, DBObjectNameCaseTransformer.transformObjectName(object, object.getName()));

@@ -46,12 +46,12 @@ public class TransactionKiller implements IUserInterfaceTool {
 		DBSObject first = it.next();
 		DataSource dataSource = (DataSource) first.getDataSource();
 		Shell killShell = new Shell(window.getShell());
-		killShell.setText("Êı¾İ¿âÊÂÎñ²éÉ±");
+		killShell.setText("æ•°æ®åº“äº‹åŠ¡æŸ¥æ€");
 		killShell.setLayout(new GridLayout());
 
 		ToolBar toolBar = new ToolBar(killShell, SWT.NONE);
 		ToolItem refreshToolItem = new ToolItem(toolBar, SWT.PUSH);
-		refreshToolItem.setText("Ë¢ĞÂ");
+		refreshToolItem.setText("åˆ·æ–°");
 		Rectangle clientArea = killShell.getClientArea();
 		toolBar.setLocation(clientArea.x, clientArea.y);
 		toolBar.pack();
@@ -62,37 +62,37 @@ public class TransactionKiller implements IUserInterfaceTool {
 		transactionTable.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
 		TableColumn c0 = new TableColumn(transactionTable, SWT.NONE);
 		c0.setWidth(100);
-		c0.setText("½ÚµãID");
+		c0.setText("èŠ‚ç‚¹ID");
 		TableColumn c1 = new TableColumn(transactionTable, SWT.NONE);
 		c1.setWidth(100);
-		c1.setText("ÊÂÎñºÅ");
+		c1.setText("äº‹åŠ¡å·");
 		TableColumn c2 = new TableColumn(transactionTable, SWT.NONE);
 		c2.setWidth(200);
-		c2.setText("¿ªÊ¼Ê±¼ä");
+		c2.setText("å¼€å§‹æ—¶é—´");
 		TableColumn c3 = new TableColumn(transactionTable, SWT.NONE);
 		c3.setWidth(100);
-		c3.setText("¸ùÊÂÎñ´úÀí½Úµã");
+		c3.setText("æ ¹äº‹åŠ¡ä»£ç†èŠ‚ç‚¹");
 		TableColumn c4 = new TableColumn(transactionTable, SWT.NONE);
 		c4.setWidth(100);
-		c4.setText("ÊÇ·ñÎª´úÀíÊÂÎñ");
+		c4.setText("æ˜¯å¦ä¸ºä»£ç†äº‹åŠ¡");
 		TableColumn c5 = new TableColumn(transactionTable, SWT.NONE);
 		c5.setWidth(100);
-		c5.setText("¸ùÊÂÎñ½ÚµãID");
+		c5.setText("æ ¹äº‹åŠ¡èŠ‚ç‚¹ID");
 		TableColumn c6 = new TableColumn(transactionTable, SWT.NONE);
 		c6.setWidth(100);
-		c6.setText("¸ùÊÂÎñºÅ");
+		c6.setText("æ ¹äº‹åŠ¡å·");
 		TableColumn c7 = new TableColumn(transactionTable, SWT.NONE);
 		c7.setWidth(100);
-		c7.setText("´ıÍ¬²½Êı");
+		c7.setText("å¾…åŒæ­¥æ•°");
 		TableColumn c8 = new TableColumn(transactionTable, SWT.NONE);
 		c8.setWidth(100);
-		c8.setText("ÒÑÍê³ÉÍ¬²½Êı");
+		c8.setText("å·²å®ŒæˆåŒæ­¥æ•°");
 		TableColumn c9 = new TableColumn(transactionTable, SWT.NONE);
 		c9.setWidth(100);
-		c9.setText("ËùÊô»á»°ID");
+		c9.setText("æ‰€å±ä¼šè¯ID");
 		TableColumn c10 = new TableColumn(transactionTable, SWT.NONE);
 		c10.setWidth(100);
-		c10.setText("²Ù×÷");
+		c10.setText("æ“ä½œ");
 
 		fillTransData(dataSource, killShell, transactionTable);
 
@@ -203,27 +203,27 @@ public class TransactionKiller implements IUserInterfaceTool {
 
 				editor = new TableEditor(transactionTable);
 				Button button = new Button(transactionTable, SWT.PUSH);
-				button.setText("Ç¿ÖÆÍ£Ö¹");
+				button.setText("å¼ºåˆ¶åœæ­¢");
 				button.pack();
 				button.addSelectionListener(widgetSelectedAdapter(e -> {
 					if (!"SYSTEM".equalsIgnoreCase(dataSource.getDatabase().getName()) || !"SYSDBA".equalsIgnoreCase(dataSource.getContainer().getConnectionConfiguration().getUserName())) {
-						MessageDialog.openWarning(killShell, "¾¯¸æ", "ÊÂÎñ²éÉ±¹¦ÄÜÊôÓÚ¸ß·çÏÕ²Ù×÷£¬½öÔÊĞí SYSTEM ¿âÏÂ SYSDBA ÓÃ»§Ê¹ÓÃ");
+						MessageDialog.openWarning(killShell, "è­¦å‘Š", "äº‹åŠ¡æŸ¥æ€åŠŸèƒ½å±äºé«˜é£é™©æ“ä½œï¼Œä»…å…è®¸ SYSTEM åº“ä¸‹ SYSDBA ç”¨æˆ·ä½¿ç”¨");
 						return;
 					}
-					if (MessageDialog.openConfirm(killShell, "È·ÈÏÊÂÎñÇ¿ÖÆÍ£Ö¹", String.format(
-							 "´Ë²Ù×÷¿ÉÄÜÔì³ÉÊÂÎñÕıÔÚ´¦ÀíµÄÊı¾İ¶ªÊ§£¬Çë½÷É÷¿¼ÂÇ£¡\nÄúÈ·ÈÏÒªÇ¿ÖÆÍ£Ö¹½Úµã£¨%s£©ÊÂÎñ£¨%s£©Âğ£¿",
+					if (MessageDialog.openConfirm(killShell, "ç¡®è®¤äº‹åŠ¡å¼ºåˆ¶åœæ­¢", String.format(
+							 "æ­¤æ“ä½œå¯èƒ½é€ æˆäº‹åŠ¡æ­£åœ¨å¤„ç†çš„æ•°æ®ä¸¢å¤±ï¼Œè¯·è°¨æ…è€ƒè™‘ï¼\næ‚¨ç¡®è®¤è¦å¼ºåˆ¶åœæ­¢èŠ‚ç‚¹ï¼ˆ%sï¼‰äº‹åŠ¡ï¼ˆ%sï¼‰å—ï¼Ÿ",
 							 nodeIdText.getText(), tranIdText.getText()))) {
 						try (Connection killConnection = dataSource.getConnection();
 								Statement killStatement = killConnection.createStatement()) {
 							killStatement.execute(String.format("DBMS_DBA.KILL_TRANS(%s, %s)", nodeIdText.getText(), tranIdText.getText()));
 							MessageDialog.openInformation(killShell,
-									"ÊÂÎñÇ¿ÖÆÍ£Ö¹³É¹¦", String.format("Ç¿ÖÆÍ£Ö¹Êı¾İ¿â½Úµã£¨%s£©ÊÂÎñ£¨%s£©³É¹¦£¡",
+									"äº‹åŠ¡å¼ºåˆ¶åœæ­¢æˆåŠŸ", String.format("å¼ºåˆ¶åœæ­¢æ•°æ®åº“èŠ‚ç‚¹ï¼ˆ%sï¼‰äº‹åŠ¡ï¼ˆ%sï¼‰æˆåŠŸï¼",
 									nodeIdText.getText(), tranIdText.getText()));
 							clearTransData(transactionTable);
 							fillTransData(dataSource, killShell, transactionTable);
 							killShell.pack();
 						} catch (SQLException ex) {
-							MessageDialog.openError(killShell, "ÊÂÎñÇ¿ÖÆÍ£Ö¹Ê§°Ü", ex.getLocalizedMessage());
+							MessageDialog.openError(killShell, "äº‹åŠ¡å¼ºåˆ¶åœæ­¢å¤±è´¥", ex.getLocalizedMessage());
 							ex.printStackTrace();
 						}
 					}
@@ -234,7 +234,7 @@ public class TransactionKiller implements IUserInterfaceTool {
 				editors.add(editor);
 			}
 		} catch (SQLException e) {
-			MessageDialog.openError(killShell, "ÊÂÎñĞÅÏ¢²éÑ¯Ê§°Ü", e.getLocalizedMessage());
+			MessageDialog.openError(killShell, "äº‹åŠ¡ä¿¡æ¯æŸ¥è¯¢å¤±è´¥", e.getLocalizedMessage());
 			e.printStackTrace();
 		}
 	}

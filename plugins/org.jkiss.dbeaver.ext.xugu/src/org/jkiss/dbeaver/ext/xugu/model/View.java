@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * ÊÓÍ¼ĞÅÏ¢Àà
+ * è§†å›¾ä¿¡æ¯ç±»
  */
 public class View extends BaseTable implements SourceObject {
 	private String viewText;

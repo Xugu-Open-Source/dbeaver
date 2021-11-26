@@ -28,7 +28,7 @@ import org.jkiss.dbeaver.ext.xugu.Constants;
 import java.sql.ResultSet;
 
 /**
- * Ô¼ÊøĞÅÏ¢Àà£¬°üº¬Ô¼ÊøÏà¹ØµÄ»ù±¾ĞÅÏ¢
+ * çº¦æŸä¿¡æ¯ç±»ï¼ŒåŒ…å«çº¦æŸç›¸å…³çš„åŸºæœ¬ä¿¡æ¯
  */
 public class TableConstraint extends BaseTableConstraint {
 	private static final Log log = Log.getLog(TableConstraint.class);

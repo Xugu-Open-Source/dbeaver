@@ -45,7 +45,7 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * ¼ÓÔØ±íÏà¹ØÎïÀíĞÅÏ¢£¨·ÖÇøĞÅÏ¢¡¢±í¿Õ¼äĞÅÏ¢£©
+ * åŠ è½½è¡¨ç›¸å…³ç‰©ç†ä¿¡æ¯ï¼ˆåˆ†åŒºä¿¡æ¯ã€è¡¨ç©ºé—´ä¿¡æ¯ï¼‰
  */
 public abstract class BaseTablePhysical extends BaseTable implements DBSObjectLazy<DataSource>, DBDPseudoAttributeContainer {
 	private static final Log log = Log.getLog(BaseTablePhysical.class);
@@ -68,7 +68,7 @@ public abstract class BaseTablePhysical extends BaseTable implements DBSObjectLa
 	protected BaseTablePhysical(Schema schema, ResultSet dbResult) {
 		super(schema, dbResult, ObjectType.TABLE);
 
-		// ¼ÓÔØ±í·ÖÇøĞÅÏ¢
+		// åŠ è½½è¡¨åˆ†åŒºä¿¡æ¯
 		this.partitioned = JDBCUtils.safeGetInteger(dbResult, "PARTI_TYPE");
 		this.partitionCache = new PartitionCache();
 		this.subPartitionCache = new SubPartitionCache();
@@ -88,7 +88,7 @@ public abstract class BaseTablePhysical extends BaseTable implements DBSObjectLa
 	}
 
 	/**
-	 * Ê¹ÓÃ»º´æ¶ÁÈ¡Ë÷Òı
+	 * ä½¿ç”¨ç¼“å­˜è¯»å–ç´¢å¼•
 	 */
 	@Override
 	@Association

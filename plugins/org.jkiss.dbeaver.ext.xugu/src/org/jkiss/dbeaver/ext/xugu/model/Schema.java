@@ -56,7 +56,7 @@ import java.sql.SQLException;
 import java.util.*;
 
 /**
- * Ä£Ê½ĞÅÏ¢Àà£¬°üº¬Ä£Ê½Ïà¹ØµÄ»ù±¾ĞÅÏ¢£¬ÒÔ¼°±í¼¶¶ÔÏó»º´æ£¨±í¡¢ÊÓÍ¼¡¢Ô¼Êø¡¢Íâ¼ü¡¢Ë÷Òı¡¢ĞòÁĞ¡¢°ü¡¢´æ´¢¹ı³Ì¡¢×÷Òµ¡¢Í¬Òå´Ê¡¢×Ô¶¨ÒåÀàĞÍ£©
+ * æ¨¡å¼ä¿¡æ¯ç±»ï¼ŒåŒ…å«æ¨¡å¼ç›¸å…³çš„åŸºæœ¬ä¿¡æ¯ï¼Œä»¥åŠè¡¨çº§å¯¹è±¡ç¼“å­˜ï¼ˆè¡¨ã€è§†å›¾ã€çº¦æŸã€å¤–é”®ã€ç´¢å¼•ã€åºåˆ—ã€åŒ…ã€å­˜å‚¨è¿‡ç¨‹ã€ä½œä¸šã€åŒä¹‰è¯ã€è‡ªå®šä¹‰ç±»å‹ï¼‰
  */
 public class Schema extends BaseGlobalObject
 		implements DBSSchema, DBPRefreshableObject, DBPSystemObject, DBSProcedureContainer ,DBPNamedObject2 {
@@ -87,11 +87,11 @@ public class Schema extends BaseGlobalObject
 	private DataSource dataSource;
 
 	/**
-	 * Í¨¹ıÖ¸¶¨Ä£Ê½IDºÍÄ£Ê½Ãû³Æ¹¹ÔìÒ»¸öĞÂµÄÄ£Ê½¶ÔÏó
+	 * é€šè¿‡æŒ‡å®šæ¨¡å¼IDå’Œæ¨¡å¼åç§°æ„é€ ä¸€ä¸ªæ–°çš„æ¨¡å¼å¯¹è±¡
 	 * 
-	 * @param dataSource Êı¾İÔ´
-	 * @param id         Ä£Ê½ID
-	 * @param name       Ä£Ê½Ãû³Æ
+	 * @param dataSource æ•°æ®æº
+	 * @param id         æ¨¡å¼ID
+	 * @param name       æ¨¡å¼åç§°
 	 */
 	public Schema(DataSource dataSource, long id, String name) {
 		super(dataSource, id > 0);
@@ -102,10 +102,10 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * Í¨¹ı½á¹û¼¯¹¹ÔìÒ»¸öĞÂµÄÄ£Ê½¶ÔÏó
+	 * é€šè¿‡ç»“æœé›†æ„é€ ä¸€ä¸ªæ–°çš„æ¨¡å¼å¯¹è±¡
 	 * 
-	 * @param dataSource Êı¾İÔ´
-	 * @param dbResult   ²éÑ¯½á¹û¼¯
+	 * @param dataSource æ•°æ®æº
+	 * @param dbResult   æŸ¥è¯¢ç»“æœé›†
 	 */
 	public Schema(@NotNull DataSource dataSource, @NotNull ResultSet dbResult) {
 		super(dataSource, true);
@@ -198,11 +198,11 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * ´ÓË÷Òı»º´æÖĞ»ñÈ¡Ä£Ê½°üº¬µÄËùÓĞË÷ÒıĞÅÏ¢£¨Ìá¹©¸ø½çÃæÕ¹Ê¾£©
+	 * ä»ç´¢å¼•ç¼“å­˜ä¸­è·å–æ¨¡å¼åŒ…å«çš„æ‰€æœ‰ç´¢å¼•ä¿¡æ¯ï¼ˆæä¾›ç»™ç•Œé¢å±•ç¤ºï¼‰
 	 * 
-	 * @param monitor ¼à¿Ø
-	 * @return Ë÷ÒıÁĞ±í
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor ç›‘æ§
+	 * @return ç´¢å¼•åˆ—è¡¨
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	@Association
 	public Collection<TableIndex> getIndexes(DBRProgressMonitor monitor) throws DBException {
@@ -211,11 +211,11 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * ´Ó±í»º´æÖĞ»ñÈ¡Ä£Ê½°üº¬µÄËùÓĞ±íĞÅÏ¢£¨Ìá¹©¸ø½çÃæÕ¹Ê¾£©
+	 * ä»è¡¨ç¼“å­˜ä¸­è·å–æ¨¡å¼åŒ…å«çš„æ‰€æœ‰è¡¨ä¿¡æ¯ï¼ˆæä¾›ç»™ç•Œé¢å±•ç¤ºï¼‰
 	 * 
-	 * @param monitor ¼à¿Ø
-	 * @return ±íÁĞ±í
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor ç›‘æ§
+	 * @return è¡¨åˆ—è¡¨
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	@Association
 	public Collection<Table> getTables(DBRProgressMonitor monitor) throws DBException {
@@ -224,12 +224,12 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * ¸ù¾İ±íÃû´Ó»º´æÖĞ»ñÈ¡Ö¸¶¨µÄ±íĞÅÏ¢
+	 * æ ¹æ®è¡¨åä»ç¼“å­˜ä¸­è·å–æŒ‡å®šçš„è¡¨ä¿¡æ¯
 	 * 
-	 * @param monitor ¼à¿Ø
-	 * @param name    ±íÃû
-	 * @return ±í¶ÔÏó
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor ç›‘æ§
+	 * @param name    è¡¨å
+	 * @return è¡¨å¯¹è±¡
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	public Table getTable(DBRProgressMonitor monitor, String name) throws DBException {
 		Table table = tableCache.getObject(monitor, this, name, Table.class);
@@ -237,11 +237,11 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * ´ÓÊÓÍ¼»º´æÖĞ»ñÈ¡ËùÓĞÊÓÍ¼ĞÅÏ¢£¨Ìá¹©¸ø½çÃæÕ¹Ê¾£©
+	 * ä»è§†å›¾ç¼“å­˜ä¸­è·å–æ‰€æœ‰è§†å›¾ä¿¡æ¯ï¼ˆæä¾›ç»™ç•Œé¢å±•ç¤ºï¼‰
 	 * 
-	 * @param monitor ¼à¿Ø
-	 * @return list ÊÓÍ¼ÁĞ±í
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor ç›‘æ§
+	 * @return list è§†å›¾åˆ—è¡¨
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	@Association
 	public Collection<View> getViews(DBRProgressMonitor monitor) throws DBException {
@@ -250,12 +250,12 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * ¸ù¾İÊÓÍ¼Ãû´Ó»º´æÖĞ»ñÈ¡Ö¸¶¨µÄÊÓÍ¼ĞÅÏ¢
+	 * æ ¹æ®è§†å›¾åä»ç¼“å­˜ä¸­è·å–æŒ‡å®šçš„è§†å›¾ä¿¡æ¯
 	 * 
-	 * @param monitor ¼à¿Ø
-	 * @param name    ÊÓÍ¼Ãû
-	 * @return view ÊÓÍ¼¶ÔÏó
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor ç›‘æ§
+	 * @param name    è§†å›¾å
+	 * @return view è§†å›¾å¯¹è±¡
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	public View getView(DBRProgressMonitor monitor, String name) throws DBException {
 		View view = viewCache.getObject(monitor, this, name, View.class);
@@ -263,11 +263,11 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * ´ÓĞòÁĞ»º´æÖĞ»ñÈ¡È«²¿µÄ»º´æĞÅÏ¢£¨Ìá¹©¸ø½çÃæÕ¹Ê¾£©
+	 * ä»åºåˆ—ç¼“å­˜ä¸­è·å–å…¨éƒ¨çš„ç¼“å­˜ä¿¡æ¯ï¼ˆæä¾›ç»™ç•Œé¢å±•ç¤ºï¼‰
 	 * 
-	 * @param monitor ¼à¿Ø
-	 * @return list ĞòÁĞÁĞ±í
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor ç›‘æ§
+	 * @return list åºåˆ—åˆ—è¡¨
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	@Association
 	public Collection<Sequence> getSequences(DBRProgressMonitor monitor) throws DBException {
@@ -276,11 +276,11 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * ´Ó°ü»º´æÖĞ»ñÈ¡È«²¿µÄ°üĞÅÏ¢£¨Ìá¹©¸ø½çÃæÕ¹Ê¾£©
+	 * ä»åŒ…ç¼“å­˜ä¸­è·å–å…¨éƒ¨çš„åŒ…ä¿¡æ¯ï¼ˆæä¾›ç»™ç•Œé¢å±•ç¤ºï¼‰
 	 * 
-	 * @param monitor ¼à¿Ø
-	 * @return list °üÁĞ±í
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor ç›‘æ§
+	 * @return list åŒ…åˆ—è¡¨
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	@Association
 	public Collection<Package> getPackages(DBRProgressMonitor monitor) throws DBException {
@@ -289,11 +289,11 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * ´Ó´æ´¢¹ı³Ì»º´æÖĞ»ñÈ¡È«²¿µÄ´æ´¢¹ı³ÌĞÅÏ¢£¨Ìá¹©¸ø½çÃæÕ¹Ê¾£©
+	 * ä»å­˜å‚¨è¿‡ç¨‹ç¼“å­˜ä¸­è·å–å…¨éƒ¨çš„å­˜å‚¨è¿‡ç¨‹ä¿¡æ¯ï¼ˆæä¾›ç»™ç•Œé¢å±•ç¤ºï¼‰
 	 * 
-	 * @param monitor ¼à¿Ø
-	 * @return list ´æ´¢¹ı³ÌÁĞ±í
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor ç›‘æ§
+	 * @return list å­˜å‚¨è¿‡ç¨‹åˆ—è¡¨
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	@Override
 	@Association
@@ -303,12 +303,12 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * ¸ù¾İ´æ´¢¹ı³ÌÃû´Ó»º´æÖĞ»ñÈ¡Ö¸¶¨µÄ´æ´¢¹ı³ÌĞÅÏ¢
+	 * æ ¹æ®å­˜å‚¨è¿‡ç¨‹åä»ç¼“å­˜ä¸­è·å–æŒ‡å®šçš„å­˜å‚¨è¿‡ç¨‹ä¿¡æ¯
 	 * 
-	 * @param monitor    ¼à¿Ø
-	 * @param uniqueName ´æ´¢¹ı³ÌÃû
-	 * @return procedure ´æ´¢¹ı³Ì¶ÔÏó
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor    ç›‘æ§
+	 * @param uniqueName å­˜å‚¨è¿‡ç¨‹å
+	 * @return procedure å­˜å‚¨è¿‡ç¨‹å¯¹è±¡
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	@Override
 	public ProcedureStandalone getProcedure(DBRProgressMonitor monitor, String uniqueName) throws DBException {
@@ -317,11 +317,11 @@ public class Schema extends BaseGlobalObject
 	}
 	
 	/**
-	 * ´Ó´æ´¢º¯Êı»º´æÖĞ»ñÈ¡È«²¿µÄ´æ´¢º¯ÊıĞÅÏ¢£¨Ìá¹©¸ø½çÃæÕ¹Ê¾£©
+	 * ä»å­˜å‚¨å‡½æ•°ç¼“å­˜ä¸­è·å–å…¨éƒ¨çš„å­˜å‚¨å‡½æ•°ä¿¡æ¯ï¼ˆæä¾›ç»™ç•Œé¢å±•ç¤ºï¼‰
 	 * 
-	 * @param monitor ¼à¿Ø
-	 * @return list ´æ´¢º¯ÊıÁĞ±í
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor ç›‘æ§
+	 * @return list å­˜å‚¨å‡½æ•°åˆ—è¡¨
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	@Association
 	public Collection<ProcedureStandalone> getFunctions(DBRProgressMonitor monitor) throws DBException {
@@ -334,12 +334,12 @@ public class Schema extends BaseGlobalObject
 	
 	
 	/**
-	 * ¸ù¾İ´æ´¢º¯ÊıÃû´Ó»º´æÖĞ»ñÈ¡Ö¸¶¨µÄ´æ´¢º¯ÊıĞÅÏ¢
+	 * æ ¹æ®å­˜å‚¨å‡½æ•°åä»ç¼“å­˜ä¸­è·å–æŒ‡å®šçš„å­˜å‚¨å‡½æ•°ä¿¡æ¯
 	 * 
-	 * @param monitor    ¼à¿Ø
-	 * @param uniqueName ´æ´¢º¯ÊıÃû
-	 * @return procedure ´æ´¢º¯Êı¶ÔÏó
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor    ç›‘æ§
+	 * @param uniqueName å­˜å‚¨å‡½æ•°å
+	 * @return procedure å­˜å‚¨å‡½æ•°å¯¹è±¡
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	public ProcedureStandalone getFunction(DBRProgressMonitor monitor, String uniqueName) throws DBException {
 		ProcedureStandalone procedure = functionsCache.getObject(monitor, this, uniqueName);
@@ -347,11 +347,11 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * ´ÓÍ¬Òå´Ê»º´æÖĞ»ñÈ¡È«²¿µÄÍ¬Òå´ÊĞÅÏ¢
+	 * ä»åŒä¹‰è¯ç¼“å­˜ä¸­è·å–å…¨éƒ¨çš„åŒä¹‰è¯ä¿¡æ¯
 	 * 
-	 * @param monitor ¼à¿Ø
-	 * @return list Í¬Òå´ÊÁĞ±í
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor ç›‘æ§
+	 * @return list åŒä¹‰è¯åˆ—è¡¨
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	@Association
 	public Collection<Synonym> getSynonyms(DBRProgressMonitor monitor) throws DBException {
@@ -361,7 +361,7 @@ public class Schema extends BaseGlobalObject
 	
 	
 	/**
-	 * ´Ó»º´æ´¥·¢Æ÷ÖĞ»ñÈ¡È«²¿´¥·¢Æ÷ĞÅÏ¢
+	 * ä»ç¼“å­˜è§¦å‘å™¨ä¸­è·å–å…¨éƒ¨è§¦å‘å™¨ä¿¡æ¯
 	 */
 	@Association
 	public Collection<Trigger> getTriggers(DBRProgressMonitor monitor) throws DBException {
@@ -371,7 +371,7 @@ public class Schema extends BaseGlobalObject
 	
 	
 	/**
-	 * ´Ó»º´æ´¥·¢Æ÷ÖĞ»ñÈ¡È«²¿´¥·¢Æ÷ĞÅÏ¢
+	 * ä»ç¼“å­˜è§¦å‘å™¨ä¸­è·å–å…¨éƒ¨è§¦å‘å™¨ä¿¡æ¯
 	 */
 //	@Association
 //	public Collection<TriggerTest> getTriggers(DBRProgressMonitor monitor) throws DBException {
@@ -381,12 +381,12 @@ public class Schema extends BaseGlobalObject
 	
 
 	/**
-	 * ¸ù¾İÖ¸¶¨µÄÍ¬Òå´ÊÃû´Ó»º´æÖĞ»ñÈ¡Ö¸¶¨µÄÍ¬Òå´ÊĞÅÏ¢
+	 * æ ¹æ®æŒ‡å®šçš„åŒä¹‰è¯åä»ç¼“å­˜ä¸­è·å–æŒ‡å®šçš„åŒä¹‰è¯ä¿¡æ¯
 	 * 
-	 * @param monitor ¼à¿Ø
-	 * @param name    Í¬Òå´ÊÃû
-	 * @return synonym Í¬Òå´Ê¶ÔÏó
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor ç›‘æ§
+	 * @param name    åŒä¹‰è¯å
+	 * @return synonym åŒä¹‰è¯å¯¹è±¡
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	public Synonym getSynonym(DBRProgressMonitor monitor, String name) throws DBException {
 		Synonym synonym = synonymCache.getObject(monitor, this, name, Synonym.class);
@@ -394,12 +394,12 @@ public class Schema extends BaseGlobalObject
 	}
 	
 	/**
-	 * ¸ù¾İÖ¸¶¨µÄ´¥·¢Æ÷Ãû´Ó»º´æÖĞ»ñÈ¡Ö¸¶¨µÄ´¥·¢Æ÷ĞÅÏ¢
+	 * æ ¹æ®æŒ‡å®šçš„è§¦å‘å™¨åä»ç¼“å­˜ä¸­è·å–æŒ‡å®šçš„è§¦å‘å™¨ä¿¡æ¯
 	 * 
-	 * @param monitor ¼à¿Ø
-	 * @param name    ´¥·¢Æ÷Ãû
-	 * @return synonym ´¥·¢Æ÷¶ÔÏó
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor ç›‘æ§
+	 * @param name    è§¦å‘å™¨å
+	 * @return synonym è§¦å‘å™¨å¯¹è±¡
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	public Trigger getTrigger(DBRProgressMonitor monitor, String name) throws DBException {
 		Trigger trigger = triggerCache.getObject(monitor, this, name, Trigger.class);
@@ -411,11 +411,11 @@ public class Schema extends BaseGlobalObject
 //	}
 
 	/**
-	 * ´ÓÓÃ»§×Ô¶¨ÒåÊı¾İÀàĞÍ»º´æÖĞ»ñÈ¡È«²¿µÄ×Ô¶¨ÒåÊı¾İÀàĞÍĞÅÏ¢
+	 * ä»ç”¨æˆ·è‡ªå®šä¹‰æ•°æ®ç±»å‹ç¼“å­˜ä¸­è·å–å…¨éƒ¨çš„è‡ªå®šä¹‰æ•°æ®ç±»å‹ä¿¡æ¯
 	 * 
-	 * @param monitor ¼à¿Ø
-	 * @return list Êı¾İÀàĞÍÁĞ±í
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor ç›‘æ§
+	 * @return list æ•°æ®ç±»å‹åˆ—è¡¨
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	@Association
 	public Collection<Udt> getUdts(DBRProgressMonitor monitor) throws DBException {
@@ -424,12 +424,12 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * ¸ù¾İÖ¸¶¨µÄÓÃ»§×Ô¶¨ÒåÊı¾İÀàĞÍÃû´Ó»º´æÖĞ»ñÈ¡Ö¸¶¨µÄÊı¾İÀàĞÍĞÅÏ¢
+	 * æ ¹æ®æŒ‡å®šçš„ç”¨æˆ·è‡ªå®šä¹‰æ•°æ®ç±»å‹åä»ç¼“å­˜ä¸­è·å–æŒ‡å®šçš„æ•°æ®ç±»å‹ä¿¡æ¯
 	 * 
-	 * @param monitor ¼à¿Ø
-	 * @param name    Êı¾İÀàĞÍÃû
-	 * @return udt Êı¾İÀàĞÍ¶ÔÏó
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor ç›‘æ§
+	 * @param name    æ•°æ®ç±»å‹å
+	 * @return udt æ•°æ®ç±»å‹å¯¹è±¡
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	public Udt getUdt(DBRProgressMonitor monitor, String name) throws DBException {
 		Udt udt = udtCache.getObject(monitor, this, name, Udt.class);
@@ -549,12 +549,12 @@ public class Schema extends BaseGlobalObject
 
 	private static TableColumn getTableColumn(JDBCSession session, BaseTable parent, String columnName)
 			throws DBException {
-		// ½«keys×Ö¶ÎÖĞµÄÒıºÅÈ¥µô£¨ÊÇ·ñ¿ÉÖ§³Ö¶àÁĞ£¿£©
+		// å°†keyså­—æ®µä¸­çš„å¼•å·å»æ‰ï¼ˆæ˜¯å¦å¯æ”¯æŒå¤šåˆ—ï¼Ÿï¼‰
 		if (columnName == null) {
 			return null;
 		}
 		columnName = columnName.replaceAll("\"", "");
-		// que »ñÈ¡µ½µÄÁĞÎª¿Õ£¿
+		// que è·å–åˆ°çš„åˆ—ä¸ºç©ºï¼Ÿ
 		TableColumn tableColumn = columnName == null ? null
 				: parent.getAttribute(session.getProgressMonitor(), columnName);
 		if (tableColumn == null) {
@@ -564,7 +564,7 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * ±í»º´æ
+	 * è¡¨ç¼“å­˜
 	 */
 	public static class TableCache extends JDBCStructLookupCache<Schema, BaseTable, TableColumn> {
 
@@ -633,7 +633,7 @@ public class Schema extends BaseGlobalObject
 //			sql.append(" and schema_id = ");
 //			sql.append(owner.id);
 //			sql.append(" and co.is_serial = true ");
-//			// µ±ÓĞ¼ìË÷Ìõ¼şÊ± Ö»²éÑ¯Ö¸¶¨±í ÓÃÓÚĞÂ½¨±íÖ®ºóµÄË¢ĞÂ¹¤×÷
+//			// å½“æœ‰æ£€ç´¢æ¡ä»¶æ—¶ åªæŸ¥è¯¢æŒ‡å®šè¡¨ ç”¨äºæ–°å»ºè¡¨ä¹‹åçš„åˆ·æ–°å·¥ä½œ
 //			if (object != null) {
 //				sql.append(" and ta.table_id = ");
 //				sql.append(object.getId());
@@ -644,14 +644,14 @@ public class Schema extends BaseGlobalObject
 //			}
 			
 
-			// xfc ¸ù¾İschema name ²éÑ¯ËùÓĞ±íĞÅÏ¢
+			// xfc æ ¹æ®schema name æŸ¥è¯¢æ‰€æœ‰è¡¨ä¿¡æ¯
 			sql.append("SELECT * FROM ");
 			sql.append(roleFlag);
 			sql.append("_TABLES  WHERE DB_ID=");
 			sql.append(owner.getDbId(owner, session));
 			sql.append(" AND SCHEMA_ID=");
 			sql.append(owner.id);
-		// µ±ÓĞ¼ìË÷Ìõ¼şÊ± Ö»²éÑ¯Ö¸¶¨±í ÓÃÓÚĞÂ½¨±íÖ®ºóµÄË¢ĞÂ¹¤×÷
+		// å½“æœ‰æ£€ç´¢æ¡ä»¶æ—¶ åªæŸ¥è¯¢æŒ‡å®šè¡¨ ç”¨äºæ–°å»ºè¡¨ä¹‹åçš„åˆ·æ–°å·¥ä½œ
 		if (object != null) {
 			sql.append(" AND TABLE_ID = ");
 			sql.append(object.getId());
@@ -668,7 +668,7 @@ public class Schema extends BaseGlobalObject
 		@Override
 		protected BaseTable fetchObject(@NotNull JDBCSession session, @NotNull Schema owner,
 				@NotNull JDBCResultSet dbResult) throws SQLException, DBException {
-			// xfc ĞŞ¸Äobject_type×Ö¶ÎÎªtable_type ²¢ĞŞ¸ÄÎªintÀàĞÍ
+			// xfc ä¿®æ”¹object_typeå­—æ®µä¸ºtable_type å¹¶ä¿®æ”¹ä¸ºintç±»å‹
 			int tableType = JDBCUtils.safeGetInt(dbResult, "TABLE_TYPE");
 			if (tableType == 0) {
 				return new Table(session.getProgressMonitor(), owner, dbResult);
@@ -677,11 +677,11 @@ public class Schema extends BaseGlobalObject
 			}
 		}
 
-		// »ñÈ¡ÁĞĞÅÏ¢
+		// è·å–åˆ—ä¿¡æ¯
 		@Override
 		protected JDBCStatement prepareChildrenStatement(@NotNull JDBCSession session, @NotNull Schema owner,
 				@Nullable BaseTable forTable) throws SQLException {
-			// xfc ĞŞ¸ÄÁË»ñÈ¡ÁĞĞÅÏ¢µÄsql
+			// xfc ä¿®æ”¹äº†è·å–åˆ—ä¿¡æ¯çš„sql
 			String roleFlag = owner.getRoleFlag();
 			StringBuilder sql = new StringBuilder(500);
 			
@@ -732,11 +732,11 @@ public class Schema extends BaseGlobalObject
 	
 
 	/**
-	 * Ô¼Êø»º´æ
+	 * çº¦æŸç¼“å­˜
 	 */
 	class ConstraintCache extends JDBCCompositeCache<Schema, BaseTable, TableConstraint, TableConstraintColumn> {
 		ConstraintCache() {
-			// ĞŞ¸ÄÔ¼ÊøÃû×Ö¶ÎÎª CONS_NAME
+			// ä¿®æ”¹çº¦æŸåå­—æ®µä¸º CONS_NAME
 			super(tableCache, BaseTable.class, "TABLE_NAME", "CONS_NAME");
 		}
 
@@ -744,7 +744,7 @@ public class Schema extends BaseGlobalObject
 		@Override
 		protected JDBCStatement prepareObjectsStatement(JDBCSession session, Schema owner, BaseTable forTable)
 				throws SQLException {
-			// ĞŞ¸ÄÁË»ñÈ¡Ô¼ÊøĞÅÏ¢µÄsql
+			// ä¿®æ”¹äº†è·å–çº¦æŸä¿¡æ¯çš„sql
 			String roleFlag = owner.getRoleFlag();
 			StringBuilder sql = new StringBuilder(500);
 			sql.append("SELECT DISTINCT *, DEFINE AS COL_NAME, TABLE_NAME FROM ");
@@ -779,7 +779,7 @@ public class Schema extends BaseGlobalObject
 		@Override
 		protected TableConstraintColumn[] fetchObjectRow(JDBCSession session, BaseTable parent, TableConstraint object,
 				JDBCResultSet dbResult) throws SQLException, DBException {
-			// ´¦Àí¶àÁĞµÄÇé¿ö
+			// å¤„ç†å¤šåˆ—çš„æƒ…å†µ
 			String colName = JDBCUtils.safeGetStringTrimmed(dbResult, "DEFINE");
 			if (TableConstraint.getConstraintType(
 					JDBCUtils.safeGetString(dbResult, "CONS_TYPE")) == DBSEntityConstraintType.CHECK) {
@@ -803,7 +803,7 @@ public class Schema extends BaseGlobalObject
 					}
 					return conCols;
 				}
-				// ´¦Àíµ¥ÁĞµ«ÊÇ´øÀ¨ºÅÇé¿ö
+				// å¤„ç†å•åˆ—ä½†æ˜¯å¸¦æ‹¬å·æƒ…å†µ
 				else if (colName.indexOf(leftBracket) != -1) {
 					String realColName = colName.substring(colName.indexOf(leftBracket) + 1,
 							colName.indexOf(rightBracket));
@@ -812,7 +812,7 @@ public class Schema extends BaseGlobalObject
 							: new TableConstraintColumn[] {
 									new TableConstraintColumn(object, tableColumn, tableColumn.getOrdinalPosition()) };
 				}
-				// Õı³£µÄµ¥ÁĞÇé¿ö
+				// æ­£å¸¸çš„å•åˆ—æƒ…å†µ
 				else {
 					colName = colName.replaceAll("\"", "");
 					TableColumn tableColumn = getTableColumn(session, parent, colName);
@@ -822,7 +822,7 @@ public class Schema extends BaseGlobalObject
 				}
 			}
 			TableColumn tableColumn = getTableColumn(session, parent, dbResult);
-			// COL_NOÎŞ·¨´Ó½á¹û¼¯Ö±½Ó»ñÈ¡ Ñ¡Ôñ´ÓcolumnÖĞµ÷ÓÃget·½·¨
+			// COL_NOæ— æ³•ä»ç»“æœé›†ç›´æ¥è·å– é€‰æ‹©ä»columnä¸­è°ƒç”¨getæ–¹æ³•
 			return tableColumn == null ? null
 					: new TableConstraintColumn[] {
 							new TableConstraintColumn(object, tableColumn, tableColumn.getOrdinalPosition()) };
@@ -836,11 +836,11 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * Íâ¼ü»º´æ
+	 * å¤–é”®ç¼“å­˜
 	 */
 	class ForeignKeyCache extends JDBCCompositeCache<Schema, Table, TableForeignKey, TableForeignKeyColumn> {
 		ForeignKeyCache() {
-			// ĞŞ¸ÄÔ¼ÊøÃû×Ö¶ÎÎª CONS_NAME
+			// ä¿®æ”¹çº¦æŸåå­—æ®µä¸º CONS_NAME
 			super(tableCache, Table.class, "TABLE_NAME", "CONS_NAME");
 		}
 
@@ -857,7 +857,7 @@ public class Schema extends BaseGlobalObject
 		@Override
 		protected JDBCStatement prepareObjectsStatement(JDBCSession session, Schema owner, Table forTable)
 				throws SQLException {
-			// ĞŞ¸ÄÁË»ñÈ¡Íâ¼üĞÅÏ¢µÄsql
+			// ä¿®æ”¹äº†è·å–å¤–é”®ä¿¡æ¯çš„sql
 			String roleFlag = owner.getRoleFlag();
 			StringBuilder sql = new StringBuilder(500);
 			sql.append("SELECT DISTINCT F.*,S.SCHEMA_NAME,T.TABLE_NAME, F.DEFINE AS COL_NAME,"
@@ -899,7 +899,7 @@ public class Schema extends BaseGlobalObject
 				JDBCResultSet dbResult) throws SQLException, DBException {
 			if (dbResult != null) {
 				String colName = JDBCUtils.safeGetStringTrimmed(dbResult, "DEFINE");
-				// ´¦Àí¶àÁĞµÄÇé¿ö
+				// å¤„ç†å¤šåˆ—çš„æƒ…å†µ
 				final String comma = ",";
 				final String leftBracket = "(";
 				final String rightBracket = ")";
@@ -936,7 +936,7 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * Ë÷Òı»º´æ
+	 * ç´¢å¼•ç¼“å­˜
 	 */
 	class IndexCache extends JDBCCompositeCache<Schema, BaseTablePhysical, TableIndex, TableIndexColumn> {
 		IndexCache() {
@@ -947,7 +947,7 @@ public class Schema extends BaseGlobalObject
 		@Override
 		protected JDBCStatement prepareObjectsStatement(JDBCSession session, Schema owner, BaseTablePhysical forTable)
 				throws SQLException {
-			// ĞŞ¸ÄÁË»ñÈ¡Ë÷ÒıĞÅÏ¢µÄsql
+			// ä¿®æ”¹äº†è·å–ç´¢å¼•ä¿¡æ¯çš„sql
 			String roleFlag = owner.getRoleFlag();
 			StringBuilder sql = new StringBuilder();
 			sql.append("SELECT IDX.*,TAB.TABLE_NAME FROM ");
@@ -979,10 +979,10 @@ public class Schema extends BaseGlobalObject
 		@Override
 		protected TableIndexColumn[] fetchObjectRow(JDBCSession session, BaseTablePhysical parent, TableIndex object,
 				JDBCResultSet dbResult) throws SQLException, DBException {
-			// ´¦Àí±ğÃûÇé¿ö
+			// å¤„ç†åˆ«åæƒ…å†µ
 			String columnName = JDBCUtils.safeGetStringTrimmed(dbResult, "KEYS");
 			columnName = columnName.replaceAll("\"", "");
-			// ´¦Àí¶à×Ö¶ÎÇé¿ö
+			// å¤„ç†å¤šå­—æ®µæƒ…å†µ
 			final String comma = ",";
 			if (columnName.indexOf(comma) != -1) {
 				String[] cols = columnName.split(comma);
@@ -1023,32 +1023,32 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * Êı¾İÀàĞÍ»º´æ
+	 * æ•°æ®ç±»å‹ç¼“å­˜
 	 */
 	static class DataTypeCache extends JDBCObjectCache<Schema, DataType> {
 		@Override
 		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull Schema owner)
 				throws SQLException {
-			// TODO ×¼±¸Êı¾İÀàĞÍ»º´æÉùÃ÷
+			// TODO å‡†å¤‡æ•°æ®ç±»å‹ç¼“å­˜å£°æ˜
 			return null;
 		}
 
 		@Override
 		protected DataType fetchObject(@NotNull JDBCSession session, @NotNull Schema owner,
 				@NotNull JDBCResultSet resultSet) throws SQLException {
-			// TODO »ñÈ¡Êı¾İÀàĞÍ»º´æ¶ÔÏó
+			// TODO è·å–æ•°æ®ç±»å‹ç¼“å­˜å¯¹è±¡
 			return null;
 		}
 	}
 
 	/**
-	 * ĞòÁĞ»º´æ
+	 * åºåˆ—ç¼“å­˜
 	 */
 	static class SequenceCache extends JDBCObjectCache<Schema, Sequence> {
 		@Override
 		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull Schema owner)
 				throws SQLException {
-			// ĞŞ¸ÄÁË»ñÈ¡sequenceĞÅÏ¢µÄsql
+			// ä¿®æ”¹äº†è·å–sequenceä¿¡æ¯çš„sql
 			String roleFlag = owner.getRoleFlag();
 			StringBuilder sql = new StringBuilder();
 			sql.append("SELECT * FROM ");
@@ -1074,14 +1074,14 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * ´æ´¢¹ı³Ì»º´æ
+	 * å­˜å‚¨è¿‡ç¨‹ç¼“å­˜
 	 */
 	static class ProceduresCache extends JDBCObjectLookupCache<Schema, ProcedureStandalone> {
 		@NotNull
 		@Override
 		public JDBCStatement prepareLookupStatement(@NotNull JDBCSession session, @NotNull Schema owner,
 				@Nullable ProcedureStandalone object, @Nullable String objectName) throws SQLException {
-			// xfc ĞŞ¸ÄÁË»ñÈ¡´æ´¢¹ı³ÌĞÅÏ¢µÄsqlÓï¾ä
+			// xfc ä¿®æ”¹äº†è·å–å­˜å‚¨è¿‡ç¨‹ä¿¡æ¯çš„sqlè¯­å¥
 			String roleFlag = owner.getRoleFlag();
 			StringBuilder sql = new StringBuilder();
 			sql.append("SELECT * FROM ");
@@ -1091,7 +1091,7 @@ public class Schema extends BaseGlobalObject
 			sql.append(" AND SCHEMA_ID=");
 			sql.append(owner.id);
 			sql.append(" AND RET_TYPE IS NULL");
-			// µ±ÓĞ¼ìË÷Ìõ¼şÊ± Ö»²éÑ¯Ö¸¶¨±í ÓÃÓÚĞÂ½¨±íÖ®ºóµÄË¢ĞÂ¹¤×÷
+			// å½“æœ‰æ£€ç´¢æ¡ä»¶æ—¶ åªæŸ¥è¯¢æŒ‡å®šè¡¨ ç”¨äºæ–°å»ºè¡¨ä¹‹åçš„åˆ·æ–°å·¥ä½œ
 			if (object != null) {
 				sql.append(" AND PROC_ID = ");
 				sql.append(object.getObjectId());
@@ -1115,14 +1115,14 @@ public class Schema extends BaseGlobalObject
 	}
 	
 	/**
-	 * º¯Êı»º´æ
+	 * å‡½æ•°ç¼“å­˜
 	 */
 	static class FunctionsCache extends ProceduresCache {
 		@NotNull
 		@Override
 		public JDBCStatement prepareLookupStatement(@NotNull JDBCSession session, @NotNull Schema owner,
 				@Nullable ProcedureStandalone object, @Nullable String objectName) throws SQLException {
-			// xfc ĞŞ¸ÄÁË»ñÈ¡´æ´¢º¯ÊıĞÅÏ¢µÄsqlÓï¾ä
+			// xfc ä¿®æ”¹äº†è·å–å­˜å‚¨å‡½æ•°ä¿¡æ¯çš„sqlè¯­å¥
 			String roleFlag = owner.getRoleFlag();
 			StringBuilder sql = new StringBuilder();
 			sql.append("SELECT * FROM ");
@@ -1132,7 +1132,7 @@ public class Schema extends BaseGlobalObject
 			sql.append(" AND SCHEMA_ID=");
 			sql.append(owner.id);
 			sql.append(" AND RET_TYPE IS NOT NULL");
-			// µ±ÓĞ¼ìË÷Ìõ¼şÊ± Ö»²éÑ¯Ö¸¶¨±í ÓÃÓÚĞÂ½¨±íÖ®ºóµÄË¢ĞÂ¹¤×÷
+			// å½“æœ‰æ£€ç´¢æ¡ä»¶æ—¶ åªæŸ¥è¯¢æŒ‡å®šè¡¨ ç”¨äºæ–°å»ºè¡¨ä¹‹åçš„åˆ·æ–°å·¥ä½œ
 			if (object != null) {
 				sql.append(" AND PROC_ID = ");
 				sql.append(object.getObjectId());
@@ -1151,13 +1151,13 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * °ü»º´æ
+	 * åŒ…ç¼“å­˜
 	 */
 	static class PackageCache extends JDBCObjectCache<Schema, Package> {
 		@Override
 		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull Schema owner)
 				throws SQLException {
-			// xfc ĞŞ¸ÄÁË»ñÈ¡ËùÓĞ°üĞÅÏ¢µÄsqlÓï¾ä
+			// xfc ä¿®æ”¹äº†è·å–æ‰€æœ‰åŒ…ä¿¡æ¯çš„sqlè¯­å¥
 			String roleFlag = owner.getRoleFlag();
 			StringBuilder sql = new StringBuilder();
 			sql.append("SELECT * FROM ");
@@ -1180,7 +1180,7 @@ public class Schema extends BaseGlobalObject
 	
 	
 	/**
-	 *  °üÄÚ´æ´¢¹ı³Ì»º´æ 
+	 *  åŒ…å†…å­˜å‚¨è¿‡ç¨‹ç¼“å­˜ 
 	 */
 	class ProcedurePackagedCache extends JDBCObjectCache<Schema,ProcedurePackaged>{
 
@@ -1202,14 +1202,14 @@ public class Schema extends BaseGlobalObject
 	
 
 	/**
-	 * Í¬Òå´Ê»º´æ
+	 * åŒä¹‰è¯ç¼“å­˜
 	 */
 	static class SynonymCache extends JDBCObjectCache<Schema, Synonym> {
 		@Override
 		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull Schema owner)
 				throws SQLException {
 			
-			// xfc ĞŞ¸ÄÁË»ñÈ¡Í¬Òå´ÊĞÅÏ¢µÄÓï¾ä
+			// xfc ä¿®æ”¹äº†è·å–åŒä¹‰è¯ä¿¡æ¯çš„è¯­å¥
 			String roleFlag = owner.getRoleFlag();
 			StringBuilder sql = new StringBuilder();
 			if(owner.getName()==Constants.USER_PUBLIC) {
@@ -1244,7 +1244,7 @@ public class Schema extends BaseGlobalObject
 	}
 	
 	/**
-	 * ´¥·¢Æ÷»º´æ
+	 * è§¦å‘å™¨ç¼“å­˜
 	 * @author zkun
 	 *
 	 */
@@ -1282,13 +1282,13 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * ÓÃ»§×Ô¶¨ÒåÊı¾İÀàĞÍ»º´æ
+	 * ç”¨æˆ·è‡ªå®šä¹‰æ•°æ®ç±»å‹ç¼“å­˜
 	 */
 	static class UdtCache extends JDBCObjectCache<Schema, Udt> {
 		@Override
 		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull Schema owner)
 				throws SQLException {
-			// xfc ĞŞ¸ÄÁË»ñÈ¡Í¬Òå´ÊĞÅÏ¢µÄÓï¾ä
+			// xfc ä¿®æ”¹äº†è·å–åŒä¹‰è¯ä¿¡æ¯çš„è¯­å¥
 			String roleFlag = owner.getRoleFlag();
 			StringBuilder sql = new StringBuilder();
 			sql.append("SELECT T.*,S.SCHEMA_NAME FROM ");
@@ -1314,7 +1314,7 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * ÊÓÍ¼»º´æ
+	 * è§†å›¾ç¼“å­˜
 	 */
 	public static class ViewCache extends JDBCStructLookupCache<Schema, View, TableColumn> {
 		ViewCache() {
@@ -1325,7 +1325,7 @@ public class Schema extends BaseGlobalObject
 		@Override
 		public JDBCStatement prepareLookupStatement(@NotNull JDBCSession session, @NotNull Schema owner, View object,
 				String objectName) throws SQLException {
-			// xfc ĞŞ¸ÄÁË»ñÈ¡ËùÓĞÊÓÍ¼ĞÅÏ¢µÄsql
+			// xfc ä¿®æ”¹äº†è·å–æ‰€æœ‰è§†å›¾ä¿¡æ¯çš„sql
 			String roleFlag = owner.getRoleFlag();
 			StringBuilder sql = new StringBuilder();
 			sql.append("SELECT * FROM ");
@@ -1351,11 +1351,11 @@ public class Schema extends BaseGlobalObject
 			return new View(session.getProgressMonitor(), session, owner, dbResult);
 		}
 
-		// »ñÈ¡ÊÓÍ¼ÁĞĞÅÏ¢
+		// è·å–è§†å›¾åˆ—ä¿¡æ¯
 		@Override
 		protected JDBCStatement prepareChildrenStatement(@NotNull JDBCSession session, @NotNull Schema owner,
 				@Nullable View forView) throws SQLException {
-			// xfc ĞŞ¸ÄÁË»ñÈ¡ÁĞĞÅÏ¢µÄsql
+			// xfc ä¿®æ”¹äº†è·å–åˆ—ä¿¡æ¯çš„sql
 			String roleFlag = owner.getRoleFlag();
 			StringBuilder sql = new StringBuilder(500);
 			sql.append("SELECT COL.*,VW.VIEW_NAME FROM ");

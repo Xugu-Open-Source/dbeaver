@@ -42,7 +42,7 @@ import java.sql.SQLException;
 import java.util.*;
 
 /**
- * 结构辅助
+ * 缁撴瀯杈呭姪
  */
 public class StructureAssistant implements DBSStructureAssistant<ExecutionContext> {
 	static protected final Log log = Log.getLog(StructureAssistant.class);
@@ -220,7 +220,7 @@ public class StructureAssistant implements DBSStructureAssistant<ExecutionContex
 
 	@Override
 	public DBSObjectType[] getSearchObjectTypes() {
-		// TODO 获取搜索对象类型列表
+		// TODO 鑾峰彇鎼滅储瀵硅薄绫诲瀷鍒楄〃
 		return null;
 	}
 

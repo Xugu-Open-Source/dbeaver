@@ -19,13 +19,13 @@ package org.jkiss.dbeaver.ext.xugu.model;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 
 /**
- * �û�Ȩ�޺ͽ�ɫȨ�޵Ļ���
+ * 用户权限和角色权限的基类
  */
 public abstract class BaseAuthority<PARENT extends DBSObject> extends BaseObject<PARENT> {
 	private String parentName;
 	protected String targetName;
 	/**
-	 * �Ƿ�Ϊ�⼶Ȩ��
+	 * 是否为库级权限
 	 */
 	protected boolean isDatabase;
 

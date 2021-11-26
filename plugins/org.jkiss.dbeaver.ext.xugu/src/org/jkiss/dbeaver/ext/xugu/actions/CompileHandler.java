@@ -234,7 +234,7 @@ public class CompileHandler extends TaskHandler
                 	action.afterExecute(session, Sqle);
                 	throw new DBCException("SQLException happened", Sqle);
 				}
-                //ÅÐ¶Ï±àÒë½á¹û
+                //åˆ¤æ–­ç¼–è¯‘ç»“æžœ
 //                if (action instanceof ObjectPersistAction) {
 //                    if (!logObjectErrors(session, compileLog, unit, ((ObjectPersistAction) action).getObjectType())) {
 //                        success = false;
