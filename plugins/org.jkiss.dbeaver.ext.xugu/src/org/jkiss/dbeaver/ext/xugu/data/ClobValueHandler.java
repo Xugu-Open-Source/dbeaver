@@ -30,7 +30,7 @@ import java.io.IOException;
 import java.io.Writer;
 
 /**
- * CLOB Öµ´¦ÀíÆ÷
+ * CLOB å€¼å¤„ç†å™¨
  */
 public class ClobValueHandler extends JDBCContentValueHandler {
 	public static final ClobValueHandler INSTANCE = new ClobValueHandler();

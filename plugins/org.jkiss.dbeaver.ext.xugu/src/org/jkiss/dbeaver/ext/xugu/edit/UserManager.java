@@ -64,13 +64,13 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * ÓÃ»§¹ÜÀíÆ÷£¬½øĞĞÓÃ»§µÄ´´½¨£¬ĞŞ¸ÄºÍÉ¾³ı£¬°üº¬Ò»¸öÄÚ²¿½çÃæÀà£¬ÓÃÓÚ½øĞĞÊôĞÔÉè¶¨
+ * ç”¨æˆ·ç®¡ç†å™¨ï¼Œè¿›è¡Œç”¨æˆ·çš„åˆ›å»ºï¼Œä¿®æ”¹å’Œåˆ é™¤ï¼ŒåŒ…å«ä¸€ä¸ªå†…éƒ¨ç•Œé¢ç±»ï¼Œç”¨äºè¿›è¡Œå±æ€§è®¾å®š
  */
 public class UserManager extends SQLObjectEditor<User, DataSource>
 		implements DBEObjectMaker<User, DataSource>, DBECommandFilter<User> {
 	
 	/**
-	 * ÏµÍ³½ÇÉ«ĞÅÏ¢
+	 * ç³»ç»Ÿè§’è‰²ä¿¡æ¯
 	 */
 	public static Collection<Role> roleList;
 	
@@ -242,7 +242,7 @@ public class UserManager extends SQLObjectEditor<User, DataSource>
 	}
 
 	/**
-	 * ĞÂ½¨ÓÃ»§½çÃæÏÔÊ¾Ç°µÄ×¼±¸¹¤×÷
+	 * æ–°å»ºç”¨æˆ·ç•Œé¢æ˜¾ç¤ºå‰çš„å‡†å¤‡å·¥ä½œ
 	 */
 	@Override
 	protected User createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context, final Object container,
@@ -251,7 +251,7 @@ public class UserManager extends SQLObjectEditor<User, DataSource>
 		context.getUserParams();
 		User newUser = new User(parent, monitor, false);
 		
-		// ĞŞ¸ÄÒÑ´æÔÚÓÃ»§
+		// ä¿®æ”¹å·²å­˜åœ¨ç”¨æˆ·
 		if (from instanceof User) {
 			User tplUser = (User) from;
 			newUser.setName(tplUser.getName());
@@ -260,7 +260,7 @@ public class UserManager extends SQLObjectEditor<User, DataSource>
 			newUser.setExpired(tplUser.isExpired());
 			newUser.setPersisted(true);
 		}
-		// ´´½¨ĞÂÓÃ»§
+		// åˆ›å»ºæ–°ç”¨æˆ·
 		else {
 			return new UITask<User>() {
 				@Override
@@ -278,7 +278,7 @@ public class UserManager extends SQLObjectEditor<User, DataSource>
 	}
 
 	/**
-	 * µã»÷È·¶¨ºó£¬ÕæÕıÖ´ĞĞĞÂ½¨ÓÃ»§²Ù×÷
+	 * ç‚¹å‡»ç¡®å®šåï¼ŒçœŸæ­£æ‰§è¡Œæ–°å»ºç”¨æˆ·æ“ä½œ
 	 */
 	@Override
 	protected void addObjectCreateActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
@@ -317,7 +317,7 @@ public class UserManager extends SQLObjectEditor<User, DataSource>
 				}
 			}
 			if (!Objects.equals(key1, key2)) {
-				 throw new DBException("È·ÈÏÃÜÂë´íÎó£¬ÇëÖØĞÂÊäÈë£¡");
+				 throw new DBException("ç¡®è®¤å¯†ç é”™è¯¯ï¼Œè¯·é‡æ–°è¾“å…¥ï¼");
 			} else {
 				user.setPassword(key1);
 				user.setRoleList(roleString);
@@ -373,7 +373,7 @@ public class UserManager extends SQLObjectEditor<User, DataSource>
 		String key1 = command.getProperties().get(UserPropertyHandler.PASSWORD.toString()).toString();
 		String key2 = command.getProperties().get(UserPropertyHandler.PASSWORD_CONFIRM.toString()).toString();
 		if (!Objects.equals(key1, key2)) {
-			 throw new DBException("È·ÈÏÃÜÂë´íÎó£¬ÇëÖØĞÂÊäÈë£¡");
+			 throw new DBException("ç¡®è®¤å¯†ç é”™è¯¯ï¼Œè¯·é‡æ–°è¾“å…¥ï¼");
 		}
 		
 		
@@ -389,6 +389,6 @@ public class UserManager extends SQLObjectEditor<User, DataSource>
 
 	@Override
 	public void filterCommands(DBECommandQueue<User> queue) {
-		// TODO ¹ıÂËÃüÁî
+		// TODO è¿‡æ»¤å‘½ä»¤
 	}
 }

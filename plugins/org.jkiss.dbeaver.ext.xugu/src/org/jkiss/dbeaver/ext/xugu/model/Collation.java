@@ -26,7 +26,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /**
- * ÅÅĞò
+ * æ’åº
  */
 public class Collation extends BaseInformation {
 	private Charset charset;

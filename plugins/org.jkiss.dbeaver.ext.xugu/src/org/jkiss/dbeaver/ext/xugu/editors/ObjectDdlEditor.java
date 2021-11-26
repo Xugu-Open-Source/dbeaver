@@ -32,7 +32,7 @@ import org.jkiss.dbeaver.ext.xugu.model.Table;
 import org.jkiss.dbeaver.ui.editors.sql.SQLSourceViewer;
 
 /**
- * ¶ÔÏó DDL ±à¼­Æ÷
+ * å¯¹è±¡ DDL ç¼–è¾‘å™¨
  */
 public class ObjectDdlEditor extends SQLSourceViewer<Table> {
 

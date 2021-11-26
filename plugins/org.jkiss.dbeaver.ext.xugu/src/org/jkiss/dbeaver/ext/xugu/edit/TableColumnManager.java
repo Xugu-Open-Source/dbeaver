@@ -54,7 +54,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * ±í×Ö¶Î¹ÜÀíÆ÷£¬½øĞĞ×Ö¶ÎµÄ´´½¨£¬ĞŞ¸ÄºÍÉ¾³ı£¨¾ùÏàµ±ÓÚĞŞ¸Ä±í½á¹¹£©
+ * è¡¨å­—æ®µç®¡ç†å™¨ï¼Œè¿›è¡Œå­—æ®µçš„åˆ›å»ºï¼Œä¿®æ”¹å’Œåˆ é™¤ï¼ˆå‡ç›¸å½“äºä¿®æ”¹è¡¨ç»“æ„ï¼‰
  */
 public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseTable>
 		implements DBEObjectRenamer<TableColumn> {
@@ -121,28 +121,28 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 	}
 
 	/**
-	 * ĞŞ¸ÄÁË±í½á¹¹ĞŞ¸ÄµÄ SQL Óï¾ä
+	 * ä¿®æ”¹äº†è¡¨ç»“æ„ä¿®æ”¹çš„ SQL è¯­å¥
 	 * 
-	 * @param monitor          ½ø³Ì¼àÊÓÆ÷
-	 * @param executionContext Ö´ĞĞÉÏÏÂÎÄ
-	 * @param actionList       ¶¯×÷ÁĞ±í
-	 * @param command          ÃüÁî
-	 * @param options          ¿ÉÑ¡Ïî¼üÖµ¶Ô
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor          è¿›ç¨‹ç›‘è§†å™¨
+	 * @param executionContext æ‰§è¡Œä¸Šä¸‹æ–‡
+	 * @param actionList       åŠ¨ä½œåˆ—è¡¨
+	 * @param command          å‘½ä»¤
+	 * @param options          å¯é€‰é¡¹é”®å€¼å¯¹
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	@Override
 	protected void addObjectModifyActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
 			List<DBEPersistAction> actionList, SQLObjectEditor<TableColumn, BaseTable>.ObjectChangeCommand command,
 			Map<String, Object> options) throws DBException {
 		final TableColumn column = command.getObject();
-		// ±éÀú properties£¬È·¶¨Ã¿Ò»ÏîĞÂ¸ü¸Ä¾ù²»Îª¿Õ²Å½øĞĞ action Ìí¼Ó
+		// éå† propertiesï¼Œç¡®å®šæ¯ä¸€é¡¹æ–°æ›´æ”¹å‡ä¸ä¸ºç©ºæ‰è¿›è¡Œ action æ·»åŠ 
 		if (command.getProperties().size() > 0) {
 			Map<Object, Object> props = command.getProperties();
 			Collection<Object> propKeys = props.keySet();
 			Collection<Object> propValues = props.values();
 			Iterator<Object> it1 = propKeys.iterator();
 			Iterator<Object> it2 = propValues.iterator();
-			//¼ÇÔØ×ÔÔöÊôĞÔµÄ¸ü¸ÄÊı
+			//è®°è½½è‡ªå¢å±æ€§çš„æ›´æ”¹æ•°
 			int count = 0;
 			while (it1.hasNext()) {
 				String key = it1.next().toString();
@@ -162,7 +162,7 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 				}else if("samplingInterval".equals(key)) {
 					String sql = "call dbms_stat.analyze_table('" + column.getTable().getFullyQualifiedName(DBPEvaluationContext.DDL) + "','"+column.getName() 
 					+"',"+ value +",null)";
-					log.debug("[" + OemConfig.OEM_NAME_EN + "] ÉèÖÃÀëÉ¢²ÉÑù¼ä¸ô: " + sql);
+					log.debug("[" + OemConfig.OEM_NAME_EN + "] è®¾ç½®ç¦»æ•£é‡‡æ ·é—´éš”: " + sql);
 					actionList.add(new SQLDatabasePersistAction(" comment column", sql));
 				}else if("isIdenBoolean".equals(key)||"stepInteger".equals(key)||"minInteger".equals(key)){
 					if(column.getIsIdenBoolean()){	
@@ -232,7 +232,7 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 		StringBuilder decl = new StringBuilder(100);
 		TableColumn column = command.getObject();
 
-		// ĞèÌØÊâ´¦ÀíÊı¾İÀàĞÍ
+		// éœ€ç‰¹æ®Šå¤„ç†æ•°æ®ç±»å‹
 		List<String> dataTypes = new ArrayList<String>();
 		dataTypes.add("INTERVAL DAY TO SECOND");
 		dataTypes.add("INTERVAL HOUR TO SECOND");
@@ -244,7 +244,7 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 
 		String typeName = column.getTypeName();
 		if (dataTypes.contains(typeName)) {
-			// ´´½¨ÁĞ
+			// åˆ›å»ºåˆ—
 			String columnName = DBUtils.getQuotedIdentifier(column.getDataSource(), column.getName());
 
 			if (command instanceof SQLObjectEditor.ObjectRenameCommand) {
@@ -252,7 +252,7 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 						((ObjectRenameCommand) command).getNewName());
 			}
 
-			// ÌØÊâÊı¾İÀàĞÍ´¦Àí
+			// ç‰¹æ®Šæ•°æ®ç±»å‹å¤„ç†
 			decl.append(columnName).append(dataTypeModifier(monitor, column, command));
 		} else {
 			decl = super.getNestedDeclaration(monitor, owner, command, options);

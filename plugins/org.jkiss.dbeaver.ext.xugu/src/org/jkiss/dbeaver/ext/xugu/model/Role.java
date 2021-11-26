@@ -47,7 +47,7 @@ import java.util.Map;
 import java.util.Vector;
 
 /**
- * ½ÇÉ«ĞÅÏ¢Àà£¬°üº¬Ãû³Æ¡¢½ÇÉ«È¨ÏŞµÈ¾ßÌåĞÅÏ¢
+ * è§’è‰²ä¿¡æ¯ç±»ï¼ŒåŒ…å«åç§°ã€è§’è‰²æƒé™ç­‰å…·ä½“ä¿¡æ¯
  */
 public class Role extends BaseGlobalObject implements DBARole, DBPRefreshableObject, DBPScriptObject {
 	private String name;
@@ -78,7 +78,7 @@ public class Role extends BaseGlobalObject implements DBARole, DBPRefreshableObj
 							}
 						}
 						if(!isHaveBoolean) {
-							//¼ÓÈëÈ«²¿½ÇÉ«ÁĞ±íÖĞ
+							//åŠ å…¥å…¨éƒ¨è§’è‰²åˆ—è¡¨ä¸­
 							User.roleNames.add(roleNameString);
 						}
 					}
@@ -134,25 +134,25 @@ public class Role extends BaseGlobalObject implements DBARole, DBPRefreshableObj
 	}
 
 	public void reloadAuthrities() {
-		// ¼ÓÔØÈ¨ÏŞ
+		// åŠ è½½æƒé™
 		Connection conn;
 		try {
 			conn = this.getDataSource().getDefaultInstance().getDefaultContext(true).getConnection(new LoggingProgressMonitor());
 		} catch (SQLException e) {
-			throw new RuntimeException("»ñÈ¡ÓÃ»§È¨ÏŞ²éÑ¯Á¬½ÓÊ§°Ü", e);
+			throw new RuntimeException("è·å–ç”¨æˆ·æƒé™æŸ¥è¯¢è¿æ¥å¤±è´¥", e);
 		}
 		Vector<Object> authorities = new LoadPermission().loadPermission(conn, this.name, 0);
 		Iterator<Object> it = authorities.iterator();
 		roleAuthorities = new ArrayList<>();
 		while (it.hasNext()) {
 			String temp = it.next().toString();
-			// ¶ÔÏó¼¶È¨ÏŞ
+			// å¯¹è±¡çº§æƒé™
 			if (temp.indexOf("\"") != -1) {
 				String targetName = temp.substring(temp.indexOf("\""));
 				RoleAuthority one = new RoleAuthority(this, temp, targetName, false, true);
 				roleAuthorities.add(one);
 			}
-			// ¿â¼¶È¨ÏŞ
+			// åº“çº§æƒé™
 			else {
 				RoleAuthority one = new RoleAuthority(this, temp, null, true, true);
 				roleAuthorities.add(one);
@@ -184,8 +184,8 @@ public class Role extends BaseGlobalObject implements DBARole, DBPRefreshableObj
 			Iterator<RoleAuthority> it = roleAuthorities.iterator();
 			while (it.hasNext()) {
 				RoleAuthority authority = it.next();
-				final boolean isContainColumnOrTriggerAuth = !authority.getName().contains("ÁĞ")
-						&& !authority.getName().contains("´¥·¢Æ÷");
+				final boolean isContainColumnOrTriggerAuth = !authority.getName().contains("åˆ—")
+						&& !authority.getName().contains("è§¦å‘å™¨");
 				if (!authority.isDatabase && isContainColumnOrTriggerAuth) {
 					res.add(authority);
 				}
@@ -200,8 +200,8 @@ public class Role extends BaseGlobalObject implements DBARole, DBPRefreshableObj
 			Iterator<RoleAuthority> it = roleAuthorities.iterator();
 			while (it.hasNext()) {
 				RoleAuthority authority = it.next();
-				final boolean isContainColumnOrTriggerAuth = authority.getName().contains("ÁĞ")
-						|| authority.getName().contains("´¥·¢Æ÷");
+				final boolean isContainColumnOrTriggerAuth = authority.getName().contains("åˆ—")
+						|| authority.getName().contains("è§¦å‘å™¨");
 				if (!authority.isDatabase && isContainColumnOrTriggerAuth) {
 					res.add(authority);
 				} 

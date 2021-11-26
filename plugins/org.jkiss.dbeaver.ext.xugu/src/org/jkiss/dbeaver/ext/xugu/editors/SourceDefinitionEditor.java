@@ -24,7 +24,7 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.ui.editors.sql.SQLSourceViewer;
 
 /**
- * Ô´¶¨Òå±à¼­Æ÷
+ * æºå®šä¹‰ç¼–è¾‘å™¨
  */
 public class SourceDefinitionEditor extends SQLSourceViewer<SourceObject> {
 	@Override

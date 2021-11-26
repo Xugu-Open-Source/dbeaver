@@ -30,7 +30,7 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.utils.CommonUtils;
 
 /**
- * ¼ÓÔØÊı¾İÔ´ĞÅÏ¢
+ * åŠ è½½æ•°æ®æºä¿¡æ¯
  */
 public class DataSourceProvider extends JDBCDataSourceProvider {
 

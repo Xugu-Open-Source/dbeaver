@@ -19,7 +19,7 @@ package org.jkiss.dbeaver.ext.xugu.data;
 import org.jkiss.dbeaver.model.data.DBDValue;
 
 /**
- * ¶ÔÏóÖµ
+ * å¯¹è±¡å€¼
  */
 public class ObjectValue implements DBDValue {
 	private Object value;

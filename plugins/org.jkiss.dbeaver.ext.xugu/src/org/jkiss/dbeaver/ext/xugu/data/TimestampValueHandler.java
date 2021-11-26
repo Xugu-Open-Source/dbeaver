@@ -23,21 +23,27 @@ import org.jkiss.dbeaver.ext.xugu.Constants;
 import org.jkiss.dbeaver.model.data.DBDDataFormatterProfile;
 import org.jkiss.dbeaver.model.data.DBDFormatSettings;
 import org.jkiss.dbeaver.model.exec.DBCException;
+import org.jkiss.dbeaver.model.exec.DBCResultSet;
 import org.jkiss.dbeaver.model.exec.DBCSession;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.data.handlers.JDBCDateTimeValueHandler;
+import org.jkiss.dbeaver.model.sql.SQLState;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import org.jkiss.utils.time.ExtendedDateFormat;
 
 import java.lang.reflect.Method;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.sql.Types;
 import java.text.Format;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
 
 /**
- * 时间戳值处理器
+ * 鏃堕棿鎴冲�煎鐞嗗櫒
  */
 public class TimestampValueHandler extends JDBCDateTimeValueHandler {
 	private static final SimpleDateFormat DEFAULT_DATETIME_FORMAT = new ExtendedDateFormat(

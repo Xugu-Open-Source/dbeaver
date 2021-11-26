@@ -19,7 +19,7 @@ package org.jkiss.dbeaver.ext.xugu.model;
 import java.sql.ResultSet;
 
 /**
- * 表分区衍生类
+ * 琛ㄥ垎鍖鸿鐢熺被
  */
 public class TablePartition extends BasePartition<BaseTablePhysical> {
 	public TablePartition(BaseTablePhysical table, boolean subpartition, String name) {

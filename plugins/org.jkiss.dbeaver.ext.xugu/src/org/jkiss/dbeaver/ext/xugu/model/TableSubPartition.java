@@ -21,7 +21,7 @@ import java.sql.ResultSet;
 import org.jkiss.dbeaver.model.meta.Property;
 
 /**
- * 二级表分区信息类
+ * 浜岀骇琛ㄥ垎鍖轰俊鎭被
  */
 public class TableSubPartition extends BasePartition<BaseTablePhysical> {
 

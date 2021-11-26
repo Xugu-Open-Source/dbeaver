@@ -58,7 +58,7 @@ import java.util.Date;
 import java.util.Map;
 
 /**
- * ×÷ÒµĞÅÏ¢Àà£¬°üº¬×÷ÒµÏà¹ØµÄ»ù±¾ĞÅÏ¢£¬ÒÔ¼°×÷Òµ²ÎÊı»º´æ
+ * ä½œä¸šä¿¡æ¯ç±»ï¼ŒåŒ…å«ä½œä¸šç›¸å…³çš„åŸºæœ¬ä¿¡æ¯ï¼Œä»¥åŠä½œä¸šå‚æ•°ç¼“å­˜
  */
 public class SchedulerJob extends BaseGlobalObject implements DBPScriptObject, DBPNamedObject, DBPRefreshableObject {
 	private static final String DATE_FORMAT_PATTERN = "yyyy-MM-dd HH:mm:ss";
@@ -92,7 +92,7 @@ public class SchedulerJob extends BaseGlobalObject implements DBPScriptObject, D
 
 	enum JobState {
 		/**
-		 * ÈÎÎñ×´Ì¬Ã¶¾Ù
+		 * ä»»åŠ¡çŠ¶æ€æšä¸¾
 		 */
 		DISABLED, RETRYSCHEDULED, SCHEDULED, RUNNING, COMPLETED, BROKEN, FAILED, REMOTE, SUCCEEDED, CHAIN_STALLED;
 	}
@@ -115,7 +115,7 @@ public class SchedulerJob extends BaseGlobalObject implements DBPScriptObject, D
 		jobNo = JDBCUtils.safeGetInt(dbResult, "JOB_NO");
 		jobType = JDBCUtils.safeGetString(dbResult, "JOB_TYPE");
 		paramNum = JDBCUtils.safeGetInt(dbResult, "JOB_PARAM_NUM");
-		paramDef = null; // ÒÑÉèÖÃµÄ´æ´¢¹ı³Ì²ÎÊıÎŞ·¨»ñÈ¡Æä×Ö·û±íÊ¾£¬·şÎñÆ÷ÖĞ½«Æä×ª»»²¢´æ´¢Îª¶ş½øÖÆÊı¾İ
+		paramDef = null; // å·²è®¾ç½®çš„å­˜å‚¨è¿‡ç¨‹å‚æ•°æ— æ³•è·å–å…¶å­—ç¬¦è¡¨ç¤ºï¼ŒæœåŠ¡å™¨ä¸­å°†å…¶è½¬æ¢å¹¶å­˜å‚¨ä¸ºäºŒè¿›åˆ¶æ•°æ®
 		actionDef = JDBCUtils.safeGetString(dbResult, "JOB_ACTION");
 		jobType = JDBCUtils.safeGetString(dbResult, "JOB_TYPE");
 		beginTime = JDBCUtils.safeGetTimestamp(dbResult, "BEGIN_T");
@@ -128,17 +128,17 @@ public class SchedulerJob extends BaseGlobalObject implements DBPScriptObject, D
 		autoDrop = JDBCUtils.safeGetBoolean(dbResult, "AUTO_DROP");
 		isSys = JDBCUtils.safeGetBoolean(dbResult, "IS_SYS");
 		comments = JDBCUtils.safeGetString(dbResult, "COMMENTS");
-		// ¼ÓÔØ²ÎÊıĞÅÏ¢ºÍActionĞÅÏ¢
+		// åŠ è½½å‚æ•°ä¿¡æ¯å’ŒActionä¿¡æ¯
 		if (jobType.equalsIgnoreCase("stored_procedure")) {
 			try {
-				// Ä¿±êÉĞÎ´±»»º´æ
+				// ç›®æ ‡å°šæœªè¢«ç¼“å­˜
 				DataSource ds = (DataSource) datasource;
 				String userName = ds.getContainer().getConnectionConfiguration().getUserName();
 				String schemaName = null;
 				String procedureName;
 				StringBuilder builder = new StringBuilder();
 				boolean isQuoted = false;
-				// ´Ó´æ´¢¹ı³ÌÈ«Ãû½âÎöÄ£Ê½ÃûÓë´æ´¢¹ı³ÌÃû
+				// ä»å­˜å‚¨è¿‡ç¨‹å…¨åè§£ææ¨¡å¼åä¸å­˜å‚¨è¿‡ç¨‹å
 				for (int i = 0; i < actionDef.length(); i++) {
 					char c = actionDef.charAt(i);
 					if (c == '"') {
@@ -173,7 +173,7 @@ public class SchedulerJob extends BaseGlobalObject implements DBPScriptObject, D
 								.prepareStatement(sql.toString());
 						ResultSet res = dbStat.executeQuery();
 						if (res != null) {
-							// ÎªÁË¹¹Ôìº¯Êı¿ÉÒÔÕı³£»ñÈ¡Êı¾İĞèÒªÏÈ±éÀú
+							// ä¸ºäº†æ„é€ å‡½æ•°å¯ä»¥æ­£å¸¸è·å–æ•°æ®éœ€è¦å…ˆéå†
 							while (res.next()) {
 								res.getInt(1);
 								res.getInt(2);
@@ -343,7 +343,7 @@ public class SchedulerJob extends BaseGlobalObject implements DBPScriptObject, D
 			Date date = DATE_FORMATTER.get().parse(beginTime);
 			this.beginTime = new Timestamp(date.getTime());
 		} catch (ParseException e) {
-			throw new IllegalStateException("¿ªÊ¼Ê±¼ä¸ñÊ½´íÎó£¬ÕıÈ·¸ñÊ½£º" + DATE_FORMAT_PATTERN);
+			throw new IllegalStateException("å¼€å§‹æ—¶é—´æ ¼å¼é”™è¯¯ï¼Œæ­£ç¡®æ ¼å¼ï¼š" + DATE_FORMAT_PATTERN);
 		}
 	}
 
@@ -352,7 +352,7 @@ public class SchedulerJob extends BaseGlobalObject implements DBPScriptObject, D
 			Date date = DATE_FORMATTER.get().parse(endTime);
 			this.endTime = new Timestamp(date.getTime());
 		} catch (ParseException e) {
-			throw new IllegalStateException("½áÊøÊ±¼ä¸ñÊ½´íÎó£¬ÕıÈ·¸ñÊ½£º" + DATE_FORMAT_PATTERN);
+			throw new IllegalStateException("ç»“æŸæ—¶é—´æ ¼å¼é”™è¯¯ï¼Œæ­£ç¡®æ ¼å¼ï¼š" + DATE_FORMAT_PATTERN);
 		}
 	}
 

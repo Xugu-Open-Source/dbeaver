@@ -17,10 +17,10 @@
 package org.jkiss.dbeaver.ext.xugu.config;
 
 /**
- * 原始设备制造商配置信息
+ * 鍘熷璁惧鍒堕�犲晢閰嶇疆淇℃伅
  */
 public class OemConfig {
-	public static final String OEM_NAME_ZH = "虚谷";
+	public static final String OEM_NAME_ZH = "铏氳胺";
 	public static final String OEM_NAME_EN = "Xugu";
 	public static final String OEM_NAME_EN_LOWER = OEM_NAME_EN.toLowerCase();
 	public static final String OEM_NAME_EN_UPPER = OEM_NAME_EN.toUpperCase();

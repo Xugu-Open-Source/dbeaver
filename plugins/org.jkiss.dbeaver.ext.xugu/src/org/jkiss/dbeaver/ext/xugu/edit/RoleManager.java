@@ -53,7 +53,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * ½ÇÉ«¹ÜÀíÆ÷£¬½øĞĞË÷ÒıµÄ´´½¨ºÍÉ¾³ı£¬²»Ö§³ÖĞŞ¸Ä£¬°üº¬Ò»¸öÄÚ²¿½çÃæÀà£¬ÓÃÓÚ½øĞĞÊôĞÔÉè¶¨
+ * è§’è‰²ç®¡ç†å™¨ï¼Œè¿›è¡Œç´¢å¼•çš„åˆ›å»ºå’Œåˆ é™¤ï¼Œä¸æ”¯æŒä¿®æ”¹ï¼ŒåŒ…å«ä¸€ä¸ªå†…éƒ¨ç•Œé¢ç±»ï¼Œç”¨äºè¿›è¡Œå±æ€§è®¾å®š
  */
 public class RoleManager extends SQLObjectEditor<Role, DataSource> {
 	@Override
@@ -77,12 +77,12 @@ public class RoleManager extends SQLObjectEditor<Role, DataSource> {
 			Object from, Map<String, Object> options) {
 		DataSource parent = (DataSource) container;
 		Role newRole = new Role(parent, monitor, null);
-		// ĞŞ¸ÄÒÑ´æÔÚÓÃ»§
+		// ä¿®æ”¹å·²å­˜åœ¨ç”¨æˆ·
 		if (from instanceof Role) {
 			Role tplRole = (Role) from;
 			newRole.setName(tplRole.getName());
 		}
-		// ´´½¨ĞÂÓÃ»§
+		// åˆ›å»ºæ–°ç”¨æˆ·
 		else {
 			return new UITask<Role>() {
 				@Override
@@ -103,7 +103,7 @@ public class RoleManager extends SQLObjectEditor<Role, DataSource> {
 	protected void addObjectCreateActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
 			List<DBEPersistAction> actions, SQLObjectEditor<Role, DataSource>.ObjectCreateCommand command,
 			Map<String, Object> options) throws DBException {
-		// xfc ĞŞ¸ÄÁË´´½¨Ä£Ê½µÄsqlÓï¾ä ÔİÊ±²»Ö§³ÖÉèÖÃÊı¾İ¿â
+		// xfc ä¿®æ”¹äº†åˆ›å»ºæ¨¡å¼çš„sqlè¯­å¥ æš‚æ—¶ä¸æ”¯æŒè®¾ç½®æ•°æ®åº“
 		String user = command.getObject().getUserDesc();
 		Role role = command.getObject();
 		String sql = "CREATE ROLE " + role.getName();
@@ -113,7 +113,7 @@ public class RoleManager extends SQLObjectEditor<Role, DataSource> {
 
 		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create role sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Create role", sql));
-		//ĞÂÔö½ÇÉ«ÏòÈ«²¿½ÇÉ«ÁĞ±íÖĞÌí¼Ó
+		//æ–°å¢è§’è‰²å‘å…¨éƒ¨è§’è‰²åˆ—è¡¨ä¸­æ·»åŠ 
 		User.getRoleNameList().add(role.getName());
 	}
 
@@ -125,7 +125,7 @@ public class RoleManager extends SQLObjectEditor<Role, DataSource> {
 
 		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop role sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Drop role", sql));
-		//É¾³ı½ÇÉ«Ê±£¬´ÓÈ«²¿½ÇÉ«ÁĞ±íÉ¾³ı
+		//åˆ é™¤è§’è‰²æ—¶ï¼Œä»å…¨éƒ¨è§’è‰²åˆ—è¡¨åˆ é™¤
 		List<String> roleString = User.roleNames; 
 		for (int i =0 ; i<roleString.size();i++) {
 			if(roleString.get(i).equals(command.getObject().getName())) {
@@ -138,7 +138,7 @@ public class RoleManager extends SQLObjectEditor<Role, DataSource> {
 	protected void addObjectModifyActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
 			List<DBEPersistAction> actionList, SQLObjectEditor<Role, DataSource>.ObjectChangeCommand command,
 			Map<String, Object> options) throws DBException {
-		// TODO Ìí¼Ó½ÇÉ«¶ÔÏó±à¼­¶¯×÷
+		// TODO æ·»åŠ è§’è‰²å¯¹è±¡ç¼–è¾‘åŠ¨ä½œ
 	}
 
 	static class InnerDialog extends Dialog {

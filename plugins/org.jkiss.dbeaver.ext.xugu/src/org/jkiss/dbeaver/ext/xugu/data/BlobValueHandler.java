@@ -28,7 +28,7 @@ import java.io.IOException;
 import java.io.Writer;
 
 /**
- * BLOB Öµ´¦ÀíÆ÷
+ * BLOB å€¼å¤„ç†å™¨
  */
 public class BlobValueHandler extends JDBCContentValueHandler {
 	public static final BlobValueHandler INSTANCE = new BlobValueHandler();

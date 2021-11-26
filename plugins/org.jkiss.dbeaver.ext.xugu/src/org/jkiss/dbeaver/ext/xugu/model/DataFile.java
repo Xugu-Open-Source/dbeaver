@@ -23,12 +23,12 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 
 /**
- * Ğé¹È±í¿Õ¼äÎÄ¼ş
+ * è™šè°·è¡¨ç©ºé—´æ–‡ä»¶
  */
 public class DataFile extends BaseObject<Tablespace> {
 	public enum OnlineStatus {
 		/**
-		 * ±í¿Õ¼äÎÄ¼şÔÚÏß×´Ì¬
+		 * è¡¨ç©ºé—´æ–‡ä»¶åœ¨çº¿çŠ¶æ€
 		 */
 		SYSOFF, SYSTEM, OFFLINE, ONLINE, RECOVER,
 	}

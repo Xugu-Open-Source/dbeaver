@@ -40,7 +40,7 @@ import java.sql.Timestamp;
 import java.util.Map;
 
 /**
- * ĞòÁĞĞÅÏ¢Àà£¬°üº¬ĞòÁĞÏà¹ØµÄ»ù±¾ĞÅÏ¢
+ * åºåˆ—ä¿¡æ¯ç±»ï¼ŒåŒ…å«åºåˆ—ç›¸å…³çš„åŸºæœ¬ä¿¡æ¯
  */
 public class Sequence extends BaseSchemaObject implements DBSSequence, DBPScriptObject {
 	private int seqId;
@@ -150,9 +150,9 @@ public class Sequence extends BaseSchemaObject implements DBSSequence, DBPScript
 	}
 
 	/**
-	 * TODO ÓÉÓÚ²âÊÔÊ±£¬ÓĞĞòÉèÖÃÔÚ·şÎñ¶ËÃ»ÓĞĞ§¹û£¬ÔİÊ±Òş²ØÓĞĞòÊôĞÔµÄÕ¹Ê¾
+	 * TODO ç”±äºæµ‹è¯•æ—¶ï¼Œæœ‰åºè®¾ç½®åœ¨æœåŠ¡ç«¯æ²¡æœ‰æ•ˆæœï¼Œæš‚æ—¶éšè—æœ‰åºå±æ€§çš„å±•ç¤º
 	 * 
-	 * @return ÊÇ·ñÓĞĞò
+	 * @return æ˜¯å¦æœ‰åº
 	 */
 	@Property(hidden = true, editable = false, order = 12)
 	public boolean isOrder() {

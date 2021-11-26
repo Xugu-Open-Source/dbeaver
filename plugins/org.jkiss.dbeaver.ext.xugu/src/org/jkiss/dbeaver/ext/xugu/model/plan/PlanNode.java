@@ -32,7 +32,7 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * 计划节点
+ * 璁″垝鑺傜偣
  */
 public class PlanNode implements DBCPlanNode {
 /**
@@ -93,31 +93,31 @@ public class PlanNode implements DBCPlanNode {
 
 	@Override
 	public String getNodeName() {
-		//TODO 获取节点名称
+		//TODO 鑾峰彇鑺傜偣鍚嶇О
 		return null;
 	}
 
 	@Override
 	public String getNodeType() {
-		//TODO 获取节点类型
+		//TODO 鑾峰彇鑺傜偣绫诲瀷
 		return null;
 	}
 
 	@Override
 	public String getNodeCondition() {
-		//TODO 获取节点条件
+		//TODO 鑾峰彇鑺傜偣鏉′欢
 		return null;
 	}
 
 	@Override
 	public String getNodeDescription() {
-		//TODO 获取节点描述
+		//TODO 鑾峰彇鑺傜偣鎻忚堪
 		return null;
 	}
 
 	@Override
 	public DBCPlanNodeKind getNodeKind() {
-		//TODO 获取节点分类
+		//TODO 鑾峰彇鑺傜偣鍒嗙被
 		return null;
 	}
 }

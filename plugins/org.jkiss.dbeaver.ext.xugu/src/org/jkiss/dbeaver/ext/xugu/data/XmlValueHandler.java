@@ -30,7 +30,7 @@ import java.sql.SQLException;
 import java.sql.SQLXML;
 
 /**
- * XML Öµ´¦ÀíÆ÷
+ * XML å€¼å¤„ç†å™¨
  */
 public class XmlValueHandler extends ClobValueHandler {
 	public static final XmlValueHandler INSTANCE = new XmlValueHandler();

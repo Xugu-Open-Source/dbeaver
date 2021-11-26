@@ -59,7 +59,7 @@ import java.sql.Timestamp;
 import java.util.*;
 
 /**
- * 基本模式对象
+ * 鍩烘湰妯″紡瀵硅薄
  */
 public class Package extends BaseSchemaObject implements SourceObject, DBPScriptObjectExt, DBSObjectContainer,
 		DBSPackage, DBPRefreshableObject, DBSProcedureContainer  {

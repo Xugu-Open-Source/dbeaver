@@ -26,7 +26,7 @@ import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import java.sql.ResultSet;
 
 /**
- * ¶©ÔÄ³ÌĞò²ÎÊı
+ * è®¢é˜…ç¨‹åºå‚æ•°
  */
 public class SchedulerProgramArgument implements DBSParameter {
 	private final SchedulerProgram program;

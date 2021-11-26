@@ -48,7 +48,7 @@ import org.jkiss.utils.CommonUtils;
 import org.jkiss.dbeaver.DBException;
 
 /**
- * Ô¼Êø¹ÜÀíÆ÷£¬½øĞĞÔ¼ÊøµÄÔö¼ÓÉ¾³ıºÍĞŞ¸Ä
+ * çº¦æŸç®¡ç†å™¨ï¼Œè¿›è¡Œçº¦æŸçš„å¢åŠ åˆ é™¤å’Œä¿®æ”¹
  */
 public class ConstraintManager extends SQLConstraintManager<TableConstraint, BaseTable> {
 	@Nullable
@@ -132,7 +132,7 @@ public class ConstraintManager extends SQLConstraintManager<TableConstraint, Bas
 	}
 
 	/**
-	 * ÖØĞ´×é×° check Ìõ¼şµÄÓï¾ä
+	 * é‡å†™ç»„è£… check æ¡ä»¶çš„è¯­å¥
 	 */
 	@Override
 	protected void appendConstraintDefinition(StringBuilder decl, DBECommandAbstract<TableConstraint> command) {

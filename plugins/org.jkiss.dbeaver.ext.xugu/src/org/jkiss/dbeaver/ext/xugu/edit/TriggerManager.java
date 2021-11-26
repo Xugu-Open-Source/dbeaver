@@ -76,7 +76,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Iterator;
 /**
- * ´¥·¢Æ÷¹ÜÀíÆ÷£¬½øĞĞ´¥·¢Æ÷µÄ´´½¨ºÍÉ¾³ı£¬ĞŞ¸ÄÏàµ±ÓÚ´´½¨²¢Ìæ»»£¬°üº¬Ò»¸öÄÚ²¿½çÃæÀà£¬ÓÃÓÚ½øĞĞÊôĞÔÉè¶¨
+ * è§¦å‘å™¨ç®¡ç†å™¨ï¼Œè¿›è¡Œè§¦å‘å™¨çš„åˆ›å»ºå’Œåˆ é™¤ï¼Œä¿®æ”¹ç›¸å½“äºåˆ›å»ºå¹¶æ›¿æ¢ï¼ŒåŒ…å«ä¸€ä¸ªå†…éƒ¨ç•Œé¢ç±»ï¼Œç”¨äºè¿›è¡Œå±æ€§è®¾å®š
  */
 public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 	@Override
@@ -136,7 +136,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 	@Override
 	protected void createOrReplaceTriggerQuery(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
 			List<DBEPersistAction> actions, Trigger trigger, boolean create) {
-		// TODO ´´½¨»òÌæ»»´¥·¢Æ÷²éÑ¯
+		// TODO åˆ›å»ºæˆ–æ›¿æ¢è§¦å‘å™¨æŸ¥è¯¢
 	}
 
 	@Override
@@ -152,7 +152,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 	}
 
 	/**
-	 * ĞŞ¸ÄÄ£Ê½Ãû³Æ
+	 * ä¿®æ”¹æ¨¡å¼åç§°
 	 */
 	@Override
 	protected void addObjectRenameActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
@@ -224,7 +224,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 					targetCols = " OF " + targetCols;
 				}
 			}
-			// ´¦Àí´¥·¢Æ÷ÊÂ¼ş×Ö¶Î
+			// å¤„ç†è§¦å‘å™¨äº‹ä»¶å­—æ®µ
 			final String separator = ",";
 			if (event.indexOf(separator) != -1) {
 				event = event.replaceAll(",", " OR ");
@@ -282,7 +282,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 
 		@Override
 		protected Control createDialogArea(Composite parent) {
-			String[] tableHeader = { "ÁĞÃû", "Êı¾İÀàĞÍ", "¾«¶È", "±ê¶È", "Ä¬ÈÏÖµ" };
+			String[] tableHeader = { "åˆ—å", "æ•°æ®ç±»å‹", "ç²¾åº¦", "æ ‡åº¦", "é»˜è®¤å€¼" };
 			getShell().setText(Messages.dialog_trigger_create_title);
 
 			Control container = super.createDialogArea(parent);
@@ -295,8 +295,8 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 
 			objectTypeCombo = UIUtils.createLabelCombo(composite, Messages.dialog_trigger_parent_type, 0);
 			objectTypeCombo.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-			objectTypeCombo.add("±í");
-			objectTypeCombo.add("ÊÓÍ¼");
+			objectTypeCombo.add("è¡¨");
+			objectTypeCombo.add("è§†å›¾");
 			objectTypeCombo.select(0);
 			objectTypeCombo.addSelectionListener(new SelectionAdapter() {
 				@Override
@@ -315,7 +315,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 							break;
 						}
 					} catch (DBException ex) {
-						MessageDialog.openError(getShell(), "»ñÈ¡¶ÔÏóÃû³ÆÊ§°Ü", ex.getLocalizedMessage());
+						MessageDialog.openError(getShell(), "è·å–å¯¹è±¡åç§°å¤±è´¥", ex.getLocalizedMessage());
 						ex.printStackTrace();
 					}
 
@@ -330,7 +330,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 			try {
 				schema.getTables(monitor).forEach(table -> objectNameCombo.add(table.getName()));
 			} catch (DBException ex) {
-				MessageDialog.openError(parent.getShell(), "»ñÈ¡¶ÔÏóÃû³ÆÊ§°Ü", ex.getLocalizedMessage());
+				MessageDialog.openError(parent.getShell(), "è·å–å¯¹è±¡åç§°å¤±è´¥", ex.getLocalizedMessage());
 				ex.printStackTrace();
 			}
 			objectNameCombo.select(0);
@@ -362,10 +362,10 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 				@Override
 				public void widgetSelected(SelectionEvent e) {
 					if (triggerTypeCombo.getSelectionIndex() == 0) {
-						// Ôª×æ(ĞĞ)¼¶´¥·¢
+						// å…ƒç¥–(è¡Œ)çº§è§¦å‘
 						triggerConditionText.setEditable(true);
 					} else {
-						// Óï¾ä¼¶´¥·¢
+						// è¯­å¥çº§è§¦å‘
 						triggerConditionText.setText("");
 						triggerConditionText.setEditable(false);
 					}
@@ -377,8 +377,8 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 			triggerTimingCombo.add("BEFORE");
 			triggerTimingCombo.add("AFTER");
 			triggerTimingCombo.add("INSTEAD OF");
-			// µ±´´½¨ÊÓÍ¼´¥·¢Æ÷Ê±£¬²»Õ¹Ê¾timing½çÃæ
-			if ("ÊÓÍ¼".equals(objectTypeCombo.getText())) {
+			// å½“åˆ›å»ºè§†å›¾è§¦å‘å™¨æ—¶ï¼Œä¸å±•ç¤ºtimingç•Œé¢
+			if ("è§†å›¾".equals(objectTypeCombo.getText())) {
 				triggerTimingCombo.setText("INSTEAD OF");
 				triggerTimingCombo.setEnabled(false);
 			}
@@ -394,10 +394,10 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 			for (int i = 0; i < tableHeader.length; i++) {
 				TableColumn tableColumn = new TableColumn(colListTable, SWT.NONE);
 				tableColumn.setText(tableHeader[i]);
-				// ÉèÖÃ±íÍ·¿ÉÒÆ¶¯£¬Ä¬ÈÏÎªfalse
+				// è®¾ç½®è¡¨å¤´å¯ç§»åŠ¨ï¼Œé»˜è®¤ä¸ºfalse
 				tableColumn.setMoveable(true);
 			}
-			// ¶¯Ì¬¼ÓÔØËùÓĞÁĞĞÅÏ¢
+			// åŠ¨æ€åŠ è½½æ‰€æœ‰åˆ—ä¿¡æ¯
 			triggerEventUpdate.addSelectionListener(new SelectionAdapter() {
 				@Override
 				public void widgetSelected(SelectionEvent e) {
@@ -420,7 +420,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 				try {
 					colList = schema.getTable(monitor, objName).getAttributes(monitor);
 				} catch (DBException ex) {
-					MessageDialog.openError(parent.getShell(), "»ñÈ¡±í¶ÔÏóÊ§°Ü", ex.getLocalizedMessage());
+					MessageDialog.openError(parent.getShell(), "è·å–è¡¨å¯¹è±¡å¤±è´¥", ex.getLocalizedMessage());
 					ex.printStackTrace();
 				}
 				break;
@@ -428,14 +428,14 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 				try {
 					colList = schema.getView(monitor, objName).getAttributes(monitor);
 				} catch (DBException ex) {
-					MessageDialog.openError(parent.getShell(), "»ñÈ¡ÊÓÍ¼¶ÔÏóÊ§°Ü", ex.getLocalizedMessage());
+					MessageDialog.openError(parent.getShell(), "è·å–è§†å›¾å¯¹è±¡å¤±è´¥", ex.getLocalizedMessage());
 					ex.printStackTrace();
 					return;
 				}
 				break;
 			}
 
-			// ÖØĞÂ¼ÓÔØÊı¾İ
+			// é‡æ–°åŠ è½½æ•°æ®
 			colListTable.removeAll();
 			if (colList.size() != 0) {
 				Iterator<? extends DBSEntityAttribute> it = colList.iterator();
@@ -448,7 +448,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 							col.getScale() == null ? "" : String.valueOf(col.getScale()), col.getDefaultValue() });
 				}
 			}
-			// µ÷Õû±í¸ñ´óĞ¡
+			// è°ƒæ•´è¡¨æ ¼å¤§å°
 			for (int i = 0; i < tableHeader.length; i++) {
 				colListTable.getColumn(i).pack();
 			}
@@ -488,7 +488,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 				return;
 			}
 			String source = "\nBEGIN\n\nEND";
-			// ÉèÖÃ¸¸¶ÔÏóĞÅÏ¢
+			// è®¾ç½®çˆ¶å¯¹è±¡ä¿¡æ¯
 			
 			try {
 				switch (objectTypeCombo.getSelectionIndex()) {
@@ -500,13 +500,13 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 					break;
 				}
 			} catch (DBException ex) {
-				MessageDialog.openError(this.getShell(), "»ñÈ¡¶ÔÏóÃû³ÆÊ§°Ü", ex.getLocalizedMessage());
+				MessageDialog.openError(this.getShell(), "è·å–å¯¹è±¡åç§°å¤±è´¥", ex.getLocalizedMessage());
 				ex.printStackTrace();
 			}
 			
 			trigger.setName(DBObjectNameCaseTransformer.transformObjectName(trigger, nameText.getText()));
-			// µ±´´½¨ÊÓÍ¼´¥·¢Æ÷Ê±£¬timing×Ô¶¯ÉèÎªinstead of
-			if ("ÊÓÍ¼".equals(objectTypeCombo.getText())) {
+			// å½“åˆ›å»ºè§†å›¾è§¦å‘å™¨æ—¶ï¼Œtimingè‡ªåŠ¨è®¾ä¸ºinstead of
+			if ("è§†å›¾".equals(objectTypeCombo.getText())) {
 				trigger.setObjectType("VIEW");
 				trigger.setTriggerTime(2);
 			} else {
@@ -530,7 +530,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 			}
 			trigger.setTriggeringEvent(event);
 			trigger.setObjectDefinitionText(source);
-			// ¼ÓÔØÁĞĞÅÏ¢
+			// åŠ è½½åˆ—ä¿¡æ¯
 			TableItem[] cols = colListTable.getItems();
 			if (cols != null) {
 				int sum = cols.length;

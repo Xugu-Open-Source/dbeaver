@@ -24,22 +24,22 @@ import org.jkiss.dbeaver.model.DBPStatefulObject;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 
 /**
- * ÓĞ×´Ì¬µÄ¶ÔÏó
+ * æœ‰çŠ¶æ€çš„å¯¹è±¡
  */
 public interface StatefulObject extends DBSObject, DBPStatefulObject {
 	/**
-	 * »ñÈ¡Êı¾İÔ´
+	 * è·å–æ•°æ®æº
 	 * 
-	 * @return Êı¾İÔ´
+	 * @return æ•°æ®æº
 	 */
 	@NotNull
 	@Override
 	DataSource getDataSource();
 
 	/**
-	 * »ñÈ¡Ä£Ê½
+	 * è·å–æ¨¡å¼
 	 * 
-	 * @return Ä£Ê½
+	 * @return æ¨¡å¼
 	 */
 	@Nullable
 	Schema getSchema();

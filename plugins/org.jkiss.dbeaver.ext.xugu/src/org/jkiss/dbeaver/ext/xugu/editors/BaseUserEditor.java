@@ -26,7 +26,7 @@ import org.jkiss.dbeaver.ui.editors.AbstractDatabaseObjectEditor;
 import org.jkiss.dbeaver.ui.editors.DatabaseEditorUtils;
 
 /**
- * »ù±¾ÓÃ»§±à¼­Æ÷
+ * åŸºæœ¬ç”¨æˆ·ç¼–è¾‘å™¨
  */
 public abstract class BaseUserEditor extends AbstractDatabaseObjectEditor<User> {
 	@Override
@@ -37,9 +37,9 @@ public abstract class BaseUserEditor extends AbstractDatabaseObjectEditor<User> 
 	}
 
 	/**
-	 * »ñÈ¡ÓÃ»§Ò³Ãæ¿ØÖÆ¶ÔÏó
+	 * è·å–ç”¨æˆ·é¡µé¢æ§åˆ¶å¯¹è±¡
 	 * 
-	 * @return ÓÃ»§Ò³Ãæ¿ØÖÆ¶ÔÏó
+	 * @return ç”¨æˆ·é¡µé¢æ§åˆ¶å¯¹è±¡
 	 */
 	protected abstract UserPageControl getPageControl();
 

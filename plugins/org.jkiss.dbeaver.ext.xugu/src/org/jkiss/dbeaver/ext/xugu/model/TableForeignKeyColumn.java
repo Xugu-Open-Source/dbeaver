@@ -20,7 +20,7 @@ import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableForeignKeyColumn;
 
 /**
- * Íâ¼ü×Ö¶ÎĞÅÏ¢Àà£¬°üº¬Íâ¼üºÍ×Ö¶ÎĞÅÏ¢
+ * å¤–é”®å­—æ®µä¿¡æ¯ç±»ï¼ŒåŒ…å«å¤–é”®å’Œå­—æ®µä¿¡æ¯
  */
 public class TableForeignKeyColumn extends TableConstraintColumn implements DBSTableForeignKeyColumn {
 	private TableColumn referencedColumn;

@@ -55,7 +55,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Êı¾İ¿â¹ÜÀíÆ÷£¬½øĞĞÊı¾İ¿âµÄÔö¼ÓºÍÉ¾³ı£¬²»Ö§³ÖÖØÃüÃû£¬ °üº¬Ò»¸öÄÚ²¿½çÃæÀà£¬ÓÃÓÚ½øĞĞÊôĞÔÉè¶¨
+ * æ•°æ®åº“ç®¡ç†å™¨ï¼Œè¿›è¡Œæ•°æ®åº“çš„å¢åŠ å’Œåˆ é™¤ï¼Œä¸æ”¯æŒé‡å‘½åï¼Œ åŒ…å«ä¸€ä¸ªå†…éƒ¨ç•Œé¢ç±»ï¼Œç”¨äºè¿›è¡Œå±æ€§è®¾å®š
  */
 public class DatabaseManager extends SQLObjectEditor<Database, DataSource> {
 	Control container;
@@ -99,7 +99,7 @@ public class DatabaseManager extends SQLObjectEditor<Database, DataSource> {
 					new WarningDialog(UIUtils.getActiveWorkbenchShell(), "Create database " + database.getName() + "successfully").open();
 				} catch (DBCException e) {
 					log.error("Create database failed: " + sql, e);
-					new WarningDialog(UIUtils.getActiveWorkbenchShell(), "Create database failed£º " + sql + "\n" + e.getMessage()).open();
+					new WarningDialog(UIUtils.getActiveWorkbenchShell(), "Create database failedï¼š " + sql + "\n" + e.getMessage()).open();
 				}
 				return null;
 			}
@@ -107,7 +107,7 @@ public class DatabaseManager extends SQLObjectEditor<Database, DataSource> {
 	}
 
 	/**
-	 * ½ûÖ¹É¾³ıÊı¾İ¿â
+	 * ç¦æ­¢åˆ é™¤æ•°æ®åº“
 	 */
 	@Override
 	public boolean canDeleteObject(Database object) {
@@ -143,7 +143,7 @@ public class DatabaseManager extends SQLObjectEditor<Database, DataSource> {
 	protected void addObjectDeleteActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
 			List<DBEPersistAction> actions, SQLObjectEditor<Database, DataSource>.ObjectDeleteCommand command,
 			Map<String, Object> options) {
-		// TODO Ìí¼ÓÊı¾İ¿â¶ÔÏóÉ¾³ı¶¯×÷
+		// TODO æ·»åŠ æ•°æ®åº“å¯¹è±¡åˆ é™¤åŠ¨ä½œ
 	}
 
 	static class NewDatabaseDialog extends Dialog {

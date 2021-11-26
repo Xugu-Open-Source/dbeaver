@@ -23,35 +23,35 @@ import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 
 /**
- * Ô´¶ÔÏó
+ * æºå¯¹è±¡
  */
 public interface SourceObject extends DBPScriptObject, StatefulObject {
 	/**
-	 * ÉèÖÃÃû³Æ
+	 * è®¾ç½®åç§°
 	 * 
-	 * @param name Ãû³Æ
+	 * @param name åç§°
 	 */
 	void setName(String name);
 
 	/**
-	 * ÉèÖÃ¶ÔÏó¶¨ÒåÎÄ±¾
+	 * è®¾ç½®å¯¹è±¡å®šä¹‰æ–‡æœ¬
 	 * 
-	 * @param source ¶¨ÒåÎÄ±¾
+	 * @param source å®šä¹‰æ–‡æœ¬
 	 */
 	void setObjectDefinitionText(String source);
 
 	/**
-	 * »ñÈ¡Ô´ÀàĞÍ
+	 * è·å–æºç±»å‹
 	 * 
-	 * @return Ô´ÀàĞÍ
+	 * @return æºç±»å‹
 	 */
 	SourceType getSourceType();
 
 	/**
-	 *  * »ñÈ¡±àÒë¶¯×÷Êı×é
+	 *  * è·å–ç¼–è¯‘åŠ¨ä½œæ•°ç»„
 	 * 
 	 * @param monitor
-	 * @return ±àÒë¶¯×÷Êı×é
+	 * @return ç¼–è¯‘åŠ¨ä½œæ•°ç»„
 	 */
 	DBEPersistAction[] getCompileActions(DBRProgressMonitor monitor);
 }

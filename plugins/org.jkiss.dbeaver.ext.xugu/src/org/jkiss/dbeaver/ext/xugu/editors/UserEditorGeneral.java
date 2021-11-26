@@ -51,7 +51,7 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * ÓÃ»§±à¼­Æ÷ÑÜÉúÀà
+ * ç”¨æˆ·ç¼–è¾‘å™¨è¡ç”Ÿç±»
  */
 public class UserEditorGeneral extends BaseUserEditor {
 	private PageControl pageControl;
@@ -174,9 +174,9 @@ public class UserEditorGeneral extends BaseUserEditor {
 				@Override
 				public void widgetSelected(SelectionEvent e) {
 					String newRole = roleCombo.getText();
-					// ÆÁ±Î¿ÕÑ¡ÏîºÍ¿Õ´®Çé¿ö
+					// å±è”½ç©ºé€‰é¡¹å’Œç©ºä¸²æƒ…å†µ
 					if (newRole != null && newRole.length() != 0) {
-						// ÏÈÅĞ¶ÏlistÎÄ±¾¿òÖĞÊÇ·ñÒÑÓĞ£¬ÒÑÓĞÔò²»Ìí¼Ó
+						// å…ˆåˆ¤æ–­listæ–‡æœ¬æ¡†ä¸­æ˜¯å¦å·²æœ‰ï¼Œå·²æœ‰åˆ™ä¸æ·»åŠ 
 						String[] nowItems = roleList.getItems();
 						boolean hasItem = false;
 						for (int i = 0, l = nowItems.length; i < l; i++) {
@@ -188,9 +188,9 @@ public class UserEditorGeneral extends BaseUserEditor {
 						if (!hasItem) {
 							roleList.add(newRole);
 						}
-						// È«²¿Ñ¡ÖĞ
+						// å…¨éƒ¨é€‰ä¸­
 						roleList.selectAll();
-						// ¼¤»îĞŞ¸Ä¼àÌı
+						// æ¿€æ´»ä¿®æ”¹ç›‘å¬
 						roleList.notifyListeners(SWT.Modify, null);
 						roleList.deselectAll();
 					}
@@ -198,24 +198,24 @@ public class UserEditorGeneral extends BaseUserEditor {
 
 				@Override
 				public void widgetDefaultSelected(SelectionEvent e) {
-					// TODO Ğ¡²¿¼şÄ¬ÈÏÒÑÑ¡ÔñÊÂ¼ş
+					// TODO å°éƒ¨ä»¶é»˜è®¤å·²é€‰æ‹©äº‹ä»¶
 				}
 			});
 			removeRole.addSelectionListener(new SelectionListener() {
 				@Override
 				public void widgetSelected(SelectionEvent e) {
 					String oldRole = roleCombo.getText();
-					// ÆÁ±Î¿ÕºÍ¿Õ´®Çé¿ö
+					// å±è”½ç©ºå’Œç©ºä¸²æƒ…å†µ
 					if (oldRole != null && oldRole.length() != 0) {
-						// ÏÈÅĞ¶ÏlistÎÄ±¾¿òÖĞÊÇ·ñÒÑÓĞ£¬ÒÑÓĞÔò²»Ìí¼Ó
+						// å…ˆåˆ¤æ–­listæ–‡æœ¬æ¡†ä¸­æ˜¯å¦å·²æœ‰ï¼Œå·²æœ‰åˆ™ä¸æ·»åŠ 
 						int index = roleList.indexOf(oldRole);
 //						if (index != -1) {
 //							roleList.remove(index);
 //						}
 						roleList.remove(oldRole);
-						// È«²¿Ñ¡ÖĞ
+						// å…¨éƒ¨é€‰ä¸­
 						roleList.selectAll();
-						// ¼¤»îĞŞ¸Ä¼àÌı
+						// æ¿€æ´»ä¿®æ”¹ç›‘å¬
 						roleList.notifyListeners(SWT.Modify, null);
 						roleList.deselectAll();
 					}
@@ -223,14 +223,14 @@ public class UserEditorGeneral extends BaseUserEditor {
 
 				@Override
 				public void widgetDefaultSelected(SelectionEvent e) {
-					// TODO Ğ¡²¿¼şÄ¬ÈÏÒÑÑ¡ÔñÊÂ¼ş
+					// TODO å°éƒ¨ä»¶é»˜è®¤å·²é€‰æ‹©äº‹ä»¶
 				}
 			});
-			// ¼ÓÔØÓÃ»§µ±Ç°µÄ½ÇÉ«ĞÅÏ¢
+			// åŠ è½½ç”¨æˆ·å½“å‰çš„è§’è‰²ä¿¡æ¯
 			for (String role : getDatabaseObject().getRoleList().split(",")) {
 				roleList.add(role);
 			}
-			// ¼ÓÔØÈ«²¿½ÇÉ«ĞÅÏ¢
+			// åŠ è½½å…¨éƒ¨è§’è‰²ä¿¡æ¯
 			if (User.roleNames.size() > 0) {
 				for (String roleName : User.roleNames) {
 					roleCombo.add(roleName);
@@ -249,18 +249,18 @@ public class UserEditorGeneral extends BaseUserEditor {
 			tabItemObjectAuthority.setControl(objectAuthorityGroup);
 			tabItemObjectAuthority.setText(Messages.editors_authority_editor_object_title);
 
-			// ¼ÓÔØÓÃ»§ÖĞµÄÈ¨ÏŞĞÅÏ¢²¢·ÖÎª¿â¼¶È¨ÏŞºÍ¶ÔÏó¼¶È¨ÏŞÁ½Àà ¶ÔÏóÈ¨ÏŞÓÖ·ÖÎªÁ½¸ö¼¶±ğ
+			// åŠ è½½ç”¨æˆ·ä¸­çš„æƒé™ä¿¡æ¯å¹¶åˆ†ä¸ºåº“çº§æƒé™å’Œå¯¹è±¡çº§æƒé™ä¸¤ç±» å¯¹è±¡æƒé™åˆåˆ†ä¸ºä¸¤ä¸ªçº§åˆ«
 			authorities = getDatabaseObject().getUserAuthorities();
 			databaseAuthoritiesNames = new ArrayList<>();
 			objectAuthoritiesNames = new ArrayList<>();
 			subObjectAuthoritiesNames = new ArrayList<>();
 			AuthorityEditor baseEditor = new AuthorityEditor(databaseAuthorityGroup, objectAuthorityGroup, 1);
 			baseEditor.setUserEditor(this);
-			// ¿â¼¶È¨ÏŞ
+			// åº“çº§æƒé™
 			Collection<UserAuthority> dataBaseAuthorities = getDatabaseObject().getUserDatabaseAuthorities();
-			// ¶ÔÏó¼¶È¨ÏŞ
+			// å¯¹è±¡çº§æƒé™
 			Collection<UserAuthority> objectAuthorities = getDatabaseObject().getUserObjectAuthorities();
-			// ¶ÔÏó¶ş¼¶È¨ÏŞ
+			// å¯¹è±¡äºŒçº§æƒé™
 			Collection<UserAuthority> subObjectAuthorities = getDatabaseObject().getUserSubObjectAuthorities();
 
 			if (dataBaseAuthorities != null) {
@@ -320,7 +320,7 @@ public class UserEditorGeneral extends BaseUserEditor {
 			@Override
 			public List<String> evaluate(DBRProgressMonitor monitor)
 					throws InvocationTargetException, InterruptedException {
-				// TODO Êı¾İ¿â¼ÓÔØ·şÎñÆÀ¹À
+				// TODO æ•°æ®åº“åŠ è½½æœåŠ¡è¯„ä¼°
 				return null;
 			}
 		}, pageControl.createLoadVisualizer()).schedule();
@@ -333,7 +333,7 @@ public class UserEditorGeneral extends BaseUserEditor {
 
 	@Override
 	public RefreshResult refreshPart(Object source, boolean force) {
-		// TODO Ë¢ĞÂ±à¼­Çø
+		// TODO åˆ·æ–°ç¼–è¾‘åŒº
 		return RefreshResult.IGNORED;
 	}
 

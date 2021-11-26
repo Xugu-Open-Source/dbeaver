@@ -38,7 +38,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * ¼Æ»®·ÖÎö
+ * è®¡åˆ’åˆ†æ
  */
 public class PlanAnalyser implements DBCPlan {
 	private static final Log log = Log.getLog(PlanAnalyser.class);
@@ -93,7 +93,7 @@ public class PlanAnalyser implements DBCPlan {
 
 	@Override
 	public Object getPlanFeature(String feature) {
-		// TODO »ñÈ¡¼Æ»®ÌØĞÔ
+		// TODO è·å–è®¡åˆ’ç‰¹æ€§
 		return null;
 	}
 

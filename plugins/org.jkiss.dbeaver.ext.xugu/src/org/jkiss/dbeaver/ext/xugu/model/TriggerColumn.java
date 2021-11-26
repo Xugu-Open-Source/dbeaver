@@ -28,7 +28,7 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import java.sql.ResultSet;
 
 /**
- * ´¥·¢Æ÷×Ö¶ÎĞÅÏ¢Àà£¬°üº¬´¥·¢Æ÷ºÍ×Ö¶ÎĞÅÏ¢
+ * è§¦å‘å™¨å­—æ®µä¿¡æ¯ç±»ï¼ŒåŒ…å«è§¦å‘å™¨å’Œå­—æ®µä¿¡æ¯
  */
 public class TriggerColumn extends AbstractTriggerColumn {
 	private static final Log log = Log.getLog(TriggerColumn.class);
@@ -42,7 +42,7 @@ public class TriggerColumn extends AbstractTriggerColumn {
 		this.trigger = trigger;
 		this.tableColumn = tableColumn;
 		this.name = JDBCUtils.safeGetString(dbResult, "COL_NAME");
-		// ²»´æÔÚcol_listÁĞ ÊÇ·ñµÈ¼ÛÓÚdefine£¿
+		// ä¸å­˜åœ¨col_liståˆ— æ˜¯å¦ç­‰ä»·äºdefineï¼Ÿ
 	}
 
 	public TriggerColumn(String name, BaseTrigger trigger, TableColumn tableColumn) {

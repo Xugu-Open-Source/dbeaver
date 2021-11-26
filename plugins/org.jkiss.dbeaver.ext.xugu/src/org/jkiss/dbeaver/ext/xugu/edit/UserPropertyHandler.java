@@ -21,11 +21,11 @@ import org.jkiss.dbeaver.model.edit.prop.DBEPropertyHandler;
 import org.jkiss.dbeaver.model.edit.prop.DBEPropertyReflector;
 
 /**
- * ÓÃ»§ÊôĞÔ´¦ÀíÆ÷£¬½«½çÃæÂß¼­Óë´¦ÀíÂß¼­½øĞĞÓ³Éä
+ * ç”¨æˆ·å±æ€§å¤„ç†å™¨ï¼Œå°†ç•Œé¢é€»è¾‘ä¸å¤„ç†é€»è¾‘è¿›è¡Œæ˜ å°„
  */
 public enum UserPropertyHandler implements DBEPropertyHandler<User>, DBEPropertyReflector<User> {
 	/**
-	 * ÓÃ»§ÊôĞÔÃ¶¾Ù
+	 * ç”¨æˆ·å±æ€§æšä¸¾
 	 */
 	NAME, HOST, PASSWORD, PASSWORD_CONFIRM, LOCKED, EXPIRED, UNTIL_TIME, ROLE_LIST, DATABASE_AUTHORITY,
 	OBJECT_AUTHORITY, SUB_OBJECT_AUTHORITY, TARGET_SCHEMA, TARGET_TYPE, TARGET_OBJECT, SUB_TARGET_TYPE,
@@ -42,7 +42,7 @@ public enum UserPropertyHandler implements DBEPropertyHandler<User>, DBEProperty
 	}
 
 	/**
-	 * ÎªÁËĞŞ¸ÄÓÃ»§Ãû¶ø±£Áô¾ÉÃû³Æ ²»×ö¼´Ê±·´Éä¸üĞÂ
+	 * ä¸ºäº†ä¿®æ”¹ç”¨æˆ·åè€Œä¿ç•™æ—§åç§° ä¸åšå³æ—¶åå°„æ›´æ–°
 	 */
 	@Override
 	public void reflectValueChange(User object, Object oldValue, Object newValue) {

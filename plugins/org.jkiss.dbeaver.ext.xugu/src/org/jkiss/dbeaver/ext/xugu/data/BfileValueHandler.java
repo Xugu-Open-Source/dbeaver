@@ -26,7 +26,7 @@ import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import java.sql.SQLException;
 
 /**
- * BFILE Öµ´¦ÀíÆ÷
+ * BFILE å€¼å¤„ç†å™¨
  */
 public class BfileValueHandler extends JDBCContentValueHandler {
 	public static final BfileValueHandler INSTANCE = new BfileValueHandler();

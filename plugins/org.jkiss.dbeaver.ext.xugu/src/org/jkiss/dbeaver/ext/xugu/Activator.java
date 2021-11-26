@@ -23,27 +23,27 @@ import org.jkiss.dbeaver.utils.PrefUtils;
 import org.osgi.framework.BundleContext;
 
 /**
- * ´Ë²å¼ş¼¤»îÀà£¬¿ØÖÆ²å¼şÉúÃüÖÜÆÚ
+ * æ­¤æ’ä»¶æ¿€æ´»ç±»ï¼Œæ§åˆ¶æ’ä»¶ç”Ÿå‘½å‘¨æœŸ
  */
 public class Activator extends AbstractUIPlugin {
 	/**
-	 * ²å¼şÎ¨Ò»±êÊ¶
+	 * æ’ä»¶å”¯ä¸€æ ‡è¯†
 	 */
 	public static final String PLUGIN_ID = "org.jkiss.dbeaver.ext.xugu";
 
 	/**
-	 * ²å¼ş¹²ÏíÊµÀı
+	 * æ’ä»¶å…±äº«å®ä¾‹
 	 */
 	private static Activator plugin;
 
 	/**
-	 * ²å¼şÄ¬ÈÏ¹¹Ôìº¯Êı
+	 * æ’ä»¶é»˜è®¤æ„é€ å‡½æ•°
 	 */
 	public Activator() {
 	}
 
 	/**
-	 * ²å¼şÆô¶¯º¯Êı
+	 * æ’ä»¶å¯åŠ¨å‡½æ•°
 	 * 
 	 * @see org.eclipse.ui.plugin.AbstractUIPlugin#start(org.osgi.framework.BundleContext)
 	 */
@@ -60,7 +60,7 @@ public class Activator extends AbstractUIPlugin {
 	}
 
 	/**
-	 * ²å¼şÍ£Ö¹º¯Êı
+	 * æ’ä»¶åœæ­¢å‡½æ•°
 	 * 
 	 * @see org.eclipse.ui.plugin.AbstractUIPlugin#stop(org.osgi.framework.BundleContext)
 	 */
@@ -71,9 +71,9 @@ public class Activator extends AbstractUIPlugin {
 	}
 
 	/**
-	 * »ñÈ¡²å¼ş¹²ÏíÊµÀı
+	 * è·å–æ’ä»¶å…±äº«å®ä¾‹
 	 *
-	 * @return ¹²ÏíÊµÀı
+	 * @return å…±äº«å®ä¾‹
 	 */
 	public static Activator getDefault() {
 		return plugin;
@@ -81,10 +81,10 @@ public class Activator extends AbstractUIPlugin {
 
 	/**
 	 * 
-	 * Í¨¹ı¸ø¶¨µÄÏà¶ÔÂ·¾¶»ñÈ¡Í¼ÏñÃèÊö·û
+	 * é€šè¿‡ç»™å®šçš„ç›¸å¯¹è·¯å¾„è·å–å›¾åƒæè¿°ç¬¦
 	 *
-	 * @param Í¼ÏñÎÄ¼şÏà¶ÔÂ·¾¶
-	 * @return Í¼ÏñÃèÊö·û
+	 * @param å›¾åƒæ–‡ä»¶ç›¸å¯¹è·¯å¾„
+	 * @return å›¾åƒæè¿°ç¬¦
 	 */
 	public static ImageDescriptor getImageDescriptor(String path) {
 		return imageDescriptorFromPlugin(PLUGIN_ID, path);

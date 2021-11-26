@@ -23,7 +23,7 @@ import org.jkiss.dbeaver.model.DBPSaveableObject;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 
 /**
- * »ù±¾È«¾Ö¶ÔÏó
+ * åŸºæœ¬å…¨å±€å¯¹è±¡
  */
 public abstract class BaseGlobalObject implements DBSObject, DBPSaveableObject {
 	private static final Log log = Log.getLog(BaseGlobalObject.class);
@@ -43,7 +43,7 @@ public abstract class BaseGlobalObject implements DBSObject, DBPSaveableObject {
 	}
 
 	/**
-	 * ·µ»Ø¸¸¶ÔÏó
+	 * è¿”å›çˆ¶å¯¹è±¡
 	 */
 	@Override
 	public DBSObject getParentObject() {
@@ -51,7 +51,7 @@ public abstract class BaseGlobalObject implements DBSObject, DBPSaveableObject {
 	}
 
 	/**
-	 * ·µ»ØÊı¾İÔ´
+	 * è¿”å›æ•°æ®æº
 	 */
 	@NotNull
 	@Override
@@ -60,7 +60,7 @@ public abstract class BaseGlobalObject implements DBSObject, DBPSaveableObject {
 	}
 
 	/**
-	 * ÊÇ·ñ´æÔÚ
+	 * æ˜¯å¦å­˜åœ¨
 	 */
 	@Override
 	public boolean isPersisted() {
@@ -68,7 +68,7 @@ public abstract class BaseGlobalObject implements DBSObject, DBPSaveableObject {
 	}
 
 	/**
-	 * ÉèÖÃÊÇ·ñ´æÔÚ
+	 * è®¾ç½®æ˜¯å¦å­˜åœ¨
 	 */
 	@Override
 	public void setPersisted(boolean persisted) {

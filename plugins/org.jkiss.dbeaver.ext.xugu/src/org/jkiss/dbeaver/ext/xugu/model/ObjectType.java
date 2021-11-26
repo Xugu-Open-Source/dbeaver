@@ -28,11 +28,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * ¶ÔÏóÀàĞÍ
+ * å¯¹è±¡ç±»å‹
  */
 public enum ObjectType implements DBSObjectType {
 	/**
-	 * ¶ÔÏóÀàĞÍÃ¶¾Ù
+	 * å¯¹è±¡ç±»å‹æšä¸¾
 	 */
 	UDT("UDT", null, Udt.class, null),
 	TABLESPACE("TABLESPACE", null, Tablespace.class, null),
@@ -73,14 +73,14 @@ public enum ObjectType implements DBSObjectType {
 			return schema.packageCache.getObject(monitor, schema, objectName);
 		}
 	}),
-	// package bodyµ±×÷package´¦Àí
+	// package bodyå½“ä½œpackageå¤„ç†
 	PACKAGE_BODY("PACKAGE BODY", DBIcon.TREE_PACKAGE, Package.class, new ObjectFinder() {
 		@Override
 		public Package findObject(DBRProgressMonitor monitor, Schema schema, String objectName) throws DBException {
 			return schema.packageCache.getObject(monitor, schema, objectName);
 		}
 	}),
-	// procedureµÄobj_typeÎª7
+	// procedureçš„obj_typeä¸º7
 	PROCEDURE("PROCEDURE", DBIcon.TREE_PROCEDURE, ProcedureStandalone.class, new ObjectFinder() {
 		@Override
 		public ProcedureStandalone findObject(DBRProgressMonitor monitor, Schema schema, String objectName)
@@ -92,7 +92,7 @@ public enum ObjectType implements DBSObjectType {
 	RULE("RULE", null, DBSObject.class, null),
 	RULE_SET("RULE SET", null, DBSObject.class, null),
 	SCHEDULE("SCHEDULE", null, DBSObject.class, null),
-	// sequenceµÄobj_typeÎª8
+	// sequenceçš„obj_typeä¸º8
 	SEQUENCE("SEQUENCE", DBIcon.TREE_SEQUENCE, Sequence.class, new ObjectFinder() {
 		@Override
 		public Sequence findObject(DBRProgressMonitor monitor, Schema schema, String objectName) throws DBException {
@@ -105,7 +105,7 @@ public enum ObjectType implements DBSObjectType {
 			return schema.synonymCache.getObject(monitor, schema, objectName);
 		}
 	}),
-	// tableµÄOBJ_TYPEÎª5
+	// tableçš„OBJ_TYPEä¸º5
 	TABLE("TABLE", DBIcon.TREE_TABLE, Table.class, new ObjectFinder() {
 		@Override
 		public BaseTable findObject(DBRProgressMonitor monitor, Schema schema, String objectName) throws DBException {
@@ -113,9 +113,9 @@ public enum ObjectType implements DBSObjectType {
 		}
 	}),
 	TABLE_PARTITION("TABLE PARTITION", null, DBSObject.class, null),
-	// triggerµÄOBJ_TYPEÎª11
+	// triggerçš„OBJ_TYPEä¸º11
 	TRIGGER("TRIGGER", DBIcon.TREE_TRIGGER, Trigger.class, null),
-	// viewµÄOBJ_TYPEÎª9
+	// viewçš„OBJ_TYPEä¸º9
 	VIEW("VIEW", DBIcon.TREE_VIEW, View.class, new ObjectFinder() {
 		@Override
 		public View findObject(DBRProgressMonitor monitor, Schema schema, String objectName) throws DBException {
@@ -141,17 +141,17 @@ public enum ObjectType implements DBSObjectType {
 	}
 
 	/**
-	 * ¶ÔÏó²éÕÒÆ÷
+	 * å¯¹è±¡æŸ¥æ‰¾å™¨
 	 */
 	private static interface ObjectFinder {
 		/**
-		 * ²éÕÒ¶ÔÏó
+		 * æŸ¥æ‰¾å¯¹è±¡
 		 * 
-		 * @param monitor ½ø³Ì¼àÊÓÆ÷
-		 * @param schema Ä£Ê½
-		 * @param objectName ¶ÔÏóÃû
-		 * @return ²éÕÒµ½µÄ¶ÔÏó
-		 * @throws DBException Êı¾İ¿âÒì³£
+		 * @param monitor è¿›ç¨‹ç›‘è§†å™¨
+		 * @param schema æ¨¡å¼
+		 * @param objectName å¯¹è±¡å
+		 * @return æŸ¥æ‰¾åˆ°çš„å¯¹è±¡
+		 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 		 */
 		DBSObject findObject(DBRProgressMonitor monitor, Schema schema, String objectName) throws DBException;
 	}

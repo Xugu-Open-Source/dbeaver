@@ -20,7 +20,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 
 /**
- * »ù±¾ĞÅÏ¢Àà
+ * åŸºæœ¬ä¿¡æ¯ç±»
  */
 public abstract class BaseInformation implements DBSObject {
 	private DataSource dataSource;

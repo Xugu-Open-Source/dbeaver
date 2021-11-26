@@ -42,7 +42,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * ĞòÁĞ¹ÜÀíÆ÷£¬½øĞĞĞòÁĞµÄ´´½¨£¬ĞŞ¸ÄºÍÉ¾³ı
+ * åºåˆ—ç®¡ç†å™¨ï¼Œè¿›è¡Œåºåˆ—çš„åˆ›å»ºï¼Œä¿®æ”¹å’Œåˆ é™¤
  */
 public class SequenceManager extends SQLObjectEditor<Sequence, Schema> {
 	@Override
@@ -92,28 +92,28 @@ public class SequenceManager extends SQLObjectEditor<Sequence, Schema> {
 		BigDecimal increamentBy = sq.getIncrementBy();
 
 		if (curValue.scale() > 0) {
-			throw new DBException("ĞòÁĞµ±Ç°ÖµÖ»ÄÜÎªÕûÊı");
+			throw new DBException("åºåˆ—å½“å‰å€¼åªèƒ½ä¸ºæ•´æ•°");
 		}
 		if (minValue.scale() > 0) {
-			throw new DBException("ĞòÁĞ×îĞ¡ÖµÖµÖ»ÄÜÎªÕûÊı");
+			throw new DBException("åºåˆ—æœ€å°å€¼å€¼åªèƒ½ä¸ºæ•´æ•°");
 		}
 		if (maxValue.scale() > 0) {
-			throw new DBException("ĞòÁĞ×î´óÖµÖ»ÄÜÎªÕûÊı");
+			throw new DBException("åºåˆ—æœ€å¤§å€¼åªèƒ½ä¸ºæ•´æ•°");
 		}
 		if (increamentBy.scale() > 0) {
-			throw new DBException("ĞòÁĞ²½³¤Ö»ÄÜÎªÕûÊı");
+			throw new DBException("åºåˆ—æ­¥é•¿åªèƒ½ä¸ºæ•´æ•°");
 		}
 		if (minValue.longValue() < Long.MIN_VALUE || minValue.longValue() > Long.MAX_VALUE) {
-			throw new DBException("ĞòÁĞ×îĞ¡ÖµÖ»ÄÜ½éÓÚ -2(63´Î·½) ÖÁ 2(63´Î·½)-1 Ö®¼ä");
+			throw new DBException("åºåˆ—æœ€å°å€¼åªèƒ½ä»‹äº -2(63æ¬¡æ–¹) è‡³ 2(63æ¬¡æ–¹)-1 ä¹‹é—´");
 		}
 		if (maxValue.longValue() < Long.MIN_VALUE || maxValue.longValue() > Long.MAX_VALUE) {
-			throw new DBException("ĞòÁĞ×î´óÖµÖ»ÄÜ½éÓÚ -2(63´Î·½) ÖÁ 2(63´Î·½)-1 Ö®¼ä");
+			throw new DBException("åºåˆ—æœ€å¤§å€¼åªèƒ½ä»‹äº -2(63æ¬¡æ–¹) è‡³ 2(63æ¬¡æ–¹)-1 ä¹‹é—´");
 		}
 		if (minValue.longValue() > maxValue.longValue()) {
-			throw new DBException("ĞòÁĞ×îĞ¡Öµ²»ÄÜ´óÓÚ×î´óÖµ");
+			throw new DBException("åºåˆ—æœ€å°å€¼ä¸èƒ½å¤§äºæœ€å¤§å€¼");
 		}
 		if (increamentBy.longValue() > (maxValue.longValue() - minValue.longValue())) {
-			throw new DBException("ĞòÁĞ²½³¤²»ÄÜ´óÓÚ×î´óÖµÓë×îĞ¡ÖµµÄ²îÖµ");
+			throw new DBException("åºåˆ—æ­¥é•¿ä¸èƒ½å¤§äºæœ€å¤§å€¼ä¸æœ€å°å€¼çš„å·®å€¼");
 		}
 
 		String sql = buildStatement(sq, false);

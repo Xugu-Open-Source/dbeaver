@@ -57,7 +57,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 自定义类型信息类
+ * 鑷畾涔夌被鍨嬩俊鎭被
  */
 public class Udt extends BaseSchemaObject
 		implements SourceObject, DBPScriptObjectExt, DBSObjectContainer, DBSDataType, DBPRefreshableObject,DBSObject {

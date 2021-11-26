@@ -50,7 +50,7 @@ import org.jkiss.dbeaver.ui.UITask;
 import org.jkiss.dbeaver.ui.UIUtils;
 
 /**
- * ±í¿Õ¼ä¹ÜÀíÆ÷£¬½øĞĞ±í¿Õ¼äµÄ´´½¨£¬ĞŞ¸ÄºÍÉ¾³ı£¬°üº¬Ò»¸öÄÚ²¿½çÃæÀà£¬ÓÃÓÚ½øĞĞÊôĞÔÉè¶¨
+ * è¡¨ç©ºé—´ç®¡ç†å™¨ï¼Œè¿›è¡Œè¡¨ç©ºé—´çš„åˆ›å»ºï¼Œä¿®æ”¹å’Œåˆ é™¤ï¼ŒåŒ…å«ä¸€ä¸ªå†…éƒ¨ç•Œé¢ç±»ï¼Œç”¨äºè¿›è¡Œå±æ€§è®¾å®š
  */
 public class TablespaceManager extends SQLObjectEditor<Tablespace, DataSource> {
 	@Override
@@ -99,7 +99,7 @@ public class TablespaceManager extends SQLObjectEditor<Tablespace, DataSource> {
 	protected void addObjectCreateActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
 			List<DBEPersistAction> actions, SQLObjectEditor<Tablespace, DataSource>.ObjectCreateCommand command,
 			Map<String, Object> options) throws DBException {
-		// xfc ĞŞ¸ÄÁË´´½¨Ä£Ê½µÄsqlÓï¾ä ÔİÊ±²»Ö§³ÖÉèÖÃÊı¾İ¿â
+		// xfc ä¿®æ”¹äº†åˆ›å»ºæ¨¡å¼çš„sqlè¯­å¥ æš‚æ—¶ä¸æ”¯æŒè®¾ç½®æ•°æ®åº“
 		Tablespace tablespace = command.getObject();
 		String sql = "CREATE TABLESPACE " + tablespace.getName();
 		if (command.getObject().getNodeId() > 0) {

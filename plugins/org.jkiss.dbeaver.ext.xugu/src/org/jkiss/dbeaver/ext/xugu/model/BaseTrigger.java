@@ -42,20 +42,20 @@ import java.sql.Timestamp;
 import java.util.Map;
 
 /**
- * ´¥·¢Æ÷»ùÀà£¬°üº¬´¥·¢Æ÷»ù±¾ĞÅÏ¢
+ * è§¦å‘å™¨åŸºç±»ï¼ŒåŒ…å«è§¦å‘å™¨åŸºæœ¬ä¿¡æ¯
  */
 public abstract class BaseTrigger<PARENT extends DBSObject> extends BaseObject<PARENT>
 		implements DBSTrigger, DBPQualifiedObject, SourceObject {
 	public enum BaseObjectType {
 		/**
-		 * »ù±¾¶ÔÏóÀàĞÍÃ¶¾Ù
+		 * åŸºæœ¬å¯¹è±¡ç±»å‹æšä¸¾
 		 */
 		TABLE, VIEW
 	}
 
 	public enum ActionType implements DBPNamedObject {
 		/**
-		 * ¶¯×÷ÀàĞÍÃ¶¾Ù
+		 * åŠ¨ä½œç±»å‹æšä¸¾
 		 */
 		PLSQL("PL/SQL"), CALL("CALL");
 
@@ -100,13 +100,13 @@ public abstract class BaseTrigger<PARENT extends DBSObject> extends BaseObject<P
 
 	public BaseTrigger(BaseTable parent, ResultSet dbResult) {
 		super((PARENT) parent, JDBCUtils.safeGetString(dbResult, "TRIG_NAME"), true);
-		// Ö»ÓĞÒ»ÖÖÀàĞÍ´¥·¢Æ÷
+		// åªæœ‰ä¸€ç§ç±»å‹è§¦å‘å™¨
 		this.objectType = BaseObjectType.TABLE;
 		this.triggerType = JDBCUtils.safeGetInt(dbResult, "TRIG_TYPE");
 		this.triggeringEvent = JDBCUtils.safeGetInt(dbResult, "TRIG_EVENT");
 		this.triggerTime = JDBCUtils.safeGetInt(dbResult, "TRIG_TIME");
 		this.triggerCondition = JDBCUtils.safeGetString(dbResult, "TRIG_COND");
-		// ¸ù¾İobj_id»ñÈ¡£¿ÊÇ·ñ´ú±íÁĞid£¿
+		// æ ¹æ®obj_idè·å–ï¼Ÿæ˜¯å¦ä»£è¡¨åˆ—idï¼Ÿ
 		if (parent.getType().getTypeName().equals(ObjectType.TABLE.getTypeName())) {
 			this.id = JDBCUtils.safeGetInt(dbResult, "TABLE_ID");
 		} else {

@@ -57,7 +57,7 @@ import org.jkiss.dbeaver.ui.UITask;
 import org.jkiss.dbeaver.ui.UIUtils;
 
 /**
- * ±í·ÖÇø¹ÜÀíÆ÷£¬½øĞĞ±í·ÖÇøµÄ´´½¨ºÍÉ¾³ı£¬ĞŞ¸Ä½öÖ§³ÖÉè¶¨ÊÇ·ñÔÚÏß£¬°üº¬Ò»¸öÄÚ²¿½çÃæÀà£¬ÓÃÓÚ½øĞĞÊôĞÔÉè¶¨
+ * è¡¨åˆ†åŒºç®¡ç†å™¨ï¼Œè¿›è¡Œè¡¨åˆ†åŒºçš„åˆ›å»ºå’Œåˆ é™¤ï¼Œä¿®æ”¹ä»…æ”¯æŒè®¾å®šæ˜¯å¦åœ¨çº¿ï¼ŒåŒ…å«ä¸€ä¸ªå†…éƒ¨ç•Œé¢ç±»ï¼Œç”¨äºè¿›è¡Œå±æ€§è®¾å®š
  */
 public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseTablePhysical> {
 	@Override
@@ -70,12 +70,12 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 	protected TablePartition createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context,
 			final Object container, Object from, Map<String, Object> options) {
 		BaseTablePhysical parent = (BaseTablePhysical) container;
-		// ½ûÖ¹¶ÔÃ»ÓĞ·ÖÇø¶¨ÒåµÄ±í½øĞĞÌí¼Ó·ÖÇø²Ù×÷
+		// ç¦æ­¢å¯¹æ²¡æœ‰åˆ†åŒºå®šä¹‰çš„è¡¨è¿›è¡Œæ·»åŠ åˆ†åŒºæ“ä½œ
 		if (parent.isPersisted() == true && parent.partitionCache.getCachedObjects().size() == 0) {
 			new UITask<String>() {
 				@Override
 				protected String runTask() {
-					WarningDialog dialog2 = new WarningDialog(UIUtils.getActiveWorkbenchShell(), "Can't create new partition on table with no partition");
+					WarningDialog dialog2 = new WarningDialog(UIUtils.getActiveWorkbenchShell(), "ä¸­æ–‡æµ‹è¯•Can't create new partition on table with no partition");
 					if (dialog2.open() != IDialogConstants.OK_ID) {
 						return null;
 					}
@@ -85,7 +85,7 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 			return null;
 		}
 
-		// ½ûÖ¹¶ÔÃ»ÓĞÁĞµÄ±í½øĞĞÌí¼Ó·ÖÇø²Ù×÷
+		// ç¦æ­¢å¯¹æ²¡æœ‰åˆ—çš„è¡¨è¿›è¡Œæ·»åŠ åˆ†åŒºæ“ä½œ
 		try {
 			Collection<? extends DBSEntityAttribute> cols = parent.getAttributes(monitor);
 			if (cols == null) {
@@ -133,8 +133,8 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 			List<DBEPersistAction> actions,
 			SQLObjectEditor<TablePartition, BaseTablePhysical>.ObjectCreateCommand command, Map<String, Object> options)
 			throws DBException {
-		// ĞÂ½¨±íÊ±ÔÚtablemanagerÖĞ½øĞĞÌí¼Ó´¦Àí
-		// ĞŞ¸ÄÒÑ´æÔÚ±íµÄ·ÖÇøÊ±ĞÂÔöĞŞ¸ÄÓï¾ä
+		// æ–°å»ºè¡¨æ—¶åœ¨tablemanagerä¸­è¿›è¡Œæ·»åŠ å¤„ç†
+		// ä¿®æ”¹å·²å­˜åœ¨è¡¨çš„åˆ†åŒºæ—¶æ–°å¢ä¿®æ”¹è¯­å¥
 		if (command.getObject().getParentObject().isPersisted() == true) {
 			StringBuilder sql = new StringBuilder();
 
@@ -174,7 +174,7 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 			List<DBEPersistAction> actions,
 			SQLObjectEditor<TablePartition, BaseTablePhysical>.ObjectDeleteCommand command,
 			Map<String, Object> options) {
-		// µ±±í´æÔÚÊ±²Å¿É½øĞĞÉ¾³ıaction
+		// å½“è¡¨å­˜åœ¨æ—¶æ‰å¯è¿›è¡Œåˆ é™¤action
 		if (command.getObject().getParentObject().isPersisted() == true) {
 			StringBuilder sql = new StringBuilder("ALTER TABLE ");
 			sql.append(command.getObject().getParentObject().getFullyQualifiedName(DBPEvaluationContext.DDL));
@@ -184,7 +184,7 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop table partition sql: " + sql.toString());
 			actions.add(new SQLDatabasePersistAction("Drop Partition", sql.toString()));
 		}
-		// ÈôÊÇĞÂÔö±íÇé¿öÊ±ÔòÖ±½Ó½«¸Ä¶ÔÏó´Ó»º´æÖĞÌŞ³ı
+		// è‹¥æ˜¯æ–°å¢è¡¨æƒ…å†µæ—¶åˆ™ç›´æ¥å°†æ”¹å¯¹è±¡ä»ç¼“å­˜ä¸­å‰”é™¤
 		else {
 			command.getObject().getParentObject().partitionCache.removeObject(command.getObject(), false);
 		}
@@ -195,7 +195,7 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 			List<DBEPersistAction> actionList,
 			SQLObjectEditor<TablePartition, BaseTablePhysical>.ObjectChangeCommand command, Map<String, Object> options)
 			throws DBException {
-		// µ±±í´æÔÚÊ±²Å¿É½øĞĞĞŞ¸Ä action
+		// å½“è¡¨å­˜åœ¨æ—¶æ‰å¯è¿›è¡Œä¿®æ”¹ action
 		final String onlineKey = "online";
 		if (command.getObject().getParentObject().isPersisted() == true && command.getProperty(onlineKey) != null) {
 			StringBuilder sql = new StringBuilder("ALTER TABLE ");
@@ -247,7 +247,7 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 		private Button removeCol;
 		private Text colText;
 
-		// ×Ô¶¯À©Õ¹·ÖÇø¶îÍâÑ¡Ïî
+		// è‡ªåŠ¨æ‰©å±•åˆ†åŒºé¢å¤–é€‰é¡¹
 		private Combo autoTypeCombo;
 		private Text autoSpanText;
 
@@ -273,7 +273,7 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 
 		@Override
 		protected Control createDialogArea(Composite parent) {
-			// ¼ÓÔØ×Ö¶ÎĞÅÏ¢
+			// åŠ è½½å­—æ®µä¿¡æ¯
 			try {
 				getShell().setText(Messages.dialog_tablePartition_create_title);
 				Control container = super.createDialogArea(parent);
@@ -319,7 +319,7 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 						// TODO Auto-generated method stub
 						String text = colText.getText();
 						String newCol = colCombo.getText();
-						// ×·¼ÓĞÂµÄ×Ö¶Î Ç°ÌáÊÇĞÂ×Ö¶ÎÃû²»´æÔÚÓÚ×Ö¶ÎÎÄ±¾¿òÄÚÈİÖĞ
+						// è¿½åŠ æ–°çš„å­—æ®µ å‰ææ˜¯æ–°å­—æ®µåä¸å­˜åœ¨äºå­—æ®µæ–‡æœ¬æ¡†å†…å®¹ä¸­
 						if (text != null && !"".equals(text)) {
 							if (text.indexOf(newCol) == -1) {
 								text += "," + colCombo.getText();
@@ -332,7 +332,7 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 
 					@Override
 					public void widgetDefaultSelected(SelectionEvent e) {
-						// TODO Ğ¡²¿¼şÄ¬ÈÏÒÑÑ¡ÔñÊÂ¼ş
+						// TODO å°éƒ¨ä»¶é»˜è®¤å·²é€‰æ‹©äº‹ä»¶
 					}
 				});
 				removeCol.addSelectionListener(new SelectionListener() {
@@ -357,7 +357,7 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 
 					@Override
 					public void widgetDefaultSelected(SelectionEvent e) {
-						// TODO Ğ¡²¿¼şÄ¬ÈÏÒÑÑ¡ÔñÊÂ¼ş
+						// TODO å°éƒ¨ä»¶é»˜è®¤å·²é€‰æ‹©äº‹ä»¶
 					}
 				});
 
@@ -373,11 +373,11 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 						null);
 				autoSpanText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 
-				// Ä¬ÈÏ½ûÓÃ autoTypeCombo ºÍ autoSpanText
+				// é»˜è®¤ç¦ç”¨ autoTypeCombo å’Œ autoSpanText
 				autoTypeCombo.setEnabled(false);
 				autoSpanText.setEnabled(false);
 
-				// Èç¹û±íÒÑ´æÔÚÇÒ·ÖÇøÒ²´æÔÚÔò¶ÔÊôĞÔ½øĞĞÔ¤Éè
+				// å¦‚æœè¡¨å·²å­˜åœ¨ä¸”åˆ†åŒºä¹Ÿå­˜åœ¨åˆ™å¯¹å±æ€§è¿›è¡Œé¢„è®¾
 				if (table.isPersisted()) {
 					try {
 						Collection<TablePartition> parts = table.getPartitions(monitor);
@@ -407,9 +407,9 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 					}
 				}
 
-				// ¼àÌıtypeCombo£¬µ±ÊôĞÔÎªautomaticÊ±£¬ÔËĞĞÉèÖÃ×Ô¶¯À©Õ¹·ÖÇøÊôĞÔ
+				// ç›‘å¬typeComboï¼Œå½“å±æ€§ä¸ºautomaticæ—¶ï¼Œè¿è¡Œè®¾ç½®è‡ªåŠ¨æ‰©å±•åˆ†åŒºå±æ€§
 				typeCombo.addSelectionListener(new SelectionListener() {
-					// ¸ù¾İÑ¡ÖĞÀàĞÍ×ö³ö¶¯×÷
+					// æ ¹æ®é€‰ä¸­ç±»å‹åšå‡ºåŠ¨ä½œ
 					@Override
 					public void widgetSelected(SelectionEvent e) {
 						String nowType = typeCombo.getText();
@@ -439,7 +439,7 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 
 					@Override
 					public void widgetDefaultSelected(SelectionEvent e) {
-						// TODO Ğ¡²¿¼şÄ¬ÈÏÒÑÑ¡ÔñÊÂ¼ş
+						// TODO å°éƒ¨ä»¶é»˜è®¤å·²é€‰æ‹©äº‹ä»¶
 					}
 				});
 

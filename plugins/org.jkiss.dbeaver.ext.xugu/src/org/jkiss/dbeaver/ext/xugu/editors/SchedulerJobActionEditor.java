@@ -23,7 +23,7 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.ui.editors.sql.SQLSourceViewer;
 
 /**
- * ¶©ÔÄ×÷ÒµÐÐÎª±à¼­Æ÷
+ * è®¢é˜…ä½œä¸šè¡Œä¸ºç¼–è¾‘å™¨
  */
 public class SchedulerJobActionEditor extends SQLSourceViewer<SchedulerJob> {
 	@Override

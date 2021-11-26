@@ -27,7 +27,7 @@ import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import java.sql.Types;
 
 /**
- * Öµ´¦ÀíÆ÷Ìá¹©Õß
+ * å€¼å¤„ç†å™¨æä¾›è€…
  */
 public class ValueHandlerProvider implements DBDValueHandlerProvider {
 	@Override

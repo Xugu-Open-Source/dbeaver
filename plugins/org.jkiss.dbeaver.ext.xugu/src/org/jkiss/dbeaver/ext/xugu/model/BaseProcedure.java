@@ -38,7 +38,7 @@ import java.util.Collection;
 import java.util.Iterator;
 
 /**
- * 基本存储过程
+ * 鍩烘湰瀛樺偍杩囩▼
  */
 public abstract class BaseProcedure<PARENT extends DBSObjectContainer> extends BaseObject<PARENT>
 		implements DBSProcedure {
@@ -65,16 +65,16 @@ public abstract class BaseProcedure<PARENT extends DBSObjectContainer> extends B
 	}
 
 	/**
-	 * 获取模式对象
+	 * 鑾峰彇妯″紡瀵硅薄
 	 * 
-	 * @return 模式对象
+	 * @return 妯″紡瀵硅薄
 	 */
 	public abstract Schema getSchema();
 
 	/**
-	 * 获取过载个数
+	 * 鑾峰彇杩囪浇涓暟
 	 * 
-	 * @return 过载个数
+	 * @return 杩囪浇涓暟
 	 */
 	public abstract Integer getOverloadNumber();
 

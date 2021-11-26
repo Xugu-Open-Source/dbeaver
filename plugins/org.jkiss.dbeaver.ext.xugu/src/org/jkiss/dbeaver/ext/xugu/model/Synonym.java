@@ -40,7 +40,7 @@ import java.sql.Timestamp;
 import java.util.Map;
 
 /**
- * Í¬Òå´ÊĞÅÏ¢Àà£¬°üº¬Í¬Òå´ÊÏà¹ØµÄ»ù±¾ĞÅÏ¢
+ * åŒä¹‰è¯ä¿¡æ¯ç±»ï¼ŒåŒ…å«åŒä¹‰è¯ç›¸å…³çš„åŸºæœ¬ä¿¡æ¯
  */
 public class Synonym extends BaseSchemaObject implements DBSAlias, DBPScriptObject {
 	private int objectDbId;
@@ -48,7 +48,7 @@ public class Synonym extends BaseSchemaObject implements DBSAlias, DBPScriptObje
 	private String objectSchemaName;
 	private int objectUserId;
 	/**
-	 * Í¬Òå´ÊÃû
+	 * åŒä¹‰è¯å
 	 */
 	private String objectName;
 	private String targetSchemaName;

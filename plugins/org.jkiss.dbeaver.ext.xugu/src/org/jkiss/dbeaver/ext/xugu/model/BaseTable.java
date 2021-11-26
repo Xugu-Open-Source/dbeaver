@@ -56,7 +56,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * ±íĞÅÏ¢»ùÀà£¬°üº¬´¥·¢Æ÷»º´æ
+ * è¡¨ä¿¡æ¯åŸºç±»ï¼ŒåŒ…å«è§¦å‘å™¨ç¼“å­˜
  */
 public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 		implements DBPNamedObject2, DBPRefreshableObject, StatefulObject {
@@ -71,9 +71,9 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 	public final TriggerCache triggerCache = new TriggerCache();
 
 	/**
-	 * »ñÈ¡±íÀàĞÍÃû³Æ
+	 * è·å–è¡¨ç±»å‹åç§°
 	 * 
-	 * @return ±íÀàĞÍÃû³Æ
+	 * @return è¡¨ç±»å‹åç§°
 	 */
 	protected abstract String getTableTypeName();
 
@@ -112,9 +112,9 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 	}
 
 	/**
-	 * ¶ÔÏóÀàĞÍ£¨±í»òÊÔÍ¼£©
+	 * å¯¹è±¡ç±»å‹ï¼ˆè¡¨æˆ–è¯•å›¾ï¼‰
 	 * 
-	 * @return ¶ÔÏóÀàĞÍ
+	 * @return å¯¹è±¡ç±»å‹
 	 */
 	public ObjectType getType() {
 		return tableType;
@@ -179,11 +179,11 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 	}
 
 	/**
-	 * »ñÈ¡±í×¢ÊÍĞÅÏ¢
+	 * è·å–è¡¨æ³¨é‡Šä¿¡æ¯
 	 * 
-	 * @param monitor ½ø³Ì¼àÊÓÆ÷
-	 * @return ±í×¢ÊÍ
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor è¿›ç¨‹ç›‘è§†å™¨
+	 * @return è¡¨æ³¨é‡Š
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	@Property(viewable = true, editable = true, updatable = true, order = 100)
 	@LazyProperty(cacheValidator = CommentsValidator.class)
@@ -210,9 +210,9 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 	}
 
 	/**
-	 * »ñÈ¡ÁĞÃû¼°×¢ÊÍĞÅÏ¢
+	 * è·å–åˆ—ååŠæ³¨é‡Šä¿¡æ¯
 	 * 
-	 * @param monitor ½ø³Ì¼àÊÓÆ÷
+	 * @param monitor è¿›ç¨‹ç›‘è§†å™¨
 	 */
 	void loadColumnComments(DBRProgressMonitor monitor) {
 		try {
@@ -271,7 +271,7 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 
 	@Override
 	public Collection<? extends DBSTableIndex> getIndexes(DBRProgressMonitor monitor) throws DBException {
-		// TODO »ñÈ¡Ë÷Òı
+		// TODO è·å–ç´¢å¼•
 		return null;
 	}
 
@@ -346,12 +346,12 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 			super("TRIGGER_NAME");
 		}
 
-		// »ñÈ¡´¥·¢Æ÷ĞÅÏ¢
+		// è·å–è§¦å‘å™¨ä¿¡æ¯
 		@Override
 		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull BaseTable owner)
 				throws SQLException {
 			StringBuilder builder = new StringBuilder();
-			// ¶ÔÏóÀàĞÍÎªtable
+			// å¯¹è±¡ç±»å‹ä¸ºtable
 			if (ObjectType.TABLE.equals(owner.getType())) {
 				builder.append("SELECT *, TR.OBJ_ID AS TABLE_ID\nFROM ");
 				builder.append(owner.getDataSource().getRoleFlag());
@@ -361,7 +361,7 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 				builder.append(owner.getId());
 				builder.append("\n ORDER BY TRIG_NAME");
 			}
-			// ¶ÔÏóÀàĞÍÎªview
+			// å¯¹è±¡ç±»å‹ä¸ºview
 			else {
 				builder.append("SELECT *, TR.OBJ_ID AS VIEW_ID\nFROM ");
 				builder.append(owner.getDataSource().getRoleFlag());
@@ -386,7 +386,7 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 		@Override
 		protected JDBCStatement prepareChildrenStatement(@NotNull JDBCSession session, @NotNull BaseTable owner,
 				@Nullable Trigger forObject) throws SQLException {
-			// Í¨¹ı»ñÈ¡descriptionÖĞµÄ×Ö¶ÎÃûÀ´²éÑ¯´¥·¢Æ÷µÄÁĞĞÅÏ¢
+			// é€šè¿‡è·å–descriptionä¸­çš„å­—æ®µåæ¥æŸ¥è¯¢è§¦å‘å™¨çš„åˆ—ä¿¡æ¯
 			String cols = forObject.getDescription();
 			int updateKeyIndex = cols == null ? -1 : cols.toUpperCase().indexOf("UPDATE");
 			int columnOfKeyIndex = cols == null ? -1 : cols.toUpperCase().indexOf("OF", updateKeyIndex);
@@ -395,17 +395,17 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 			StringBuilder sql = new StringBuilder();
 			sql.append("SELECT * FROM ");
 			sql.append(owner.getDataSource().getRoleFlag());
-			// ¶ÔÏóÀàĞÍÎªtable
+			// å¯¹è±¡ç±»å‹ä¸ºtable
 			if (ObjectType.TABLE.equals(owner.getType())) {
 				sql.append("_COLUMNS WHERE TABLE_ID=");
 			}
-			// ¶ÔÏóÀàĞÍÎªview
+			// å¯¹è±¡ç±»å‹ä¸ºview
 			else {
 				sql.append("_VIEW_COLUMNS WHERE VIEW_ID=");
 			}
 			sql.append(owner.getId());
 
-			// Ö¸¶¨ÁËÌØÊâ×Ö¶ÎÔò½ö²éÑ¯Ö¸¶¨×Ö¶Î£¬ÈôÃ»ÓĞÔòÖ±½Ó²é¸Ã±íµÄËùÓĞÁĞ
+			// æŒ‡å®šäº†ç‰¹æ®Šå­—æ®µåˆ™ä»…æŸ¥è¯¢æŒ‡å®šå­—æ®µï¼Œè‹¥æ²¡æœ‰åˆ™ç›´æ¥æŸ¥è¯¥è¡¨çš„æ‰€æœ‰åˆ—
 			if (isSetColumn && onKeyIndex != -1) {
 				cols = cols.substring(columnOfKeyIndex + 2, onKeyIndex).trim();
 				String[] col = cols.split(",");

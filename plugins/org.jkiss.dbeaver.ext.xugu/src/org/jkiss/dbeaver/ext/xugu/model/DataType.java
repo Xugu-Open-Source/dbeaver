@@ -50,7 +50,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Ğé¹ÈÊı¾İÀàĞÍ
+ * è™šè°·æ•°æ®ç±»å‹
  */
 public class DataType extends BaseObject<DBSObject>
 		implements DBSDataType, DBSEntity, DBPQualifiedObject, SourceObject, DBPScriptObjectExt {
@@ -80,7 +80,7 @@ public class DataType extends BaseObject<DBSObject>
 
 	static final Map<String, TypeDesc> PREDEFINED_TYPES = new HashMap<>();
 	static final Map<Integer, TypeDesc> PREDEFINED_TYPE_IDS = new HashMap<>();
-	// ĞŞ¸ÄÁËÊı¾İÀàĞÍ¶¨Òå
+	// ä¿®æ”¹äº†æ•°æ®ç±»å‹å®šä¹‰
 	static {
 		PREDEFINED_TYPES.put("BOOLEAN", new TypeDesc(DBPDataKind.BOOLEAN, Types.BOOLEAN, 0, 0, 0, 0));
 		PREDEFINED_TYPES.put("TINYINT", new TypeDesc(DBPDataKind.NUMERIC, Types.TINYINT, 3, 0, 0, 0));
@@ -148,13 +148,13 @@ public class DataType extends BaseObject<DBSObject>
 	private boolean findTypeDesc(String typeName) {
 		final String typePrefix = "PL/SQL";
 		if (typeName.startsWith(typePrefix)) {
-			// ²»ÒªÔÚÒâ PL/SQL µÄÀàĞÍ
+			// ä¸è¦åœ¨æ„ PL/SQL çš„ç±»å‹
 			return true;
 		}
 		typeName = normalizeTypeName(typeName);
 		this.typeDesc = PREDEFINED_TYPES.get(typeName);
 		if (this.typeDesc == null) {
-			log.warn("Î´ÖªµÄÔ¤¶¨ÒåÀàĞÍ£º" + typeName);
+			log.warn("æœªçŸ¥çš„é¢„å®šä¹‰ç±»å‹ï¼š" + typeName);
 			return false;
 		} else {
 			this.valueType = this.typeDesc.valueType;
@@ -322,7 +322,7 @@ public class DataType extends BaseObject<DBSObject>
 	@Override
 	@Association
 	public List<? extends DBSEntityAttribute> getAttributes(@NotNull DBRProgressMonitor monitor) throws DBException {
-		// TODO »ñÈ¡ÊôĞÔ¼¯
+		// TODO è·å–å±æ€§é›†
 		return null;
 	}
 
@@ -330,35 +330,35 @@ public class DataType extends BaseObject<DBSObject>
 	@Override
 	public Collection<? extends DBSEntityConstraint> getConstraints(@NotNull DBRProgressMonitor monitor)
 			throws DBException {
-		// TODO »ñÈ¡Ô¼Êø
+		// TODO è·å–çº¦æŸ
 		return null;
 	}
 
 	@Override
 	public DataTypeAttribute getAttribute(@NotNull DBRProgressMonitor monitor, @NotNull String attributeName)
 			throws DBException {
-		// TODO »ñÈ¡ÊôĞÔ
+		// TODO è·å–å±æ€§
 		return null;
 	}
 
 	@Nullable
 	@Association
 	public Collection<DataTypeMethod> getMethods(DBRProgressMonitor monitor) throws DBException {
-		// TODO »ñÈ¡·½·¨
+		// TODO è·å–æ–¹æ³•
 		return null;
 	}
 
 	@Override
 	public Collection<? extends DBSEntityAssociation> getAssociations(@NotNull DBRProgressMonitor monitor)
 			throws DBException {
-		// TODO »ñÈ¡¹ØÁª¶¯×÷
+		// TODO è·å–å…³è”åŠ¨ä½œ
 		return null;
 	}
 
 	@Override
 	public Collection<? extends DBSEntityAssociation> getReferences(@NotNull DBRProgressMonitor monitor)
 			throws DBException {
-		// TODO »ñÈ¡ÒıÓÃ
+		// TODO è·å–å¼•ç”¨
 		return null;
 	}
 

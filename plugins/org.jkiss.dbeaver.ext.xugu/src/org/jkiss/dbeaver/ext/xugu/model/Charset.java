@@ -30,7 +30,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * ×Ö·û¼¯£¬±àÂë·½Ê½
+ * å­—ç¬¦é›†ï¼Œç¼–ç æ–¹å¼
  */
 public class Charset extends BaseInformation {
 	private String name;

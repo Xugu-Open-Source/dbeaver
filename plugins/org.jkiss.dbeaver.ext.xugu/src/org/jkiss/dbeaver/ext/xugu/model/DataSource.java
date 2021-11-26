@@ -79,7 +79,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Êı¾İÔ´Àà£¬°üº¬Á¬½ÓĞÅÏ¢ÒÔ¼°Ä£Ê½¼¶±ğµÄ¶ÔÏó»º´æ£¨Ä£Ê½¡¢½ÇÉ«¡¢ÓÃ»§¡¢±í¿Õ¼ä¡¢Êı¾İÀàĞÍ£© ¸ºÔğ´´½¨Á¬½Ó¡¢³õÊ¼»¯ÉÏÏÂÎÄµÈ
+ * æ•°æ®æºç±»ï¼ŒåŒ…å«è¿æ¥ä¿¡æ¯ä»¥åŠæ¨¡å¼çº§åˆ«çš„å¯¹è±¡ç¼“å­˜ï¼ˆæ¨¡å¼ã€è§’è‰²ã€ç”¨æˆ·ã€è¡¨ç©ºé—´ã€æ•°æ®ç±»å‹ï¼‰ è´Ÿè´£åˆ›å»ºè¿æ¥ã€åˆå§‹åŒ–ä¸Šä¸‹æ–‡ç­‰
  */
 public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdaptable, javax.sql.DataSource {
 	private static final Log log = Log.getLog(DataSource.class);
@@ -93,14 +93,14 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 	public enum UserLoginRole {
 		/**
-		 * ÓÃ»§µÇÂ¼½ÇÉ«
+		 * ç”¨æˆ·ç™»å½•è§’è‰²
 		 */
 		SYSDBA, DBA, NORMAL
 	}
 
 	public enum UserRoleFlag {
 		/**
-		 * ÓÃ»§½ÇÉ«±êÖ¾
+		 * ç”¨æˆ·è§’è‰²æ ‡å¿—
 		 */
 		SYS, DBA, ALL
 	}
@@ -129,7 +129,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	private boolean useRuleHint;
 	private Database database;
 	/**
-	 * userRole ½ÇÉ«ÊôĞÔ£¬ÓÃÓÚÔÚ²éÑ¯Ê±ÉèÖÃ±íÃûµÄÇ°×º
+	 * userRole è§’è‰²å±æ€§ï¼Œç”¨äºåœ¨æŸ¥è¯¢æ—¶è®¾ç½®è¡¨åçš„å‰ç¼€
 	 */
 	private String userRole;
 	private String roleFlag;
@@ -148,9 +148,9 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		try {
 			driver = (Driver) container.getDriver().getDriverInstance(monitor);
 		} catch (DBException e) {
-			throw new DBException("×¢²áÇı¶¯Ê§°Ü", e);
+			throw new DBException("æ³¨å†Œé©±åŠ¨å¤±è´¥", e);
 		}
-		// xfc ´ÓÁ¬½ÓĞÅÏ¢ÖĞ»ñÈ¡ userRole
+		// xfc ä»è¿æ¥ä¿¡æ¯ä¸­è·å– userRole
 		this.userRole = config.getProviderProperty(Constants.PROP_INTERNAL_LOGON);
 		if (UserLoginRole.SYSDBA.name().equals(this.userRole)) {
 			this.roleFlag = UserRoleFlag.SYS.name();
@@ -189,14 +189,14 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	}
 
 	/**
-	 * »ù±¾²Ù×÷Îª´ò¿ªÁ¬½Ó£¬µ«ÊÇµ±µÚÒ»´ÎÖ´ĞĞÊ±£¬»á¼ÓÔØÒ»¸öÊØ»¤½ø³ÌÒÔ¼ì²éÁ¬½Ó×´Ì¬
+	 * åŸºæœ¬æ“ä½œä¸ºæ‰“å¼€è¿æ¥ï¼Œä½†æ˜¯å½“ç¬¬ä¸€æ¬¡æ‰§è¡Œæ—¶ï¼Œä¼šåŠ è½½ä¸€ä¸ªå®ˆæŠ¤è¿›ç¨‹ä»¥æ£€æŸ¥è¿æ¥çŠ¶æ€
 	 */
 	@Override
 	protected Connection openConnection(@NotNull DBRProgressMonitor monitor, @Nullable JDBCExecutionContext context,
 			@NotNull String purpose) throws DBCException {
 		Connection connection = super.openConnection(monitor, context, purpose);
 
-		// Ğ£ÑéÓÃ»§È¨ÏŞ
+		// æ ¡éªŒç”¨æˆ·æƒé™
 		try {
 			Statement statement = connection.createStatement();
 			String sqlString  = "select user_id,role_id,authority "
@@ -218,14 +218,14 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			}
 		}
 
-		// ´¦ÀíÁ¬½Ó±£»î
+		// å¤„ç†è¿æ¥ä¿æ´»
 		Path configPath = Paths.get(OemConfig.OEM_NAME_EN.toLowerCase() + ".properties");
 		String enableConnectKeepAliveKey = "enable-connect-keep-alive";
 		String enableConnectKeepAliveValue = "true";
 		String connectKeepAliveMillisecondsKey = "connect-keep-alive-milliseconds";
 		String connectKeepAliveMillisecondsValue = "5000";
 		
-		// ¼ì²âÅäÖÃÎÄ¼şÊÇ·ñ´æÔÚ£¬Èô²»´æÔÚ£¬´´½¨ĞÂµÄÄ¬ÈÏÅäÖÃÎÄ¼ş
+		// æ£€æµ‹é…ç½®æ–‡ä»¶æ˜¯å¦å­˜åœ¨ï¼Œè‹¥ä¸å­˜åœ¨ï¼Œåˆ›å»ºæ–°çš„é»˜è®¤é…ç½®æ–‡ä»¶
 		if (!Files.exists(configPath)) {
 			try {
 				Files.createFile(configPath);
@@ -234,27 +234,27 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 					defaultConfigProperties.setProperty(enableConnectKeepAliveKey, enableConnectKeepAliveValue);
 					defaultConfigProperties.setProperty(connectKeepAliveMillisecondsKey, connectKeepAliveMillisecondsValue);
 					defaultConfigProperties.store(os, null);
-					log.debug(OemConfig.OEM_NAME_EN + "ÅäÖÃÎÄ¼şÄ¬ÈÏÅäÖÃ±£´æ³É¹¦£º" + configPath.toAbsolutePath());
+					log.debug(OemConfig.OEM_NAME_EN + "é…ç½®æ–‡ä»¶é»˜è®¤é…ç½®ä¿å­˜æˆåŠŸï¼š" + configPath.toAbsolutePath());
 				} catch (IOException e) {
-					throw new IllegalStateException(OemConfig.OEM_NAME_EN + "ÅäÖÃÎÄ¼şÄ¬ÈÏÅäÖÃ±£´æÊ§°Ü£º" + configPath.toAbsolutePath(), e);
+					throw new IllegalStateException(OemConfig.OEM_NAME_EN + "é…ç½®æ–‡ä»¶é»˜è®¤é…ç½®ä¿å­˜å¤±è´¥ï¼š" + configPath.toAbsolutePath(), e);
 				}
 			} catch (IOException e) {
-				throw new IllegalStateException(OemConfig.OEM_NAME_EN + "ÅäÖÃÎÄ¼ş´´½¨Ê§°Ü£º" + configPath.toAbsolutePath(), e);
+				throw new IllegalStateException(OemConfig.OEM_NAME_EN + "é…ç½®æ–‡ä»¶åˆ›å»ºå¤±è´¥ï¼š" + configPath.toAbsolutePath(), e);
 			}
 		}
 		
-		// ´ÓÅäÖÃÎÄ¼ş¼ÓÔØÅäÖÃ
+		// ä»é…ç½®æ–‡ä»¶åŠ è½½é…ç½®
 		Properties configProperties = new Properties();
 		try (InputStream is = Files.newInputStream(configPath)) {
 			configProperties.load(is);
-			log.debug(OemConfig.OEM_NAME_EN + "ÅäÖÃÎÄ¼ş¶ÁÈ¡³É¹¦£º" + configPath.toAbsolutePath());
+			log.debug(OemConfig.OEM_NAME_EN + "é…ç½®æ–‡ä»¶è¯»å–æˆåŠŸï¼š" + configPath.toAbsolutePath());
 		} catch (IOException e) {
-			throw new IllegalStateException(OemConfig.OEM_NAME_EN + "ÅäÖÃÎÄ¼ş¶ÁÈ¡Ê§°Ü£º" + configPath.toAbsolutePath(), e);
+			throw new IllegalStateException(OemConfig.OEM_NAME_EN + "é…ç½®æ–‡ä»¶è¯»å–å¤±è´¥ï¼š" + configPath.toAbsolutePath(), e);
 		}
 		String enableConnectKeepAlive = configProperties.getProperty(enableConnectKeepAliveKey, enableConnectKeepAliveValue);
 		String connectKeepAliveMilliseconds = configProperties.getProperty(connectKeepAliveMillisecondsKey, connectKeepAliveMillisecondsValue);
 		if (Boolean.parseBoolean(enableConnectKeepAlive)) {
-			// ´´½¨Á¬½Ó±£»îÏß³Ì
+			// åˆ›å»ºè¿æ¥ä¿æ´»çº¿ç¨‹
 			long keepAliveTime = Long.parseLong(connectKeepAliveMilliseconds);
 			THREAD_POOL_EXECUTOR.execute(() -> {
 				try {
@@ -264,23 +264,23 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 						stmt.close();
 						Thread.sleep(keepAliveTime);
 					}
-					log.debug("Á¬½Ó±£»îÏß³ÌÒÑÏú»Ù£¬Ö´ĞĞ»·¾³£º" + context.getContextName());
+					log.debug("è¿æ¥ä¿æ´»çº¿ç¨‹å·²é”€æ¯ï¼Œæ‰§è¡Œç¯å¢ƒï¼š" + context.getContextName());
 				} catch (SQLException e) {
-					log.debug("Á¬½Ó±£»î½ø³ÌSQLÒì³£", e);
+					log.debug("è¿æ¥ä¿æ´»è¿›ç¨‹SQLå¼‚å¸¸", e);
 					DBPDataSourceContainer container = context.getDataSource().getContainer();
 					try {
 						container.reconnect(monitor);
 					} catch (DBException e1) {
-						log.debug("ÖØĞÂÁ¬½ÓÊ§°Ü", e1);
+						log.debug("é‡æ–°è¿æ¥å¤±è´¥", e1);
 					}
 				} catch (InterruptedException e) {
-					log.debug("Á¬½Ó±£»î½ø³ÌÒÑ±»ÖĞ¶Ï", e);
+					log.debug("è¿æ¥ä¿æ´»è¿›ç¨‹å·²è¢«ä¸­æ–­", e);
 					Thread.currentThread().interrupt();
 				}
 			});
-			log.debug("Á¬½Ó±£»îÏß³ÌÒÑ´´½¨£¬±£»î¼ä¸ô " + keepAliveTime / 1000 + " Ãë£¬Ö´ĞĞ»·¾³£º" + context.getContextName());
+			log.debug("è¿æ¥ä¿æ´»çº¿ç¨‹å·²åˆ›å»ºï¼Œä¿æ´»é—´éš” " + keepAliveTime / 1000 + " ç§’ï¼Œæ‰§è¡Œç¯å¢ƒï¼š" + context.getContextName());
 		} else {
-			log.debug("Î´¿ªÆôÁ¬½Ó±£»î¹¦ÄÜ£¬Ö´ĞĞ»·¾³£º" + context.getContextName());
+			log.debug("æœªå¼€å¯è¿æ¥ä¿æ´»åŠŸèƒ½ï¼Œæ‰§è¡Œç¯å¢ƒï¼š" + context.getContextName());
 		}
 		return connection;
 	}
@@ -291,7 +291,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	}
 
 	/**
-	 * ³õÊ¼»¯ÉÏÏÂÎÄ
+	 * åˆå§‹åŒ–ä¸Šä¸‹æ–‡
 	 */
 	@Override
 	protected void initializeContextState(DBRProgressMonitor monitor, JDBCExecutionContext context,
@@ -309,7 +309,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		try (JDBCSession session = context.openSession(monitor, DBCExecutionPurpose.META, "Set connection parameters");
 				Statement dbStat = session.createStatement();
 				ResultSet dbResult = dbStat.executeQuery("SHOW CHARSETS")) {
-			// ¶ÁÈ¡×Ö·û¼¯ºÍÅÅĞò¼¯
+			// è¯»å–å­—ç¬¦é›†å’Œæ’åºé›†
 			charsets = new ArrayList<>();
 			while (dbResult.next()) {
 				Charset charset = new Charset(this, session, JDBCUtils.safeGetString(dbResult, "CHARSET_NAME"));
@@ -407,7 +407,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			this.utilSession = session2;
 		}
 
-		// ÕæÕı½øĞĞÊı¾İÀàĞÍ»º´æ
+		// çœŸæ­£è¿›è¡Œæ•°æ®ç±»å‹ç¼“å­˜
 		List<DataType> dtList = new ArrayList<>();
 		for (Map.Entry<String, DataType.TypeDesc> predefinedType : DataType.PREDEFINED_TYPES.entrySet()) {
 			DataType dataType = new DataType(this, predefinedType.getKey(), true);
@@ -451,7 +451,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 	@Override
 	public void cacheStructure(@NotNull DBRProgressMonitor monitor, int scope) throws DBException {
-		// TODO »º´æ½á¹¹
+		// TODO ç¼“å­˜ç»“æ„
 	}
 
 	public boolean supportsDefaultChange() {
@@ -464,22 +464,22 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	}
 
 	/**
-	 * ÉèÎªÄ¬ÈÏ¶ÔÏó
+	 * è®¾ä¸ºé»˜è®¤å¯¹è±¡
 	 * 
-	 * @param monitor ½ø³Ì¼àÊÓÆ÷
-	 * @param object  Êı¾İ¿â¶ÔÏó
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor è¿›ç¨‹ç›‘è§†å™¨
+	 * @param object  æ•°æ®åº“å¯¹è±¡
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	public void setDefaultObject(@NotNull DBRProgressMonitor monitor, @NotNull DBSObject object) throws DBException {
 		final Schema oldSelectedEntity = getDefaultObject();
 		if (!(object instanceof Schema)) {
-			throw new IllegalArgumentException("ÎŞĞ§µÄ¶ÔÏóÀàĞÍ£º" + object);
+			throw new IllegalArgumentException("æ— æ•ˆçš„å¯¹è±¡ç±»å‹ï¼š" + object);
 		}
 		for (JDBCExecutionContext context : getDefaultInstance().getAllContexts()) {
 			setCurrentSchema(monitor, context, (Schema) object);
 		}
 
-		// ·¢ËÍÍ¨Öª
+		// å‘é€é€šçŸ¥
 		if (oldSelectedEntity != null) {
 			DBUtils.fireObjectSelect(oldSelectedEntity, false);
 		}
@@ -507,7 +507,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	private void setCurrentSchema(DBRProgressMonitor monitor, JDBCExecutionContext executionContext, Schema object)
 			throws DBCException {
 		if (object == null) {
-			log.debug("µ±Ç°Ä£Ê½Îª¿Õ");
+			log.debug("å½“å‰æ¨¡å¼ä¸ºç©º");
 			return;
 		}
 		try (JDBCSession session = executionContext.openSession(monitor, DBCExecutionPurpose.UTIL,
@@ -534,12 +534,12 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		if (driverSupportsQueryCancel()) {
 			super.cancelStatementExecute(monitor, statement);
 		} else {
-			// ÈôÊı¾İ¿â²»Ö§³Öµ¥´Ê²éÑ¯È¡Ïû£¬ÔòÈ¡Ïû»á»°
+			// è‹¥æ•°æ®åº“ä¸æ”¯æŒå•è¯æŸ¥è¯¢å–æ¶ˆï¼Œåˆ™å–æ¶ˆä¼šè¯
 			try {
 				Connection connection = statement.getConnection().getOriginal();
 				BeanUtils.invokeObjectMethod(connection, "cancel");
 			} catch (Throwable e) {
-				throw new DBException("ÎŞ·¨È¡Ïû»á»°²éÑ¯", e, this);
+				throw new DBException("æ— æ³•å–æ¶ˆä¼šè¯æŸ¥è¯¢", e, this);
 			}
 		}
 	}
@@ -583,7 +583,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			throws DBException {
 		int divPos = typeFullName.indexOf(SQLConstants.STRUCT_SEPARATOR);
 		if (divPos == -1) {
-			// »ñÈ¡¼òµ¥ÀàĞÍÃû³Æ
+			// è·å–ç®€å•ç±»å‹åç§°
 			return getLocalDataType(typeFullName);
 		} else {
 			return null;
@@ -645,7 +645,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			}
 		}
 		if (error.getCause() != null) {
-			// ¿ÉÄÜÊÇÊı¾İ¿âÒì³£
+			// å¯èƒ½æ˜¯æ•°æ®åº“å¼‚å¸¸
 			try {
 				Object errorPosition = BeanUtils.readObjectProperty(error.getCause(), "errorPosition");
 				if (errorPosition instanceof Number) {
@@ -654,8 +654,8 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 					return new ErrorPosition[] { pos };
 				}
 			} catch (Exception e) {
-				// ²»ÊÇÊı¾İ¿âÒì³£
-				log.debug("ÎŞ·¨¶ÁÈ¡¶ÔÏóÊôĞÔ£º" + e.getMessage());
+				// ä¸æ˜¯æ•°æ®åº“å¼‚å¸¸
+				log.debug("æ— æ³•è¯»å–å¯¹è±¡å±æ€§ï¼š" + e.getMessage());
 			}
 		}
 		if (error instanceof SQLException
@@ -680,7 +680,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 					return new ErrorPosition[] { pos };
 
 				} catch (SQLException e) {
-					log.debug("ÎŞ·¨ÌáÈ¡½âÎö´íÎóĞÅÏ¢£º" + e.getMessage());
+					log.debug("æ— æ³•æå–è§£æé”™è¯¯ä¿¡æ¯ï¼š" + e.getMessage());
 				}
 			}
 		}
@@ -723,24 +723,24 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 					
 					Throwable[] statementWarnings = statement.getStatementWarnings();
 	                if (statementWarnings != null && statementWarnings.length > 0) {
-	                	output.println("---¾¯¸æ---");
+	                	output.println("---è­¦å‘Š---");
 	                    dumpWarnings(output, Arrays.asList(statementWarnings));
 	                }
 	            }
 			} catch(ClassNotFoundException ignore) {
-				// ºöÂÔÇı¶¯Î´×¢ÈëÆÚ¼äµ÷ÓÃ´Ë·½Ê½²úÉúµÄÀàÎ´ÕÒµ½Òì³£
+				// å¿½ç•¥é©±åŠ¨æœªæ³¨å…¥æœŸé—´è°ƒç”¨æ­¤æ–¹å¼äº§ç”Ÿçš„ç±»æœªæ‰¾åˆ°å¼‚å¸¸
 			} catch (Exception e) {
-				throw new DBCException("»ñÈ¡Ô­Ê¼StatementÊ§°Ü", e);
+				throw new DBCException("è·å–åŸå§‹Statementå¤±è´¥", e);
 			}
 		}
 		
 		/**
-		 * ÓÉÓÚJDBCStatementImpl»ñÈ¡Ô­Ê¼Statement·½·¨ÎªprotectÈ¨ÏŞ<br>
-		 * Òò´ËÊ¹ÓÃ·´Éäµ÷ÓÃ·½·¨»ñÈ¡Ô­Ê¼Statement
+		 * ç”±äºJDBCStatementImplè·å–åŸå§‹Statementæ–¹æ³•ä¸ºprotectæƒé™<br>
+		 * å› æ­¤ä½¿ç”¨åå°„è°ƒç”¨æ–¹æ³•è·å–åŸå§‹Statement
 		 * 
-		 * @param dbcStatement DBeaver´«ÈëStatement·â×°¶ÔÏó
-		 * @return Ô­Ê¼Statement¶ÔÏó
-		 * @throws Exception µ±·½·¨¶ÔÏó»ñÈ¡Ê§°Ü»òÕß·½·¨µ÷ÓÃÊ§°ÜÊ±Å×³öÒì³£
+		 * @param dbcStatement DBeaverä¼ å…¥Statementå°è£…å¯¹è±¡
+		 * @return åŸå§‹Statementå¯¹è±¡
+		 * @throws Exception å½“æ–¹æ³•å¯¹è±¡è·å–å¤±è´¥æˆ–è€…æ–¹æ³•è°ƒç”¨å¤±è´¥æ—¶æŠ›å‡ºå¼‚å¸¸
 		 */
 		private Object getOriginalStatement(DBCStatement dbcStatement) throws Exception {
 			Class<?> clazz = JDBCStatementImpl.class;
@@ -769,7 +769,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	}
 
 	/**
-	 * Êı¾İ¿â»º´æ
+	 * æ•°æ®åº“ç¼“å­˜
 	 */
 	public static class DatabaseCache extends JDBCStructLookupCache<DataSource, Database, Schema> {
 
@@ -778,7 +778,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		}
 
 		/**
-		 * »º´æ¿âĞÅÏ¢
+		 * ç¼“å­˜åº“ä¿¡æ¯
 		 */
 		@Override
 		public JDBCStatement prepareLookupStatement(JDBCSession session, DataSource owner, Database object,
@@ -808,7 +808,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	}
 
 	/**
-	 * Ä£Ê½»º´æ
+	 * æ¨¡å¼ç¼“å­˜
 	 */
 	public static class SchemaCache extends JDBCStructLookupCache<Database, Schema, Schema> {
 		SchemaCache() {
@@ -821,7 +821,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 				Schema schema, String name) throws SQLException {
 			StringBuilder schemasQuery = new StringBuilder();
 			String dbName = session.getCatalog();
-			// ¸ù¾İownerµÄÓÃ»§½ÇÉ«Ñ¡È¡²»Í¬µÄÓï¾äÀ´²éÑ¯schema
+			// æ ¹æ®ownerçš„ç”¨æˆ·è§’è‰²é€‰å–ä¸åŒçš„è¯­å¥æ¥æŸ¥è¯¢schema
 			schemasQuery.append("SELECT S.DB_ID,S.SCHEMA_ID,S.SCHEMA_NAME,U.USER_NAME,S.COMMENTS FROM ");
 			schemasQuery.append("ALL");
 			schemasQuery.append("_SCHEMAS S");
@@ -838,7 +838,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 				schemasQuery.append(SQLUtils.quoteString(owner, name));
 			}
 			schemasQuery.append(" ORDER BY S.SCHEMA_ID ASC");
-			log.debug("schema message £º" + schemasQuery.toString()); 
+			log.debug("schema message ï¼š" + schemasQuery.toString()); 
 
 			JDBCPreparedStatement dbStat = session.prepareStatement(schemasQuery.toString());
 
@@ -854,45 +854,45 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		@Override
 		protected JDBCStatement prepareChildrenStatement(JDBCSession session, Database owner, Schema forObject)
 				throws SQLException {
-			// TODO ×¼±¸Ä£Ê½»º´æ×Ó¶ÔÏóÉùÃ÷
+			// TODO å‡†å¤‡æ¨¡å¼ç¼“å­˜å­å¯¹è±¡å£°æ˜
 			return null;
 		}
 
 		@Override
 		protected Schema fetchChild(JDBCSession session, Database owner, Schema parent, JDBCResultSet dbResult)
 				throws SQLException, DBException {
-			// TODO »ñÈ¡Ä£Ê½»º´æ×Ó¶ÔÏó
+			// TODO è·å–æ¨¡å¼ç¼“å­˜å­å¯¹è±¡
 			return null;
 		}
 	}
 
 	/**
-	 * Êı¾İÀàĞÍ»º´æ£¬²»×ö²éÑ¯²Ù×÷£¬ÔÚ initialize º¯ÊıÖĞ½øĞĞ³õÊ¼»¯
+	 * æ•°æ®ç±»å‹ç¼“å­˜ï¼Œä¸åšæŸ¥è¯¢æ“ä½œï¼Œåœ¨ initialize å‡½æ•°ä¸­è¿›è¡Œåˆå§‹åŒ–
 	 */
 	static class DataTypeCache extends JDBCObjectCache<DataSource, DataType> {
 		@Override
 		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull DataSource owner)
 				throws SQLException {
-			// TODO ×¼±¸Êı¾İÀàĞÍ»º´æ¶ÔÏóÉùÃ÷
+			// TODO å‡†å¤‡æ•°æ®ç±»å‹ç¼“å­˜å¯¹è±¡å£°æ˜
 			return session.prepareStatement("");
 		}
 
 		@Override
 		protected DataType fetchObject(@NotNull JDBCSession session, @NotNull DataSource owner,
 				@NotNull JDBCResultSet resultSet) throws SQLException, DBException {
-			// TODO »ñÈ¡Êı¾İÀàĞÍ»º´æ¶ÔÏó
+			// TODO è·å–æ•°æ®ç±»å‹ç¼“å­˜å¯¹è±¡
 			return null;
 		}
 	}
 
 	/**
-	 * ±í¿Õ¼ä»º´æ
+	 * è¡¨ç©ºé—´ç¼“å­˜
 	 */
 	static class TablespaceCache extends JDBCObjectCache<DataSource, Tablespace> {
 		@Override
 		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull DataSource owner)
 				throws SQLException {
-			// xfc ĞŞ¸ÄÁË»ñÈ¡±í¿Õ¼äĞÅÏ¢µÄsqlÓï¾ä
+			// xfc ä¿®æ”¹äº†è·å–è¡¨ç©ºé—´ä¿¡æ¯çš„sqlè¯­å¥
 			return session.prepareStatement("SELECT * FROM " + owner.roleFlag + "_TABLESPACES");
 		}
 
@@ -904,7 +904,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	}
 
 	/**
-	 * ÓÃ»§»º´æ
+	 * ç”¨æˆ·ç¼“å­˜
 	 */
 	public static class UserCache extends JDBCStructLookupCache<DataSource, User, User> {
 		public UserCache() {
@@ -941,20 +941,20 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		@Override
 		protected JDBCStatement prepareChildrenStatement(JDBCSession session, DataSource owner, User forObject)
 				throws SQLException {
-			// TODO ×¼±¸ÓÃ»§»º´æ×Ó¶ÔÏóÉùÃ÷
+			// TODO å‡†å¤‡ç”¨æˆ·ç¼“å­˜å­å¯¹è±¡å£°æ˜
 			return null;
 		}
 
 		@Override
 		protected User fetchChild(JDBCSession session, DataSource owner, User parent, JDBCResultSet dbResult)
 				throws SQLException, DBException {
-			// TODO »ñÈ¡ÓÃ»§»º´æ×Ó¶ÔÏó
+			// TODO è·å–ç”¨æˆ·ç¼“å­˜å­å¯¹è±¡
 			return null;
 		}
 	}
 
 	/**
-	 * ½ÇÉ«»º´æ
+	 * è§’è‰²ç¼“å­˜
 	 */
 	public class RoleCache extends JDBCStructLookupCache<DataSource, Role, Role> {
 		public RoleCache() {
@@ -1007,7 +1007,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	}
 	
 	/**
-	 * ×÷Òµ»º´æ
+	 * ä½œä¸šç¼“å­˜
 	 */
 	public static class SchedulerJobCache extends JDBCStructLookupCache<DataSource, SchedulerJob, SchedulerJob> {
 		public SchedulerJobCache() {
@@ -1018,7 +1018,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		@Override
 		public JDBCStatement prepareLookupStatement(JDBCSession session, DataSource owner, SchedulerJob object,
 				String objectName) throws SQLException {
-			// xfc ĞŞ¸ÄÁË»ñÈ¡ËùÓĞjobĞÅÏ¢µÄsqlÓï¾ä
+			// xfc ä¿®æ”¹äº†è·å–æ‰€æœ‰jobä¿¡æ¯çš„sqlè¯­å¥
 			String roleFlag = owner.getRoleFlag();
 			StringBuilder sql = new StringBuilder();
 			String dbName = session.getCatalog();
@@ -1056,7 +1056,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	}
 
 	/**
-	 * È«¾ÖÍ¬Òå´Ê»º´æ
+	 * å…¨å±€åŒä¹‰è¯ç¼“å­˜
 	 */
 	static class SynonymCache extends JDBCStructLookupCache<DataSource, PublicSynonym, PublicSynonym> {
 		public SynonymCache() {
@@ -1121,11 +1121,11 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	}
 
 	/**
-	 * ´Ó×÷Òµ»º´æÖĞ»ñÈ¡È«²¿µÄ×÷ÒµĞÅÏ¢
+	 * ä»ä½œä¸šç¼“å­˜ä¸­è·å–å…¨éƒ¨çš„ä½œä¸šä¿¡æ¯
 	 * 
-	 * @param monitor ¼à¿Ø
-	 * @return list ×÷ÒµÁĞ±í
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor ç›‘æ§
+	 * @return list ä½œä¸šåˆ—è¡¨
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	@Association
 	public Collection<SchedulerJob> getSchedulerJobs(DBRProgressMonitor monitor) throws DBException {
@@ -1134,11 +1134,11 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	}
 
 	/**
-	 * ´ÓÍ¬Òå´Ê»º´æÖĞ»ñÈ¡È«²¿µÄÍ¬Òå´ÊĞÅÏ¢
+	 * ä»åŒä¹‰è¯ç¼“å­˜ä¸­è·å–å…¨éƒ¨çš„åŒä¹‰è¯ä¿¡æ¯
 	 * 
-	 * @param monitor ¼à¿Ø
-	 * @return list Í¬Òå´ÊÁĞ±í
-	 * @throws DBException Êı¾İ¿âÒì³£
+	 * @param monitor ç›‘æ§
+	 * @return list åŒä¹‰è¯åˆ—è¡¨
+	 * @throws DBException æ•°æ®åº“å¼‚å¸¸
 	 */
 	@Association
 	public Collection<PublicSynonym> getSynonyms(DBRProgressMonitor monitor) throws DBException {
@@ -1148,17 +1148,17 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 	@Override
 	public Logger getParentLogger() throws SQLFeatureNotSupportedException {
-		throw new UnsupportedOperationException("Êı¾İÔ´ÔİÎ´Ö§³Ö´Ë·½·¨");
+		throw new UnsupportedOperationException("æ•°æ®æºæš‚æœªæ”¯æŒæ­¤æ–¹æ³•");
 	}
 
 	@Override
 	public <T> T unwrap(Class<T> iface) throws SQLException {
-		throw new UnsupportedOperationException("Êı¾İÔ´ÔİÎ´Ö§³Ö´Ë·½·¨");
+		throw new UnsupportedOperationException("æ•°æ®æºæš‚æœªæ”¯æŒæ­¤æ–¹æ³•");
 	}
 
 	@Override
 	public boolean isWrapperFor(Class<?> iface) throws SQLException {
-		throw new UnsupportedOperationException("Êı¾İÔ´ÔİÎ´Ö§³Ö´Ë·½·¨");
+		throw new UnsupportedOperationException("æ•°æ®æºæš‚æœªæ”¯æŒæ­¤æ–¹æ³•");
 	}
 
 	@Override
@@ -1183,21 +1183,21 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 	@Override
 	public PrintWriter getLogWriter() throws SQLException {
-		throw new UnsupportedOperationException("Êı¾İÔ´ÔİÎ´Ö§³Ö´Ë·½·¨");
+		throw new UnsupportedOperationException("æ•°æ®æºæš‚æœªæ”¯æŒæ­¤æ–¹æ³•");
 	}
 
 	@Override
 	public void setLogWriter(PrintWriter out) throws SQLException {
-		throw new UnsupportedOperationException("Êı¾İÔ´ÔİÎ´Ö§³Ö´Ë·½·¨");
+		throw new UnsupportedOperationException("æ•°æ®æºæš‚æœªæ”¯æŒæ­¤æ–¹æ³•");
 	}
 
 	@Override
 	public void setLoginTimeout(int seconds) throws SQLException {
-		throw new UnsupportedOperationException("Êı¾İÔ´ÔİÎ´Ö§³Ö´Ë·½·¨");
+		throw new UnsupportedOperationException("æ•°æ®æºæš‚æœªæ”¯æŒæ­¤æ–¹æ³•");
 	}
 
 	@Override
 	public int getLoginTimeout() throws SQLException {
-		throw new UnsupportedOperationException("Êı¾İÔ´ÔİÎ´Ö§³Ö´Ë·½·¨");
+		throw new UnsupportedOperationException("æ•°æ®æºæš‚æœªæ”¯æŒæ­¤æ–¹æ³•");
 	}
 }

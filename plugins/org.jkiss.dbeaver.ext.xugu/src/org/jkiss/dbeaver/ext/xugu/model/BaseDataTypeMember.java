@@ -27,7 +27,7 @@ import org.jkiss.dbeaver.ext.xugu.Constants;
 import java.sql.ResultSet;
 
 /**
- * 基本数据类型成员
+ * 鍩烘湰鏁版嵁绫诲瀷鎴愬憳
  */
 public abstract class BaseDataTypeMember implements DBSEntityElement {
 	private static final Log log = Log.getLog(BaseDataTypeMember.class);

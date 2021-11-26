@@ -37,169 +37,169 @@ public class RestoreTool implements IUserInterfaceTool {
 		DBSObject first = it.next();
 		DataSource dataSource = (DataSource) first.getDataSource();
 		Shell infoShell = new Shell(window.getShell());
-		infoShell.setText("Êı¾İ¿â»Ö¸´¹¤¾ß");
+		infoShell.setText("æ•°æ®åº“æ¢å¤å·¥å…·");
 		infoShell.setLayout(new GridLayout());
 		Composite sourceComp = new Composite(infoShell, SWT.NONE);
 		sourceComp.setLayout(new GridLayout(3, false));
 		Combo typeCombo = new Combo(sourceComp, SWT.READ_ONLY);
 		Text pathText = new Text(sourceComp, SWT.BORDER);
 		pathText.setLayoutData(new GridData(200, 19));
-		pathText.setMessage("ÇëÊäÈë±¸·İÎÄ¼şÃû³Æ");
+		pathText.setMessage("è¯·è¾“å…¥å¤‡ä»½æ–‡ä»¶åç§°");
 		Button comfirmButton = new Button(sourceComp, SWT.PUSH);
-		comfirmButton.setText("¿ªÊ¼»Ö¸´");
-		typeCombo.setItems("ÏµÍ³", "¿â", "Ä£Ê½", "±í");
+		comfirmButton.setText("å¼€å§‹æ¢å¤");
+		typeCombo.setItems("ç³»ç»Ÿ", "åº“", "æ¨¡å¼", "è¡¨");
 		Composite stackComp = new Composite(infoShell, SWT.NONE);
 		StackLayout stackLayout = new StackLayout();
 		stackComp.setLayout(stackLayout);
-		// ÏµÍ³»Ö¸´
+		// ç³»ç»Ÿæ¢å¤
 		Composite systemArgsComp = new Composite(stackComp, SWT.NONE);
 		systemArgsComp.setLayout(new GridLayout(2, false));
 		Label systemSysdbaPasswordLabel = new Label(systemArgsComp, SWT.NONE);
-		systemSysdbaPasswordLabel.setText("ÃÜÂë");
+		systemSysdbaPasswordLabel.setText("å¯†ç ");
 		Text systemSysdbaPasswordText = new Text (systemArgsComp, SWT.SINGLE | SWT.BORDER);
 		systemSysdbaPasswordText.setLayoutData(new GridData(294, 19));
-		systemSysdbaPasswordText.setMessage("ÇëÊäÈë SYSTEM ¿â SYSDBA ÓÃ»§ÃÜÂë");
+		systemSysdbaPasswordText.setMessage("è¯·è¾“å…¥ SYSTEM åº“ SYSDBA ç”¨æˆ·å¯†ç ");
 		systemSysdbaPasswordText.setEchoChar('*');
-		// ¿â»Ö¸´
+		// åº“æ¢å¤
 		Composite databaseArgsComp = new Composite(stackComp, SWT.NONE);
 		databaseArgsComp.setLayout(new GridLayout(2, false));
 		Label databaseSourceDatabaseNameLabel = new Label(databaseArgsComp, SWT.NONE);
-		databaseSourceDatabaseNameLabel.setText("Ô´¿âÃû³Æ");
+		databaseSourceDatabaseNameLabel.setText("æºåº“åç§°");
 		Text databaseSourceDatabaseNameText = new Text (databaseArgsComp, SWT.SINGLE | SWT.BORDER);
 		databaseSourceDatabaseNameText.setLayoutData(new GridData(258, 19));
-		databaseSourceDatabaseNameText.setMessage("ÇëÊäÈëÔ´¿âÃû³Æ");
+		databaseSourceDatabaseNameText.setMessage("è¯·è¾“å…¥æºåº“åç§°");
 		Label databaseTargetDatabaseNameLabel = new Label(databaseArgsComp, SWT.NONE);
-		databaseTargetDatabaseNameLabel.setText("Ä¿±ê¿âÃû³Æ");
+		databaseTargetDatabaseNameLabel.setText("ç›®æ ‡åº“åç§°");
 		Text databaseTargetDatabaseNameText = new Text (databaseArgsComp, SWT.SINGLE | SWT.BORDER);
 		databaseTargetDatabaseNameText.setLayoutData(new GridData(258, 19));
-		databaseTargetDatabaseNameText.setMessage("ÇëÊäÈëÄ¿±ê¿âÃû³Æ");
+		databaseTargetDatabaseNameText.setMessage("è¯·è¾“å…¥ç›®æ ‡åº“åç§°");
 
 		Group databaseTargetDatabaseGroup = new Group(databaseArgsComp, SWT.NONE);
 		databaseTargetDatabaseGroup.setLayoutData(new GridData(SWT.FILL, SWT.BOTTOM, true, true, 2, 1));
 		databaseTargetDatabaseGroup.setLayout(new GridLayout(2, false));
-		databaseTargetDatabaseGroup.setText("ĞÂ¿â´´½¨²ÎÊı");
+		databaseTargetDatabaseGroup.setText("æ–°åº“åˆ›å»ºå‚æ•°");
 		Label databaseTargetDatabaseCharsetLabel = new Label(databaseTargetDatabaseGroup, SWT.NONE);
-		databaseTargetDatabaseCharsetLabel.setText("Ä¿±ê¿â×Ö·û¼¯");
+		databaseTargetDatabaseCharsetLabel.setText("ç›®æ ‡åº“å­—ç¬¦é›†");
 		Text databaseTargetDatabaseCharsetText = new Text (databaseTargetDatabaseGroup, SWT.SINGLE | SWT.BORDER);
 		databaseTargetDatabaseCharsetText.setLayoutData(new GridData(216, 19));
-		databaseTargetDatabaseCharsetText.setMessage("ÇëÊäÈëÄ¿±ê¿â×Ö·û¼¯");
+		databaseTargetDatabaseCharsetText.setMessage("è¯·è¾“å…¥ç›®æ ‡åº“å­—ç¬¦é›†");
 		databaseTargetDatabaseCharsetText.setText("UTF-8");
 		Label databaseTargetDatabaseZoneOffsetLabel = new Label(databaseTargetDatabaseGroup, SWT.NONE);
-		databaseTargetDatabaseZoneOffsetLabel.setText("Ä¿±ê¿âÊ±¼äÆ«ÒÆ");
+		databaseTargetDatabaseZoneOffsetLabel.setText("ç›®æ ‡åº“æ—¶é—´åç§»");
 		Text databaseTargetDatabaseZoneOffsetText = new Text (databaseTargetDatabaseGroup, SWT.SINGLE | SWT.BORDER);
 		databaseTargetDatabaseZoneOffsetText.setLayoutData(new GridData(216, 19));
-		databaseTargetDatabaseZoneOffsetText.setMessage("ÇëÊäÈëÄ¿±ê¿âÊ±¼äÆ«ÒÆ");
+		databaseTargetDatabaseZoneOffsetText.setMessage("è¯·è¾“å…¥ç›®æ ‡åº“æ—¶é—´åç§»");
 		databaseTargetDatabaseZoneOffsetText.setText("+08:00");
-		// Ä£Ê½»Ö¸´
+		// æ¨¡å¼æ¢å¤
 		Composite schemaArgsComp = new Composite(stackComp, SWT.NONE);
 		schemaArgsComp.setLayout(new GridLayout(2, false));
 		Label schemaSourceSchemaNameLabel = new Label(schemaArgsComp, SWT.NONE);
-		schemaSourceSchemaNameLabel.setText("Ô´Ä£Ê½Ãû³Æ");
+		schemaSourceSchemaNameLabel.setText("æºæ¨¡å¼åç§°");
 		Text schemaSourceSchemaNameText = new Text (schemaArgsComp, SWT.SINGLE | SWT.BORDER);
 		schemaSourceSchemaNameText.setLayoutData(new GridData(246, 19));
-		schemaSourceSchemaNameText.setMessage("ÇëÊäÈëÔ´Ä£Ê½Ãû³Æ");
+		schemaSourceSchemaNameText.setMessage("è¯·è¾“å…¥æºæ¨¡å¼åç§°");
 		Label schemaTargetDatabaseNameLabel = new Label(schemaArgsComp, SWT.NONE);
-		schemaTargetDatabaseNameLabel.setText("Ä¿±ê¿âÃû³Æ");
+		schemaTargetDatabaseNameLabel.setText("ç›®æ ‡åº“åç§°");
 		Text schemaTargetDatabaseNameText = new Text (schemaArgsComp, SWT.SINGLE | SWT.BORDER);
 		schemaTargetDatabaseNameText.setLayoutData(new GridData(246, 19));
-		schemaTargetDatabaseNameText.setMessage("ÇëÊäÈëÄ¿±ê¿âÃû³Æ");
+		schemaTargetDatabaseNameText.setMessage("è¯·è¾“å…¥ç›®æ ‡åº“åç§°");
 		Label schemaTargetSchemaNameLabel = new Label(schemaArgsComp, SWT.NONE);
-		schemaTargetSchemaNameLabel.setText("Ä¿±êÄ£Ê½Ãû³Æ");
+		schemaTargetSchemaNameLabel.setText("ç›®æ ‡æ¨¡å¼åç§°");
 		Text schemaTargetSchemaNameText = new Text (schemaArgsComp, SWT.SINGLE | SWT.BORDER);
 		schemaTargetSchemaNameText.setLayoutData(new GridData(246, 19));
-		schemaTargetSchemaNameText.setMessage("ÇëÊäÈëÄ¿±êÄ£Ê½Ãû³Æ");
+		schemaTargetSchemaNameText.setMessage("è¯·è¾“å…¥ç›®æ ‡æ¨¡å¼åç§°");
 
 		Group schemaTargetDatabaseGroup = new Group(schemaArgsComp, SWT.NONE);
 		schemaTargetDatabaseGroup.setLayoutData(new GridData(SWT.FILL, SWT.BOTTOM, true, true, 2, 1));
 		schemaTargetDatabaseGroup.setLayout(new GridLayout(2, false));
-		schemaTargetDatabaseGroup.setText("ĞÂ¿â´´½¨²ÎÊı");
+		schemaTargetDatabaseGroup.setText("æ–°åº“åˆ›å»ºå‚æ•°");
 		Label schemaTargetDatabaseCharsetLabel = new Label(schemaTargetDatabaseGroup, SWT.NONE);
-		schemaTargetDatabaseCharsetLabel.setText("Ä¿±ê¿â×Ö·û¼¯");
+		schemaTargetDatabaseCharsetLabel.setText("ç›®æ ‡åº“å­—ç¬¦é›†");
 		Text schemaTargetDatabaseCharsetText = new Text (schemaTargetDatabaseGroup, SWT.SINGLE | SWT.BORDER);
 		schemaTargetDatabaseCharsetText.setLayoutData(new GridData(216, 19));
-		schemaTargetDatabaseCharsetText.setMessage("ÇëÊäÈëÄ¿±ê¿â×Ö·û¼¯");
+		schemaTargetDatabaseCharsetText.setMessage("è¯·è¾“å…¥ç›®æ ‡åº“å­—ç¬¦é›†");
 		schemaTargetDatabaseCharsetText.setText("UTF-8");
 		Label schemaTargetDatabaseZoneOffsetLabel = new Label(schemaTargetDatabaseGroup, SWT.NONE);
-		schemaTargetDatabaseZoneOffsetLabel.setText("Ä¿±ê¿âÊ±¼äÆ«ÒÆ");
+		schemaTargetDatabaseZoneOffsetLabel.setText("ç›®æ ‡åº“æ—¶é—´åç§»");
 		Text schemaTargetDatabaseZoneOffsetText = new Text (schemaTargetDatabaseGroup, SWT.SINGLE | SWT.BORDER);
 		schemaTargetDatabaseZoneOffsetText.setLayoutData(new GridData(216, 19));
-		schemaTargetDatabaseZoneOffsetText.setMessage("ÇëÊäÈëÄ¿±ê¿âÊ±¼äÆ«ÒÆ");
+		schemaTargetDatabaseZoneOffsetText.setMessage("è¯·è¾“å…¥ç›®æ ‡åº“æ—¶é—´åç§»");
 		schemaTargetDatabaseZoneOffsetText.setText("+08:00");
-		// ±í»Ö¸´
+		// è¡¨æ¢å¤
 		Composite tableArgsComp = new Composite(stackComp, SWT.NONE);
 		tableArgsComp.setLayout(new GridLayout(2, false));
 		Label tableSourceSchemaNameLabel = new Label(tableArgsComp, SWT.NONE);
-		tableSourceSchemaNameLabel.setText("Ô´Ä£Ê½Ãû³Æ");
+		tableSourceSchemaNameLabel.setText("æºæ¨¡å¼åç§°");
 		Text tableSourceSchemaNameText = new Text (tableArgsComp, SWT.SINGLE | SWT.BORDER);
 		tableSourceSchemaNameText.setLayoutData(new GridData(246, 19));
-		tableSourceSchemaNameText.setMessage("ÇëÊäÈëÔ´Ä£Ê½Ãû³Æ");
+		tableSourceSchemaNameText.setMessage("è¯·è¾“å…¥æºæ¨¡å¼åç§°");
 		Label tableSourceTableNameLabel = new Label(tableArgsComp, SWT.NONE);
-		tableSourceTableNameLabel.setText("Ô´±íÃû³Æ");
+		tableSourceTableNameLabel.setText("æºè¡¨åç§°");
 		Text tableSourceTableNameText = new Text (tableArgsComp, SWT.SINGLE | SWT.BORDER);
 		tableSourceTableNameText.setLayoutData(new GridData(246, 19));
-		tableSourceTableNameText.setMessage("ÇëÊäÈëÔ´±íÃû³Æ");
+		tableSourceTableNameText.setMessage("è¯·è¾“å…¥æºè¡¨åç§°");
 		Label tableTargetDatabaseNameLabel = new Label(tableArgsComp, SWT.NONE);
-		tableTargetDatabaseNameLabel.setText("Ä¿±ê¿âÃû³Æ");
+		tableTargetDatabaseNameLabel.setText("ç›®æ ‡åº“åç§°");
 		Text tableTargetDatabaseNameText = new Text (tableArgsComp, SWT.SINGLE | SWT.BORDER);
 		tableTargetDatabaseNameText.setLayoutData(new GridData(246, 19));
-		tableTargetDatabaseNameText.setMessage("ÇëÊäÈëÄ¿±ê¿âÃû³Æ");
+		tableTargetDatabaseNameText.setMessage("è¯·è¾“å…¥ç›®æ ‡åº“åç§°");
 		Label tableTargetSchemaNameLabel = new Label(tableArgsComp, SWT.NONE);
-		tableTargetSchemaNameLabel.setText("Ä¿±êÄ£Ê½Ãû³Æ");
+		tableTargetSchemaNameLabel.setText("ç›®æ ‡æ¨¡å¼åç§°");
 		Text tableTargetSchemaNameText = new Text (tableArgsComp, SWT.SINGLE | SWT.BORDER);
 		tableTargetSchemaNameText.setLayoutData(new GridData(246, 19));
-		tableTargetSchemaNameText.setMessage("ÇëÊäÈëÄ¿±êÄ£Ê½Ãû³Æ");
+		tableTargetSchemaNameText.setMessage("è¯·è¾“å…¥ç›®æ ‡æ¨¡å¼åç§°");
 		Label tableTargetTableNameLabel = new Label(tableArgsComp, SWT.NONE);
-		tableTargetTableNameLabel.setText("Ä¿±ê±íÃû³Æ");
+		tableTargetTableNameLabel.setText("ç›®æ ‡è¡¨åç§°");
 		Text tableTargetTableNameText = new Text (tableArgsComp, SWT.SINGLE | SWT.BORDER);
 		tableTargetTableNameText.setLayoutData(new GridData(246, 19));
-		tableTargetTableNameText.setMessage("ÇëÊäÈëÄ¿±ê±íÃû³Æ");
+		tableTargetTableNameText.setMessage("è¯·è¾“å…¥ç›®æ ‡è¡¨åç§°");
 
 		Group tableTargetDatabaseGroup = new Group(tableArgsComp, SWT.NONE);
 		tableTargetDatabaseGroup.setLayoutData(new GridData(SWT.FILL, SWT.BOTTOM, true, true, 2, 1));
 		tableTargetDatabaseGroup.setLayout(new GridLayout(2, false));
-		tableTargetDatabaseGroup.setText("ĞÂ¿â´´½¨²ÎÊı");
+		tableTargetDatabaseGroup.setText("æ–°åº“åˆ›å»ºå‚æ•°");
 		Label tableTargetDatabaseCharsetLabel = new Label(tableTargetDatabaseGroup, SWT.NONE);
-		tableTargetDatabaseCharsetLabel.setText("Ä¿±ê¿â×Ö·û¼¯");
+		tableTargetDatabaseCharsetLabel.setText("ç›®æ ‡åº“å­—ç¬¦é›†");
 		Text tableTargetDatabaseCharsetText = new Text (tableTargetDatabaseGroup, SWT.SINGLE | SWT.BORDER);
 		tableTargetDatabaseCharsetText.setLayoutData(new GridData(216, 19));
-		tableTargetDatabaseCharsetText.setMessage("ÇëÊäÈëÄ¿±ê¿â×Ö·û¼¯");
+		tableTargetDatabaseCharsetText.setMessage("è¯·è¾“å…¥ç›®æ ‡åº“å­—ç¬¦é›†");
 		tableTargetDatabaseCharsetText.setText("UTF-8");
 		Label tableTargetDatabaseZoneOffsetLabel = new Label(tableTargetDatabaseGroup, SWT.NONE);
-		tableTargetDatabaseZoneOffsetLabel.setText("Ä¿±ê¿âÊ±¼äÆ«ÒÆ");
+		tableTargetDatabaseZoneOffsetLabel.setText("ç›®æ ‡åº“æ—¶é—´åç§»");
 		Text tableTargetDatabaseZoneOffsetText = new Text (tableTargetDatabaseGroup, SWT.SINGLE | SWT.BORDER);
 		tableTargetDatabaseZoneOffsetText.setLayoutData(new GridData(216, 19));
-		tableTargetDatabaseZoneOffsetText.setMessage("ÇëÊäÈëÄ¿±ê¿âÊ±¼äÆ«ÒÆ");
+		tableTargetDatabaseZoneOffsetText.setMessage("è¯·è¾“å…¥ç›®æ ‡åº“æ—¶é—´åç§»");
 		tableTargetDatabaseZoneOffsetText.setText("+08:00");
 
 		Group tableTargetSchemaGroup = new Group(tableArgsComp, SWT.NONE);
 		tableTargetSchemaGroup.setLayoutData(new GridData(SWT.FILL, SWT.BOTTOM, true, true, 2, 1));
 		tableTargetSchemaGroup.setLayout(new GridLayout(2, false));
-		tableTargetSchemaGroup.setText("ĞÂÄ£Ê½´´½¨²ÎÊı");
+		tableTargetSchemaGroup.setText("æ–°æ¨¡å¼åˆ›å»ºå‚æ•°");
 		Label tableTargetSchemaOwnerNameLabel = new Label(tableTargetSchemaGroup, SWT.NONE);
-		tableTargetSchemaOwnerNameLabel.setText("Ä¿±êÄ£Ê½ÊôÖ÷Ãû³Æ");
+		tableTargetSchemaOwnerNameLabel.setText("ç›®æ ‡æ¨¡å¼å±ä¸»åç§°");
 		Text tableTargetSchemaOwnerNameText = new Text (tableTargetSchemaGroup, SWT.SINGLE | SWT.BORDER);
 		tableTargetSchemaOwnerNameText.setLayoutData(new GridData(204, 19));
-		tableTargetSchemaOwnerNameText.setMessage("ÇëÊäÈëÄ¿±êÄ£Ê½ÊôÖ÷Ãû³Æ");
+		tableTargetSchemaOwnerNameText.setMessage("è¯·è¾“å…¥ç›®æ ‡æ¨¡å¼å±ä¸»åç§°");
 		tableTargetSchemaOwnerNameText.setText(dataSource.getContainer().getConnectionConfiguration().getUserName());
 
 		typeCombo.addSelectionListener(widgetSelectedAdapter(event -> {
 			Combo combo = (Combo) event.getSource();
 			String selectedType = combo.getText();
 			switch (selectedType) {
-				case "ÏµÍ³":
+				case "ç³»ç»Ÿ":
 					stackLayout.topControl = systemArgsComp;
 					break;
-				case "¿â":
+				case "åº“":
 					stackLayout.topControl = databaseArgsComp;
 					break;
-				case "Ä£Ê½":
+				case "æ¨¡å¼":
 					stackLayout.topControl = schemaArgsComp;
 					break;
-				case "±í":
+				case "è¡¨":
 					stackLayout.topControl = tableArgsComp;
 					break;
 				default:
-					throw new IllegalStateException("Î´Ö§³ÖµÄÀàĞÍ£º" + selectedType);
+					throw new IllegalStateException("æœªæ”¯æŒçš„ç±»å‹ï¼š" + selectedType);
 			}
 			stackComp.layout();
 		}));
@@ -208,17 +208,17 @@ public class RestoreTool implements IUserInterfaceTool {
 			String selectedType = typeCombo.getText();
 			try {
 				switch (selectedType) {
-					case "ÏµÍ³":
+					case "ç³»ç»Ÿ":
 						executor.forSystem(systemSysdbaPasswordText.getText(), pathText.getText());
 						break;
-					case "¿â":
+					case "åº“":
 						executor.forCatalog(databaseSourceDatabaseNameText.getText(),
 								databaseTargetDatabaseNameText.getText(),
 								Charset.forName(databaseTargetDatabaseCharsetText.getText()),
 								ZoneOffset.of(databaseTargetDatabaseZoneOffsetText.getText()),
 								pathText.getText());
 						break;
-					case "Ä£Ê½":
+					case "æ¨¡å¼":
 						executor.forSchema(schemaSourceSchemaNameText.getText(),
 								schemaTargetDatabaseNameText.getText(),
 								Charset.forName(schemaTargetDatabaseCharsetText.getText()),
@@ -226,7 +226,7 @@ public class RestoreTool implements IUserInterfaceTool {
 								schemaTargetSchemaNameText.getText(),
 								pathText.getText());
 						break;
-					case "±í":
+					case "è¡¨":
 						executor.forTable(tableSourceSchemaNameText.getText(),
 								tableSourceTableNameText.getText(),
 								tableTargetDatabaseNameText.getText(),
@@ -238,13 +238,13 @@ public class RestoreTool implements IUserInterfaceTool {
 								pathText.getText());
 						break;
 					default:
-						throw new IllegalStateException("Î´Ö§³ÖµÄÀàĞÍ£º" + selectedType);
+						throw new IllegalStateException("æœªæ”¯æŒçš„ç±»å‹ï¼š" + selectedType);
 				}
 			} catch (Exception e) {
-				MessageDialog.openError(infoShell, "»Ö¸´Ê§°Ü", e.getLocalizedMessage());
+				MessageDialog.openError(infoShell, "æ¢å¤å¤±è´¥", e.getLocalizedMessage());
 				e.printStackTrace();
 			}
-			MessageDialog.openInformation(infoShell, "»Ö¸´³É¹¦", "Ö´ĞĞÊı¾İ¿â¶ÔÏó»Ö¸´Íê³É£¡");
+			MessageDialog.openInformation(infoShell, "æ¢å¤æˆåŠŸ", "æ‰§è¡Œæ•°æ®åº“å¯¹è±¡æ¢å¤å®Œæˆï¼");
 		}));
 
 		typeCombo.select(3);

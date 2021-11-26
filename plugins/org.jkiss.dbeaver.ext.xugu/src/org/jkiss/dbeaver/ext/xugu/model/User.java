@@ -51,7 +51,7 @@ import java.util.Map;
 import java.util.Vector;
 
 /**
- * ÓÃ»§ĞÅÏ¢Àà£¬°üº¬Ãû³Æ¡¢ÓÃ»§È¨ÏŞµÈ¾ßÌåĞÅÏ¢
+ * ç”¨æˆ·ä¿¡æ¯ç±»ï¼ŒåŒ…å«åç§°ã€ç”¨æˆ·æƒé™ç­‰å…·ä½“ä¿¡æ¯
  */
 public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObject, DBPSaveableObject, DBPScriptObject {
 	private static final Log log = Log.getLog(User.class);
@@ -133,8 +133,8 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 			this.lastModiTime = JDBCUtils.safeGetTimestamp(resultSet, "LAST_MODI_TIME");
 		}
 
-		// ¼ÓÔØ roleList ºÍ schemaList
-		// »ñÈ¡SYSDBAÁ¬½Ó,ÓÃÀ´»ñÈ¡µ±Ç°ÓÃ»§Ëù°üº¬µÄ½ÇÉ«ĞÅÏ¢
+		// åŠ è½½ roleList å’Œ schemaList
+		// è·å–SYSDBAè¿æ¥,ç”¨æ¥è·å–å½“å‰ç”¨æˆ·æ‰€åŒ…å«çš„è§’è‰²ä¿¡æ¯
 		try (Connection tempConn = resultSet.getStatement().getConnection();
 				Statement stmt = tempConn.createStatement()) {
 			String sql = "SELECT USER_NAME FROM ";
@@ -147,7 +147,7 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 			sql += this.dbId;
 			sql += " AND IS_ROLE=TRUE";
 			ResultSet rs = stmt.executeQuery(sql);
-			// »ñÈ¡µ±Ç°ÓÃ»§Ëùº¬½ÇÉ«ĞÅÏ¢
+			// è·å–å½“å‰ç”¨æˆ·æ‰€å«è§’è‰²ä¿¡æ¯
 			String text = "";
 			while (rs.next()) {
 				String role = rs.getString(1);
@@ -158,7 +158,7 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 			}
 			this.setRoleList(text);
 
-			// »ñÈ¡È«²¿½ÇÉ«ĞÅÏ¢,²¢¼ÓÈëÈ«²¿½ÇÉ«ÁĞ±íÖĞ
+			// è·å–å…¨éƒ¨è§’è‰²ä¿¡æ¯,å¹¶åŠ å…¥å…¨éƒ¨è§’è‰²åˆ—è¡¨ä¸­
 			Collection<Role> allRoleList = dataSource.getRoles(monitor);
 			if (allRoleList != null && allRoleList.size() != 0) {
 				roleNames.clear();
@@ -168,14 +168,14 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 				}
 			}
 
-			// »ñÈ¡È«²¿Ä£Ê½ĞÅÏ¢
+			// è·å–å…¨éƒ¨æ¨¡å¼ä¿¡æ¯
 			Collection<Schema> schemaList = dataSource.getSchemas(monitor);
 			if (schemaList != null && schemaList.size() != 0) {
 				Iterator<Schema> it = schemaList.iterator();
 				String text2 = "";
 				while (it.hasNext()) {
 					Schema tempSchema = it.next();
-					// ¹¹Ôìschemalist
+					// æ„é€ schemalist
 					text2 += tempSchema.getName() + ",";
 				}
 				if (!"".equals(text2)) {
@@ -192,25 +192,25 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 	}
 
 	public void reloadAuthrities() {
-		// ¼ÓÔØÈ¨ÏŞ
+		// åŠ è½½æƒé™
 		Connection conn;
 		try {
 			conn = this.getDataSource().getDefaultInstance().getDefaultContext(true).getConnection(new LoggingProgressMonitor());
 		} catch (SQLException e) {
-			throw new RuntimeException("»ñÈ¡ÓÃ»§È¨ÏŞ²éÑ¯Á¬½ÓÊ§°Ü", e);
+			throw new RuntimeException("è·å–ç”¨æˆ·æƒé™æŸ¥è¯¢è¿æ¥å¤±è´¥", e);
 		}
 		Vector<Object> authorities = new LoadPermission().loadPermission(conn, this.userName, 0);
 		userAuthorities = new ArrayList<>();
 		Iterator<Object> it = authorities.iterator();
 		while (it.hasNext()) {
 			String temp = it.next().toString();
-			// ¶ÔÏó¼¶È¨ÏŞ
+			// å¯¹è±¡çº§æƒé™
 			if (temp.indexOf("\"") != -1) {
 				String targetName = temp.substring(temp.indexOf("\""));
 				UserAuthority one = new UserAuthority(this, temp, targetName, false, expired);
 				userAuthorities.add(one);
 			}
-			// ¿â¼¶È¨ÏŞ
+			// åº“çº§æƒé™
 			else {
 				UserAuthority one = new UserAuthority(this, temp, null, true, expired);
 				userAuthorities.add(one);
@@ -405,7 +405,7 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 		Iterator<UserAuthority> it = userAuthorities.iterator();
 		while (it.hasNext()) {
 			UserAuthority authority = it.next();
-			final boolean isNotContainColumn = !authority.getName().contains("ÁĞ");
+			final boolean isNotContainColumn = !authority.getName().contains("åˆ—");
 			if (!authority.isDatabase && isNotContainColumn) {
 				res.add(authority);
 			}
@@ -421,7 +421,7 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 		Iterator<UserAuthority> it = userAuthorities.iterator();
 		while (it.hasNext()) {
 			UserAuthority authority = it.next();
-			final boolean isContainColumn = authority.getName().contains("ÁĞ");
+			final boolean isContainColumn = authority.getName().contains("åˆ—");
 			if (!authority.isDatabase && isContainColumn) {
 				res.add(authority);
 			}

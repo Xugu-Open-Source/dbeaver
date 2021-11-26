@@ -61,7 +61,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Ä£Ê½¹ÜÀíÆ÷£¬½øĞĞÄ£Ê½µÄ´´½¨ºÍÉ¾³ı£¬ĞŞ¸Ä£¨ÖØÃüÃû»òÌí¼Ó×¢ÊÍĞÅÏ¢£©°üº¬Ò»¸öÄÚ²¿½çÃæÀà£¬ÓÃÓÚ½øĞĞÊôĞÔÉè¶¨
+ * æ¨¡å¼ç®¡ç†å™¨ï¼Œè¿›è¡Œæ¨¡å¼çš„åˆ›å»ºå’Œåˆ é™¤ï¼Œä¿®æ”¹ï¼ˆé‡å‘½åæˆ–æ·»åŠ æ³¨é‡Šä¿¡æ¯ï¼‰åŒ…å«ä¸€ä¸ªå†…éƒ¨ç•Œé¢ç±»ï¼Œç”¨äºè¿›è¡Œå±æ€§è®¾å®š
  */
 public class SchemaManager extends SQLObjectEditor<Schema, DataSource> implements DBEObjectRenamer<Schema> {
 	
@@ -114,7 +114,7 @@ public class SchemaManager extends SQLObjectEditor<Schema, DataSource> implement
 	protected void addObjectCreateActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
 			List<DBEPersistAction> actions, SQLObjectEditor<Schema, DataSource>.ObjectCreateCommand command,
 			Map<String, Object> options) throws DBException {
-		// ĞŞ¸ÄÁË´´½¨Ä£Ê½µÄsqlÓï¾ä£¬ÔİÊ±²»Ö§³ÖÉèÖÃÊı¾İ¿â
+		// ä¿®æ”¹äº†åˆ›å»ºæ¨¡å¼çš„sqlè¯­å¥ï¼Œæš‚æ—¶ä¸æ”¯æŒè®¾ç½®æ•°æ®åº“
 //		User user = command.getObject().getUser();
 		userName =  NewUserDialog.userNameString;
 		User user = new User((DataSource)currentContainer, userName, false);
@@ -152,7 +152,7 @@ public class SchemaManager extends SQLObjectEditor<Schema, DataSource> implement
 	}
 
 	/**
-	 * ¶ÔÄ£Ê½µÄĞŞ¸ÄÖ»ÄÜÊÇÌí¼Ó×¢ÊÍĞÅÏ¢
+	 * å¯¹æ¨¡å¼çš„ä¿®æ”¹åªèƒ½æ˜¯æ·»åŠ æ³¨é‡Šä¿¡æ¯
 	 */
 	@Override
 	protected void addObjectModifyActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
@@ -175,7 +175,7 @@ public class SchemaManager extends SQLObjectEditor<Schema, DataSource> implement
 	public void renameObject(DBECommandContext commandContext, Schema object, Map<String, Object> options,
 			String newName) throws DBException {
 		processObjectRename(commandContext, object, options, newName);
-		// ÔÚÖ´ĞĞÍêÖØÃüÃûºó£¬ĞŞ¸Ä¶ÔÏóÃû³Æ£¨ÓÃÓÚÇ°Ì¨Êı¾İË¢ĞÂ£©
+		// åœ¨æ‰§è¡Œå®Œé‡å‘½ååï¼Œä¿®æ”¹å¯¹è±¡åç§°ï¼ˆç”¨äºå‰å°æ•°æ®åˆ·æ–°ï¼‰
 		object.setName(newName);
 	}
 

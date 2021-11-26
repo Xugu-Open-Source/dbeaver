@@ -51,7 +51,7 @@ public class NewProcedureParameter implements DBSProcedureParameter, DBSTypedObj
 		this.procedureName = procedure.getName();
 		this.procedure = procedure;
 		this.name = name;
-		// ¶Ôint×ö×ª»¯
+		// å¯¹intåšè½¬åŒ–
 		final String typeInt = "INT";
 		if (typeInt.equals(datatype.toUpperCase())) {
 			datatype = "INTEGER";
@@ -81,7 +81,7 @@ public class NewProcedureParameter implements DBSProcedureParameter, DBSTypedObj
 		this.procedureName = procedure.getName();
 		this.procedure = procedure;
 		this.name = name;
-		// ¶Ôint×ö×ª»¯
+		// å¯¹intåšè½¬åŒ–
 		final String typeInt = "INT";
 		if (typeInt.equals(datatype.toUpperCase())) {
 			datatype = "INTEGER";
@@ -109,7 +109,7 @@ public class NewProcedureParameter implements DBSProcedureParameter, DBSTypedObj
 			String mode,int position, String defalutValue) {
 	
 		this.name = name;
-		// ¶Ôint×ö×ª»¯
+		// å¯¹intåšè½¬åŒ–
 		final String typeInt = "INT";
 		if (typeInt.equals(datatype.toUpperCase())) {
 			datatype = "INTEGER";
@@ -129,7 +129,7 @@ public class NewProcedureParameter implements DBSProcedureParameter, DBSTypedObj
 	@Nullable
 	@Override
 	public String getDescription() {
-		// TODO »ñÈ¡ÃèÊö·û
+		// TODO è·å–æè¿°ç¬¦
 		return null;
 	}
 
@@ -147,10 +147,10 @@ public class NewProcedureParameter implements DBSProcedureParameter, DBSTypedObj
 	public String getName() {
 		if (CommonUtils.isEmpty(name)) {
 			if (dataLevel == 0) {
-				// º¯Êı½á¹û¼¯
+				// å‡½æ•°ç»“æœé›†
 				return "RESULT";
 			} else {
-				// ¼¯ºÏÔªËØ
+				// é›†åˆå…ƒç´ 
 				return "ELEMENT";
 			}
 		}

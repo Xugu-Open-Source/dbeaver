@@ -18,11 +18,11 @@
 package org.jkiss.dbeaver.ext.xugu.model;
 
 /**
- * ¶ÔÏó×´Ì¬
+ * å¯¹è±¡çŠ¶æ€
  */
 public enum ObjectStatus {
 	/**
-	 * ¶ÔÏó×´Ì¬Ã¶¾Ù
+	 * å¯¹è±¡çŠ¶æ€æšä¸¾
 	 */
 	ENABLED, DISABLED, ERROR
 }

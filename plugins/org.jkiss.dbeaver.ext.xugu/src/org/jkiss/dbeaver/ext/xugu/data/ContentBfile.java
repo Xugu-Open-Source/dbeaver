@@ -39,7 +39,7 @@ import org.jkiss.utils.BeanUtils;
 import java.io.*;
 
 /**
- * BFILE ÄÚÈÝ
+ * BFILE å†…å®¹
  */
 public class ContentBfile extends JDBCContentLOB {
 	private static final Log LOG = Log.getLog(ContentBfile.class);

@@ -29,7 +29,7 @@ import java.sql.ResultSet;
 import java.sql.Types;
 
 /**
- * Êı¾İÀàĞÍÊôĞÔ
+ * æ•°æ®ç±»å‹å±æ€§
  */
 public class DataTypeAttribute extends BaseDataTypeMember implements DBSEntityAttribute, DBSTypedObjectEx {
 
@@ -82,7 +82,7 @@ public class DataTypeAttribute extends BaseDataTypeMember implements DBSEntityAt
 	@Override
 	public int getTypeID() {
 		if (attrTypeMod == DataTypeModifier.REF) {
-			// Ã÷È·ËµÃ÷ÊÇÒıÓÃÀàĞÍ
+			// æ˜ç¡®è¯´æ˜æ˜¯å¼•ç”¨ç±»å‹
 			return Types.REF;
 		}
 		return attrType.getTypeID();
@@ -91,7 +91,7 @@ public class DataTypeAttribute extends BaseDataTypeMember implements DBSEntityAt
 	@Override
 	public DBPDataKind getDataKind() {
 		if (attrTypeMod == DataTypeModifier.REF) {
-			// Ã÷È·ËµÃ÷ÊÇÒıÓÃÀàĞÍ
+			// æ˜ç¡®è¯´æ˜æ˜¯å¼•ç”¨ç±»å‹
 			return DBPDataKind.REFERENCE;
 		}
 		return attrType.getDataKind();
@@ -120,7 +120,7 @@ public class DataTypeAttribute extends BaseDataTypeMember implements DBSEntityAt
 	@Property(viewable = true, order = 2)
 	@Override
 	public int getOrdinalPosition() {
-		// Êı×Ö»ù´¡ÊÇ 1
+		// æ•°å­—åŸºç¡€æ˜¯ 1
 		return number - 1;
 	}
 

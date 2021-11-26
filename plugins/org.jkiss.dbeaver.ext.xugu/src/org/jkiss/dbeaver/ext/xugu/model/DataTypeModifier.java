@@ -18,11 +18,11 @@
 package org.jkiss.dbeaver.ext.xugu.model;
 
 /**
- * Êı¾İÀàĞÍĞŞÊÎ·û
+ * æ•°æ®ç±»å‹ä¿®é¥°ç¬¦
  */
 public enum DataTypeModifier {
 	/**
-	 * Êı¾İÀàĞÍĞŞÊÎ·ûÃ¶¾Ù
+	 * æ•°æ®ç±»å‹ä¿®é¥°ç¬¦æšä¸¾
 	 */
 	REF, POINTER;
 

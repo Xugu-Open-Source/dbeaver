@@ -40,7 +40,7 @@ import org.jkiss.dbeaver.ui.editors.object.struct.EntityEditPage;
 import org.jkiss.utils.CommonUtils;
 
 /**
- * ×Ô¶¨ÒåÀàĞÍ¹ÜÀíÆ÷£¬½øĞĞ×Ô¶¨ÒåÀàĞÍµÄ´´½¨ºÍÉ¾³ı£¬²»Ö§  ³ÖĞŞ¸Ä
+ * è‡ªå®šä¹‰ç±»å‹ç®¡ç†å™¨ï¼Œè¿›è¡Œè‡ªå®šä¹‰ç±»å‹çš„åˆ›å»ºå’Œåˆ é™¤ï¼Œä¸æ”¯  æŒä¿®æ”¹
  */
 public class UdtManager extends SQLObjectEditor<Udt, Schema> {
 	@Override
@@ -50,7 +50,7 @@ public class UdtManager extends SQLObjectEditor<Udt, Schema> {
 
 	protected void validateObjectProperties(ObjectChangeCommand command) throws DBException {
 		if (CommonUtils.isEmpty(command.getObject().getName())) {
-			throw new DBException("ÀàĞÍÃû³Æ²»ÄÜÎª¿Õ");
+			throw new DBException("ç±»å‹åç§°ä¸èƒ½ä¸ºç©º");
 		}
 	}
 

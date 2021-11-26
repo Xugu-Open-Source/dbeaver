@@ -41,7 +41,7 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * »ù±¾ÈÎÎñ´¦ÀíÆ÷£¬¼ÓÔØÏà¹ØÈÕÖ¾ĞÅÏ¢
+ * åŸºæœ¬ä»»åŠ¡å¤„ç†å™¨ï¼ŒåŠ è½½ç›¸å…³æ—¥å¿—ä¿¡æ¯
  */
 public abstract class BaseTaskHandler extends AbstractHandler implements IElementUpdater {
 	private static final Log LOG = Log.getLog(BaseTaskHandler.class);
@@ -75,7 +75,7 @@ public abstract class BaseTaskHandler extends AbstractHandler implements IElemen
 	}
 
 	/**
-	 * ¼ÇÂ¼¶ÔÏó´íÎóÈÕÖ¾£¬Ö»¶Ô SYS ÓÃ»§¿ª·Å´íÎóÈÕÖ¾ĞÅÏ¢
+	 * è®°å½•å¯¹è±¡é”™è¯¯æ—¥å¿—ï¼Œåªå¯¹ SYS ç”¨æˆ·å¼€æ”¾é”™è¯¯æ—¥å¿—ä¿¡æ¯
 	 */
 	public static boolean logObjectErrors(JDBCSession session, DBCCompileLog compileLog, StatefulObject schemaObject,
 			ObjectType objectType) {

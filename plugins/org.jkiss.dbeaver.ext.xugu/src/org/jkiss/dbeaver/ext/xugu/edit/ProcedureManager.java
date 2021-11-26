@@ -43,7 +43,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 存储过程管理器，进行存储过程的创建和删除（修改等同于创建并替换）
+ * 瀛樺偍杩囩▼绠＄悊鍣紝杩涜瀛樺偍杩囩▼鐨勫垱寤哄拰鍒犻櫎锛堜慨鏀圭瓑鍚屼簬鍒涘缓骞舵浛鎹級
  */
 public class ProcedureManager extends SQLObjectEditor<ProcedureStandalone, Schema> {
 	@Override
@@ -53,7 +53,7 @@ public class ProcedureManager extends SQLObjectEditor<ProcedureStandalone, Schem
 
 	protected void validateObjectProperties(ObjectChangeCommand command) throws DBException {
 		if (CommonUtils.isEmpty(command.getObject().getName())) {
-			throw new DBException("存储过程名称不能为空");
+			throw new DBException("瀛樺偍杩囩▼鍚嶇О涓嶈兘涓虹┖");
 		}
 	}
 

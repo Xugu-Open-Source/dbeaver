@@ -49,7 +49,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * ±í¡¢ÊÓÍ¼¹ÜÀíÆ÷£¬½øĞĞ±í¡¢ÊÓÍ¼µÄ´´½¨£¬ĞŞ¸ÄºÍÉ¾³ı
+ * è¡¨ã€è§†å›¾ç®¡ç†å™¨ï¼Œè¿›è¡Œè¡¨ã€è§†å›¾çš„åˆ›å»ºï¼Œä¿®æ”¹å’Œåˆ é™¤
  */
 public class TableManager extends SQLTableManager<Table, Schema> implements DBEObjectRenamer<Table> {
 	private static final Class<?>[] CHILD_TYPES = { TableColumn.class, TableConstraint.class, TableForeignKey.class,
@@ -62,7 +62,7 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 	}
 
 	/**
-	 * ÔÚ´ò¿ªĞÂ½¨±í´°¿ÚÇ°µÄ×¼±¸
+	 * åœ¨æ‰“å¼€æ–°å»ºè¡¨çª—å£å‰çš„å‡†å¤‡
 	 */
 	@Override
 	protected Table createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context, final Object container,
@@ -101,7 +101,7 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 	protected void addStructObjectCreateActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
 			List<DBEPersistAction> actions, SQLStructEditor<Table, Schema>.StructCreateCommand command,
 			Map<String, Object> options) throws DBException {
-		// ÖØĞ´¸¸ÀàµÄaddStructObjectCreateActions·½·¨
+		// é‡å†™çˆ¶ç±»çš„addStructObjectCreateActionsæ–¹æ³•
 		final Table table = command.getObject();
 		final NestedObjectCommand tableProps = command.getObjectCommands().get(table);
 		if (tableProps == null) {
@@ -126,7 +126,7 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 			if (excludeFromDDL(nestedCommand, orderedCommands)) {
 				continue;
 			}
-			// ¶Ô×Ö¶Î×¢ÊÍ×ö¶îÍâ´¦Àí
+			// å¯¹å­—æ®µæ³¨é‡Šåšé¢å¤–å¤„ç†
 			String commentInfo = (String) nestedCommand.getProperty("comment");
 			String realComment = "";
 			if (commentInfo != null) {
@@ -168,7 +168,7 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 		}
 		createQuery.append(lineSeparator).append(")");
 		appendTableModifiers(monitor, table, tableProps, createQuery, false);
-		// ÔÙ¶îÍâ¶Ô·ÖÇøÂß¼­½øĞĞ´¦Àí
+		// å†é¢å¤–å¯¹åˆ†åŒºé€»è¾‘è¿›è¡Œå¤„ç†
 		Collection<TablePartition> partList = command.getObject().getPartitions(monitor);
 		Collection<TableSubPartition> subpartList = command.getObject().getSubPartitions(monitor);
 		String tableDef = createQuery.toString();
@@ -179,9 +179,9 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 			String oldName = "";
 			while (iterator.hasNext()) {
 				TablePartition part = iterator.next();
-				// µÚÒ»´ÎÑ­»·ÉèÖÃ·ÖÇøÀàĞÍºÍ·ÖÇø¼ü
+				// ç¬¬ä¸€æ¬¡å¾ªç¯è®¾ç½®åˆ†åŒºç±»å‹å’Œåˆ†åŒºé”®
 				if (isFirstCycle) {
-					// hash·ÖÇø½öĞèÒªÉèÖÃÍ·²¿£¬ÉèÖÃºÃºóÌø³öÑ­»·
+					// hashåˆ†åŒºä»…éœ€è¦è®¾ç½®å¤´éƒ¨ï¼Œè®¾ç½®å¥½åè·³å‡ºå¾ªç¯
 					if ("HASH".equals(part.getPartiType())) {
 						isHashPartition = true;
 						tableDef += "\nPARTITION BY " + part.getPartiType() + "(" + part.getPartiKey() + ") PARTITIONS "
@@ -196,7 +196,7 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 					}
 					oldName = part.getName();
 				}
-				// ·ÇÖØ¸´»º´æ´¦Àí
+				// éé‡å¤ç¼“å­˜å¤„ç†
 				final boolean isNeedAddPartition = isFirstCycle || !oldName.equals(part.getName());
 				if (isNeedAddPartition && !part.isSubPartition()) {
 					if ("LIST".equals(part.getPartiType())) {
@@ -223,9 +223,9 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 				isFirstCycle = true;
 				while (iterator2.hasNext()) {
 					TableSubPartition part = iterator2.next();
-					// µÚÒ»´ÎÑ­»·ÉèÖÃ·ÖÇøÀàĞÍºÍ·ÖÇø¼ü
+					// ç¬¬ä¸€æ¬¡å¾ªç¯è®¾ç½®åˆ†åŒºç±»å‹å’Œåˆ†åŒºé”®
 					if (isFirstCycle) {
-						// hash·ÖÇø½öĞèÒªÉèÖÃÍ·²¿£¬ÉèÖÃºÃºóÌø³öÑ­»·
+						// hashåˆ†åŒºä»…éœ€è¦è®¾ç½®å¤´éƒ¨ï¼Œè®¾ç½®å¥½åè·³å‡ºå¾ªç¯
 						if ("HASH".equals(part.getPartiType())) {
 							isHashSubPartition = true;
 							tableDef += "\nSUBPARTITION BY " + part.getPartiType() + "(" + part.getPartiKey()
@@ -237,7 +237,7 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 						}
 						oldName = part.getName();
 					}
-					// ·ÇÖØ¸´»º´æ´¦Àí
+					// éé‡å¤ç¼“å­˜å¤„ç†
 					final boolean isNeedAddPartition = isFirstCycle || !oldName.equals(part.getName());
 					if (isNeedAddPartition && part.isSubPartition()) {
 						if ("LIST".equals(part.getPartiType())) {
@@ -314,7 +314,7 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 	}
 
 	/**
-	 * ĞŞ¸Ä±íÃû¡¢ÊÓÍ¼Ãû
+	 * ä¿®æ”¹è¡¨åã€è§†å›¾å
 	 */
 	@Override
 	protected void addObjectRenameActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
@@ -329,7 +329,7 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 	}
 
 	/**
-	 * É¾³ı±í¡¢ÊÓÍ¼
+	 * åˆ é™¤è¡¨ã€è§†å›¾
 	 */
 	@Override
 	protected void addObjectDeleteActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,

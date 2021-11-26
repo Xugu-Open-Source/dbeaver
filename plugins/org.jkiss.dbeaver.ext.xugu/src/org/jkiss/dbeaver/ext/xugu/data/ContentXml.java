@@ -33,7 +33,7 @@ import java.sql.SQLException;
 import java.sql.SQLXML;
 
 /**
- * XML ÄÚÈÝ
+ * XML å†…å®¹
  */
 public class ContentXml extends JDBCContentXML {
 	public ContentXml(DBCExecutionContext executionContext, SQLXML xml)
