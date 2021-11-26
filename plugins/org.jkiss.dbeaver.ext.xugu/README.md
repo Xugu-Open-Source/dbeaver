@@ -94,32 +94,27 @@ views|额外的页面类目录（自主实现）
 
 ## OEM 替换指导
 
+***警告：以下步骤应仅在需要打包包含 tunton 时执行，且第 12、13 步骤更改的 DBeaver 文件以及 tunton 插件目录切勿提交至 Gitlab，应在打包完成后立即删除回退这些更改！***
+
 1. 使用 Eclipse 正确打开整个项目与虚谷插件项目
 2. 在资源管理器中，复制虚谷插件项目目录到同层并修改目录名为 OEM 目录名
 3. 使用 Eclipse 刷新目录树
 4. 复制 icons 目录下对应 OEM 目录下所有文件到 icons 目录替换相关图片
-4. 复制 lib 目录下对应 OEM 目录下所有文件到 lib 目录替换默认驱动
-4. 在 OEM 目录的 src 目录右键-properties，填写编码为 GB18030，应用并关闭
-5. 修改 src/org/jkiss/dbeaver/ext/xugu 目录名称为对应的 OEM 名称
-5. 使用 Eclipse 点击 OEM 目录，按下快捷键 Ctrl+H 打开文件搜索，开启大小写敏感（Case sensitive），选择搜索范围为 Selected resource in 'Project Explorer'，替换所有 ext.xugu 为对应 OEM 名称
-6. 使用 Eclipse 点击 OEM 目录，按下快捷键 Ctrl+H 打开文件搜索，开启大小写敏感（Case sensitive），选择搜索范围为 Selected resource in 'Project Explorer'，搜索所有 XUGU，替换所有为对应 OEM 名称
-6. 使用 Eclipse 点击 OEM 目录，按下快捷键 Ctrl+H 打开文件搜索，开启大小写敏感（Case sensitive），选择搜索范围为 Selected resource in 'Project Explorer'，搜索所有 Xugu，排除以下目录，然后替换所有为对应 OEM 名称
-    - src/org/jkiss/dbeaver/ext/{OEM}/model 目录
-7. 使用 Eclipse 点击 OEM 目录，按下快捷键 Ctrl+H 打开文件搜索，开启大小写敏感（Case sensitive），选择搜索范围为 Selected resource in 'Project Explorer'，搜索所有 xugu，仅替换以下目录文件内容为对应 OEM 名称
-    - plugin.xml 文件
-8. 使用 Eclipse 点击 OEM 目录，右键-Import as Project 导入 OEM 项目
-9. 替换完成，可在启动配置中添加 OEM 插件进行 debug 以及导出 OEM 插件包
+5. 复制 lib 目录下对应 OEM 目录下所有文件到 lib 目录替换默认驱动
+6. 修改 `src/org/jkiss/dbeaver/ext/xugu` 目录名称为对应的 OEM 名称
+7. 使用 Eclipse 点击 OEM 目录，按下快捷键 Ctrl+H 打开文件搜索，开启大小写敏感（Case sensitive），选择搜索范围为 Selected resource in 'Project Explorer'，替换所有 `ext.xugu` 为对应 OEM 名称
+8. 使用 Eclipse 点击 OEM 目录，按下快捷键 Ctrl+H 打开文件搜索，开启大小写敏感（Case sensitive），选择搜索范围为 Selected resource in 'Project Explorer'，搜索所有 `XUGU`，替换所有为对应 OEM 名称
+9. 使用 Eclipse 点击 OEM 目录，按下快捷键 Ctrl+H 打开文件搜索，开启大小写敏感（Case sensitive），选择搜索范围为 Selected resource in 'Project Explorer'，搜索所有 `Xugu`，排除以下目录，然后替换所有为对应 OEM 名称
+    - `src/org/jkiss/dbeaver/ext/{OEM}/model` 目录
+10. 使用 Eclipse 点击 OEM 目录，按下快捷键 Ctrl+H 打开文件搜索，开启大小写敏感（Case sensitive），选择搜索范围为 Selected resource in 'Project Explorer'，搜索所有 `xugu`，仅替换以下目录文件内容为对应 OEM 名称
+    - `plugin.xml` 文件
+11. 使用 Eclipse 点击 OEM 目录，右键-Import as Project 导入 OEM 项目
+12. **在 `{dbeaver}/plugins/pom.xml` 文件中两处 modules 标签下添加 tunton 模块项**
+13. **在 `{dbeaver}/features/org.jkiss.dbeaver.db.feature/feature.xml` 文件中添加 tunton 插件项**
 
-## 打包需要导出的插件
+## 打包 DBeaver 产品
 
-- org.jkiss.bundle.apache.poi_4.1.1（直接复制此目录到打包后的 DBeaver 的插件目录）
-- org.jkiss.dbeaver.data.office
-- org.jkiss.dbeaver.data.transfer
-- org.jkiss.dbeaver.ext.oracle
-- org.jkiss.dbeaver.ext.{OEM}
-- org.jkiss.dbeaver.model
-- org.jkiss.dbeaver.registry
-- org.jkiss.dbeaver.ui.editors.data
-- org.jkiss.dbeaver.ui.editors.sql
-- org.jkiss.dbeaver.ui.navigator
-- org.jkiss.dbeaver.ui
+**提示：首次执行打包需要从多个境外网站下载依赖，速度很慢（20 KB/s），通常需要 1 小时 30 分钟左右。**
+
+1. 执行 `mvn package -Dmaven.test.skip=true`
+2. 打包产物存放于 `product/community/target/products`
