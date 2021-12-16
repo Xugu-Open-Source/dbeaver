@@ -17,6 +17,98 @@
          id="org.jkiss.dbeaver.runtime.feature"
          version="0.0.0"/>
 
+   <includes
+         id="org.eclipse.babel.nls_datatools_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_eclipse_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_modeling.emf_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_modeling.graphiti_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_modeling.mdt.bpmn2_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_modeling.tmf.xtext_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_mylyn_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_rt.rap_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_soa.bpmn2-modeler_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_technology.egit_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_technology.handly_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_technology.jgit_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_technology.lsp4e_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_technology.packaging.mpc_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_technology.packaging_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_technology.passage_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_technology.tm4e_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_tools.cdt_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_tools.gef_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_tools.mat_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_tools.tm_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_tools.tracecompass_zh"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.babel.nls_webtools_zh"
+         version="0.0.0"/>
+
    <requires>
       <import plugin="org.eclipse.core.expressions" version="0.0.0" match="greaterOrEqual"/>
       <import plugin="org.eclipse.ui" version="0.0.0" match="greaterOrEqual"/>
@@ -142,18 +234,18 @@
          unpack="false"/>
 
    <plugin
-          id="org.eclipse.draw2dl"
-          download-size="0"
-          install-size="0"
-          version="0.0.0"
-          unpack="false"/>
+         id="org.eclipse.draw2dl"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
 
    <plugin
-          id="org.eclipse.gef3"
-          download-size="0"
-          install-size="0"
-          version="0.0.0"
-          unpack="false"/>
+         id="org.eclipse.gef3"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
 
    <plugin
          id="org.jkiss.dbeaver.erd.ui"
