@@ -533,7 +533,7 @@ public class Schema extends BaseGlobalObject
 
 	@Override
 	public boolean isSystem() {
-		return ArrayUtils.contains(Constants.SYSTEM_SCHEMAS, getName());
+		return false;
 	}
 
 	@Override
