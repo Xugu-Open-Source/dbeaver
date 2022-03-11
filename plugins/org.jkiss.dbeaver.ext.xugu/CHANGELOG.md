@@ -1,5 +1,14 @@
 # 变更日志
 
+## v1.3.1 - DBeaver 21.2.4
+
+### 修复缺陷
+
+- 修复 #4113 time with time zone 类型查询结果异常
+- 更改 打包方式为 `mvn package`
+- 更改 所有源码文件编码为 UTF-8
+- 修复 打包产品缺少 Eclipse Babel 国际化插件导致 Eclipse RCP 原生平台功能缺少中文翻译
+
 ## v1.3.0 - DBeaver 21.2.4
 
 ### 新增功能
