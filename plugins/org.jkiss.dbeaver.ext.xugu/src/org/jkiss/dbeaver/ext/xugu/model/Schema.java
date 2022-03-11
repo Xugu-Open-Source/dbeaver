@@ -555,8 +555,13 @@ public class Schema extends BaseGlobalObject
 		}
 		columnName = columnName.replaceAll("\"", "");
 		// que 获取到的列为空？
-		TableColumn tableColumn = columnName == null ? null
-				: parent.getAttribute(session.getProgressMonitor(), columnName);
+		TableColumn tableColumn = parent.getAttribute(session.getProgressMonitor(), columnName);
+		if (tableColumn == null) {
+			tableColumn = parent.getAttribute(session.getProgressMonitor(), columnName.toUpperCase());
+		}
+		if (tableColumn == null) {
+			tableColumn = parent.getAttribute(session.getProgressMonitor(), columnName.toLowerCase());
+		}
 		if (tableColumn == null) {
 			log.debug("GetTableColumn Column '" + columnName + "' not found in table '" + parent.getName() + "'");
 		}
@@ -797,9 +802,10 @@ public class Schema extends BaseGlobalObject
 					String[] colNames = colName.split(",");
 					TableConstraintColumn[] conCols = new TableConstraintColumn[colNames.length];
 					for (int i = 0; i < colNames.length; i++) {
-						TableColumn tableColumn = getTableColumn(session, parent,
-								colNames[i].replace(" DESC", "").trim());
-						conCols[i] = new TableConstraintColumn(object, tableColumn, tableColumn.getOrdinalPosition());
+						TableColumn tableColumn = getTableColumn(session, parent,colNames[i].replace(" DESC", "").trim());
+						if (tableColumn != null) {
+							conCols[i] = new TableConstraintColumn(object, tableColumn, tableColumn.getOrdinalPosition());
+						}
 					}
 					return conCols;
 				}
