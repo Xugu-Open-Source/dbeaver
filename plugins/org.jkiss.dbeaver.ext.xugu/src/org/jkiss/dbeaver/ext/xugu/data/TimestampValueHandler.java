@@ -1,5 +1,5 @@
 /*
- * DBeaver - Universal Database Manager
+. * DBeaver - Universal Database Manager
  * Copyright (C) 2010-2017 Serge Rider (serge@jkiss.org)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,6 +33,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.DateTimeException;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAccessor;
 import java.util.Date;
@@ -44,14 +45,22 @@ import java.util.Locale;
 public class TimestampValueHandler extends JDBCDateTimeValueHandler {
 	private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss", Locale.ENGLISH);
 	private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd G", Locale.ENGLISH);
-	private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS G", Locale.ENGLISH);
+	private static final DateTimeFormatter DATETIME_FORMATTER_1 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S G", Locale.ENGLISH);
+	private static final DateTimeFormatter DATETIME_FORMATTER_2 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SS G", Locale.ENGLISH);
+	private static final DateTimeFormatter DATETIME_FORMATTER_3 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS G", Locale.ENGLISH);
 	private static final DateTimeFormatter TIME_WITH_TIMEZONE_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss xxx", Locale.ENGLISH);
-	private static final DateTimeFormatter DATETIME_WITH_TIMEZONE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS xxx G", Locale.ENGLISH);
+	private static final DateTimeFormatter DATETIME_WITH_TIMEZONE_FORMATTER_1 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S xxx G", Locale.ENGLISH);
+	private static final DateTimeFormatter DATETIME_WITH_TIMEZONE_FORMATTER_2 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SS xxx G", Locale.ENGLISH);
+	private static final DateTimeFormatter DATETIME_WITH_TIMEZONE_FORMATTER_3 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS xxx G", Locale.ENGLISH);
 	private static final SimpleDateFormat TIME_FORMAT = new SimpleDateFormat("HH:mm:ss", Locale.ENGLISH);
 	private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd G", Locale.ENGLISH);
-	private static final SimpleDateFormat DATETIME_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS G", Locale.ENGLISH);
+	private static final SimpleDateFormat DATETIME_FORMAT_1 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S G", Locale.ENGLISH);
+	private static final SimpleDateFormat DATETIME_FORMAT_2 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SS G", Locale.ENGLISH);
+	private static final SimpleDateFormat DATETIME_FORMAT_3 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS G", Locale.ENGLISH);
 	private static final SimpleDateFormat TIME_WITH_TIMEZONE_FORMAT = new SimpleDateFormat("HH:mm:ss XXX", Locale.ENGLISH);
-	private static final SimpleDateFormat DATETIME_WITH_TIMEZONE_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS XXX G", Locale.ENGLISH);
+	private static final SimpleDateFormat DATETIME_WITH_TIMEZONE_FORMAT_1 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S XXX G", Locale.ENGLISH);
+	private static final SimpleDateFormat DATETIME_WITH_TIMEZONE_FORMAT_2 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SS XXX G", Locale.ENGLISH);
+	private static final SimpleDateFormat DATETIME_WITH_TIMEZONE_FORMAT_3 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS XXX G", Locale.ENGLISH);
 
 	// private static Method TIMESTAMP_READ_METHOD = null, TIMESTAMPTZ_READ_METHOD =
 	// null, TIMESTAMPLTZ_READ_METHOD = null;
@@ -74,13 +83,31 @@ public class TimestampValueHandler extends JDBCDateTimeValueHandler {
 		        	result = DATE_FORMATTER.format(realValue);
 		            break;
 		        case Types.TIMESTAMP:
-		        	result = DATETIME_FORMATTER.format(realValue);
+		        	try { result = DATETIME_FORMATTER_3.format(realValue); }
+		        	catch (DateTimeException e1) {
+		        		try { result = DATETIME_FORMATTER_2.format(realValue); }
+			        	catch (DateTimeException e2) {
+			        		try { result = DATETIME_FORMATTER_1.format(realValue); }
+				        	catch (DateTimeException e3) {
+				        		throw new IllegalStateException(e3);
+				        	}
+			        	}
+		        	}
 		            break;
 		        case Types.TIME_WITH_TIMEZONE:
 		        	result = TIME_WITH_TIMEZONE_FORMATTER.format(realValue);
 		        	break;
 		        case Types.TIMESTAMP_WITH_TIMEZONE:
-		        	result = DATETIME_WITH_TIMEZONE_FORMATTER.format(realValue);
+		        	try { result = DATETIME_WITH_TIMEZONE_FORMATTER_3.format(realValue); }
+		        	catch (DateTimeException e1) {
+		        		try { result = DATETIME_WITH_TIMEZONE_FORMATTER_2.format(realValue); }
+			        	catch (DateTimeException e2) {
+			        		try { result = DATETIME_WITH_TIMEZONE_FORMATTER_1.format(realValue); }
+				        	catch (DateTimeException e3) {
+				        		throw new IllegalStateException(e3);
+				        	}
+			        	}
+		        	}
 		        	break;
 		        default:
 		        	result = super.getValueDisplayString(column, value, format);
@@ -101,13 +128,31 @@ public class TimestampValueHandler extends JDBCDateTimeValueHandler {
 		        	result = DATE_FORMAT.format(realValue);
 		            break;
 		        case Types.TIMESTAMP:
-		        	result = DATETIME_FORMAT.format(realValue);
+		        	try { result = DATETIME_FORMAT_3.format(realValue); }
+		        	catch (DateTimeException e1) {
+		        		try { result = DATETIME_FORMAT_2.format(realValue); }
+			        	catch (DateTimeException e2) {
+			        		try { result = DATETIME_FORMAT_1.format(realValue); }
+				        	catch (DateTimeException e3) {
+				        		throw new IllegalStateException(e3);
+				        	}
+			        	}
+		        	}
 		            break;
 		        case Types.TIME_WITH_TIMEZONE:
 		        	result = TIME_WITH_TIMEZONE_FORMAT.format(realValue);
 		        	break;
 		        case Types.TIMESTAMP_WITH_TIMEZONE:
-		        	result = DATETIME_WITH_TIMEZONE_FORMAT.format(realValue);
+		        	try { result = DATETIME_WITH_TIMEZONE_FORMAT_3.format(realValue); }
+		        	catch (DateTimeException e1) {
+		        		try { result = DATETIME_WITH_TIMEZONE_FORMAT_2.format(realValue); }
+			        	catch (DateTimeException e2) {
+			        		try { result = DATETIME_WITH_TIMEZONE_FORMAT_1.format(realValue); }
+				        	catch (DateTimeException e3) {
+				        		throw new IllegalStateException(e3);
+				        	}
+			        	}
+		        	}
 		        	break;
 		        default:
 		        	result = super.getValueDisplayString(column, value, format);
@@ -143,13 +188,31 @@ public class TimestampValueHandler extends JDBCDateTimeValueHandler {
                         dbStat.setString(index + 1, DATE_FORMATTER.format(realValue));
                         break;
         	        case Types.TIMESTAMP:
-                        dbStat.setString(index + 1, DATETIME_FORMATTER.format(realValue));
+        	        	try { dbStat.setString(index + 1, DATETIME_FORMATTER_3.format(realValue)); }
+    		        	catch (DateTimeException e1) {
+    		        		try { dbStat.setString(index + 1, DATETIME_FORMATTER_2.format(realValue)); }
+    			        	catch (DateTimeException e2) {
+    			        		try { dbStat.setString(index + 1, DATETIME_FORMATTER_1.format(realValue)); }
+    				        	catch (DateTimeException e3) {
+    				        		throw new IllegalStateException(e3);
+    				        	}
+    			        	}
+    		        	}
                         break;
                     case Types.TIME_WITH_TIMEZONE:
                         dbStat.setString(index + 1, TIME_WITH_TIMEZONE_FORMATTER.format(realValue));
                         break;
         	        case Types.TIMESTAMP_WITH_TIMEZONE:
-                        dbStat.setString(index + 1, DATETIME_WITH_TIMEZONE_FORMATTER.format(realValue));
+        	        	try { dbStat.setString(index + 1, DATETIME_WITH_TIMEZONE_FORMATTER_3.format(realValue)); }
+    		        	catch (DateTimeException e1) {
+    		        		try { dbStat.setString(index + 1, DATETIME_WITH_TIMEZONE_FORMATTER_2.format(realValue)); }
+    			        	catch (DateTimeException e2) {
+    			        		try { dbStat.setString(index + 1, DATETIME_WITH_TIMEZONE_FORMATTER_1.format(realValue)); }
+    				        	catch (DateTimeException e3) {
+    				        		throw new IllegalStateException(e3);
+    				        	}
+    			        	}
+    		        	}
                         break;
                     default:
                         dbStat.setTimestamp(index + 1, getTimestampValue(value));
@@ -205,7 +268,16 @@ public class TimestampValueHandler extends JDBCDateTimeValueHandler {
                     case Types.DATE:
                         return DATE_FORMATTER.parse(dbResults.getString(index + 1));
                     case Types.TIMESTAMP:
-                        return DATETIME_FORMATTER.parse(dbResults.getString(index + 1));
+        	        	try { return DATETIME_FORMATTER_3.parse(dbResults.getString(index + 1)); }
+    		        	catch (DateTimeException e1) {
+    		        		try { return DATETIME_FORMATTER_2.parse(dbResults.getString(index + 1)); }
+    			        	catch (DateTimeException e2) {
+    			        		try { return DATETIME_FORMATTER_1.parse(dbResults.getString(index + 1)); }
+    				        	catch (DateTimeException e3) {
+    				        		throw new IllegalStateException(e3);
+    				        	}
+    			        	}
+    		        	}
                     case Types.TIME_WITH_TIMEZONE:
 						String[] string = dbResults.getString(index + 1).split(" ");
 						String time = string[0];
@@ -216,7 +288,16 @@ public class TimestampValueHandler extends JDBCDateTimeValueHandler {
 						return TIME_WITH_TIMEZONE_FORMATTER.parse(
 								String.format("%s %s%02d:%02d", time, timezoneMark, timezoneHour, timezoneMinute));
                     case Types.TIMESTAMP_WITH_TIMEZONE:
-						return DATETIME_WITH_TIMEZONE_FORMATTER.parse(dbResults.getString(index + 1));
+        	        	try { return DATETIME_WITH_TIMEZONE_FORMATTER_3.parse(dbResults.getString(index + 1)); }
+    		        	catch (DateTimeException e1) {
+    		        		try { return DATETIME_WITH_TIMEZONE_FORMATTER_2.parse(dbResults.getString(index + 1)); }
+    			        	catch (DateTimeException e2) {
+    			        		try { return DATETIME_WITH_TIMEZONE_FORMATTER_1.parse(dbResults.getString(index + 1)); }
+    				        	catch (DateTimeException e3) {
+    				        		throw new IllegalStateException(e3);
+    				        	}
+    			        	}
+    		        	}
                     default:
                         return dbResults.getObject(index + 1);
                 }
