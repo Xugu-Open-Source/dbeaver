@@ -39,9 +39,6 @@ public class ValueHandlerProvider implements DBDValueHandlerProvider {
 		case Types.CLOB:
 		case Types.NCLOB:
 			return ClobValueHandler.INSTANCE;
-		case Types.TIME_WITH_TIMEZONE:
-		case Types.TIMESTAMP_WITH_TIMEZONE:
-			return new TimestampValueHandler(preferences);
 		case Types.STRUCT:
 			return ObjectValueHandler.INSTANCE;
 		default:
@@ -65,5 +62,4 @@ public class ValueHandlerProvider implements DBDValueHandlerProvider {
 			return null;
 		}
 	}
-
 }
