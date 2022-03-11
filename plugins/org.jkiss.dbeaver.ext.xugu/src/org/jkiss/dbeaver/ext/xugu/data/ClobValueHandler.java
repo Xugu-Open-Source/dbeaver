@@ -52,9 +52,9 @@ public class ClobValueHandler extends JDBCContentValueHandler {
 			if (i > 0) {
 				writer.write("||");
 			}
-			writer.write("TO_CLOB('");
+			writer.write("'");
 			writer.write(part.replace("'", "''"));
-			writer.write("')");
+			writer.write("'");
 		}
 	}
 
