@@ -710,8 +710,11 @@ public class Schema extends BaseGlobalObject
 			sql.append(roleFlag);
 			sql.append("_columns a ,");
 			sql.append(roleFlag);
-			sql.append("_tables b where a.db_id= b.db_id and a.table_id = b.table_id and b.table_id = ");
-			sql.append(forTable.getId());
+			sql.append("_tables b where a.db_id= b.db_id and a.table_id = b.table_id");
+			if (forTable != null) {
+				sql.append(" and b.table_id = ");
+				sql.append(forTable.getId());
+			}
 			sql.append(" and a.db_id = ");
 			sql.append(owner.getDbId(owner, session));
 			sql.append(" ) as co left join ");
