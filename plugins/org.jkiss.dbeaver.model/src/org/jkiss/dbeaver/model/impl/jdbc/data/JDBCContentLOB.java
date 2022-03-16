@@ -55,7 +55,7 @@ public abstract class JDBCContentLOB extends JDBCContentAbstract implements DBDC
         DBRProgressMonitor monitor,
         DBDContentStorage storage)
     {
-        if (this.storage != null) {
+        if (this.storage != null && !this.modified) {
             if (this.originalStorage != null && this.originalStorage != this.storage) {
                 this.originalStorage.release();
             }
@@ -103,6 +103,13 @@ public abstract class JDBCContentLOB extends JDBCContentAbstract implements DBDC
             } catch (IOException e) {
                 throw new DBCException("IO error while clone content", e);
             }
+        }
+        if (originalStorage != null) {
+        	try {
+				copy.originalStorage = originalStorage.cloneStorage(monitor);
+			} catch (IOException e) {
+                throw new DBCException("IO error while clone content", e);
+			}
         }
         return copy;
     }
