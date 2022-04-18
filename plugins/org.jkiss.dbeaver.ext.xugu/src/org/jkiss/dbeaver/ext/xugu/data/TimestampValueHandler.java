@@ -262,24 +262,27 @@ public class TimestampValueHandler extends JDBCDateTimeValueHandler {
 
                 // It seems that some drivers doesn't support reading date/time values with explicit calendar
                 // So let's use simple version
+                String stringValue = dbResults.getString(index + 1);
+                if (stringValue == null) return null;
+                Object objectValue = dbResults.getObject(index + 1);
                 switch (type.getTypeID()) {
                     case Types.TIME:
-                        return TIME_FORMATTER.parse(dbResults.getString(index + 1));
+                        return TIME_FORMATTER.parse(stringValue);
                     case Types.DATE:
-                        return DATE_FORMATTER.parse(dbResults.getString(index + 1));
+                        return DATE_FORMATTER.parse(stringValue);
                     case Types.TIMESTAMP:
-        	        	try { return DATETIME_FORMATTER_3.parse(dbResults.getString(index + 1)); }
+        	        	try { return DATETIME_FORMATTER_3.parse(stringValue); }
     		        	catch (DateTimeException e1) {
-    		        		try { return DATETIME_FORMATTER_2.parse(dbResults.getString(index + 1)); }
+    		        		try { return DATETIME_FORMATTER_2.parse(stringValue); }
     			        	catch (DateTimeException e2) {
-    			        		try { return DATETIME_FORMATTER_1.parse(dbResults.getString(index + 1)); }
+    			        		try { return DATETIME_FORMATTER_1.parse(stringValue); }
     				        	catch (DateTimeException e3) {
     				        		throw new IllegalStateException(e3);
     				        	}
     			        	}
     		        	}
                     case Types.TIME_WITH_TIMEZONE:
-						String[] string = dbResults.getString(index + 1).split(" ");
+						String[] string = stringValue.split(" ");
 						String time = string[0];
 						char timezoneMark = string[1].charAt(0);
 						String[] timezone = string[1].substring(1).split(":");
@@ -288,18 +291,18 @@ public class TimestampValueHandler extends JDBCDateTimeValueHandler {
 						return TIME_WITH_TIMEZONE_FORMATTER.parse(
 								String.format("%s %s%02d:%02d", time, timezoneMark, timezoneHour, timezoneMinute));
                     case Types.TIMESTAMP_WITH_TIMEZONE:
-        	        	try { return DATETIME_WITH_TIMEZONE_FORMATTER_3.parse(dbResults.getString(index + 1)); }
+        	        	try { return DATETIME_WITH_TIMEZONE_FORMATTER_3.parse(stringValue); }
     		        	catch (DateTimeException e1) {
-    		        		try { return DATETIME_WITH_TIMEZONE_FORMATTER_2.parse(dbResults.getString(index + 1)); }
+    		        		try { return DATETIME_WITH_TIMEZONE_FORMATTER_2.parse(stringValue); }
     			        	catch (DateTimeException e2) {
-    			        		try { return DATETIME_WITH_TIMEZONE_FORMATTER_1.parse(dbResults.getString(index + 1)); }
+    			        		try { return DATETIME_WITH_TIMEZONE_FORMATTER_1.parse(stringValue); }
     				        	catch (DateTimeException e3) {
     				        		throw new IllegalStateException(e3);
     				        	}
     			        	}
     		        	}
                     default:
-                        return dbResults.getObject(index + 1);
+                        return objectValue;
                 }
             } else {
                 return resultSet.getAttributeValue(index);
