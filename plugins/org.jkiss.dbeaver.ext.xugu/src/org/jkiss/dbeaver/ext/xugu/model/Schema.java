@@ -533,7 +533,7 @@ public class Schema extends BaseGlobalObject
 
 	@Override
 	public boolean isSystem() {
-		return ArrayUtils.contains(Constants.SYSTEM_SCHEMAS, getName());
+		return false;
 	}
 
 	@Override
@@ -555,8 +555,13 @@ public class Schema extends BaseGlobalObject
 		}
 		columnName = columnName.replaceAll("\"", "");
 		// que 获取到的列为空？
-		TableColumn tableColumn = columnName == null ? null
-				: parent.getAttribute(session.getProgressMonitor(), columnName);
+		TableColumn tableColumn = parent.getAttribute(session.getProgressMonitor(), columnName);
+		if (tableColumn == null) {
+			tableColumn = parent.getAttribute(session.getProgressMonitor(), columnName.toUpperCase());
+		}
+		if (tableColumn == null) {
+			tableColumn = parent.getAttribute(session.getProgressMonitor(), columnName.toLowerCase());
+		}
 		if (tableColumn == null) {
 			log.debug("GetTableColumn Column '" + columnName + "' not found in table '" + parent.getName() + "'");
 		}
@@ -705,8 +710,11 @@ public class Schema extends BaseGlobalObject
 			sql.append(roleFlag);
 			sql.append("_columns a ,");
 			sql.append(roleFlag);
-			sql.append("_tables b where a.db_id= b.db_id and a.table_id = b.table_id and b.table_id = ");
-			sql.append(forTable.getId());
+			sql.append("_tables b where a.db_id= b.db_id and a.table_id = b.table_id");
+			if (forTable != null) {
+				sql.append(" and b.table_id = ");
+				sql.append(forTable.getId());
+			}
 			sql.append(" and a.db_id = ");
 			sql.append(owner.getDbId(owner, session));
 			sql.append(" ) as co left join ");
@@ -797,9 +805,10 @@ public class Schema extends BaseGlobalObject
 					String[] colNames = colName.split(",");
 					TableConstraintColumn[] conCols = new TableConstraintColumn[colNames.length];
 					for (int i = 0; i < colNames.length; i++) {
-						TableColumn tableColumn = getTableColumn(session, parent,
-								colNames[i].replace(" DESC", "").trim());
-						conCols[i] = new TableConstraintColumn(object, tableColumn, tableColumn.getOrdinalPosition());
+						TableColumn tableColumn = getTableColumn(session, parent,colNames[i].replace(" DESC", "").trim());
+						if (tableColumn != null) {
+							conCols[i] = new TableConstraintColumn(object, tableColumn, tableColumn.getOrdinalPosition());
+						}
 					}
 					return conCols;
 				}

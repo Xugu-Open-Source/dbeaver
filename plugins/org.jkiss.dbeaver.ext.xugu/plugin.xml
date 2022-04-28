@@ -191,7 +191,7 @@
                     <property name="recv_mode" value="2"/>
                     <property name="auto_commit" value="on"/>
                     <!-- <property name="lob_ret" value=""/> -->
-                    <property name="iso_level" value="READ ONLY"/>
+                    <property name="iso_level" value="READ COMMITTED"/>
                     <property name="lock_timeout" value="3600000"/>
                     <property name="return_rowid" value="false"/>
                     <property name="sql_cursor" value="sql_cursor"/>

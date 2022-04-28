@@ -1,5 +1,5 @@
 /*
- * DBeaver - Universal Database Manager
+. * DBeaver - Universal Database Manager
  * Copyright (C) 2010-2017 Serge Rider (serge@jkiss.org)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,39 +17,50 @@
 package org.jkiss.dbeaver.ext.xugu.data;
 
 import org.jkiss.code.NotNull;
-import org.jkiss.code.Nullable;
-import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.ext.xugu.Constants;
-import org.jkiss.dbeaver.model.data.DBDDataFormatterProfile;
+import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
 import org.jkiss.dbeaver.model.data.DBDFormatSettings;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCResultSet;
 import org.jkiss.dbeaver.model.exec.DBCSession;
+import org.jkiss.dbeaver.model.exec.DBCStatement;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
-import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.data.handlers.JDBCDateTimeValueHandler;
+import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.sql.SQLState;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
-import org.jkiss.utils.time.ExtendedDateFormat;
-
-import java.lang.reflect.Method;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.text.Format;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
+import java.time.DateTimeException;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAccessor;
 import java.util.Date;
+import java.util.Locale;
 
 /**
  * 时间戳值处理器
  */
 public class TimestampValueHandler extends JDBCDateTimeValueHandler {
-	private static final SimpleDateFormat DEFAULT_DATETIME_FORMAT = new ExtendedDateFormat(
-			"''yyyy-MM-dd HH:mm:ss''");
-	private static final SimpleDateFormat DEFAULT_DATE_FORMAT = new SimpleDateFormat("''yyyy-MM-dd''");
-	private static final SimpleDateFormat DEFAULT_TIME_FORMAT = new SimpleDateFormat("''HH:mm:ss.SSS''");
+	private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss", Locale.ENGLISH);
+	private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd G", Locale.ENGLISH);
+	private static final DateTimeFormatter DATETIME_FORMATTER_1 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S G", Locale.ENGLISH);
+	private static final DateTimeFormatter DATETIME_FORMATTER_2 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SS G", Locale.ENGLISH);
+	private static final DateTimeFormatter DATETIME_FORMATTER_3 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS G", Locale.ENGLISH);
+	private static final DateTimeFormatter TIME_WITH_TIMEZONE_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss xxx", Locale.ENGLISH);
+	private static final DateTimeFormatter DATETIME_WITH_TIMEZONE_FORMATTER_1 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S xxx G", Locale.ENGLISH);
+	private static final DateTimeFormatter DATETIME_WITH_TIMEZONE_FORMATTER_2 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SS xxx G", Locale.ENGLISH);
+	private static final DateTimeFormatter DATETIME_WITH_TIMEZONE_FORMATTER_3 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS xxx G", Locale.ENGLISH);
+	private static final SimpleDateFormat TIME_FORMAT = new SimpleDateFormat("HH:mm:ss", Locale.ENGLISH);
+	private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd G", Locale.ENGLISH);
+	private static final SimpleDateFormat DATETIME_FORMAT_1 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S G", Locale.ENGLISH);
+	private static final SimpleDateFormat DATETIME_FORMAT_2 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SS G", Locale.ENGLISH);
+	private static final SimpleDateFormat DATETIME_FORMAT_3 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS G", Locale.ENGLISH);
+	private static final SimpleDateFormat TIME_WITH_TIMEZONE_FORMAT = new SimpleDateFormat("HH:mm:ss XXX", Locale.ENGLISH);
+	private static final SimpleDateFormat DATETIME_WITH_TIMEZONE_FORMAT_1 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S XXX G", Locale.ENGLISH);
+	private static final SimpleDateFormat DATETIME_WITH_TIMEZONE_FORMAT_2 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SS XXX G", Locale.ENGLISH);
+	private static final SimpleDateFormat DATETIME_WITH_TIMEZONE_FORMAT_3 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS XXX G", Locale.ENGLISH);
 
 	// private static Method TIMESTAMP_READ_METHOD = null, TIMESTAMPTZ_READ_METHOD =
 	// null, TIMESTAMPLTZ_READ_METHOD = null;
@@ -60,39 +71,169 @@ public class TimestampValueHandler extends JDBCDateTimeValueHandler {
     }
 
 	@Override
-	public Object getValueFromObject(@NotNull DBCSession session, @NotNull DBSTypedObject type, Object object,
-			boolean copy, boolean validateValue) throws DBCException {
-		return super.getValueFromObject(session, type, object, copy, validateValue);
+	public String getValueDisplayString(DBSTypedObject column, Object value, DBDDisplayFormat format) {
+		if (value instanceof TemporalAccessor) {
+			String result;
+			TemporalAccessor realValue = (TemporalAccessor) value;
+			switch(column.getTypeID()) {
+		        case Types.TIME:
+		        	result = TIME_FORMATTER.format(realValue);
+		            break;
+		        case Types.DATE:
+		        	result = DATE_FORMATTER.format(realValue);
+		            break;
+		        case Types.TIMESTAMP:
+		        	try { result = DATETIME_FORMATTER_3.format(realValue); }
+		        	catch (DateTimeException e1) {
+		        		try { result = DATETIME_FORMATTER_2.format(realValue); }
+			        	catch (DateTimeException e2) {
+			        		try { result = DATETIME_FORMATTER_1.format(realValue); }
+				        	catch (DateTimeException e3) {
+				        		throw new IllegalStateException(e3);
+				        	}
+			        	}
+		        	}
+		            break;
+		        case Types.TIME_WITH_TIMEZONE:
+		        	result = TIME_WITH_TIMEZONE_FORMATTER.format(realValue);
+		        	break;
+		        case Types.TIMESTAMP_WITH_TIMEZONE:
+		        	try { result = DATETIME_WITH_TIMEZONE_FORMATTER_3.format(realValue); }
+		        	catch (DateTimeException e1) {
+		        		try { result = DATETIME_WITH_TIMEZONE_FORMATTER_2.format(realValue); }
+			        	catch (DateTimeException e2) {
+			        		try { result = DATETIME_WITH_TIMEZONE_FORMATTER_1.format(realValue); }
+				        	catch (DateTimeException e3) {
+				        		throw new IllegalStateException(e3);
+				        	}
+			        	}
+		        	}
+		        	break;
+		        default:
+		        	result = super.getValueDisplayString(column, value, format);
+			}
+			if (format == DBDDisplayFormat.NATIVE && !result.startsWith("'") && !result.endsWith("'")) {
+	            return "'" + result + "'";
+			} else {
+				return result;
+			}
+		} else if (value instanceof Date) {
+			String result;
+			Date realValue = (Date) value;
+			switch(column.getTypeID()) {
+		        case Types.TIME:
+		        	result = TIME_FORMAT.format(realValue);
+		            break;
+		        case Types.DATE:
+		        	result = DATE_FORMAT.format(realValue);
+		            break;
+		        case Types.TIMESTAMP:
+		        	try { result = DATETIME_FORMAT_3.format(realValue); }
+		        	catch (DateTimeException e1) {
+		        		try { result = DATETIME_FORMAT_2.format(realValue); }
+			        	catch (DateTimeException e2) {
+			        		try { result = DATETIME_FORMAT_1.format(realValue); }
+				        	catch (DateTimeException e3) {
+				        		throw new IllegalStateException(e3);
+				        	}
+			        	}
+		        	}
+		            break;
+		        case Types.TIME_WITH_TIMEZONE:
+		        	result = TIME_WITH_TIMEZONE_FORMAT.format(realValue);
+		        	break;
+		        case Types.TIMESTAMP_WITH_TIMEZONE:
+		        	try { result = DATETIME_WITH_TIMEZONE_FORMAT_3.format(realValue); }
+		        	catch (DateTimeException e1) {
+		        		try { result = DATETIME_WITH_TIMEZONE_FORMAT_2.format(realValue); }
+			        	catch (DateTimeException e2) {
+			        		try { result = DATETIME_WITH_TIMEZONE_FORMAT_1.format(realValue); }
+				        	catch (DateTimeException e3) {
+				        		throw new IllegalStateException(e3);
+				        	}
+			        	}
+		        	}
+		        	break;
+		        default:
+		        	result = super.getValueDisplayString(column, value, format);
+			}
+			if (format == DBDDisplayFormat.NATIVE && !result.startsWith("'") && !result.endsWith("'")) {
+	            return "'" + result + "'";
+			} else {
+				return result;
+			}
+		} else {
+			return super.getValueDisplayString(column, value, format);
+		}
 	}
 
-	@Nullable
 	@Override
-	public Format getNativeValueFormat(DBSTypedObject type) {
-		switch (type.getTypeID()) {
-		case Types.TIMESTAMP:
-			return DEFAULT_DATETIME_FORMAT;
-		case Types.TIMESTAMP_WITH_TIMEZONE:
-		case Constants.DATA_TYPE_TIMESTAMP_WITH_TIMEZONE:
-		case Constants.DATA_TYPE_TIMESTAMP_WITH_LOCAL_TIMEZONE:
-			return DEFAULT_DATETIME_FORMAT;
-		case Types.TIME:
-			return DEFAULT_TIME_FORMAT;
-		case Types.TIME_WITH_TIMEZONE:
-			return DEFAULT_TIME_FORMAT;
-		case Types.DATE:
-			return DEFAULT_DATE_FORMAT;
-		default:
-			break;
-		}
-		// Have to revert DATE format. I can't realize what is difference between
-		// TIMESTAMP and DATE without time part.
-		// Column types and lengths are the same. Data type name is the same. Oh,
-		// Oracle...
-		/*
-		 * if (type.getMaxLength() == OracleConstants.DATE_TYPE_LENGTH) { return
-		 * DEFAULT_DATE_FORMAT; }
-		 */
-		return super.getNativeValueFormat(type);
+	public void bindValueObject(DBCSession session, DBCStatement statement, DBSTypedObject type, int index,
+			Object value) throws DBCException {
+        try {
+            JDBCPreparedStatement dbStat = (JDBCPreparedStatement) statement;
+            // JDBC uses 1-based indexes
+            if (value == null) {
+                dbStat.setNull(index + 1, type.getTypeID());
+            } else if (value instanceof String) {
+                // Some custom value format.
+                dbStat.setString(index + 1, (String) value);
+            } else if (value instanceof TemporalAccessor) {
+    			TemporalAccessor realValue = (TemporalAccessor) value;
+                switch (type.getTypeID()) {
+                    case Types.TIME:
+                        dbStat.setString(index + 1, TIME_FORMATTER.format(realValue));
+                        break;
+                    case Types.DATE:
+                        dbStat.setString(index + 1, DATE_FORMATTER.format(realValue));
+                        break;
+        	        case Types.TIMESTAMP:
+        	        	try { dbStat.setString(index + 1, DATETIME_FORMATTER_3.format(realValue)); }
+    		        	catch (DateTimeException e1) {
+    		        		try { dbStat.setString(index + 1, DATETIME_FORMATTER_2.format(realValue)); }
+    			        	catch (DateTimeException e2) {
+    			        		try { dbStat.setString(index + 1, DATETIME_FORMATTER_1.format(realValue)); }
+    				        	catch (DateTimeException e3) {
+    				        		throw new IllegalStateException(e3);
+    				        	}
+    			        	}
+    		        	}
+                        break;
+                    case Types.TIME_WITH_TIMEZONE:
+                        dbStat.setString(index + 1, TIME_WITH_TIMEZONE_FORMATTER.format(realValue));
+                        break;
+        	        case Types.TIMESTAMP_WITH_TIMEZONE:
+        	        	try { dbStat.setString(index + 1, DATETIME_WITH_TIMEZONE_FORMATTER_3.format(realValue)); }
+    		        	catch (DateTimeException e1) {
+    		        		try { dbStat.setString(index + 1, DATETIME_WITH_TIMEZONE_FORMATTER_2.format(realValue)); }
+    			        	catch (DateTimeException e2) {
+    			        		try { dbStat.setString(index + 1, DATETIME_WITH_TIMEZONE_FORMATTER_1.format(realValue)); }
+    				        	catch (DateTimeException e3) {
+    				        		throw new IllegalStateException(e3);
+    				        	}
+    			        	}
+    		        	}
+                        break;
+                    default:
+                        dbStat.setTimestamp(index + 1, getTimestampValue(value));
+                }
+    		} else if (value instanceof Date) {
+                switch (type.getTypeID()) {
+	                case Types.TIME:
+	                case Types.TIME_WITH_TIMEZONE:
+	                    dbStat.setTime(index + 1, getTimeValue(value));
+	                    break;
+	                case Types.DATE:
+	                    dbStat.setDate(index + 1, getDateValue(value));
+	                    break;
+	                default:
+	                    dbStat.setTimestamp(index + 1, getTimestampValue(value));
+	                    break;
+                }
+    		}
+        } catch (SQLException e) {
+            throw new DBCException(ModelMessages.model_jdbc_exception_could_not_bind_statement_parameter, e);
+        }
 	}
 
 	@Override
@@ -121,14 +262,47 @@ public class TimestampValueHandler extends JDBCDateTimeValueHandler {
 
                 // It seems that some drivers doesn't support reading date/time values with explicit calendar
                 // So let's use simple version
+                String stringValue = dbResults.getString(index + 1);
+                if (stringValue == null) return null;
+                Object objectValue = dbResults.getObject(index + 1);
                 switch (type.getTypeID()) {
                     case Types.TIME:
-                        return dbResults.getTime(index + 1);
+                        return TIME_FORMATTER.parse(stringValue);
                     case Types.DATE:
-                        return dbResults.getDate(index + 1);
+                        return DATE_FORMATTER.parse(stringValue);
+                    case Types.TIMESTAMP:
+        	        	try { return DATETIME_FORMATTER_3.parse(stringValue); }
+    		        	catch (DateTimeException e1) {
+    		        		try { return DATETIME_FORMATTER_2.parse(stringValue); }
+    			        	catch (DateTimeException e2) {
+    			        		try { return DATETIME_FORMATTER_1.parse(stringValue); }
+    				        	catch (DateTimeException e3) {
+    				        		throw new IllegalStateException(e3);
+    				        	}
+    			        	}
+    		        	}
+                    case Types.TIME_WITH_TIMEZONE:
+						String[] string = stringValue.split(" ");
+						String time = string[0];
+						char timezoneMark = string[1].charAt(0);
+						String[] timezone = string[1].substring(1).split(":");
+						Integer timezoneHour = Integer.parseInt(timezone[0]);
+						Integer timezoneMinute = Integer.parseInt(timezone[1]);
+						return TIME_WITH_TIMEZONE_FORMATTER.parse(
+								String.format("%s %s%02d:%02d", time, timezoneMark, timezoneHour, timezoneMinute));
+                    case Types.TIMESTAMP_WITH_TIMEZONE:
+        	        	try { return DATETIME_WITH_TIMEZONE_FORMATTER_3.parse(stringValue); }
+    		        	catch (DateTimeException e1) {
+    		        		try { return DATETIME_WITH_TIMEZONE_FORMATTER_2.parse(stringValue); }
+    			        	catch (DateTimeException e2) {
+    			        		try { return DATETIME_WITH_TIMEZONE_FORMATTER_1.parse(stringValue); }
+    				        	catch (DateTimeException e3) {
+    				        		throw new IllegalStateException(e3);
+    				        	}
+    			        	}
+    		        	}
                     default:
-                        Object value = dbResults.getObject(index + 1);
-                        return getValueFromObject(session, type, value, false, false);
+                        return objectValue;
                 }
             } else {
                 return resultSet.getAttributeValue(index);

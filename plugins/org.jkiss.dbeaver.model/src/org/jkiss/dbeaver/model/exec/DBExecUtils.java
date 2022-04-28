@@ -659,7 +659,6 @@ public class DBExecUtils {
             final Map<DBSEntity, DBDRowIdentifier> locatorMap = new IdentityHashMap<>();
 
             monitor.subTask("Discover attributes");
-        	boolean triedOnce = false;
             for (DBDAttributeBinding binding : bindings) {
                 monitor.subTask("Discover attribute '" + binding.getName() + "'");
                 DBCAttributeMetaData attrMeta = binding.getMetaAttribute();
@@ -691,7 +690,15 @@ public class DBExecUtils {
                                 attrEntity = entity;
                             } else {
                                 attrEntity = DBUtils.getEntityFromMetaData(monitor, session.getExecutionContext(), attrEntityMeta);
-
+                            	boolean triedOnce = false;
+                            	if (attrEntity == null && !triedOnce) {
+                                    DBSObject selectedObject = DBUtils.getSelectedObject(session.getExecutionContext());
+                                    if (selectedObject instanceof DBPRefreshableObject) {
+                                    	((DBPRefreshableObject) selectedObject).refreshObject(monitor);
+                                		attrEntity = DBUtils.getEntityFromMetaData(monitor, session.getExecutionContext(), attrEntityMeta);
+                                    }
+                                	triedOnce = true;
+                            	}
                                 if (attrEntity == null) {
                                     log.debug("Table '" + DBUtils.getSimpleQualifiedName(attrEntityMeta.getCatalogName(), attrEntityMeta.getSchemaName(), attrEntityMeta.getEntityName()) + "' not found in metadata catalog");
                                 }
