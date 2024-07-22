@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package org.jkiss.dbeaver.model.impl.net;
 
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPDataSource;
-import org.jkiss.dbeaver.model.app.DBPPlatform;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.net.DBWHandlerConfiguration;
 import org.jkiss.dbeaver.model.net.DBWTunnel;
@@ -32,12 +31,17 @@ import java.io.IOException;
 public class HTTPTunnelImpl implements DBWTunnel {
 
     @Override
+    public AuthCredentials getRequiredCredentials(DBWHandlerConfiguration configuration, String prefix) {
+        return AuthCredentials.NONE;
+    }
+
+    @Override
     public AuthCredentials getRequiredCredentials(DBWHandlerConfiguration configuration) {
         return AuthCredentials.NONE;
     }
 
     @Override
-    public DBPConnectionConfiguration initializeHandler(DBRProgressMonitor monitor, DBPPlatform platform, DBWHandlerConfiguration configuration, DBPConnectionConfiguration connectionInfo)
+    public DBPConnectionConfiguration initializeHandler(DBRProgressMonitor monitor, DBWHandlerConfiguration configuration, DBPConnectionConfiguration connectionInfo)
         throws DBException, IOException
     {
         return connectionInfo;
@@ -51,6 +55,11 @@ public class HTTPTunnelImpl implements DBWTunnel {
     @Override
     public Object getImplementation() {
         return null;
+    }
+
+    @Override
+    public void addCloseListener(Runnable listener) {
+        // do nothing
     }
 
     @Override

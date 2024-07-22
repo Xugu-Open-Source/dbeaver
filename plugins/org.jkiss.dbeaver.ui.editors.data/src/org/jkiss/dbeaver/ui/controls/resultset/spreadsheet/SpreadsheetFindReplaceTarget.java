@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,14 +30,19 @@ import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
+import org.jkiss.dbeaver.model.data.DBDContent;
+import org.jkiss.dbeaver.model.data.storage.StringContentStorage;
+import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSDataContainer;
 import org.jkiss.dbeaver.ui.UIStyles;
 import org.jkiss.dbeaver.ui.controls.lightgrid.GridCell;
 import org.jkiss.dbeaver.ui.controls.lightgrid.GridPos;
+import org.jkiss.dbeaver.ui.controls.resultset.ResultSetCellLocation;
 import org.jkiss.dbeaver.ui.controls.resultset.ResultSetModel;
-import org.jkiss.dbeaver.ui.controls.resultset.ResultSetRow;
+import org.jkiss.dbeaver.ui.controls.resultset.ResultSetValueController;
+import org.jkiss.dbeaver.ui.data.IValueController;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.ArrayList;
@@ -121,13 +126,13 @@ class SpreadsheetFindReplaceTarget implements IFindReplaceTarget, IFindReplaceTa
         if (owner == null) {
             return "";
         }
-        GridPos selection = (GridPos) owner.getSelection().getFirstElement();
+        GridPos selection = owner.getSelection().getFirstElement();
         if (selection == null) {
             return "";
         }
         Spreadsheet spreadsheet = owner.getSpreadsheet();
         GridCell cell = spreadsheet.posToCell(selection);
-        String value = cell == null ? "" : CommonUtils.toString(spreadsheet.getContentProvider().getCellValue(cell.col, cell.row, true, true));
+        String value = cell == null ? "" : CommonUtils.toString(spreadsheet.getContentProvider().getCellValue(cell.col, cell.row, false));
         return CommonUtils.toString(value);
     }
 
@@ -273,7 +278,11 @@ class SpreadsheetFindReplaceTarget implements IFindReplaceTarget, IFindReplaceTa
                 return -1;
             }
         } else {
-            findPattern = Pattern.compile(Pattern.quote(findString), caseSensitive ? 0 : Pattern.CASE_INSENSITIVE);
+            String pattern = Pattern.quote(findString);
+            if (wholeWord) {
+                pattern = "\\b" + pattern + "\\b";
+            }
+            findPattern = Pattern.compile(pattern, caseSensitive ? 0 : Pattern.CASE_INSENSITIVE);
         }
         int minColumnNum = owner.getController().isRecordMode() ? -1 : 0;
         for (GridPos curPosition = new GridPos(startPosition);;) {
@@ -302,17 +311,18 @@ class SpreadsheetFindReplaceTarget implements IFindReplaceTarget, IFindReplaceTa
                     }
                 } else {
                     // Not found
+                    spreadsheet.redraw();
                     return -1;
                 }
             }
             String cellText;
             if (owner.getController().isRecordMode() && curPosition.col == minColumnNum) {
                 // Header
-                cellText = spreadsheet.getLabelProvider().getText(spreadsheet.getRowElement(curPosition.row));
+                cellText = spreadsheet.getLabelProvider().getText(spreadsheet.getRow(curPosition.row));
             } else {
                 GridCell cell = spreadsheet.posToCell(curPosition);
                 if (cell != null) {
-                    cellText = CommonUtils.toString(spreadsheet.getContentProvider().getCellValue(cell.col, cell.row, false, false));
+                    cellText = CommonUtils.toString(spreadsheet.getContentProvider().getCellValue(cell.col, cell.row, false));
                 } else {
                     continue;
                 }
@@ -342,7 +352,7 @@ class SpreadsheetFindReplaceTarget implements IFindReplaceTarget, IFindReplaceTa
         if (owner == null) {
             return;
         }
-        GridPos selection = (GridPos) owner.getSelection().getFirstElement();
+        GridPos selection = owner.getSelection().getFirstElement();
         if (selection == null) {
             return;
         }
@@ -350,16 +360,30 @@ class SpreadsheetFindReplaceTarget implements IFindReplaceTarget, IFindReplaceTa
         if (cell == null) {
             return;
         }
-        String oldValue = CommonUtils.toString(owner.getSpreadsheet().getContentProvider().getCellValue(cell.col, cell.row, true, true));
+        ResultSetCellLocation cellLocation = owner.getCellLocation(cell);
+
+        String oldValue = CommonUtils.toString(owner.getSpreadsheet().getContentProvider().getCellValue(
+            cell.col, cell.row, true));
         String newValue = text;
         if (searchPattern != null) {
             newValue = searchPattern.matcher(oldValue).replaceAll(newValue);
         }
 
-        boolean recordMode = owner.getController().isRecordMode();
-        final DBDAttributeBinding attr = (DBDAttributeBinding)(recordMode ? cell.row : cell.col);
-        final ResultSetRow row = (ResultSetRow)(recordMode ? cell.col : cell.row);
-        owner.getController().getModel().updateCellValue(attr, row, newValue);
+        final Object originalValue = owner.getSpreadsheet().getContentProvider().getCellValue(
+            cell.col, cell.row, false);
+        if (originalValue instanceof DBDContent) {
+            try {
+                ((DBDContent) originalValue)
+                    .updateContents(new VoidProgressMonitor(), new StringContentStorage(newValue));
+                new ResultSetValueController(owner.getController(), cellLocation, IValueController.EditType.NONE, null)
+                    .updateValue(originalValue, true);
+            } catch (DBException e) {
+                log.error("Error updating LOB contents", e);
+            }
+        } else {
+            owner.getController().getModel().updateCellValue(cellLocation, newValue);
+        }
+
         owner.getController().updatePanelsContent(false);
     }
 

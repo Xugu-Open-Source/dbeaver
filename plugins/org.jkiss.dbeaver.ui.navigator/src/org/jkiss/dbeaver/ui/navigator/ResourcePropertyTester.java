@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,8 @@ package org.jkiss.dbeaver.ui.navigator;
 import org.eclipse.core.expressions.PropertyTester;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
-import org.jkiss.dbeaver.model.app.DBPProject;
-import org.jkiss.dbeaver.model.app.DBPResourceCreator;
-import org.jkiss.dbeaver.model.app.DBPResourceHandler;
-import org.jkiss.dbeaver.model.app.DBPWorkspace;
-import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.dbeaver.model.app.*;
+import org.jkiss.dbeaver.model.fs.nio.NIOResource;
 import org.jkiss.dbeaver.ui.ActionUtils;
 
 /**
@@ -38,6 +35,7 @@ public class ResourcePropertyTester extends PropertyTester
     public static final String PROP_CAN_CREATE_LINK = "canCreateLink";
     public static final String PROP_CAN_SET_ACTIVE = "canSetActive";
     public static final String PROP_CAN_DELETE = "canDelete";
+    public static final String PROP_IS_LOCAL_FS = "isLocalFS";
     public static final String PROP_TYPE = "type";
 
     public ResourcePropertyTester() {
@@ -50,7 +48,7 @@ public class ResourcePropertyTester extends PropertyTester
             return false;
         }
         IResource resource = (IResource)receiver;
-        DBPWorkspace workspace = DBWorkbench.getPlatform().getWorkspace();
+        DBPWorkspaceDesktop workspace = DBPPlatformDesktop.getInstance().getWorkspace();
         DBPResourceHandler handler = workspace.getResourceHandler(resource);
         if (handler == null) {
             return false;
@@ -72,8 +70,10 @@ public class ResourcePropertyTester extends PropertyTester
                 return resource instanceof IProject && (activeProject == null || resource != activeProject.getEclipseProject());
             }
             case PROP_TYPE:
-                final DBPResourceHandler resourceHandler = DBWorkbench.getPlatform().getWorkspace().getResourceHandler(resource);
+                final DBPResourceHandler resourceHandler = workspace.getResourceHandler(resource);
                 return resourceHandler != null && expectedValue.equals(resourceHandler.getTypeName(resource));
+            case PROP_IS_LOCAL_FS:
+                return !(resource instanceof NIOResource) && resource.getLocation() != null;
         }
         return false;
     }

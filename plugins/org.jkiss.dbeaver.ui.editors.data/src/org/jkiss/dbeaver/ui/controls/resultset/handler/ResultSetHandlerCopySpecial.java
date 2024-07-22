@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,13 @@ package org.jkiss.dbeaver.ui.controls.resultset.handler;
 
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
-import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.dialogs.IDialogSettings;
 import org.eclipse.swt.layout.GridLayout;
-import org.eclipse.swt.widgets.*;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Combo;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.commands.IElementUpdater;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.eclipse.ui.menus.UIElement;
@@ -34,6 +36,7 @@ import org.jkiss.dbeaver.ui.controls.resultset.IResultSetController;
 import org.jkiss.dbeaver.ui.controls.resultset.ResultSetCopySettings;
 import org.jkiss.dbeaver.ui.controls.resultset.ResultSetUtils;
 import org.jkiss.dbeaver.ui.controls.resultset.internal.ResultSetMessages;
+import org.jkiss.dbeaver.ui.dialogs.BaseDialog;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.Map;
@@ -74,7 +77,7 @@ public class ResultSetHandlerCopySpecial extends ResultSetHandlerMain implements
         element.setText(ResultSetMessages.actions_spreadsheet_copy_special);
     }
 
-    public static class CopyConfigDialog extends Dialog {
+    public static class CopyConfigDialog extends BaseDialog {
 
         static final String PARAM_COL_DELIMITER = "delimiter";
         static final String PARAM_ROW_DELIMITER = "rowDelimiter";
@@ -90,7 +93,7 @@ public class ResultSetHandlerCopySpecial extends ResultSetHandlerMain implements
 
         protected CopyConfigDialog(Shell shell, String dialogId)
         {
-            super(shell);
+            super(shell, ResultSetMessages.copy_special_options, null);
             settings = UIUtils.getDialogSettings(dialogId);
             copySettings = new ResultSetCopySettings();
             copySettings.setColumnDelimiter("\t");
@@ -110,19 +113,17 @@ public class ResultSetHandlerCopySpecial extends ResultSetHandlerMain implements
         @Override
         protected void configureShell(Shell newShell) {
             super.configureShell(newShell);
-            newShell.setText("Options");
         }
 
         @Override
-        protected Control createDialogArea(Composite parent)
-        {
-            Composite group = (Composite)super.createDialogArea(parent);
+        protected Composite createDialogArea(Composite parent) {
+            Composite group = super.createDialogArea(parent);
             ((GridLayout)group.getLayout()).numColumns = 2;
 
             createControlsBefore(group);
-            colDelimCombo = UIUtils.createDelimiterCombo(group, "Column Delimiter", new String[] {"\t", ";", ","}, copySettings.getColumnDelimiter(), false);
-            rowDelimCombo = UIUtils.createDelimiterCombo(group, "Row Delimiter", new String[] {"\n", "|", "^"}, copySettings.getRowDelimiter(), false);
-            quoteStringCombo = UIUtils.createDelimiterCombo(group, "Quote Character", new String[] {"\"", "'"}, copySettings.getQuoteString(), false);
+            colDelimCombo = UIUtils.createDelimiterCombo(group, ResultSetMessages.copy_special_column_delimiter, new String[] {"\t", ";", ","}, copySettings.getColumnDelimiter(), false);
+            rowDelimCombo = UIUtils.createDelimiterCombo(group, ResultSetMessages.copy_special_row_delimiter, new String[] {"\n", "|", "^"}, copySettings.getRowDelimiter(), false);
+            quoteStringCombo = UIUtils.createDelimiterCombo(group, ResultSetMessages.copy_special_quote_character, new String[] {"\"", "'"}, copySettings.getQuoteString(), false);
             createControlsAfter(group);
             return group;
         }
@@ -193,11 +194,11 @@ public class ResultSetHandlerCopySpecial extends ResultSetHandlerMain implements
 
         @Override
         protected void createControlsBefore(Composite group) {
-            copyHeaderCheck = UIUtils.createCheckbox(group, "Copy header", null, copySettings.isCopyHeader(), 2);
-            copyRowsCheck = UIUtils.createCheckbox(group, "Copy row numbers", null, copySettings.isCopyRowNumbers(), 2);
-            quoteCellsCheck = UIUtils.createCheckbox(group, "Quote cell values", "Place cell value in quotes if it contains column or row delimiter", copySettings.isQuoteCells(), 2);
-            forceQuoteCheck = UIUtils.createCheckbox(group, "Always quote values", "Place all cell values in quotes", copySettings.isForceQuotes(), 2);
-            copyHtmlCheck = UIUtils.createCheckbox(group, "Copy as HTML", "Copy as HTML (in addition to plaintext format)", copySettings.isCopyHTML(), 2);
+            copyHeaderCheck = UIUtils.createCheckbox(group, ResultSetMessages.copy_special_copy_header_text, null, copySettings.isCopyHeader(), 2);
+            copyRowsCheck = UIUtils.createCheckbox(group, ResultSetMessages.copy_special_copy_row_numbers_text, null, copySettings.isCopyRowNumbers(), 2);
+            quoteCellsCheck = UIUtils.createCheckbox(group, ResultSetMessages.copy_special_quote_cell_values_text, ResultSetMessages.copy_special_quote_cell_values_tip, copySettings.isQuoteCells(), 2);
+            forceQuoteCheck = UIUtils.createCheckbox(group, ResultSetMessages.copy_special_force_quote_cell_values_text, ResultSetMessages.copy_special_force_quote_cell_values_tip, copySettings.isForceQuotes(), 2);
+            copyHtmlCheck = UIUtils.createCheckbox(group, ResultSetMessages.copy_special_copy_as_html_text, ResultSetMessages.copy_special_copy_as_html_tip, copySettings.isCopyHTML(), 2);
 
             formatSelector = new ValueFormatSelector(group);
             formatSelector.select(copySettings.getFormat());

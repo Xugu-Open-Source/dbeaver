@@ -27,6 +27,7 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.ext.xugu.Utils;
@@ -48,6 +49,11 @@ public class View extends BaseTable implements SourceObject {
 	public View(DBRProgressMonitor monitor, JDBCSession session, Schema schema, ResultSet dbResult) {
 		super(schema, dbResult, ObjectType.VIEW);
 		this.viewText = JDBCUtils.safeGetString(dbResult, "DEFINE");
+	}
+	
+	public View(DBRProgressMonitor monitor, Schema schema, View source) throws DBException {
+		super(monitor, schema, source);
+		this.viewText = source.viewText;
 	}
 
 	@Override

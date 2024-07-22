@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.mssql.SQLServerConstants;
 import org.jkiss.dbeaver.ext.mssql.SQLServerUtils;
 import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.DPIContainer;
 import org.jkiss.dbeaver.model.connection.DBPConnectionBootstrap;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContextDefaults;
@@ -53,6 +54,7 @@ public class SQLServerExecutionContext extends JDBCExecutionContext implements D
         super(instance, purpose);
     }
 
+    @DPIContainer
     @NotNull
     @Override
     public SQLServerDataSource getDataSource() {
@@ -82,7 +84,15 @@ public class SQLServerExecutionContext extends JDBCExecutionContext implements D
         }
         try {
             SQLServerDatabase defaultCatalog = getDefaultCatalog();
-            return defaultCatalog == null ? null : defaultCatalog.getSchema(new VoidProgressMonitor(), activeSchemaName);
+            if (defaultCatalog == null) {
+                return null;
+            }
+            SQLServerSchema schema = defaultCatalog.getSchema(new VoidProgressMonitor(), activeSchemaName);
+            if (schema == null) {
+                // If DBO is not the default schema and default schema doesn't exist (or was filtered out) let's try DBO though
+                schema = defaultCatalog.getSchema(new VoidProgressMonitor(), SQLServerConstants.DEFAULT_SCHEMA_NAME);
+            }
+            return schema;
         } catch (DBException e) {
             log.error(e);
             return null;
@@ -142,43 +152,54 @@ public class SQLServerExecutionContext extends JDBCExecutionContext implements D
 
     @Override
     public boolean refreshDefaults(DBRProgressMonitor monitor, boolean useBootstrapSettings) throws DBException {
+        boolean refreshed = false;
         // Check default active schema
         try (JDBCSession session = openSession(monitor, DBCExecutionPurpose.META, "Query active schema and database")) {
             String currentDatabase = null;
+            String currentSchema = null;
             try {
                 try (JDBCStatement dbStat = session.createStatement()) {
-                    try (JDBCResultSet dbResult = dbStat.executeQuery("SELECT db_name(), schema_name(), original_login()")) {
+                    String query = "SELECT db_name(), schema_name(), original_login()";
+                    if (SQLServerUtils.isDriverBabelfish(session.getDataSource().getContainer().getDriver())) {
+                        query = "SELECT db_name(), s.name AS schema_name, session_user AS original_login FROM sys.schemas s";
+                    }
+                    try (JDBCResultSet dbResult = dbStat.executeQuery(query)) {
                         dbResult.next();
                         currentDatabase = dbResult.getString(1);
-                        activeSchemaName = dbResult.getString(2);
+                        currentSchema = dbResult.getString(2);
                         currentUser = dbResult.getString(3);
                     }
                 }
             } catch (Throwable e) {
                 log.debug("Error getting current user: " + e.getMessage());
             }
-            if (CommonUtils.isEmpty(activeSchemaName)) {
-                activeSchemaName = SQLServerConstants.DEFAULT_SCHEMA_NAME;
+            if (!CommonUtils.isEmpty(currentDatabase) && (activeDatabaseName == null || !CommonUtils.equalObjects(currentDatabase, activeDatabaseName))) {
+                activeDatabaseName = currentDatabase;
+                refreshed = true;
+            }
+            if (CommonUtils.isEmpty(currentSchema)) {
+                currentSchema = SQLServerConstants.DEFAULT_SCHEMA_NAME;
+            }
+            if (activeSchemaName == null || !CommonUtils.equalObjects(currentSchema, activeSchemaName)) {
+                activeSchemaName = currentSchema;
+                refreshed = true;
             }
             if (useBootstrapSettings) {
                 DBPConnectionBootstrap bootstrap = getBootstrapSettings();
-                if (!CommonUtils.isEmpty(bootstrap.getDefaultCatalogName()) && supportsCatalogChange()) {
+                if (!CommonUtils.isEmpty(bootstrap.getDefaultCatalogName()) && supportsCatalogChange() && !CommonUtils.equalObjects(bootstrap.getDefaultCatalogName(), activeDatabaseName)) {
                     setCurrentDatabase(monitor, bootstrap.getDefaultCatalogName());
+                    refreshed = true;
                 }
 /*
                 if (!CommonUtils.isEmpty(bootstrap.getDefaultSchemaName()) && supportsSchemaChange()) {
                     setCurrentSchema(monitor, bootstrap.getDefaultSchemaName());
+                    refreshed = true;
                 }
 */
             }
-
-            if (!CommonUtils.isEmpty(currentDatabase) && !CommonUtils.equalObjects(currentDatabase, activeDatabaseName)) {
-                activeDatabaseName = currentDatabase;
-                return true;
-            }
         }
 
-        return false;
+        return refreshed;
     }
 
     boolean setCurrentDatabase(DBRProgressMonitor monitor, SQLServerDatabase object) throws DBCException {

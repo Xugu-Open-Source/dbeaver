@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,16 +20,16 @@ import org.eclipse.core.runtime.Assert;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBPDataSource;
-import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.data.*;
 import org.jkiss.dbeaver.model.exec.*;
-import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTable;
 import org.jkiss.dbeaver.model.impl.sql.BaseInsertMethod;
 import org.jkiss.dbeaver.model.sql.SQLConstants;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.DBSAttributeBase;
 import org.jkiss.dbeaver.model.struct.DBSDataManipulator;
+import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
+import org.jkiss.dbeaver.model.struct.DBStructUtils;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTable;
 import org.jkiss.utils.CommonUtils;
 
@@ -99,6 +99,9 @@ public class ExecuteInsertBatchImpl extends ExecuteBatchImpl {
             if (DBUtils.isPseudoAttribute(attribute) || (!allNulls && DBUtils.isNullValue(attributeValues[k]))) {
                 continue;
             }
+            if (allNulls && attributeHasDefaultValue(attribute)) {
+                continue;
+            }
             handlers[k].bindValueObject(statement.getSession(), statement, attribute, paramIndex++, attributeValues[k]);
             if (session.getProgressMonitor().isCanceled()) {
                 break;
@@ -114,6 +117,8 @@ public class ExecuteInsertBatchImpl extends ExecuteBatchImpl {
         DBSTable table,
         boolean useMultiRowInsert,
         Map<String, Object> options) throws DBCException {
+
+        allColumnsDefault = false;
         
         Assert.isLegal(attributes.length == handlers.length);
         Assert.isLegal(useMultiRowInsert || attributes.length == attributeValues.length);
@@ -158,12 +163,7 @@ public class ExecuteInsertBatchImpl extends ExecuteBatchImpl {
             }
             if (hasKey) query.append(","); //$NON-NLS-1$
             hasKey = true;
-            String attributeName;
-            if (table instanceof JDBCTable) {
-                attributeName = ((JDBCTable)table).getAttributeName(attribute);
-            } else {
-                attributeName = DBUtils.getObjectFullName(table.getDataSource(), attribute, DBPEvaluationContext.DML);
-            }
+            String attributeName = DBStructUtils.getAttributeName(attribute);
             query.append(attributeName);
             usedAttributes.add(i);
         }
@@ -183,6 +183,8 @@ public class ExecuteInsertBatchImpl extends ExecuteBatchImpl {
                     rowValuesPart.add(((DBDValueBinder) valueHandler).makeQueryBind(attribute, attributeValues[k]));
                 } else if (skipBindValues) {
                     rowValuesPart.add(SQLUtils.convertValueToSQL(session.getDataSource(), attribute, valueHandler, attributeValues[k], DBDDisplayFormat.NATIVE));
+                } else if (allNulls && attributeHasDefaultValue(attribute)) {
+                    rowValuesPart.add("DEFAULT");
                 } else {
                     rowValuesPart.add("?");
                 }
@@ -198,5 +200,16 @@ public class ExecuteInsertBatchImpl extends ExecuteBatchImpl {
         }
 
         return query;
+    }
+
+    private boolean attributeHasDefaultValue(@NotNull DBSAttributeBase attribute) {
+        if (DBUtils.isPseudoAttribute(attribute) || DBUtils.isHiddenObject(attribute)) {
+            return false;
+        }
+        if (attribute instanceof DBDAttributeBinding) {
+            DBSEntityAttribute entityAttribute = ((DBDAttributeBinding) attribute).getEntityAttribute();
+            return entityAttribute != null && (CommonUtils.isNotEmpty(entityAttribute.getDefaultValue()));
+        }
+        return false;
     }
 }

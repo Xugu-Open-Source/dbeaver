@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package org.jkiss.dbeaver.ui.navigator.actions;
 
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
-import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.osgi.util.NLS;
@@ -35,13 +34,16 @@ import org.jkiss.dbeaver.model.edit.DBEObjectManager;
 import org.jkiss.dbeaver.model.edit.DBEObjectWithDependencies;
 import org.jkiss.dbeaver.model.navigator.*;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
-import org.jkiss.dbeaver.model.struct.*;
+import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
+import org.jkiss.dbeaver.model.struct.DBSEntityReferrer;
+import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableConstraint;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.ui.dialogs.Reply;
 import org.jkiss.dbeaver.ui.internal.UINavigatorMessages;
-import org.jkiss.dbeaver.ui.navigator.dialogs.ConfirmNavigatorNodesDeleteDialog;
+import org.jkiss.dbeaver.ui.navigator.dialogs.NavigatorNodesDeletionConfirmations;
 import org.jkiss.utils.CommonUtils;
 
 import java.lang.reflect.InvocationTargetException;
@@ -99,15 +101,11 @@ public class NavigatorHandlerObjectDelete extends NavigatorHandlerObjectBase imp
     }
 
     private static boolean tryDeleteObjects(final IWorkbenchWindow window, final List<?> selectedObjects, final NavigatorObjectsDeleter deleter) {
-        final ConfirmNavigatorNodesDeleteDialog dialog = ConfirmNavigatorNodesDeleteDialog.of(
-                window.getShell(),
-                selectedObjects,
-                deleter
-        );
-        final int result = dialog.open();
-        if (result == IDialogConstants.YES_ID) {
+        Reply reply = NavigatorNodesDeletionConfirmations.confirm(window.getShell(), selectedObjects, deleter);
+        if (reply == Reply.YES) {
             return deleteObjects(window, deleter, selectedObjects);
-        } else if (result == IDialogConstants.DETAILS_ID) {
+        }
+        if (reply == NavigatorNodesDeletionConfirmations.SHOW_SCRIPT) {
             final boolean persistCheck = deleter.showScriptWindow();
             if (persistCheck) {
                 return deleteObjects(window, deleter, selectedObjects);
@@ -136,7 +134,7 @@ public class NavigatorHandlerObjectDelete extends NavigatorHandlerObjectBase imp
                         DBSObject dbsObject = ((DBNDatabaseItem) obj).getObject();
                         if (dbsObject instanceof DBSEntityAttribute) {
                             DBSEntityAttribute attribute = (DBSEntityAttribute) dbsObject;
-                            DBEObjectManager<?> objectManager = attribute.getDataSource().getContainer().getPlatform().getEditorsRegistry().getObjectManager(attribute.getClass());
+                            DBEObjectManager<?> objectManager = DBWorkbench.getPlatform().getEditorsRegistry().getObjectManager(attribute.getClass());
                             if (objectManager instanceof DBEObjectWithDependencies) {
                                 try {
                                     List<? extends DBSObject> dependentObjectsList = ((DBEObjectWithDependencies) objectManager).getDependentObjectsList(monitor, attribute);
@@ -171,15 +169,14 @@ public class NavigatorHandlerObjectDelete extends NavigatorHandlerObjectBase imp
             } else {
                 confirmMessage = NLS.bind(UINavigatorMessages.confirm_deleting_dependent_objects, dependentObjectsListNodes.size());
             }
-            final ConfirmNavigatorNodesDeleteDialog dialog = ConfirmNavigatorNodesDeleteDialog.of(
-                    window.getShell(),
-                    UINavigatorMessages.confirm_deleting_dependent_objects_title,
-                    confirmMessage,
-                    dependentObjectsListNodes,
-                    dependentObjectsDeleter
+            Reply reply = NavigatorNodesDeletionConfirmations.confirm(
+                window.getShell(),
+                UINavigatorMessages.confirm_deleting_dependent_objects_title,
+                confirmMessage,
+                dependentObjectsListNodes,
+                dependentObjectsDeleter
             );
-            final int result = dialog.open();
-            if (result == IDialogConstants.YES_ID) {
+            if (reply == Reply.YES) {
                 dependentObjectsDeleter.delete();
                 return true;
             } else {

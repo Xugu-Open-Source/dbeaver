@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package org.jkiss.dbeaver.model.data.aggregate;
 import org.jkiss.dbeaver.Log;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -29,13 +28,13 @@ public class FunctionMedian implements IAggregateFunction {
 
     private static final Log log = Log.getLog(FunctionMedian.class);
 
-    private List<Comparable> cache = new ArrayList<>();
+    private final List<Comparable> cache = new ArrayList<>();
 
     @Override
     public boolean accumulate(Object value, boolean aggregateAsStrings) {
         value = FunctionNumeric.getComparable(value, aggregateAsStrings);
         if (value != null) {
-            cache.add((Comparable) value);
+            cache.add((Comparable<?>) value);
             return true;
         }
         return false;
@@ -44,7 +43,7 @@ public class FunctionMedian implements IAggregateFunction {
     @Override
     public Object getResult(int valueCount) {
         try {
-            Collections.sort(cache);
+            cache.sort(AggregateUtils::compareValues);
         } catch (Exception e) {
             log.debug("Can't sort value collection", e);
             return null;
@@ -55,8 +54,8 @@ public class FunctionMedian implements IAggregateFunction {
         if (size % 2 == 1) {
             return cache.get(middle);
         } else {
-            Comparable val1 = cache.get(middle - 1);
-            Comparable val2 = cache.get(middle);
+            Comparable<?> val1 = cache.get(middle - 1);
+            Comparable<?> val2 = cache.get(middle);
             if (val1 instanceof Number && val2 instanceof Number) {
                 return (((Number) val1).doubleValue() + ((Number) val2).doubleValue()) / 2.0;
             }

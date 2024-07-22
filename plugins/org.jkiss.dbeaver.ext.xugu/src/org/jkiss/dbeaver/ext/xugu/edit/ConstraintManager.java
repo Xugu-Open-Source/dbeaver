@@ -19,6 +19,8 @@ package org.jkiss.dbeaver.ext.xugu.edit;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.ext.xugu.Messages;
@@ -99,6 +101,23 @@ public class ConstraintManager extends SQLConstraintManager<TableConstraint, Bas
 	protected void addObjectCreateActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
 			List<DBEPersistAction> actions, ObjectCreateCommand command, Map<String, Object> options) {
 		TableConstraint constraint = (TableConstraint) command.getObject();
+		// 当为单列主键时，已在列中添加 PRIMARY KEY 以生成主键，此处更改表添加主键需跳过
+		if (constraint.getConstraintType() == DBSEntityConstraintType.PRIMARY_KEY) {
+			List<TableConstraintColumn> columns = constraint.getAttributeReferences(monitor);
+			if (columns.size() == 1) {
+				return;
+			}
+		}
+		// 当此唯一列约束关联列为自增列时，已在列中添加 IDENTITY 以生成唯一约束，此处更改表添加唯一约束需跳过
+		if (constraint.getConstraintType() == DBSEntityConstraintType.UNIQUE_KEY) {
+			List<TableConstraintColumn> columns = constraint.getAttributeReferences(monitor);
+			if (columns.size() == 1) {
+				TableColumn column = columns.get(0).getAttribute();
+				if (column.getMinInteger() != null && column.getStepInteger() != null) {
+					return;
+				}
+			}
+		}
 		BaseTable table = constraint.getTable();
 		StringBuilder decl = new StringBuilder(100);
 		decl.append("ALTER TABLE ");

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import org.jkiss.dbeaver.model.struct.rdb.DBSManipulationType;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableForeignKey;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.jobs.DataSourceJob;
+import org.jkiss.dbeaver.ui.ISmartTransactionManager;
 import org.jkiss.dbeaver.ui.UITask;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.resultset.internal.ResultSetMessages;
@@ -201,7 +202,10 @@ class ResultSetPersister {
             return false;
         }
 
-        if (rowIdentifier.getEntity() instanceof DBSDocumentContainer) {
+        DBSEntity entity = rowIdentifier.getEntity();
+        if (entity != null && entity.getDataSource() != null &&
+            (entity instanceof DBSDocumentContainer || entity.getDataSource().getInfo().isDynamicMetadata())
+        ) {
             // FIXME: do not refresh documents for now. Can be solved by extracting document ID attributes
             // FIXME: but it will require to provide dynamic document metadata.
             return false;
@@ -212,8 +216,12 @@ class ResultSetPersister {
             throw new DBCException("No execution context");
         }
 
-        RowRefreshJob job = new RowRefreshJob(executionContext, viewer.getDataContainer(), rowIdentifier, refreshRows);
-        viewer.queueDataPump(job);
+        viewer.queueDataPump(new RowRefreshJob(
+            executionContext,
+            new ResultSetExecutionSource(viewer.getDataContainer(), viewer, this),
+            rowIdentifier,
+            refreshRows
+        ));
         //job.schedule();
         return true;
     }
@@ -461,7 +469,7 @@ class ResultSetPersister {
                     // If new value and old value are the same - do not release it
                     if (curValue != changedValue.getValue()) {
                         DBUtils.releaseValue(curValue);
-                        model.updateCellValue(changedValue.getKey(), row, changedValue.getValue(), false);
+                        model.updateCellValue(changedValue.getKey(), row, null, changedValue.getValue(), false);
                     }
                 }
                 row.changes = null;
@@ -627,6 +635,7 @@ class ResultSetPersister {
         @Override
         protected IStatus run(DBRProgressMonitor monitor) {
             model.setUpdateInProgress(this);
+            UIUtils.asyncExec(viewer::fireResultSetChange); // Update "save" and "cancel" buttons
             updateStats = new DBCStatistics();
             insertStats = new DBCStatistics();
             deleteStats = new DBCStatistics();
@@ -1017,13 +1026,16 @@ class ResultSetPersister {
 
     private class RowRefreshJob extends ResultSetJobAbstract {
 
-        private DBSDataContainer dataContainer;
-        private DBDRowIdentifier rowIdentifier;
-        private List<ResultSetRow> rows;
+        private final DBDRowIdentifier rowIdentifier;
+        private final List<ResultSetRow> rows;
 
-        RowRefreshJob(DBCExecutionContext context, DBSDataContainer dataContainer, DBDRowIdentifier rowIdentifier, List<ResultSetRow> rows) {
-            super("Refresh rows", dataContainer, viewer, context);
-            this.dataContainer = dataContainer;
+        RowRefreshJob(
+            @NotNull DBCExecutionContext executionContext,
+            @NotNull ResultSetExecutionSource executionSource,
+            @NotNull DBDRowIdentifier rowIdentifier,
+            @NotNull List<ResultSetRow> rows
+        ) {
+            super("Refresh rows", executionSource, executionContext);
             this.rowIdentifier = rowIdentifier;
             this.rows = new ArrayList<>(rows);
         }
@@ -1035,6 +1047,7 @@ class ResultSetPersister {
             }
             monitor.beginTask("Refresh updated rows", 1);
             try {
+                final DBSDataContainer dataContainer = executionSource.getDataContainer();
                 final Object[][] refreshValues = new Object[rows.size()][];
 
                 final DBDAttributeBinding[] curAttributes = viewer.getModel().getAttributes();
@@ -1066,7 +1079,15 @@ class ResultSetPersister {
                         DBDDataFilter filter = new DBDDataFilter(constraints);
 
                         RowDataReceiver dataReceiver = new RowDataReceiver(curAttributes);
-                        final DBCStatistics stats = dataContainer.readData(executionSource, session, dataReceiver, filter, 0, 0, DBSDataContainer.FLAG_NONE, 0);
+                        final DBCStatistics stats = dataContainer.readData(
+                            executionSource,
+                            session,
+                            dataReceiver,
+                            filter,
+                            0,
+                            0,
+                            DBSDataContainer.FLAG_REFRESH,
+                            0);
                         refreshValues[i] = dataReceiver.rowValues;
                     }
                 }

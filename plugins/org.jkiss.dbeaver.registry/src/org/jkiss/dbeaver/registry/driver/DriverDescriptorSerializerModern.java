@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,10 +21,12 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.connection.DBPDriverLibrary;
 import org.jkiss.dbeaver.model.connection.DBPNativeClientLocation;
 import org.jkiss.dbeaver.model.data.json.JSONUtils;
+import org.jkiss.dbeaver.registry.DataSourceProviderDescriptor;
 import org.jkiss.dbeaver.registry.RegistryConstants;
 import org.jkiss.utils.CommonUtils;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 
@@ -35,13 +37,14 @@ public class DriverDescriptorSerializerModern extends DriverDescriptorSerializer
 
     private static final Log log = Log.getLog(DriverDescriptorSerializerModern.class);
 
-    private DriverDescriptor driver;
+    public static final String DRIVERS_FILE_NAME = "drivers-configuration.json"; //$NON-NLS-1$
 
-    DriverDescriptorSerializerModern(DriverDescriptor driver) {
-        this.driver = driver;
+    @Override
+    void serializeDrivers(OutputStream os, List<DataSourceProviderDescriptor> providers) throws IOException {
+
     }
 
-    public void serialize(JsonWriter json, boolean export) throws IOException {
+    public void serializeDriver(JsonWriter json, DriverDescriptor driver, boolean export) throws IOException {
         Map<String, String> pathSubstitutions = getPathSubstitutions();
 
         json.name(driver.getId());
@@ -111,7 +114,10 @@ public class DriverDescriptorSerializerModern extends DriverDescriptorSerializer
                                         if (!CommonUtils.isEmpty(file.getVersion())) {
                                             JSONUtils.field(json, RegistryConstants.ATTR_VERSION, file.getVersion());
                                         }
-                                        JSONUtils.field(json, RegistryConstants.ATTR_PATH, substitutePathVariables(pathSubstitutions, file.getFile().getAbsolutePath()));
+                                        JSONUtils.field(
+                                            json,
+                                            RegistryConstants.ATTR_PATH,
+                                            substitutePathVariables(pathSubstitutions, file.getFile().toAbsolutePath().toString()));
                                         json.endObject();
                                     }
                                 }
@@ -144,7 +150,7 @@ public class DriverDescriptorSerializerModern extends DriverDescriptorSerializer
                 json.name("driver-parameters");
                 json.beginObject();
                 for (Map.Entry<String, Object> paramEntry : driver.getCustomParameters().entrySet()) {
-                    if (!CommonUtils.equalObjects(paramEntry.getValue(), driver.getDefaultParameters().get(paramEntry.getKey()))) {
+                    if (driver.isCustom() || !CommonUtils.equalObjects(paramEntry.getValue(), driver.getDefaultParameters().get(paramEntry.getKey()))) {
                         json.name(paramEntry.getKey());
                         json.value(CommonUtils.toString(paramEntry.getValue()));
                     }
@@ -153,10 +159,10 @@ public class DriverDescriptorSerializerModern extends DriverDescriptorSerializer
             }
 
             // Properties
-            if (!CommonUtils.isEmpty(driver.getCustomConnectionProperties())) {
+            if (!CommonUtils.isEmpty(driver.getConnectionProperties())) {
                 json.name("connection-properties");
                 json.beginObject();
-                for (Map.Entry<String, Object> propEntry : driver.getCustomConnectionProperties().entrySet()) {
+                for (Map.Entry<String, Object> propEntry : driver.getConnectionProperties().entrySet()) {
                     if (!CommonUtils.equalObjects(propEntry.getValue(), driver.getDefaultConnectionProperties().get(propEntry.getKey()))) {
                         json.name(CommonUtils.toString(propEntry.getKey()));
                         json.value(CommonUtils.toString(propEntry.getValue()));

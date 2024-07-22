@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.jkiss.dbeaver.model.edit.*;
 import org.jkiss.dbeaver.model.exec.*;
 import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 
@@ -220,6 +221,8 @@ public abstract class AbstractCommandContext implements DBECommandContext {
                                     throw error;
                                 }
                                 if (txnManager != null && txnManager.isSupportsTransactions() && !txnManager.isAutoCommit()) {
+                                    // Disable logging to avoid QM handlers notifications.
+                                    session.enableLogging(false);
                                     // Commit all processed changes
                                     txnManager.commit(session);
                                 }
@@ -619,7 +622,7 @@ public abstract class AbstractCommandContext implements DBECommandContext {
                 }
             }
             if (queue == null) {
-                DBEObjectManager<?> objectManager = executionContext.getDataSource().getContainer().getPlatform().getEditorsRegistry().getObjectManager(object.getClass());
+                DBEObjectManager<?> objectManager = DBWorkbench.getPlatform().getEditorsRegistry().getObjectManager(object.getClass());
                 if (objectManager == null) {
                     throw new IllegalStateException("Can't find object manager for '" + object.getClass().getName() + "'");
                 }

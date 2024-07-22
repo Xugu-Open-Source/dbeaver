@@ -22,6 +22,7 @@ import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.data.DBDFormatSettings;
 import org.jkiss.dbeaver.model.data.DBDValueHandler;
 import org.jkiss.dbeaver.model.data.DBDValueHandlerProvider;
+import org.jkiss.dbeaver.model.impl.jdbc.data.handlers.JDBCContentValueHandler;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 
 import java.sql.Types;
@@ -45,13 +46,20 @@ public class ValueHandlerProvider implements DBDValueHandlerProvider {
 			break;
 		}
 
-		final String typeName = typedObject.getTypeName();
+		final String typeName = typedObject.getTypeName().toUpperCase();
 		switch (typeName) {
+		case Constants.TYPE_NAME_JSON:
+            return JDBCContentValueHandler.INSTANCE;
 		case Constants.TYPE_NAME_XML:
-		case Constants.TYPE_FQ_XML:
+		case Constants.TYPE_NAME_XMLTYPE:
 			return XmlValueHandler.INSTANCE;
 		case Constants.TYPE_NAME_BFILE:
 			return BfileValueHandler.INSTANCE;
+		case Constants.TYPE_NAME_GEOMETRY:
+			return GeometryValueHandler.INSTANCE;
+		case Constants.TYPE_NAME_BIT:
+		case Constants.TYPE_NAME_VARBIT:
+			return BitValueHandler.INSTANCE;
 		default:
 			break;
 		}

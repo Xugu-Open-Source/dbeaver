@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import org.eclipse.jface.action.IContributionManager;
 import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.dialogs.IDialogSettings;
 import org.eclipse.jface.viewers.*;
+import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.CTabItem;
@@ -39,7 +40,9 @@ import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchSite;
 import org.eclipse.ui.PartInitException;
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.DBPObject;
 import org.jkiss.dbeaver.model.DBPObjectWithDescription;
 import org.jkiss.dbeaver.model.DBUtils;
@@ -214,7 +217,7 @@ public class SessionManagerViewer<SESSION_TYPE extends DBAServerSession>
                                 DetailsListControl detailsProps = new DetailsListControl(detailsFolder, workbenchPart.getSite(), detailsInfo);
                                 extDetailsItem.setControl(detailsProps);
                             } else {
-                                extDetailsItem.setControl(UIUtils.createLabel(detailsFolder, "Unsupported details type: " + detailsType));
+                                extDetailsItem.setControl(UIUtils.createLabel(detailsFolder, NLS.bind(SessionEditorMessages.viewer_unsupported_details_type_label, detailsType)));
                             }
                         }
                     }
@@ -316,7 +319,7 @@ public class SessionManagerViewer<SESSION_TYPE extends DBAServerSession>
 
     private void showPlanNode()
     {
-        detailsItem.setText("Plan Details");
+        detailsItem.setText(SessionEditorMessages.viewer_plan_details_text);
 
         ISelection selection = planViewer.getSelection();
         if (selection.isEmpty()) {
@@ -358,14 +361,9 @@ public class SessionManagerViewer<SESSION_TYPE extends DBAServerSession>
 
     }
 
-    public DBAServerSession getSelectedSession()
-    {
-        ISelection selection = sessionTable.getSelectionProvider().getSelection();
-        if (selection instanceof IStructuredSelection && !selection.isEmpty()) {
-            return (DBAServerSession)((IStructuredSelection) selection).getFirstElement();
-        } else {
-            return null;
-        }
+    @Nullable
+    public DBAServerSession getSelectedSession() {
+        return sessionTable.getSuitableSelectedElement(DBAServerSession.class);
     }
 
     public List<DBAServerSession> getSelectedSessions()
@@ -450,7 +448,7 @@ public class SessionManagerViewer<SESSION_TYPE extends DBAServerSession>
 
     private class SessionListControl extends SessionTable<SESSION_TYPE> {
 
-        private SessionSearcher searcher;
+        private final SessionSearcher searcher;
 
         SessionListControl(Composite sash, IWorkbenchSite site, DBAServerSessionManager<SESSION_TYPE> sessionManager)
         {
@@ -465,10 +463,10 @@ public class SessionManagerViewer<SESSION_TYPE extends DBAServerSession>
             if (sessionManager instanceof DBAServerSessionManagerSQL &&
                 ((DBAServerSessionManagerSQL) sessionManager).canGenerateSessionReadQuery())
             {
-                contributionManager.add(ActionUtils.makeActionContribution(new Action("SQL", IAction.AS_PUSH_BUTTON) {
+                contributionManager.add(ActionUtils.makeActionContribution(new Action(SessionEditorMessages.viewer_open_sql_editor_text, IAction.AS_PUSH_BUTTON) {
                     {
-                        setImageDescriptor(DBeaverIcons.getImageDescriptor(UIIcon.SQL_SCRIPT));
-                        setToolTipText("Open SQL editor and execute session read SQL query");
+                        setImageDescriptor(DBeaverIcons.getImageDescriptor(DBIcon.TREE_SCRIPT));
+                        setToolTipText(SessionEditorMessages.viewer_open_sql_editor_tip);
                     }
                     @Override
                     public void run()
@@ -483,13 +481,14 @@ public class SessionManagerViewer<SESSION_TYPE extends DBAServerSession>
                                 SQLEditorHandlerOpenObjectConsole.openAndExecuteSQLScript(
                                     UIUtils.getActiveWorkbenchWindow(),
                                     navContext,
-                                    "Session manager SQL",
+                                    SessionEditorMessages.viewer_session_manager_sql_title,
                                     true,
                                     new StructuredSelection(),
                                     sqlScript
                                 );
                             } catch (CoreException e) {
-                                DBWorkbench.getPlatformUI().showError("Can not open editor", "Error opening SQL editor", e);
+                                DBWorkbench.getPlatformUI().showError(SessionEditorMessages.viewer_session_manager_error_opening_editor_title,
+                                    SessionEditorMessages.viewer_session_manager_error_opening_editor_message, e);
                             }
                         }
                     }
@@ -498,7 +497,7 @@ public class SessionManagerViewer<SESSION_TYPE extends DBAServerSession>
             }
 
             refreshControl.populateRefreshButton(contributionManager);
-            contributionManager.add(new Action("Refresh sessions", DBeaverIcons.getImageDescriptor(UIIcon.REFRESH)) {
+            contributionManager.add(new Action(SessionEditorMessages.viewer_session_manager_refresh_sessions_action, DBeaverIcons.getImageDescriptor(UIIcon.REFRESH)) {
                 @Override
                 public void run()
                 {
@@ -578,15 +577,17 @@ public class SessionManagerViewer<SESSION_TYPE extends DBAServerSession>
 
         private final class SessionLoadVisualizer extends ObjectsLoadVisualizer {
             @Override
-            public void completeLoading(@NotNull Collection<SESSION_TYPE> items) {
+            public void completeLoading(Collection<SESSION_TYPE> items) {
                 Collection<DBAServerSession> previouslySelectedSessions = getSelectedSessions();
                 super.completeLoading(items);
-                Object[] sessionsToSelect = previouslySelectedSessions.stream().filter(items::contains).toArray();
-                sessionTable.getItemsViewer().setSelection(new StructuredSelection(sessionsToSelect));
-                if (items.contains(curSession)) {
-                    onSessionSelect(curSession);
-                } else {
-                    onSessionSelect(null);
+                if (items != null) {
+                    Object[] sessionsToSelect = previouslySelectedSessions.stream().filter(items::contains).toArray();
+                    sessionTable.getItemsViewer().setSelection(new StructuredSelection(sessionsToSelect));
+                    if (items.contains(curSession)) {
+                        onSessionSelect(curSession);
+                    } else {
+                        onSessionSelect(null);
+                    }
                 }
             }
 

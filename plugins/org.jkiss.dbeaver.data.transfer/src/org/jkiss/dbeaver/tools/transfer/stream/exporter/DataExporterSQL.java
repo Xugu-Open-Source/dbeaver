@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,21 +16,23 @@
  */
 package org.jkiss.dbeaver.tools.transfer.stream.exporter;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.model.DBPDataKind;
-import org.jkiss.dbeaver.model.DBPIdentifierCase;
-import org.jkiss.dbeaver.model.DBPNamedObject;
-import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.data.*;
 import org.jkiss.dbeaver.model.exec.DBCResultSet;
 import org.jkiss.dbeaver.model.exec.DBCSession;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLConstants;
 import org.jkiss.dbeaver.model.sql.SQLDialect;
+import org.jkiss.dbeaver.model.sql.SQLQueryContainer;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
+import org.jkiss.dbeaver.model.sql.parser.SQLIdentifierDetector;
 import org.jkiss.dbeaver.model.struct.DBSDataManipulator;
+import org.jkiss.dbeaver.tools.transfer.DTConstants;
 import org.jkiss.dbeaver.tools.transfer.DTUtils;
+import org.jkiss.dbeaver.tools.transfer.stream.IAppendableDataExporter;
 import org.jkiss.dbeaver.tools.transfer.stream.IStreamDataExporterSite;
 import org.jkiss.dbeaver.utils.ContentUtils;
 import org.jkiss.dbeaver.utils.GeneralUtils;
@@ -40,12 +42,13 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Reader;
+import java.util.Arrays;
 import java.util.Map;
 
 /**
  * SQL Exporter
  */
-public class DataExporterSQL extends StreamExporterAbstract {
+public class DataExporterSQL extends StreamExporterAbstract implements IAppendableDataExporter {
 
     private static final Log log = Log.getLog(DataExporterSQL.class);
 
@@ -53,9 +56,11 @@ public class DataExporterSQL extends StreamExporterAbstract {
     private static final String PROP_OMIT_SCHEMA = "omitSchema";
     private static final String PROP_ROWS_IN_STATEMENT = "rowsInStatement";
     private static final String PROP_DATA_FORMAT = "nativeFormat";
+    private static final String PROP_USER_TABLE_NAME = "userTableName";
     private static final char STRING_QUOTE = '\'';
     private static final String PROP_LINE_BEFORE_ROWS = "lineBeforeRows";
     private static final String PROP_KEYWORD_CASE = "keywordCase";
+    private static final String PROP_IDENTIFIER_CASE = "identifierCase";
     private static final String PROP_UPSERT = "upsertKeyword";
     private static final String PROP_ON_CONFLICT = "insertOnConflict";
 
@@ -68,6 +73,7 @@ public class DataExporterSQL extends StreamExporterAbstract {
     private String tableName;
     private DBDAttributeBinding[] columns;
     private boolean oneLineEntry;
+    private String userTableName;
 
     private final String KEYWORD_INSERT_INTO = "INSERT INTO";
     private final String KEYWORD_VALUES = "VALUES";
@@ -81,6 +87,7 @@ public class DataExporterSQL extends StreamExporterAbstract {
     private final static String KEYWORD_ON_CONFLICT = "ON CONFLICT";
 
     private DBPIdentifierCase identifierCase;
+    private DBPIdentifierCase columnsAndTableNamesCase;
     private static String onConflictExpression;
 
     private transient StringBuilder sqlBuffer = new StringBuilder(100);
@@ -136,6 +143,7 @@ public class DataExporterSQL extends StreamExporterAbstract {
         } catch (NumberFormatException e) {
             rowsInStatement = 10;
         }
+        userTableName = CommonUtils.toString(properties.get(PROP_USER_TABLE_NAME));
         useNativeDataFormat = CommonUtils.toBoolean(properties.get(PROP_DATA_FORMAT));
         lineBeforeRows = CommonUtils.toBoolean(properties.get(PROP_LINE_BEFORE_ROWS));
         rowDelimiter = GeneralUtils.getDefaultLineSeparator();
@@ -149,10 +157,19 @@ public class DataExporterSQL extends StreamExporterAbstract {
         }
 
         String keywordCase = CommonUtils.toString(properties.get(PROP_KEYWORD_CASE));
-        if (keywordCase.equalsIgnoreCase("lower")) {
+        if (keywordCase.equals("lower")) {
             identifierCase = DBPIdentifierCase.LOWER;
         } else {
             identifierCase = DBPIdentifierCase.UPPER;
+        }
+
+        String identifierCaseProp = CommonUtils.toString(properties.get(PROP_IDENTIFIER_CASE));
+        if (identifierCaseProp.equals("as is")) {
+            columnsAndTableNamesCase = DBPIdentifierCase.MIXED;
+        } else if (identifierCaseProp.equals("lower")) {
+            columnsAndTableNamesCase = DBPIdentifierCase.LOWER;
+        } else {
+            columnsAndTableNamesCase = DBPIdentifierCase.UPPER;
         }
 
         insertKeyword = InsertKeyword.fromValue(CommonUtils.toString(properties.get(PROP_UPSERT)));
@@ -165,7 +182,7 @@ public class DataExporterSQL extends StreamExporterAbstract {
     }
 
     @Override
-    public void exportHeader(DBCSession session) throws DBException, IOException {
+    public void exportHeader(DBCSession session) {
         if (useNativeDataFormat) {
             if (session instanceof DBDFormatSettingsExt) {
                 ((DBDFormatSettingsExt) session).setUseNativeDateTimeFormat(true);
@@ -173,9 +190,38 @@ public class DataExporterSQL extends StreamExporterAbstract {
         }
         columns = getSite().getAttributes();
         DBPNamedObject source = getSite().getSource();
-        tableName = DTUtils.getTableName(session.getDataSource(), source, omitSchema);
+        if (CommonUtils.isNotEmpty(userTableName)) {
+            // We will use custom table name in this case. As is.
+            tableName = userTableName;
+        } else if (source instanceof SQLQueryContainer) {
+            tableName = DTUtils.getTableNameFromQueryContainer(session.getDataSource(), (SQLQueryContainer) source);
+            if (CommonUtils.isEmpty(tableName)) {
+                tableName = DTUtils.getTargetContainersNameFromQuery((SQLQueryContainer) source);
+            }
+        } else {
+            tableName = DTUtils.getTableName(session.getDataSource(), source, omitSchema);
+        }
+        if (CommonUtils.isEmpty(tableName)) {
+            tableName = DTConstants.DEFAULT_TABLE_NAME_EXPORT;
+        }
 
         rowCount = 0;
+    }
+
+    private String transformTableNameCase(DBPDataSource dataSource, String tableIdentifier) {
+        if (!columnsAndTableNamesCase.equals(DBPIdentifierCase.MIXED)) {
+            SQLIdentifierDetector identifierDetector = new SQLIdentifierDetector(SQLUtils.getDialectFromDataSource(dataSource));
+            String[] mayBeQualifiedNameParts = Arrays.stream(identifierDetector.splitIdentifier(tableIdentifier))
+                    .map(name -> transformIdentifierCase(dataSource, name))
+                    .toArray(String[]::new);
+            return DBUtils.getFullyQualifiedName(dataSource, mayBeQualifiedNameParts);
+        } else {
+            return tableIdentifier;
+        }
+    }
+
+    private String transformIdentifierCase(DBPDataSource dataSource, String identifier) {
+        return DBUtils.isQuotedIdentifier(dataSource, identifier) ? identifier : columnsAndTableNamesCase.transform(identifier);
     }
 
     @Override
@@ -198,7 +244,7 @@ public class DataExporterSQL extends StreamExporterAbstract {
                     }
                     sqlBuffer.append(";");
                 } else if (insertKeyword == InsertKeyword.INSERT_ALL && rowCount % rowsInStatement == 0) {
-                    sqlBuffer.append("\n").append(identifierCase.transform(KEYWORD_SELECT_FROM_DUAL)).append(";");
+                    sqlBuffer.append(rowDelimiter).append(identifierCase.transform(KEYWORD_SELECT_FROM_DUAL)).append(";");
                 }
                 if (lineBeforeRows) {
                     sqlBuffer.append(rowDelimiter);
@@ -224,7 +270,7 @@ public class DataExporterSQL extends StreamExporterAbstract {
                         sqlBuffer.append(identifierCase.transform(KEYWORD_INSERT_INTO));
                     }
             }
-            sqlBuffer.append(" ").append(tableName).append(" (");
+            sqlBuffer.append(" ").append(transformTableNameCase(session.getDataSource(), tableName)).append(" (");
             boolean hasColumn = false;
             for (DBDAttributeBinding column : columns) {
                 if (isSkipColumn(column)) {
@@ -234,7 +280,7 @@ public class DataExporterSQL extends StreamExporterAbstract {
                     sqlBuffer.append(',');
                 }
                 hasColumn = true;
-                sqlBuffer.append(DBUtils.getQuotedIdentifier(column));
+                sqlBuffer.append(transformIdentifierCase(session.getDataSource(), DBUtils.getQuotedIdentifier(column)));
             }
             sqlBuffer.append(") ");
             sqlBuffer.append(identifierCase.transform(KEYWORD_VALUES));
@@ -298,7 +344,7 @@ public class DataExporterSQL extends StreamExporterAbstract {
                 } catch (Exception e) {
                     log.warn(e);
                 } finally {
-                    content.release();
+                    DTUtils.closeContents(resultSet, content);
                 }
             } else if (value instanceof File) {
                 out.write("@");
@@ -345,14 +391,15 @@ public class DataExporterSQL extends StreamExporterAbstract {
     @Override
     public void exportFooter(DBRProgressMonitor monitor) {
         PrintWriter out = getWriter();
-        if (insertKeyword == InsertKeyword.INSERT_ALL) {
-            if (rowCount > 0) {
-                out.write("\n" + identifierCase.transform(KEYWORD_SELECT_FROM_DUAL) + ";");
-            }
-        } else if (!oneLineEntry){
-            if (rowCount > 0) {
+        if (rowCount > 0) {
+        	if (insertKeyword == InsertKeyword.INSERT_ALL) {
+                out.write(rowDelimiter + identifierCase.transform(KEYWORD_SELECT_FROM_DUAL) + ";");
+            } else if (!oneLineEntry) {
                 addOnConflictExpression(out);
                 out.write(";");
+                out.write(rowDelimiter);
+            } else {
+                out.write(rowDelimiter);
             }
         }
     }
@@ -390,7 +437,18 @@ public class DataExporterSQL extends StreamExporterAbstract {
             ContentUtils.close(reader);
         }
     }
-
+    
+    @Override
+    public void importData(@NotNull IStreamDataExporterSite site) {
+    	// This method is called before this.init().
+    	// No pre-initialization process is needed.
+    }
+    
+    @Override
+    public boolean shouldTruncateOutputFileBeforeExport() {
+        return false;
+    }
+    
     private SQLDialect.MultiValueInsertMode getDefaultMultiValueInsertMode() {
         SQLDialect.MultiValueInsertMode insertMode = SQLDialect.MultiValueInsertMode.NOT_SUPPORTED;
         if (dialect != null && rowsInStatement != 1) {

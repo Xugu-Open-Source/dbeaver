@@ -1,0 +1,67 @@
+{
+	"folders": {},
+	"connections": {
+		"Xugu SQL Server-18e9884ff50-13357f9ca9f96422": {
+			"provider": "xugu",
+			"driver": "Xugu SQL Server",
+			"name": "SYSTEM",
+			"save-password": true,
+			"read-only": false,
+			"configuration": {
+				"host": "localhost",
+				"port": "5137",
+				"server": "SYSDBA",
+				"database": "SYSTEM",
+				"url": "jdbc:xugu://localhost:5137/SYSTEM",
+				"type": "dev",
+				"properties": {
+					"iso_level": "READ COMMITTED",
+					"sql_cursor": "sql_cursor",
+					"lock_timeout": "3600000",
+					"return_rowid": "false",
+					"auto_commit": "on",
+					"char_set": "utf8",
+					"recv_mode": "2",
+					"isCompatible": "false"
+				},
+				"provider-properties": {
+					"SYSDBA": "SYSDBA"
+				},
+				"handlers": {}
+			},
+			"custom-properties": {
+				"gis.geometry.viewer.id": "browser"
+			}
+		},
+		"mysql8-18e98856f3a-d77e1eb02ca0a2b": {
+			"provider": "mysql",
+			"driver": "mysql8",
+			"name": "u1_wxl_test",
+			"save-password": true,
+			"read-only": false,
+			"configuration": {
+				"host": "10.28.23.161",
+				"port": "3306",
+				"database": "u1_wxl_test",
+				"url": "jdbc:mysql://10.28.23.161:3306/u1_wxl_test",
+				"home": "mysql_client",
+				"type": "dev",
+				"auth-model": "native"
+			},
+			"custom-properties": {
+				"SQLEditor.outputPanel.autoShow": "false"
+			}
+		}
+	},
+	"connection-types": {
+		"dev": {
+			"name": "开发",
+			"color": "255,255,255",
+			"description": "常规开发数据库",
+			"auto-commit": true,
+			"confirm-execute": false,
+			"confirm-data-change": false,
+			"auto-close-transactions": false
+		}
+	}
+}

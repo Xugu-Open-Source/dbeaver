@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,14 @@ package org.jkiss.dbeaver.model.sql;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
-import org.jkiss.dbeaver.model.DBPDataKind;
-import org.jkiss.dbeaver.model.DBPDataSource;
-import org.jkiss.dbeaver.model.DBPIdentifierCase;
-import org.jkiss.dbeaver.model.DBPKeywordType;
+import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.data.DBDBinaryFormatter;
 import org.jkiss.dbeaver.model.data.DBDDataFilter;
 import org.jkiss.dbeaver.model.exec.DBCLogicalOperator;
+import org.jkiss.dbeaver.model.impl.sql.SQLDialectQueryGenerator;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.sql.parser.SQLTokenPredicateSet;
+import org.jkiss.dbeaver.model.struct.DBSAttributeBase;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedure;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureParameter;
@@ -33,11 +33,12 @@ import org.jkiss.utils.Pair;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 /**
  * SQL dialect
  */
+@DPIObject
+@DPIElement
 public interface SQLDialect {
 
     int USAGE_NONE = 0;
@@ -54,6 +55,9 @@ public interface SQLDialect {
         PLAIN,
         INSERT_ALL
     }
+
+    @NotNull
+    SQLDialectQueryGenerator getQueryGenerator();
 
     @NotNull
     String getDialectId();
@@ -113,11 +117,11 @@ public interface SQLDialect {
      *         SQL92 keywords
      */
     @NotNull
-    Set<String> getReservedWords();
+    Collection<String> getReservedWords();
     @NotNull
-    Set<String> getFunctions(@Nullable DBPDataSource dataSource);
+    Collection<String> getFunctions();
     @NotNull
-    Set<String> getDataTypes(@Nullable DBPDataSource dataSource);
+    Collection<String> getDataTypes(@Nullable DBPDataSource dataSource);
     @Nullable
     DBPKeywordType getKeywordType(@NotNull String word);
     @NotNull
@@ -248,6 +252,8 @@ public interface SQLDialect {
 
     boolean useCaseInsensitiveNameLookup();
 
+    boolean hasCaseSensitiveFiltration();
+
     boolean supportsUnquotedMixedCase();
 
     boolean supportsQuotedMixedCase();
@@ -257,6 +263,25 @@ public interface SQLDialect {
     boolean supportsAliasInSelect();
 
     boolean supportsAliasInUpdate();
+
+    /**
+     * Column name to list all table columns. Usually asterisk (*).
+     */
+    @Nullable
+    String getAllAttributesAlias();
+
+    /**
+     * Column name to use in grouping queries like COUNT. Usually asterisk (*).
+     */
+    @Nullable
+    String getDefaultGroupAttribute();
+
+    boolean supportsAliasInConditions();
+
+    /**
+     * Checks whether dialect supports alias for queries with HAVING syntax.
+     */
+    boolean supportsAliasInHaving();
 
     boolean supportsTableDropCascade();
 
@@ -271,6 +296,8 @@ public interface SQLDialect {
 
     boolean supportsNullability();
 
+    boolean supportsColumnAutoIncrement();
+
     @Nullable
     SQLExpressionFormatter getCaseInsensitiveExpressionFormatter(@NotNull DBCLogicalOperator operator);
 
@@ -281,13 +308,22 @@ public interface SQLDialect {
     DBPIdentifierCase storesQuotedCase();
 
     /**
+     * Enables to call particular cast operator or function for special attribute name.
+     * @param attribute   attribute data to help decide whether cast and how to cast
+     * @param attributeName
+     * @return            casted attribute name
+     */
+    String getCastedAttributeName(@NotNull DBSAttributeBase attribute, String attributeName);
+
+    /**
      * Enables to call particular cast operator or function for special data types.
      * @param attribute   value attribute to help decide whether cast and how to cast
      * @param expression      string representation for cast
+     * @param isInCondition helps to understand the application place of the method
      * @return            casted string
      */
     @NotNull
-    String getTypeCastClause(DBSTypedObject attribute, String expression);
+    String getTypeCastClause(@NotNull DBSTypedObject attribute, String expression, boolean isInCondition);
 
     /**
      * Quoting functions
@@ -297,7 +333,16 @@ public interface SQLDialect {
 
     String getQuotedIdentifier(String identifier, boolean forceCaseSensitive, boolean forceQuotes);
 
+    /**
+     * @param str - string that must be unquoted for this check - otherwise method will return true
+     * @param forceCaseSensitive the level of case sensitivity
+     * @return true if incoming string must be quoted
+     */
+    boolean mustBeQuoted(@NotNull String str, boolean forceCaseSensitive);
+
     String getUnquotedIdentifier(String identifier);
+
+    String getUnquotedIdentifier(String identifier, boolean unescapeQuotesInsideIdentifier);
 
     boolean isQuotedString(String string);
 
@@ -376,6 +421,9 @@ public interface SQLDialect {
     @Nullable
     String getTestSQL();
 
+    @NotNull
+    Pair<String, String> getInClauseParentheses();
+
     /**
      * Dual table name.
      * Used to evaluate expressions, call procedures, etc.
@@ -383,6 +431,12 @@ public interface SQLDialect {
      */
     @Nullable
     String getDualTableName();
+
+    /**
+     * Returns true if the comments need to be removed from the statement if
+     * they are right before the block declaration
+     */
+    boolean isStripCommentsBeforeBlocks();
 
     /**
      * Returns true if query is definitely transactional. Otherwise returns false, however it still may be transactional.
@@ -407,12 +461,34 @@ public interface SQLDialect {
      */
     String formatStoredProcedureCall(DBPDataSource dataSource, String sqlText);
 
-    void generateStoredProcedureCall(StringBuilder sql, DBSProcedure proc, Collection<? extends DBSProcedureParameter> parameters);
+    /**
+     * Generates stored procedure call. Parameters (optionally) can be surrounded by cast(:param as paramType).
+     */
+    void generateStoredProcedureCall(
+        StringBuilder sql, 
+        DBSProcedure proc, 
+        Collection<? extends DBSProcedureParameter> parameters,
+        boolean castParams
+    );
 
     boolean isDisableScriptEscapeProcessing();
 
     boolean supportsAlterTableStatement();
 
+    boolean supportsIndexCreateAndDrop();
+
     boolean supportsInsertAllDefaultValuesStatement();
 
+    /**
+     * Generates a set of connection-specific dialect features which require special handling during SQL parsing
+     * (empty by default)
+     * @return a set of token predicates
+     */
+    @NotNull
+    SQLTokenPredicateSet getSkipTokenPredicates();
+    
+    /**
+     * @return a set of SQLBlockCompletions with information about blocks for autoedit
+     */
+    SQLBlockCompletions getBlockCompletions();
 }

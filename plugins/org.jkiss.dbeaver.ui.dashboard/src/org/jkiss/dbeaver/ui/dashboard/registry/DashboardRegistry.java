@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +22,11 @@ import org.eclipse.core.runtime.Platform;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBPNamedObject;
+import org.jkiss.dbeaver.model.WorkspaceConfigEventManager;
 import org.jkiss.dbeaver.model.connection.DBPDataSourceProviderDescriptor;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
+import org.jkiss.dbeaver.model.rm.RMConstants;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.dashboard.internal.UIDashboardActivator;
 import org.jkiss.dbeaver.ui.dashboard.model.DashboardDataType;
 import org.jkiss.dbeaver.ui.dashboard.model.DashboardViewType;
@@ -31,20 +34,22 @@ import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.xml.XMLBuilder;
-import org.jkiss.utils.xml.XMLException;
 import org.jkiss.utils.xml.XMLUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.OutputStream;
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.util.*;
 
 public class DashboardRegistry {
     private static final Log log = Log.getLog(DashboardRegistry.class);
+    
+    public static final String CONFIG_FILE_NAME = "dashboards.xml";
 
     private static DashboardRegistry instance = null;
+
+    private final Object syncRoot = new Object();
 
     public synchronized static DashboardRegistry getInstance() {
         if (instance == null) {
@@ -85,47 +90,65 @@ public class DashboardRegistry {
         }
 
         // Load dashboards from config
-        File configFile = getDashboardsConfigFile();
-        if (configFile.exists()) {
-            try {
-                loadConfigFromFile(configFile);
-            } catch (Exception e) {
-                log.error("Error loading dashboard configuration", e);
-            }
-        }
+        loadConfigFromFile();
+        WorkspaceConfigEventManager.addConfigChangedListener(CONFIG_FILE_NAME, o -> {
+            loadConfigFromFile();
+        });
     }
 
-    private void loadConfigFromFile(File configFile) throws XMLException {
-        Document dbDocument = XMLUtils.parseDocument(configFile);
-        for (Element dbElement : XMLUtils.getChildElementList(dbDocument.getDocumentElement(), "dashboard")) {
-            DashboardDescriptor dashboard = new DashboardDescriptor(this, dbElement);
-            dashboardList.put(dashboard.getId(), dashboard);
+    private void loadConfigFromFile() {
+        try {
+            String configContent = DBWorkbench.getPlatform()
+                .getPluginConfigurationController(UIDashboardActivator.PLUGIN_ID)
+                .loadConfigurationFile(CONFIG_FILE_NAME);
+            
+            synchronized (syncRoot) {
+                // Clear all custom dashboards
+                dashboardList.values().removeIf(DashboardDescriptor::isCustom);
+                if (CommonUtils.isNotEmpty(configContent)) {
+                    Document dbDocument = XMLUtils.parseDocument(new StringReader(configContent));
+                    for (Element dbElement : XMLUtils.getChildElementList(dbDocument.getDocumentElement(), "dashboard")) {
+                        DashboardDescriptor dashboard = new DashboardDescriptor(this, dbElement);
+                        dashboardList.put(dashboard.getId(), dashboard);
+                    }
+                }            
+            }
+        } catch (Exception e) {
+            log.error("Error loading dashboard configuration", e);
         }
     }
 
     private void saveConfigFile() {
-        try (OutputStream out = new FileOutputStream(getDashboardsConfigFile())){
+        if (!DBWorkbench.getPlatform().getWorkspace().hasRealmPermission(RMConstants.PERMISSION_CONFIGURATION_MANAGER)) {
+            log.warn("The user has no permission to save dashboards configuration");
+            return;
+        }
+        try {
+            StringWriter out = new StringWriter();
             XMLBuilder xml = new XMLBuilder(out, GeneralUtils.UTF8_ENCODING);
             xml.setButify(true);
             xml.startElement("dashboards");
-            for (DashboardDescriptor dashboard : dashboardList.values()) {
-                if (dashboard.isCustom()) {
-                    xml.startElement("dashboard");
-                    dashboard.serialize(xml);
-                    xml.endElement();
+            synchronized (syncRoot) {
+                for (DashboardDescriptor dashboard : dashboardList.values()) {
+                    if (dashboard.isCustom()) {
+                        xml.startElement("dashboard");
+                        dashboard.serialize(xml);
+                        xml.endElement();
+                    }
                 }
             }
             xml.endElement();
             xml.flush();
+            out.flush();
+            
+            DBWorkbench.getPlatform()
+                .getPluginConfigurationController(UIDashboardActivator.PLUGIN_ID)
+                .saveConfigurationFile(CONFIG_FILE_NAME, out.getBuffer().toString());
         } catch (Exception e) {
             log.error("Error saving dashboard configuration", e);
         }
     }
-
-    private File getDashboardsConfigFile() {
-        return new File(UIDashboardActivator.getDefault().getStateLocation().toFile(), "dashboards.xml");
-    }
-
+    
     public DashboardViewTypeDescriptor getViewType(String id) {
         for (DashboardViewTypeDescriptor descriptor : viewTypeList) {
             if (descriptor.getId().equals(id)) {
@@ -136,15 +159,20 @@ public class DashboardRegistry {
     }
 
     public List<DashboardDescriptor> getAllDashboards() {
-        return new ArrayList<>(dashboardList.values());
+        synchronized (syncRoot) {
+            return new ArrayList<>(dashboardList.values());
+        }
     }
 
     public DashboardDescriptor getDashboard(String id) {
-        return dashboardList.get(id);
+        synchronized (syncRoot) {
+            return dashboardList.get(id);
+        }
     }
 
     /**
-     * Find dashboard matchign source. Source can be {@link DBPDataSourceContainer}, {@link DBPDataSourceProviderDescriptor} or {@link DBPDriver}
+     * Find dashboard matching source.
+     * Source can be {@link DBPDataSourceContainer}, {@link DBPDataSourceProviderDescriptor} or {@link DBPDriver}
      */
     public List<DashboardDescriptor> getDashboards(DBPNamedObject source, boolean defaultOnly) {
         if (source instanceof DBPDataSourceContainer) {
@@ -162,10 +190,12 @@ public class DashboardRegistry {
         }
 
         List<DashboardDescriptor> result = new ArrayList<>();
-        for (DashboardDescriptor dd : dashboardList.values()) {
-            if (dd.matches(providerId, driverId, driverClass)) {
-                if (!defaultOnly || dd.isShowByDefault()) {
-                    result.add(dd);
+        synchronized (syncRoot) {
+            for (DashboardDescriptor dd : dashboardList.values()) {
+                if (dd.matches(providerId, driverId, driverClass)) {
+                    if (!defaultOnly || dd.isShowByDefault()) {
+                        result.add(dd);
+                    }
                 }
             }
         }
@@ -173,27 +203,37 @@ public class DashboardRegistry {
     }
 
     public void createDashboard(DashboardDescriptor dashboard) throws IllegalArgumentException {
-        if (dashboardList.containsKey(dashboard.getId())) {
-            throw new IllegalArgumentException("Dashboard " + dashboard.getId() + "' already exists");
+        synchronized (syncRoot) {
+            if (!DBWorkbench.getPlatform().getWorkspace().hasRealmPermission(RMConstants.PERMISSION_CONFIGURATION_MANAGER)) {
+                throw new IllegalArgumentException("The user has no permission to create dashboard configuration");
+            }
+            if (dashboardList.containsKey(dashboard.getId())) {
+                throw new IllegalArgumentException("Dashboard " + dashboard.getId() + "' already exists");
+            }
+            if (!dashboard.isCustom()) {
+                throw new IllegalArgumentException("Only custom dashboards can be added");
+            }
+            dashboardList.put(dashboard.getId(), dashboard);
+    
+            saveConfigFile();
         }
-        if (!dashboard.isCustom()) {
-            throw new IllegalArgumentException("Only custom dashboards can be added");
-        }
-        dashboardList.put(dashboard.getId(), dashboard);
-
-        saveConfigFile();
     }
 
     public void removeDashboard(DashboardDescriptor dashboard) throws IllegalArgumentException {
-        if (!dashboardList.containsKey(dashboard.getId())) {
-            throw new IllegalArgumentException("Dashboard " + dashboard.getId() + "' doesn't exist");
+        synchronized (syncRoot) {
+            if (!DBWorkbench.getPlatform().getWorkspace().hasRealmPermission(RMConstants.PERMISSION_CONFIGURATION_MANAGER)) {
+                throw new IllegalArgumentException("The user has no permission to remove dashboard configuration");
+            }
+            if (!dashboardList.containsKey(dashboard.getId())) {
+                throw new IllegalArgumentException("Dashboard " + dashboard.getId() + "' doesn't exist");
+            }
+            if (!dashboard.isCustom()) {
+                throw new IllegalArgumentException("Only custom dashboards can be removed");
+            }
+            dashboardList.remove(dashboard.getId());
+    
+            saveConfigFile();
         }
-        if (!dashboard.isCustom()) {
-            throw new IllegalArgumentException("Only custom dashboards can be removed");
-        }
-        dashboardList.remove(dashboard.getId());
-
-        saveConfigFile();
     }
 
     public List<DashboardViewType> getAllViewTypes() {
@@ -212,8 +252,10 @@ public class DashboardRegistry {
 
     public List<DBPNamedObject> getAllSupportedSources() {
         Set<DBPNamedObject> result = new LinkedHashSet<>();
-        for (DashboardDescriptor dd : dashboardList.values()) {
-            result.addAll(dd.getSupportedSources());
+        synchronized (syncRoot) {
+            for (DashboardDescriptor dd : dashboardList.values()) {
+                result.addAll(dd.getSupportedSources());
+            }
         }
         ArrayList<DBPNamedObject> sortedDrivers = new ArrayList<>(result);
         sortedDrivers.sort(Comparator.comparing(DBPNamedObject::getName));

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,6 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.DBPDataSource;
-import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.navigator.*;
 import org.jkiss.dbeaver.model.navigator.meta.DBXTreeFolder;
 import org.jkiss.dbeaver.model.navigator.meta.DBXTreeItem;
@@ -141,6 +140,10 @@ public class ObjectPropertiesEditor extends AbstractDatabaseObjectEditor<DBSObje
 
     private void createPropertyBrowser(Composite container)
     {
+        if (container.isDisposed()) {
+            // Disposed during editor opening
+            return;
+        }
         pageControl.setRedraw(false);
         try {
             TabbedFolderInfo[] folders = collectFolders(this);
@@ -224,8 +227,6 @@ public class ObjectPropertiesEditor extends AbstractDatabaseObjectEditor<DBSObje
             }
         }
 
-        folderComposite.switchFolder(curFolderId);
-
         folderComposite.addFolderListener(folderId1 -> {
             if (CommonUtils.equalObjects(curFolderId, folderId1)) {
                 return;
@@ -266,6 +267,9 @@ public class ObjectPropertiesEditor extends AbstractDatabaseObjectEditor<DBSObje
                 }
             }
         });
+        
+        folderComposite.switchFolder(curFolderId);
+        
         return foldersPlaceholder;
     }
 
@@ -432,6 +436,10 @@ public class ObjectPropertiesEditor extends AbstractDatabaseObjectEditor<DBSObje
     public ITabbedFolder getActiveFolder()
     {
         return getActiveFolder(true);
+    }
+    
+    public String getActiveFolderId() {
+        return this.curFolderId;
     }
 
     private ITabbedFolder getActiveFolder(boolean activate)
@@ -750,7 +758,8 @@ public class ObjectPropertiesEditor extends AbstractDatabaseObjectEditor<DBSObje
     void createPropertyRefreshAction(IContributionManager contributionManager) {
         // Contribute "Read expensive props" - but only if object has expensive props
         DBSObject databaseObject = getDatabaseObject();
-        if (!databaseObject.getDataSource().getContainer().getPreferenceStore().getBoolean(ModelPreferences.READ_EXPENSIVE_PROPERTIES)) {
+        DBPDataSource dataSource = databaseObject.getDataSource();
+        if (dataSource != null && !dataSource.getContainer().getPreferenceStore().getBoolean(ModelPreferences.READ_EXPENSIVE_PROPERTIES)) {
             PropertyCollector collector = new PropertyCollector(databaseObject, false);
             collector.setEnableFilters(false);
             collector.collectProperties();
@@ -772,7 +781,7 @@ public class ObjectPropertiesEditor extends AbstractDatabaseObjectEditor<DBSObje
     private class ReadExpensivePropsAction extends Action {
         private final DBSObject databaseObject;
         ReadExpensivePropsAction(DBSObject databaseObject) {
-            super("Read row count and other expensive properties", AS_CHECK_BOX);
+            super(UINavigatorMessages.editors_entity_read_expensive_props_action, AS_CHECK_BOX);
             setImageDescriptor(DBeaverIcons.getImageDescriptor(UIIcon.OBJ_REFRESH));
             this.databaseObject = databaseObject;
         }
@@ -785,14 +794,11 @@ public class ObjectPropertiesEditor extends AbstractDatabaseObjectEditor<DBSObje
         @Override
         public void run() {
             DataSourcePropertyFilter.readExpensivePropertiesFor(this.databaseObject, !isChecked());
-            DBUtils.fireObjectUpdate(this.databaseObject, true);
 
             MultiPageEditorPart mainEditor = ((MultiPageEditorSite) getSite()).getMultiPageEditor();
             if (mainEditor instanceof IRefreshablePart) {
                 ((IRefreshablePart) mainEditor).refreshPart(this, true);
             }
-            //getRootNode().refreshNode()
-            //DBWorkbench.getPlatform().getNavigatorModel().fireNodeUpdate(source, this, DBNEvent.NodeChange.REFRESH);
         }
     }
 }

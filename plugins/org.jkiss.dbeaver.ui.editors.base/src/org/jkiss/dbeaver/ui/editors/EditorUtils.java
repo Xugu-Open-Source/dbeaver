@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import org.eclipse.core.filesystem.EFS;
 import org.eclipse.core.filesystem.IFileStore;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IStorage;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IAdaptable;
@@ -37,41 +38,65 @@ import org.eclipse.ui.texteditor.ITextEditor;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.model.*;
+import org.jkiss.dbeaver.model.DBPContextProvider;
+import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.DBPExternalFileManager;
+import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.app.DBPPlatformDesktop;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.exec.*;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.rdb.DBSCatalog;
 import org.jkiss.dbeaver.model.struct.rdb.DBSSchema;
-import org.jkiss.dbeaver.runtime.DBWorkbench;
-import org.jkiss.dbeaver.utils.ContentUtils;
+import org.jkiss.dbeaver.runtime.LocalFileStorage;
+import org.jkiss.dbeaver.ui.IDataSourceContainerUpdate;
+import org.jkiss.dbeaver.ui.editors.internal.EditorsMessages;
+import org.jkiss.dbeaver.utils.ResourceUtils;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 
 /**
  * EditorUtils
  */
 public class EditorUtils {
 
-    public static final String PROP_SQL_DATA_SOURCE_ID = "sql-editor-data-source-id";
-    private static final String PROP_SQL_PROJECT_ID = "sql-editor-project-id";
-    private static final String PROP_CONTEXT_DEFAULT_DATASOURCE = "default-datasource";
-    private static final String PROP_CONTEXT_DEFAULT_CATALOG = "default-catalog";
-    private static final String PROP_CONTEXT_DEFAULT_SCHEMA = "default-schema";
+    public static final String PROP_SQL_DATA_SOURCE_ID = "sql-editor-data-source-id"; //$NON-NLS-1$
+    public static final String PROP_SQL_PROJECT_ID = "sql-editor-project-id"; //$NON-NLS-1$
 
-    private static final String PROP_SQL_DATA_SOURCE_CONTAINER = "sql-editor-data-source-container";
-    private static final String PROP_EDITOR_CONTEXT = "database-editor-context";
-    private static final String PROP_EXECUTION_CONTEXT = "sql-editor-execution-context";
+    public static final String PROP_CONTEXT_DEFAULT_DATASOURCE = "default-datasource"; //$NON-NLS-1$
+    public static final String PROP_CONTEXT_DEFAULT_CATALOG = "default-catalog"; //$NON-NLS-1$
+    private static final String PROP_CONTEXT_DEFAULT_SCHEMA = "default-schema"; //$NON-NLS-1$
 
-    public static final String PROP_NAMESPACE = "org.jkiss.dbeaver";
+    private static final String PROP_SQL_DATA_SOURCE_CONTAINER = "sql-editor-data-source-container"; //$NON-NLS-1$
+    private static final String PROP_EDITOR_CONTEXT = "database-editor-context"; //$NON-NLS-1$
+    private static final String PROP_EXECUTION_CONTEXT = "sql-editor-execution-context"; //$NON-NLS-1$
+    private static final String PROP_INPUT_FILE = "sql-editor-input-file"; //$NON-NLS-1$
+
+    public static final String PROP_NAMESPACE = "org.jkiss.dbeaver"; //$NON-NLS-1$
+
+    public static final String COLORS_AND_FONTS_PAGE_ID = "org.eclipse.ui.preferencePages.ColorsAndFonts"; //$NON-NLS-1$
 
     private static final Log log = Log.getLog(EditorUtils.class);
+
+    /**
+     * Get project by the specified editor input
+     */
+    @Nullable
+    public static DBPProject getFileProject(@Nullable IEditorInput editorInput) {
+        if (editorInput != null) {
+            IFile curFile = EditorUtils.getFileFromInput(editorInput);
+            if (curFile != null) {
+                return DBPPlatformDesktop.getInstance().getWorkspace().getProject(curFile.getProject());
+            }
+        }
+        return null;
+    }
 
     @Nullable
     public static IFile getFileFromInput(IEditorInput editorInput) {
@@ -81,7 +106,12 @@ public class EditorUtils {
             return ((IFileEditorInput) editorInput).getFile();
         } else if (editorInput instanceof IPathEditorInput) {
             final IPath path = ((IPathEditorInput) editorInput).getPath();
-            return path == null ? null : ContentUtils.convertPathToWorkspaceFile(path);
+            return path == null ? null : ResourceUtils.convertPathToWorkspaceFile(path);
+        } else if (editorInput instanceof IInMemoryEditorInput) {
+            IFile file = (IFile) ((IInMemoryEditorInput) editorInput).getProperty(PROP_INPUT_FILE);
+            if (file != null) {
+                return file;
+            }
         } else if (editorInput instanceof IURIEditorInput) {
             // Most likely it is an external file
             return null;
@@ -90,7 +120,7 @@ public class EditorUtils {
         final IPathEditorInput pathInput = editorInput.getAdapter(IPathEditorInput.class);
         if (pathInput != null) {
             final IPath path = pathInput.getPath();
-            return path == null ? null : ContentUtils.convertPathToWorkspaceFile(path);
+            return path == null ? null : ResourceUtils.convertPathToWorkspaceFile(path);
         }
 
         try {
@@ -106,6 +136,13 @@ public class EditorUtils {
     }
 
     public static IStorage getStorageFromInput(Object element) {
+        if (element instanceof IStorageEditorInput) {
+            try {
+                return ((IStorageEditorInput) element).getStorage();
+            } catch (CoreException e) {
+                log.error(e);
+            }
+        }
         if (element instanceof IAdaptable) {
             IStorage storage = ((IAdaptable) element).getAdapter(IStorage.class);
             if (storage != null) {
@@ -116,6 +153,13 @@ public class EditorUtils {
             IFile file = getFileFromInput((IEditorInput) element);
             if (file != null) {
                 return file;
+            }
+            if (element instanceof IURIEditorInput) {
+                URI uri = ((IURIEditorInput) element).getURI();
+                File localFile = new File(uri);
+                if (localFile.exists()) {
+                    return new LocalFileStorage(localFile, StandardCharsets.UTF_8.name());
+                }
             }
         }
         return null;
@@ -129,9 +173,14 @@ public class EditorUtils {
                 return location == null ? null : location.toFile();
             }
             if (element instanceof IURIEditorInput) {
-                final File localFile = new File(((IURIEditorInput) element).getURI());
-                if (localFile.exists()) {
-                    return localFile;
+                try {
+                    final File localFile = new File(((IURIEditorInput) element).getURI());
+                    if (localFile.exists()) {
+                        return localFile;
+                    }
+                } catch (Exception e) {
+                    // Something is wrong with URI
+                    return null;
                 }
             }
         }
@@ -141,16 +190,26 @@ public class EditorUtils {
     //////////////////////////////////////////////////////////
     // Datasource <-> resource manipulations
 
+    @Nullable
+    public static Object getResourceProperty(@NotNull DBPProject project, @NotNull IResource resource, @NotNull String propName) {
+        return project.getResourceProperty(project.getResourcePath(resource), propName);
+    }
+
+    @Nullable
+    public static void setResourceProperty(@NotNull DBPProject project, @NotNull IResource resource, @NotNull String propName, @Nullable Object value) {
+        project.setResourceProperty(project.getResourcePath(resource), propName, value);
+    }
+
     public static DatabaseEditorContext getEditorContext(IEditorInput editorInput) {
-        if (editorInput instanceof INonPersistentEditorInput) {
-            return (DatabaseEditorContext) ((INonPersistentEditorInput) editorInput).getProperty(PROP_EDITOR_CONTEXT);
+        if (editorInput instanceof IInMemoryEditorInput) {
+            return (DatabaseEditorContext) ((IInMemoryEditorInput) editorInput).getProperty(PROP_EDITOR_CONTEXT);
         }
         return null;
     }
 
     public static DBCExecutionContext getInputExecutionContext(IEditorInput editorInput) {
-        if (editorInput instanceof INonPersistentEditorInput) {
-            return (DBCExecutionContext) ((INonPersistentEditorInput) editorInput).getProperty(PROP_EXECUTION_CONTEXT);
+        if (editorInput instanceof IInMemoryEditorInput) {
+            return (DBCExecutionContext) ((IInMemoryEditorInput) editorInput).getProperty(PROP_EXECUTION_CONTEXT);
         }
         return null;
     }
@@ -162,8 +221,8 @@ public class EditorUtils {
                 return object.getDataSource().getContainer();
             }
             return null;
-        } else if (editorInput instanceof INonPersistentEditorInput) {
-            return (DBPDataSourceContainer) ((INonPersistentEditorInput) editorInput).getProperty(PROP_SQL_DATA_SOURCE_CONTAINER);
+        } else if (editorInput instanceof IInMemoryEditorInput) {
+            return (DBPDataSourceContainer) ((IInMemoryEditorInput) editorInput).getProperty(PROP_SQL_DATA_SOURCE_CONTAINER);
         } else {
             IFile file = getFileFromInput(editorInput);
             if (file != null) {
@@ -171,18 +230,18 @@ public class EditorUtils {
             } else {
                 File localFile = getLocalFileFromInput(editorInput);
                 if (localFile != null) {
-                    final DBPExternalFileManager efManager = DBWorkbench.getPlatform().getExternalFileManager();
+                    final DBPExternalFileManager efManager = DBPPlatformDesktop.getInstance().getExternalFileManager();
                     String dataSourceId = (String) efManager.getFileProperty(localFile, PROP_SQL_DATA_SOURCE_ID);
                     String projectName = (String) efManager.getFileProperty(localFile, PROP_SQL_PROJECT_ID);
                     if (CommonUtils.isEmpty(dataSourceId) || CommonUtils.isEmpty(projectName)) {
                         return null;
                     }
-                    final IProject project = DBWorkbench.getPlatform().getWorkspace().getEclipseWorkspace().getRoot().getProject(projectName);
+                    final IProject project = DBPPlatformDesktop.getInstance().getWorkspace().getEclipseWorkspace().getRoot().getProject(projectName);
                     if (project == null || !project.exists()) {
                         log.error("Can't locate project '" + projectName + "' in workspace");
                         return null;
                     }
-                    DBPProject projectMeta = DBWorkbench.getPlatform().getWorkspace().getProject(project);
+                    DBPProject projectMeta = DBPPlatformDesktop.getInstance().getWorkspace().getProject(project);
                     return projectMeta == null ? null : projectMeta.getDataSourceRegistry().getDataSource(dataSourceId);
 
                 } else {
@@ -199,26 +258,26 @@ public class EditorUtils {
         String defaultDatasource = null;
         String defaultCatalogName = null;
         String defaultSchema = null;
-        if (editorInput instanceof INonPersistentEditorInput) {
-            defaultDatasource = (String) ((INonPersistentEditorInput) editorInput).getProperty(PROP_CONTEXT_DEFAULT_DATASOURCE);
-            defaultCatalogName = (String) ((INonPersistentEditorInput) editorInput).getProperty(PROP_CONTEXT_DEFAULT_CATALOG);
-            defaultSchema= (String) ((INonPersistentEditorInput) editorInput).getProperty(PROP_CONTEXT_DEFAULT_SCHEMA);
+        if (editorInput instanceof IInMemoryEditorInput) {
+            defaultDatasource = (String) ((IInMemoryEditorInput) editorInput).getProperty(PROP_CONTEXT_DEFAULT_DATASOURCE);
+            defaultCatalogName = (String) ((IInMemoryEditorInput) editorInput).getProperty(PROP_CONTEXT_DEFAULT_CATALOG);
+            defaultSchema= (String) ((IInMemoryEditorInput) editorInput).getProperty(PROP_CONTEXT_DEFAULT_SCHEMA);
         } else {
             IFile file = getFileFromInput(editorInput);
             if (file != null) {
-                DBPProject projectMeta = DBWorkbench.getPlatform().getWorkspace().getProject(file.getProject());
+                DBPProject projectMeta = DBPPlatformDesktop.getInstance().getWorkspace().getProject(file.getProject());
                 if (projectMeta != null) {
-                    defaultDatasource = (String) projectMeta.getResourceProperty(file, PROP_CONTEXT_DEFAULT_DATASOURCE);
-                    defaultCatalogName = (String) projectMeta.getResourceProperty(file, PROP_CONTEXT_DEFAULT_CATALOG);
-                    defaultSchema = (String) projectMeta.getResourceProperty(file, PROP_CONTEXT_DEFAULT_SCHEMA);
+                    defaultDatasource = (String) EditorUtils.getResourceProperty(projectMeta, file, PROP_CONTEXT_DEFAULT_DATASOURCE);
+                    defaultCatalogName = (String) EditorUtils.getResourceProperty(projectMeta, file, PROP_CONTEXT_DEFAULT_CATALOG);
+                    defaultSchema = (String) EditorUtils.getResourceProperty(projectMeta, file, PROP_CONTEXT_DEFAULT_SCHEMA);
                 }
             } else {
                 File localFile = getLocalFileFromInput(editorInput);
                 if (localFile != null) {
-                    final DBPExternalFileManager efManager = DBWorkbench.getPlatform().getExternalFileManager();
+                    final DBPExternalFileManager efManager = DBPPlatformDesktop.getInstance().getExternalFileManager();
                     defaultDatasource = (String) efManager.getFileProperty(localFile, PROP_CONTEXT_DEFAULT_DATASOURCE);
                     defaultCatalogName = (String) efManager.getFileProperty(localFile, PROP_CONTEXT_DEFAULT_CATALOG);
-                    defaultSchema= (String) efManager.getFileProperty(localFile, PROP_CONTEXT_DEFAULT_SCHEMA);
+                    defaultSchema = (String) efManager.getFileProperty(localFile, PROP_CONTEXT_DEFAULT_SCHEMA);
                 }
             }
         }
@@ -234,9 +293,9 @@ public class EditorUtils {
         if (!file.exists()) {
             return null;
         }
-        DBPProject projectMeta = DBWorkbench.getPlatform().getWorkspace().getProject(file.getProject());
+        DBPProject projectMeta = DBPPlatformDesktop.getInstance().getWorkspace().getProject(file.getProject());
         if (projectMeta != null) {
-            Object dataSourceId = projectMeta.getResourceProperty(file, PROP_SQL_DATA_SOURCE_ID);
+            Object dataSourceId = EditorUtils.getResourceProperty(projectMeta, file, PROP_CONTEXT_DEFAULT_DATASOURCE);
             if (dataSourceId != null) {
                 DBPDataSourceContainer dataSource = projectMeta.getDataSourceRegistry().getDataSource(dataSourceId.toString());
                 if (dataSource == null) {
@@ -255,25 +314,25 @@ public class EditorUtils {
         @NotNull IEditorInput editorInput,
         @NotNull DatabaseEditorContext context)
     {
-        if (editorInput instanceof INonPersistentEditorInput) {
-            ((INonPersistentEditorInput) editorInput).setProperty(PROP_EDITOR_CONTEXT, context);
+        if (editorInput instanceof IInMemoryEditorInput) {
+            ((IInMemoryEditorInput) editorInput).setProperty(PROP_EDITOR_CONTEXT, context);
             DBCExecutionContext executionContext = context.getExecutionContext();
             if (executionContext != null) {
-                ((INonPersistentEditorInput) editorInput).setProperty(PROP_EXECUTION_CONTEXT, executionContext);
+                ((IInMemoryEditorInput) editorInput).setProperty(PROP_EXECUTION_CONTEXT, executionContext);
             }
             DBPDataSourceContainer dataSourceContainer = context.getDataSourceContainer();
             if (dataSourceContainer != null) {
-                ((INonPersistentEditorInput) editorInput).setProperty(PROP_SQL_DATA_SOURCE_CONTAINER, dataSourceContainer);
+                ((IInMemoryEditorInput) editorInput).setProperty(PROP_SQL_DATA_SOURCE_CONTAINER, dataSourceContainer);
             }
             if (!isDefaultContextSettings(context)) {
                 if (dataSourceContainer != null) {
-                    ((INonPersistentEditorInput) editorInput).setProperty(PROP_CONTEXT_DEFAULT_DATASOURCE, dataSourceContainer.getId());
+                    ((IInMemoryEditorInput) editorInput).setProperty(PROP_CONTEXT_DEFAULT_DATASOURCE, dataSourceContainer.getId());
                 }
                 String catalogName = getDefaultCatalogName(context);
-                if (catalogName != null) ((INonPersistentEditorInput) editorInput).setProperty(PROP_CONTEXT_DEFAULT_CATALOG, getDefaultCatalogName(context));
+                if (catalogName != null) ((IInMemoryEditorInput) editorInput).setProperty(PROP_CONTEXT_DEFAULT_CATALOG, getDefaultCatalogName(context));
                 String schemaName = getDefaultSchemaName(context);
                 if (schemaName != null) {
-                    ((INonPersistentEditorInput) editorInput).setProperty(PROP_CONTEXT_DEFAULT_SCHEMA, schemaName);
+                    ((IInMemoryEditorInput) editorInput).setProperty(PROP_CONTEXT_DEFAULT_SCHEMA, schemaName);
                 }
             }
             return;
@@ -291,8 +350,21 @@ public class EditorUtils {
         }
     }
 
+    /**
+     * Associated inout file with editor input.
+     * Can be used with IInMemoryEditorInput only.
+     */
+    public static void setInputInputFile(
+        @NotNull IEditorInput editorInput,
+        @NotNull IFile file
+    ) {
+        if (editorInput instanceof IInMemoryEditorInput) {
+            ((IInMemoryEditorInput) editorInput).setProperty(PROP_INPUT_FILE, file);
+        }
+    }
+
     public static void setFileDataSource(@NotNull File localFile, @NotNull DatabaseEditorContext context) {
-        final DBPExternalFileManager efManager = DBWorkbench.getPlatform().getExternalFileManager();
+        final DBPExternalFileManager efManager = DBPPlatformDesktop.getInstance().getExternalFileManager();
         DBPDataSourceContainer dataSourceContainer = context.getDataSourceContainer();
         efManager.setFileProperty(
             localFile,
@@ -313,22 +385,25 @@ public class EditorUtils {
     }
 
     public static void setFileDataSource(@NotNull IFile file, @NotNull DatabaseEditorContext context) {
-        DBPProject projectMeta = DBWorkbench.getPlatform().getWorkspace().getProject(file.getProject());
+        DBPProject projectMeta = DBPPlatformDesktop.getInstance().getWorkspace().getProject(file.getProject());
         if (projectMeta == null) {
             return;
         }
         DBPDataSourceContainer dataSourceContainer = context.getDataSourceContainer();
-        Map<String, Object> fileProps = new LinkedHashMap<>();
         String dataSourceId = dataSourceContainer == null ? null : dataSourceContainer.getId();
-        fileProps.put(PROP_SQL_DATA_SOURCE_ID, dataSourceId);
+
+        String resourcePath = projectMeta.getResourcePath(file);
+        projectMeta.setResourceProperty(resourcePath, PROP_CONTEXT_DEFAULT_DATASOURCE, dataSourceId);
         if (!isDefaultContextSettings(context)) {
-            fileProps.put(PROP_CONTEXT_DEFAULT_DATASOURCE, dataSourceId);
-            String catalogName = getDefaultCatalogName(context);
-            if (catalogName != null) fileProps.put(PROP_CONTEXT_DEFAULT_CATALOG, catalogName);
-            String schemaName = getDefaultSchemaName(context);
-            if (catalogName != null || schemaName != null) fileProps.put(PROP_CONTEXT_DEFAULT_SCHEMA, schemaName);
+            String defaultCatalogName = getDefaultCatalogName(context);
+            if (!CommonUtils.isEmpty(defaultCatalogName)) {
+                projectMeta.setResourceProperty(resourcePath, PROP_CONTEXT_DEFAULT_CATALOG, defaultCatalogName);
+            }
+            String defaultSchemaName = getDefaultSchemaName(context);
+            if (!CommonUtils.isEmpty(defaultSchemaName)) {
+                projectMeta.setResourceProperty(resourcePath, PROP_CONTEXT_DEFAULT_SCHEMA, defaultSchemaName);
+            }
         }
-        projectMeta.setResourceProperties(file, fileProps);
     }
 
     private static boolean isDefaultContextSettings(DatabaseEditorContext context) {
@@ -381,10 +456,7 @@ public class EditorUtils {
 
     public static IEditorPart openExternalFileEditor(File file, IWorkbenchWindow window) {
         try {
-            IEditorDescriptor desc = window.getWorkbench().getEditorRegistry().getDefaultEditor(file.getName());
-            if (desc == null) {
-                desc = window.getWorkbench().getEditorRegistry().getDefaultEditor(file.getName() + ".txt");
-            }
+            IEditorDescriptor desc = getFileEditorDescriptor(file, window);
             IFileStore fileStore = EFS.getStore(file.toURI());
             IEditorInput input = new FileStoreEditorInput(fileStore);
             return IDE.openEditor(window.getActivePage(), input, desc.getId());
@@ -392,6 +464,18 @@ public class EditorUtils {
             log.error("Can't open editor from file '" + file.getAbsolutePath(), e);
             return null;
         }
+    }
+
+    @NotNull
+    public static IEditorDescriptor getFileEditorDescriptor(@NotNull File file, @NotNull IWorkbenchWindow window) {
+        IEditorDescriptor desc = window.getWorkbench().getEditorRegistry().getDefaultEditor(file.getName());
+        if (desc == null) {
+            desc = window.getWorkbench().getEditorRegistry().getDefaultEditor(file.getName() + ".txt");
+        }
+        if (desc == null) {
+            desc = window.getWorkbench().getEditorRegistry().findEditor(IEditorRegistry.SYSTEM_EXTERNAL_EDITOR_ID);
+        }
+        return desc;
     }
 
     public static boolean isInAutoSaveJob() {
@@ -445,7 +529,7 @@ public class EditorUtils {
         }
 
         // Revert editor's transaction
-        if (editorPart instanceof DBPContextProvider && editorPart instanceof IDataSourceContainerProviderEx) {
+        if (editorPart instanceof DBPContextProvider && editorPart instanceof IDataSourceContainerUpdate) {
             DBCExecutionContext executionContext = ((DBPContextProvider) editorPart).getExecutionContext();
             if (executionContext != null) {
                 DBCTransactionManager txnManager = DBUtils.getTransactionManager(executionContext);
@@ -466,4 +550,13 @@ public class EditorUtils {
         }
     }
 
+    public static void appendProjectToolTip(@NotNull StringBuilder tip, @Nullable DBPProject project) {
+        if (project == null || project.getWorkspace().getProjects().size() < 2) {
+            return;
+        }
+        if (tip.length() > 0 && tip.charAt(tip.length() - 1) != '\n') {
+            tip.append('\n');
+        }
+        tip.append(EditorsMessages.database_editor_project).append(": ").append(project.getName());
+    }
 }

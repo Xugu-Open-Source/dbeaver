@@ -21,7 +21,6 @@ import org.eclipse.core.runtime.Status;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.core.DBeaverCore;
 import org.jkiss.dbeaver.ext.xugu.model.source.SourceObject;
 import org.jkiss.dbeaver.ext.xugu.Utils;
 import org.jkiss.dbeaver.ext.xugu.edit.TablePartitionManager.WarningDialog;
@@ -113,7 +112,6 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 				param.setName("Procedure existing parser does not support syntax objects");
 				param.setIndex(1);
 				param.setDataType("VARCHAR");
-			 
 		
 				List paramsList = new ArrayList<Param>();
 				paramsList.add(param);
@@ -121,22 +119,8 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 				createProcedureBean2.setParamSize(1);
 				procedureBeans.add(createProcedureBean2);
 				
-//			       Runnable runnable = () -> {
-//			            // Display the dialog
-//			            StandardErrorDialog dialog = new StandardErrorDialog(UIUtils.getActiveWorkbenchShell(),
-//			                    "parser error", e.getMessage(),  new Status(IStatus.ERROR, DBeaverCore.PLUGIN_ID,  e.getMessage()), IStatus.ERROR);
-//			            dialog.open();
-//			        };
-//			        UIUtils.syncExec(runnable);
-//				void showNotification(String id, String title, String text, DBPMessageType messageType, Runnable feedback) {
-				
-//				public static void showNotification(String id, String title, String text, DBPMessageType messageType, Runnable feedback) {
-//			        notificationHandler.sendNotification(id, title, text, messageType, feedback);
-//			    }
-
-				
 			    DBeaverNotifications.showNotification(
-                        DBeaverNotifications.NT_RECONNECT,
+                        DBeaverNotifications.NT_RECONNECT_FAILURE,
                         procedureName,
                          e.getMessage(),
                         DBPMessageType.INFORMATION,new Runnable() {
@@ -186,7 +170,7 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 				functionBeans.add(createFunctionBean);
 				
 			    DBeaverNotifications.showNotification(
-                        DBeaverNotifications.NT_RECONNECT,
+                        DBeaverNotifications.NT_RECONNECT_FAILURE,
                         procedureName,
                          e.getMessage(),
                         DBPMessageType.INFORMATION,new Runnable() {
@@ -215,140 +199,7 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 				// monitor,procedure实例，参数名，数据类型，参数模式，参数位置，默认值。
 				procParams.add(procedureParameter);
 			}
-			
-//			List<CreateFunctionBean> functionBeans = null;
-//			try {
-//				functionBeans = XuguParserApi.parseCreateFunction(sourceDeclaration);
-//			}catch (Exception e) {
-//				functionBeans = null;
-//			}
-//			if(functionBeans!=null) {
-//				CreateFunctionBean createFunctionBean = functionBeans.get(0);
-//				for (int i = 0; i < createFunctionBean.getParamSize(); i++) {
-//					paraName = createFunctionBean.getParams().get(i).getName();
-//					paraType = createFunctionBean.getParams().get(i).getParamType();
-//					dataType = createFunctionBean.getParams().get(i).getDataType();
-//					paraPosition = Integer.valueOf(createFunctionBean.getParams().get(i).getIndex());
-//					paraDefault = createFunctionBean.getParams().get(i).getDefaultValue();
-//					Integer precision = createFunctionBean.getParams().get(i).getPrecision();
-//					Integer scale = createFunctionBean.getParams().get(i).getScale();
-//					if (paraDefault == null) {
-//						paraDefault = "";
-//					}
-//					procedureParameter = new ProcedureParameter(monitor, this, paraName, dataType, paraType, paraPosition,
-//							paraDefault,precision,scale);
-//					// monitor,procedure实例，参数名，数据类型，参数模式，参数位置，默认值。
-//					procParams.add(procedureParameter);
-//				}
-//			}
 		}
-
-//		if(JDBCUtils.safeGetString(dbResult, "RET_TYPE")==null) {
-//			//通过parser解析包解析存储过程参数。
-//			XuguParserApi xuguParserApi = new XuguParserApi();
-//			CreateProcedureBean createProcedureBean = xuguParserApi.parseCreateProcedure(sourceDeclaration);
-//			for(int i = 0; i<createProcedureBean.getParamSize();i++) {
-//				paraName = createProcedureBean.getParams().get(i).get(0);
-//				paraType = createProcedureBean.getParams().get(i).get(2);
-//				dataType = createProcedureBean.getParams().get(i).get(1);
-//				paraPosition = Integer.valueOf(createProcedureBean.getParams().get(i).get(3));
-//				paraDefault = createProcedureBean.getParams().get(i).get(4);
-//				if(paraDefault == null) {
-//					paraDefault = "";
-//				}
-//				procedureParameter =  new ProcedureParameter(monitor, this,paraName,paraType,dataType,paraPosition,paraDefault);
-//				//monitor,procedure实例，参数名，数据类型，参数模式，参数位置，默认值。
-//				procParams.add(procedureParameter);
-//			}
-//		}else {
-//			XuguParserApi  xuguParserApi = new XuguParserApi();
-//			CreateFunctionBean createFunctionBean = xuguParserApi.parseCreateFunction(sourceDeclaration);
-//			for (int i = 0; i < createFunctionBean.getParamSize(); i++) {
-//				 paraName = createFunctionBean.getParams().get(i).get(0);
-//					paraType = createFunctionBean.getParams().get(i).get(2);
-//					dataType = createFunctionBean.getParams().get(i).get(1);
-//					paraPosition = Integer.valueOf(createFunctionBean.getParams().get(i).get(3));
-//					paraDefault = createFunctionBean.getParams().get(i).get(4);
-//					if(paraDefault == null) {
-//						paraDefault = "";
-//					}
-//					procedureParameter =  new ProcedureParameter(monitor, this,paraName,paraType,dataType,paraPosition,paraDefault);
-//					//monitor,procedure实例，参数名，数据类型，参数模式，参数位置，默认值。
-//					procParams.add(procedureParameter);
-//			}
-//		}
-
-//		if (this.sourceDeclaration != null) {
-//			String reg = "";
-//			final String keywordIs = "IS";
-//			final String keywordAs = "AS";
-//			if (this.sourceDeclaration.toUpperCase().indexOf(keywordIs) != -1) {
-//				reg = keywordIs;
-//			} else if (this.sourceDeclaration.toUpperCase().indexOf(keywordAs) != -1) {
-//				reg = keywordAs;
-//			} else {
-//				reg = null;
-//			}
-//			if (reg != null) {
-//				String param = getParamString(this.sourceDeclaration).trim();
-//				if (!"".equals(param)) {
-//					String[] params = param.split(",");
-//					this.procParams = new ArrayList<ProcedureParameter>();
-//					int position = 0;
-//					for (int i = 0; i < params.length; i++) {
-//						params[i] = params[i].trim();
-//						
-//						//解析参数模式
-//						String mode = "IN";
-//						int modeNum = 0;
-//						Pattern pattern = Pattern.compile("\\s+IN\\s+OUT\\s+", Pattern.CASE_INSENSITIVE);
-//						if (pattern.matcher(params[i]).find()) {
-//							mode = "IN OUT";
-//							modeNum = 2;
-//						}
-//						
-//						pattern = Pattern.compile("\\s+OUT\\s+", Pattern.CASE_INSENSITIVE);
-//						if (pattern.matcher(params[i]).find()) {
-//							mode = "OUT";
-//							modeNum = 1;
-//						}
-//
-//						pattern = Pattern.compile("\\s+IN\\s+", Pattern.CASE_INSENSITIVE);
-//						if (pattern.matcher(params[i]).find()) {
-//							mode = "IN";
-//							modeNum = 1;
-//						}
-//						
-//						//获取除去参数名和参数模式的字符串
-//						pattern = Pattern.compile("\\s+");
-//						String[] items = pattern.split(params[i]);
-//						String remainPart = "";
-//						for (int index = 1 + modeNum; index < items.length; ++index) {
-//							remainPart += items[index] + " ";
-//						}
-//						
-//						//解析默认值
-//						String defaultValue;
-//						String dataType;
-//						pattern = Pattern.compile("\\s+DEFAULT\\s+|\\s*:=\\s*", Pattern.CASE_INSENSITIVE);
-//						String[] parts = pattern.split(remainPart);
-//						if (parts.length > 1) {
-//							defaultValue = parts[1];
-//							dataType = parts[0];
-//						} else {
-//							defaultValue = "";
-//							dataType = remainPart;
-//						}
-//
-//			            //记录参数位置
-//			        	++position;
-//						procParams.add(new ProcedureParameter(monitor, this, items[0],
-//								dataType.trim(), mode, position, defaultValue.trim()));
-//					}
-//				}
-//			}
-//		}
-
 	}
 
 	private String getParamString(String define) {
@@ -415,6 +266,12 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 
 	public ProcedureStandalone(Schema schema, String name, DBSProcedureType procedureType) {
 		super(schema, name, 0L, procedureType);
+	}
+
+	public ProcedureStandalone(DBRProgressMonitor monitor, Schema schema, ProcedureStandalone source) {
+		super(schema, source);
+		this.comment = source.comment;
+		this.sourceDeclaration = source.sourceDeclaration;
 	}
 
 	@Override
@@ -503,7 +360,13 @@ public class ProcedureStandalone extends BaseProcedure<Schema> implements Source
 
 	@Override
 	public DBSObject refreshObject(@NotNull DBRProgressMonitor monitor) throws DBException {
-		getSchema().proceduresCache.clearCache();
-		return getSchema().proceduresCache.refreshObject(monitor, getSchema(), this);
+		Schema schema = this.getSchema();
+		if (this.getProcedureType() == DBSProcedureType.PROCEDURE) {
+			schema.proceduresCache.clearCache();
+			return schema.proceduresCache.refreshObject(monitor, schema, this);
+		} else {
+			schema.functionsCache.clearCache();
+			return schema.functionsCache.refreshObject(monitor, schema, this);
+		}
 	}
 }

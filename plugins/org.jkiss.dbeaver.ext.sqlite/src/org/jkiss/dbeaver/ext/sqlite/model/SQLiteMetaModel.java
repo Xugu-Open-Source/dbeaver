@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,9 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.sql.QueryTransformerLimit;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSEntityReferrer;
+import org.jkiss.dbeaver.model.struct.rdb.DBSForeignKeyDeferability;
+import org.jkiss.dbeaver.model.struct.rdb.DBSForeignKeyModifyRule;
 import org.jkiss.utils.CommonUtils;
 
 import java.sql.SQLException;
@@ -93,7 +96,9 @@ public class SQLiteMetaModel extends GenericMetaModel implements DBCQueryTransfo
 
     @Override
     public JDBCStatement prepareTableTriggersLoadStatement(@NotNull JDBCSession session, @NotNull GenericStructContainer genericStructContainer, @Nullable GenericTableBase forParent) throws SQLException {
-        JDBCPreparedStatement dbStat = session.prepareStatement("SELECT name as TRIGGER_NAME, tbl_name as OWNER FROM sqlite_master WHERE type='trigger'" + (forParent != null ? " AND tbl_name=?" : ""));
+        JDBCPreparedStatement dbStat = session.prepareStatement("SELECT name as TRIGGER_NAME, tbl_name as OWNER FROM "
+            + getFullyQualifiedName(genericStructContainer, "sqlite_master") + " WHERE type='trigger'"
+            + (forParent != null ? " AND tbl_name=?" : ""));
         if (forParent != null) {
             dbStat.setString(1, forParent.getName());
         }
@@ -114,7 +119,11 @@ public class SQLiteMetaModel extends GenericMetaModel implements DBCQueryTransfo
             return Collections.emptyList();
         }
         try (JDBCSession session = DBUtils.openMetaSession(monitor, container, "Read triggers")) {
-            try (JDBCPreparedStatement dbStat = session.prepareStatement("SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name=?")) {
+            try (
+                JDBCPreparedStatement dbStat = session.prepareStatement(
+                    "SELECT name FROM " + getFullyQualifiedName(container,
+                        "sqlite_master") + " WHERE type='trigger' AND tbl_name=?")
+            ) {
                 dbStat.setString(1, table.getName());
                 List<GenericTrigger> result = new ArrayList<>();
                 try (JDBCResultSet dbResult = dbStat.executeQuery()) {
@@ -138,7 +147,7 @@ public class SQLiteMetaModel extends GenericMetaModel implements DBCQueryTransfo
         }
         return null;
     }
-    
+
     @Override
     public GenericDataSource createDataSourceImpl(DBRProgressMonitor monitor, DBPDataSourceContainer container) throws DBException {
         return new SQLiteDataSource(monitor, container, this);
@@ -150,7 +159,7 @@ public class SQLiteMetaModel extends GenericMetaModel implements DBCQueryTransfo
     }
 
     @Override
-    public GenericTableBase createTableImpl(GenericStructContainer container, @Nullable String tableName, @Nullable String tableType, @Nullable JDBCResultSet dbResult) {
+    public GenericTableBase createTableOrViewImpl(GenericStructContainer container, @Nullable String tableName, @Nullable String tableType, @Nullable JDBCResultSet dbResult) {
         if (tableType != null && isView(tableType)) {
             return new SQLiteView(container, tableName, tableType, dbResult);
         } else {
@@ -164,29 +173,45 @@ public class SQLiteMetaModel extends GenericMetaModel implements DBCQueryTransfo
     }
 
     @Override
+    public boolean isUtilityTable(@NotNull GenericTableBase table) {
+        // Autoindex tables - are some kind of index tables? No information about them. But they broke our ERD diagrams.
+        // Let's hide these "tables" deeper.
+        return table.getName().startsWith("sqlite_autoindex_");
+    }
+
+    @Override
     public boolean supportsSequences(@NotNull GenericDataSource dataSource) {
         return true;
     }
 
     @Override
-    public List<GenericSequence> loadSequences(@NotNull DBRProgressMonitor monitor, @NotNull GenericStructContainer container) throws DBException {
-        try (JDBCSession session = DBUtils.openMetaSession(monitor, container, "Read sequences")) {
-            try (JDBCPreparedStatement dbStat = session.prepareStatement("SELECT * FROM sqlite_sequence")) {
-                List<GenericSequence> result = new ArrayList<>();
-                try (JDBCResultSet dbResult = dbStat.executeQuery()) {
-                    while (dbResult.next()) {
-                        String name = JDBCUtils.safeGetString(dbResult, 1);
-                        long value = JDBCUtils.safeGetLong(dbResult, 2);
-                        result.add(new GenericSequence(container, name, null, value, 0, Long.MAX_VALUE, 1));
-                    }
-                }
-                return result;
-            }
+    public JDBCStatement prepareSequencesLoadStatement(@NotNull JDBCSession session, @NotNull GenericStructContainer container) throws SQLException {
+        // The sqlite_sequence table is created and initialized automatically whenever a normal table that contains an AUTOINCREMENT column is created. Not earlier
+        try {
+            JDBCUtils.queryString(session, "SELECT 1 FROM " + getFullyQualifiedName(container, "sqlite_sequence"));
         } catch (SQLException e) {
-            // Most likely sqlite_sequence doesn't exist, this means jsut empty sequence list
-            log.debug("Error loading SQLite sequences", e);
-            return new ArrayList<>();
+            throw new SQLException("Error loading SQLite sequences. Probably sqlite_sequence info table doesn't exist yet. Please create table with AUTOINCREMENT column first.", e);
         }
+        return session.prepareStatement("SELECT * FROM "  + getFullyQualifiedName(container, "sqlite_sequence"));
+    }
+
+    @Override
+    public GenericSequence createSequenceImpl(@NotNull JDBCSession session, @NotNull GenericStructContainer container, @NotNull JDBCResultSet dbResult) {
+        String name = JDBCUtils.safeGetString(dbResult, 1);
+        if (CommonUtils.isEmpty(name)) {
+            return null;
+        }
+        long value = JDBCUtils.safeGetLong(dbResult, 2);
+        return new GenericSequence(container, name, null, value, 0, Long.MAX_VALUE, 1);
+    }
+
+    @Override
+    public boolean handleSequenceCacheReadingError(Exception error) {
+        if (error.getCause() instanceof SQLException) {
+            log.debug("Error loading SQLite sequences.", error);
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -201,6 +226,17 @@ public class SQLiteMetaModel extends GenericMetaModel implements DBCQueryTransfo
         }
 
         return new SQLiteTableColumn(table, columnName, typeName, valueType, sourceType, ordinalPos, columnSize, charLength, scale, precision, radix, notNull, remarks, defaultValue, autoIncrement, autoGenerated);
+    }
+
+    @NotNull
+    protected String getFullyQualifiedName(@NotNull GenericStructContainer genericStructContainer, String value) {
+        return value;
+    }
+
+    @NotNull
+    @Override
+    public GenericTableForeignKey createTableForeignKeyImpl(GenericTableBase table, String name, @Nullable String remarks, DBSEntityReferrer referencedKey, DBSForeignKeyModifyRule deleteRule, DBSForeignKeyModifyRule updateRule, DBSForeignKeyDeferability deferability, boolean persisted) {
+        return new SQLiteTableForeignKey(table, name, remarks, referencedKey, deleteRule, updateRule, deferability, persisted);
     }
 
     @Override

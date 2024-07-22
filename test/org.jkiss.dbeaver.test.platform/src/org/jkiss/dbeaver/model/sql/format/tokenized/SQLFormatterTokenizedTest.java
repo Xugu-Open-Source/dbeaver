@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import static org.junit.Assert.assertEquals;
 
@@ -122,10 +122,10 @@ public class SQLFormatterTokenizedTest {
     }
 
     @Test
-    public void shouldAddLineBreakIfScriptStartsWithComment() {
+    public void shouldAddLineBreakAfterCommentInTheScript() {
         //given
-        String expectedString = lineBreak + "-- SELECT * FROM mytable;";
-        String inputString = "-- SELECT * FROM mytable;";
+        String expectedString = "-- test" + lineBreak + "SELECT" + lineBreak + "\t*" + lineBreak + "FROM" + lineBreak + "\tmytable;";
+        String inputString = "-- test" + lineBreak + "SELECT * FROM mytable;";
 
         //when
         String formattedString = format(inputString);
@@ -140,8 +140,8 @@ public class SQLFormatterTokenizedTest {
         String expectedString = getExpectedStringWithLineBreakBeforeBraces();
         String inputString = "SELECT (SELECT thecol FROM thetable) FROM dual";
 
-        Mockito.when(preferenceStore.getBoolean(Mockito.eq(ModelPreferences.SQL_FORMAT_LF_BEFORE_COMMA))).thenReturn(false);
-        Mockito.when(preferenceStore.getBoolean(Mockito.eq(ModelPreferences.SQL_FORMAT_BREAK_BEFORE_CLOSE_BRACKET))).thenReturn(true);
+        Mockito.lenient().when(preferenceStore.getBoolean(Mockito.eq(ModelPreferences.SQL_FORMAT_LF_BEFORE_COMMA))).thenReturn(false);
+        Mockito.lenient().when(preferenceStore.getBoolean(Mockito.eq(ModelPreferences.SQL_FORMAT_BREAK_BEFORE_CLOSE_BRACKET))).thenReturn(true);
 
         //when
         String formattedString = format(inputString);
@@ -157,8 +157,8 @@ public class SQLFormatterTokenizedTest {
         String expectedString = "SELECT"+lineBreak + "\tmy_field" + lineBreak + "FROM" + lineBreak + "\tmy_table";
         String inputString = "SELECT my_field FROM my_table";
 
-        Mockito.when(preferenceStore.getBoolean(Mockito.eq(ModelPreferences.SQL_FORMAT_LF_BEFORE_COMMA))).thenReturn(false);
-        Mockito.when(preferenceStore.getBoolean(Mockito.eq(ModelPreferences.SQL_FORMAT_BREAK_BEFORE_CLOSE_BRACKET))).thenReturn(true);
+        Mockito.lenient().when(preferenceStore.getBoolean(Mockito.eq(ModelPreferences.SQL_FORMAT_LF_BEFORE_COMMA))).thenReturn(false);
+        Mockito.lenient().when(preferenceStore.getBoolean(Mockito.eq(ModelPreferences.SQL_FORMAT_BREAK_BEFORE_CLOSE_BRACKET))).thenReturn(true);
 
         //when
         String formattedString = format(inputString);
@@ -440,5 +440,118 @@ public class SQLFormatterTokenizedTest {
             expected,
             format(sql)
         );
+    }
+
+    @Test
+    public void shouldDoDefaultFormatForNestedCaseEndConditionWithFunctionsKeywords() {
+        //given
+        String inputString = "SELECT CASE REPLACE(SUBSTRING_INDEX(NAME, ']', 1), '[', '') WHEN 'IP' THEN '1' ELSE '3' END AS IMAGENAME FROM IMAGES";
+        String expectedString =
+            SQLConstants.KEYWORD_SELECT + lineBreak +
+                "\t" + SQLConstants.KEYWORD_CASE + lineBreak +
+                "\t\tREPLACE(SUBSTRING_INDEX(NAME, ']', 1), '[', '') WHEN 'IP' THEN '1'" + lineBreak +
+                "\t\tELSE '3'" + lineBreak +
+                "\tEND AS IMAGENAME" + lineBreak +
+                SQLConstants.KEYWORD_FROM + lineBreak +
+                "\tIMAGES";
+
+        Mockito.when(configuration.isFunction("REPLACE")).thenReturn(true);
+        Mockito.when(configuration.isFunction("SUBSTRING_INDEX")).thenReturn(true);
+
+        //when
+        String formattedString = format(inputString);
+
+        //then
+        assertEquals(expectedString, formattedString);
+    }
+
+    @Test
+    public void shouldDoDefaultFormatForNestedCaseEndCondition() {
+        //given
+        String inputString = "SELECT player_name, weight, CASE WHEN weight > 90 THEN 'over 90' WHEN weight > 70 THEN '71-90' ELSE '70 or under' END AS weight_group FROM football_players";
+
+        String expString = SQLConstants.KEYWORD_SELECT + lineBreak +
+            "\tplayer_name," + lineBreak +
+            "\tweight," + lineBreak +
+            "\tCASE" + lineBreak +
+            "\t\tWHEN weight > 90 THEN 'over 90'" + lineBreak +
+            "\t\tWHEN weight > 70 THEN '71-90'" + lineBreak +
+            "\t\tELSE '70 or under'" + lineBreak +
+            "\tEND AS weight_group" + lineBreak +
+            SQLConstants.KEYWORD_FROM + lineBreak +
+            "\tfootball_players";
+
+        //when
+        String formattedString = format(inputString);
+
+        //then
+        assertEquals(expString, formattedString);
+    }
+
+    @Test
+    public void shouldDoDefaultFormatForNestedCaseEndConditionWithWordBeforeCase() {
+        //given
+        String inputString = "SELECT cust_last_name, CASE credit_limit WHEN 100 THEN 'Low' WHEN 5000 THEN 'High' ELSE 'Medium' END FROM customers";
+
+        String expString = SQLConstants.KEYWORD_SELECT + lineBreak +
+            "\tcust_last_name," + lineBreak +
+            "\tCASE" + lineBreak +
+            "\t\tcredit_limit WHEN 100 THEN 'Low'" + lineBreak +
+            "\t\tWHEN 5000 THEN 'High'" + lineBreak +
+            "\t\tELSE 'Medium'" + lineBreak +
+            "\tEND" + lineBreak +
+            SQLConstants.KEYWORD_FROM + lineBreak +
+            "\tcustomers";
+
+        //when
+        String formattedString = format(inputString);
+
+        //then
+        assertEquals(expString, formattedString);
+    }
+
+    @Test
+    public void shouldDoDefaultFormatForNestedIntoFunctionCaseEndCondition() {
+        //given
+        String inputString = "SELECT AVG(CASE WHEN e.salary > 2000 THEN e.salary ELSE 2000 END) Average_Salary FROM employees e";
+
+        String expString = SQLConstants.KEYWORD_SELECT + lineBreak +
+            "\tAVG(CASE WHEN e.salary > 2000 THEN e.salary ELSE 2000 END) Average_Salary" + lineBreak +
+            SQLConstants.KEYWORD_FROM + lineBreak +
+            "\temployees e";
+
+        Mockito.when(configuration.isFunction("AVG")).thenReturn(true);
+
+        //when
+        String formattedString = format(inputString);
+
+        //then
+        assertEquals(expString, formattedString);
+    }
+
+    @Test
+    public void shouldDoDefaultFormatForSimpleSelectAndCaseEndConditionInOrderBlock() {
+        //given
+        String inputString = "SELECT CustomerName, City, Country FROM Customers ORDER BY (CASE WHEN City IS NULL THEN Country ELSE City END)";
+
+        String expString = SQLConstants.KEYWORD_SELECT + lineBreak +
+            "\tCustomerName," + lineBreak +
+            "\tCity," + lineBreak +
+            "\tCountry" + lineBreak +
+            SQLConstants.KEYWORD_FROM + lineBreak +
+            "\tCustomers" + lineBreak +
+            "ORDER BY" + lineBreak +
+            "\t(CASE" + lineBreak +
+            "\t\tWHEN City IS NULL THEN Country" + lineBreak +
+            "\t\tELSE City" + lineBreak +
+            "\tEND)";
+
+        Mockito.lenient().when(configuration.isFunction("AVG")).thenReturn(true);
+
+        //when
+        String formattedString = format(inputString);
+
+        //then
+        assertEquals(expString, formattedString);
     }
 }

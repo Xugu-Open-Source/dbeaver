@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,21 +16,21 @@
  */
 package org.jkiss.dbeaver.model;
 
-import org.eclipse.equinox.security.storage.ISecurePreferences;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.app.DBPDataSourceRegistry;
-import org.jkiss.dbeaver.model.app.DBPPlatform;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
+import org.jkiss.dbeaver.model.connection.DBPDriverSubstitutionDescriptor;
 import org.jkiss.dbeaver.model.connection.DBPNativeClientLocation;
 import org.jkiss.dbeaver.model.data.DBDFormatSettings;
 import org.jkiss.dbeaver.model.navigator.DBNBrowseSettings;
 import org.jkiss.dbeaver.model.net.DBWNetworkHandler;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.secret.DBPSecretHolder;
 import org.jkiss.dbeaver.model.sql.SQLDialectMetadata;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectFilter;
@@ -43,7 +43,8 @@ import java.util.Date;
 /**
  * DBPDataSourceContainer
  */
-public interface DBPDataSourceContainer extends DBSObject, DBDFormatSettings, DBPNamedObject2, DBPDataSourcePermissionOwner
+public interface DBPDataSourceContainer extends
+    DBSObject, DBDFormatSettings, DBPNamedObject2, DBPDataSourcePermissionOwner, DBPSecretHolder
 {
     /**
      * Container unique ID
@@ -64,9 +65,6 @@ public interface DBPDataSourceContainer extends DBSObject, DBDFormatSettings, DB
 
     @NotNull
     DBPDataSourceOrigin getOrigin();
-
-    @NotNull
-    DBPPlatform getPlatform();
 
     /**
      * Connection configuration.
@@ -94,6 +92,8 @@ public interface DBPDataSourceContainer extends DBSObject, DBDFormatSettings, DB
      */
     boolean isManageable();
 
+    boolean isAccessCheckRequired();
+
     /**
      * @return true if datasource is provided by some dynamic DS provider. E.g. cloud configuration.
      */
@@ -108,11 +108,24 @@ public interface DBPDataSourceContainer extends DBSObject, DBDFormatSettings, DB
     // Also hidden connections are excluded from persistence
     boolean isHidden();
 
+    boolean isSharedCredentials();
+
+    void setSharedCredentials(boolean sharedCredentials);
+
     boolean isConnectionReadOnly();
 
+    /**
+     * Flag saying that password value was saved in configuration.
+     * It is a legacy flag, to determine that credentials are really saved use isCredentialsSaved.
+     */
     boolean isSavePassword();
 
     void setSavePassword(boolean savePassword);
+
+    /**
+     * Determines that credentials for this datasource are saved
+     */
+    boolean isCredentialsSaved() throws DBException;
 
     void setDescription(String description);
 
@@ -153,6 +166,12 @@ public interface DBPDataSourceContainer extends DBSObject, DBDFormatSettings, DB
      * Do not check whether underlying connection is alive or not.
      */
     boolean isConnected();
+
+    /**
+     * Returns last connection instantiation error if any
+     */
+    @Nullable
+    String getConnectionError();
 
     /**
      * Connects to datasource.
@@ -198,6 +217,11 @@ public interface DBPDataSourceContainer extends DBSObject, DBDFormatSettings, DB
 
     void fireEvent(DBPEvent event);
 
+    @Nullable
+    String getProperty(@NotNull String name);
+
+    void setProperty(@NotNull String name, @Nullable String value);
+
     /**
      * Preference store associated with this datasource
      * @return preference store
@@ -211,10 +235,10 @@ public interface DBPDataSourceContainer extends DBSObject, DBDFormatSettings, DB
     @NotNull
     DBPProject getProject();
 
-    void persistConfiguration();
-
-    @NotNull
-    ISecurePreferences getSecurePreferences();
+    /**
+     * @return false on any error. Actual error can be read in registry.
+     */
+    boolean persistConfiguration();
 
     Date getConnectTime();
 
@@ -222,7 +246,13 @@ public interface DBPDataSourceContainer extends DBSObject, DBDFormatSettings, DB
     SQLDialectMetadata getScriptDialect();
 
     /**
+     * reset all secured properties
+     */
+    void resetPassword();
+
+    /**
      * Make variable resolver for datasource properties.
+     *
      * @param actualConfig if true then actual connection config will be used (e.g. with preprocessed host/port values).
      */
     IVariableResolver getVariablesResolver(boolean actualConfig);
@@ -230,4 +260,22 @@ public interface DBPDataSourceContainer extends DBSObject, DBDFormatSettings, DB
     DBPDataSourceContainer createCopy(DBPDataSourceRegistry forRegistry);
 
     DBPExclusiveResource getExclusiveLock();
+    
+    boolean isForceUseSingleConnection();
+    
+    void setForceUseSingleConnection(boolean value);
+
+    /**
+     * Returns the type of required external authorization.
+     * Null - if additional authorization is not required
+     */
+    @Nullable
+    String getRequiredExternalAuth();
+
+    @Nullable
+    DBPDriverSubstitutionDescriptor getDriverSubstitution();
+
+    void setDriverSubstitution(@Nullable DBPDriverSubstitutionDescriptor driverSubstitution);
+
+    void dispose();
 }

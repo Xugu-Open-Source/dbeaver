@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,8 +26,11 @@ import org.jkiss.dbeaver.model.connection.DBPDriver;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.exec.DBCScriptContext;
 import org.jkiss.dbeaver.model.exec.DBCScriptContextListener;
+import org.jkiss.dbeaver.model.exec.output.DBCOutputWriter;
+import org.jkiss.dbeaver.model.impl.OutputWriterAdapter;
 import org.jkiss.dbeaver.model.sql.registry.SQLCommandHandlerDescriptor;
 import org.jkiss.dbeaver.model.sql.registry.SQLCommandsRegistry;
+import org.jkiss.dbeaver.model.sql.registry.SQLQueryParameterRegistry;
 import org.jkiss.dbeaver.model.sql.registry.SQLVariablesRegistry;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
@@ -44,8 +47,7 @@ public class SQLScriptContext implements DBCScriptContext {
 
     private final Map<String, VariableInfo> variables = new LinkedHashMap<>();
     private final Map<String, Object> defaultParameters = new HashMap<>();
-    private final Map<String, Object> pragmas = new HashMap<>();
-    private Map<String, Object> statementPragmas;
+    private final Map<String, Map<String, Object>> pragmas = new HashMap<>();
 
     private DBCScriptContextListener[] listeners = null;
 
@@ -58,7 +60,7 @@ public class SQLScriptContext implements DBCScriptContext {
     @Nullable
     private final File sourceFile;
     @NotNull
-    private final PrintWriter outputWriter;
+    private final DBCOutputWriter outputWriter;
 
     private SQLParametersProvider parametersProvider;
     private boolean ignoreParameters;
@@ -70,10 +72,20 @@ public class SQLScriptContext implements DBCScriptContext {
         @NotNull Writer outputWriter,
         @Nullable SQLParametersProvider parametersProvider)
     {
+        this(parentContext, contextProvider, sourceFile, new OutputWriterAdapter(new PrintWriter(outputWriter)), parametersProvider);
+    }
+
+    public SQLScriptContext(
+        @Nullable SQLScriptContext parentContext,
+        @NotNull DBPContextProvider contextProvider,
+        @Nullable File sourceFile,
+        @NotNull DBCOutputWriter outputWriter,
+        @Nullable SQLParametersProvider parametersProvider
+    ) {
         this.parentContext = parentContext;
         this.contextProvider = contextProvider;
         this.sourceFile = sourceFile;
-        this.outputWriter = new PrintWriter(outputWriter);
+        this.outputWriter = outputWriter;
         this.parametersProvider = parametersProvider;
     }
 
@@ -98,6 +110,14 @@ public class SQLScriptContext implements DBCScriptContext {
             return true;
         }
         return parentContext != null && parentContext.hasVariable(name);
+    }
+
+    @Override
+    public boolean hasDefaultParameterValue(String name) {
+        if (defaultParameters.containsKey(name)){
+            return true;
+        }
+        return parentContext != null && parentContext.hasDefaultParameterValue(name);
     }
 
     @Override
@@ -131,6 +151,16 @@ public class SQLScriptContext implements DBCScriptContext {
         if (parentContext != null) {
             parentContext.removeVariable(name);
         }
+    }
+
+    @Override
+    public void removeDefaultParameterValue(String name) {
+        final SQLQueryParameterRegistry instance = SQLQueryParameterRegistry.getInstance();
+        Object p = defaultParameters.remove(name);
+        instance.deleteParameter(name);
+        instance.save();
+        notifyListeners(DBCScriptContextListener.ContextAction.DELETE, name, p);
+        if (parentContext != null) parentContext.removeDefaultParameterValue(name);
     }
 
     @Override
@@ -169,19 +199,20 @@ public class SQLScriptContext implements DBCScriptContext {
     }
 
     @NotNull
-    public Map<String, Object> getPragmas() {
-        return pragmas;
-    }
-
-    public void setStatementPragma(String name, Object value) {
-        if (statementPragmas == null) {
-            statementPragmas = new LinkedHashMap<>();
+    public Map<String, Map<String, Object>> getPragmas() {
+        if (parentContext != null) {
+            return parentContext.getPragmas();
+        } else {
+            return pragmas;
         }
-        statementPragmas.put(name, value);
     }
 
-    public Object getStatementPragma(String name) {
-        return statementPragmas == null ? null : statementPragmas.get(name);
+    public void setPragma(@NotNull String id, @Nullable Map<String, Object> params) {
+        if (parentContext != null) {
+            parentContext.setPragma(id, params);
+        } else {
+            pragmas.put(id, params);
+        }
     }
 
     @Override
@@ -196,12 +227,12 @@ public class SQLScriptContext implements DBCScriptContext {
 
     @Override
     @NotNull
-    public PrintWriter getOutputWriter() {
+    public DBCOutputWriter getOutputWriter() {
         return outputWriter;
     }
 
     public void clearStatementContext() {
-        statementPragmas = null;
+        pragmas.clear();
     }
 
     public boolean isIgnoreParameters() {
@@ -258,7 +289,10 @@ public class SQLScriptContext implements DBCScriptContext {
             for (SQLQueryParameter parameter : parameters) {
                 Object varValue = variables.get(parameter.getVarName());
                 if (varValue == null) {
-                    varValue = defaultParameters.get(parameter.getVarName());
+                    varValue = variables.get(parameter.getName());
+                }
+                if (varValue == null) {
+                    varValue = defaultParameters.get(parameter.getName());
                 } else {
                     varValue = ((VariableInfo)varValue).value;
                 }

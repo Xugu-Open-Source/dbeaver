@@ -2,7 +2,7 @@
  * DBeaver - Universal Database Manager
  * Copyright (C) 2017 Andrew Khitrin (ahitrin@gmail.com)
  * Copyright (C) 2017 Adolfo Suarez  (agustavo@gmail.com)
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,41 +21,40 @@ package org.jkiss.dbeaver.data.office.export;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.streaming.SXSSFSheet;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
-import org.apache.poi.xssf.usermodel.XSSFCellStyle;
-import org.apache.poi.xssf.usermodel.XSSFFont;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.xssf.usermodel.*;
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.DBUtils;
-import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
-import org.jkiss.dbeaver.model.data.DBDAttributeBindingMeta;
-import org.jkiss.dbeaver.model.data.DBDContent;
-import org.jkiss.dbeaver.model.data.DBDContentStorage;
+import org.jkiss.dbeaver.model.data.*;
 import org.jkiss.dbeaver.model.exec.DBCResultSet;
 import org.jkiss.dbeaver.model.exec.DBCSession;
 import org.jkiss.dbeaver.model.exec.DBExecUtils;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
+import org.jkiss.dbeaver.tools.transfer.stream.IAppendableDataExporter;
 import org.jkiss.dbeaver.tools.transfer.stream.IStreamDataExporterSite;
 import org.jkiss.dbeaver.tools.transfer.stream.exporter.StreamExporterAbstract;
 import org.jkiss.dbeaver.utils.ContentUtils;
+import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
 
+import java.awt.Color;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.Reader;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.StringTokenizer;
 
 /**
  * Export XLSX with Apache POI
  */
-public class DataExporterXLSX extends StreamExporterAbstract {
+public class DataExporterXLSX extends StreamExporterAbstract implements IAppendableDataExporter {
 
     private static final Log log = Log.getLog(DataExporterXLSX.class);
 
@@ -71,6 +70,8 @@ public class DataExporterXLSX extends StreamExporterAbstract {
     private static final String PROP_TRUESTRING = "trueString";
     private static final String PROP_FALSESTRING = "falseString";
 
+    private static final String PROP_TRIM_STRINGS = "trimString";
+
     private static final String PROP_EXPORT_SQL = "exportSql";
     private static final String PROP_SPLIT_SQLTEXT = "splitSqlText";
 
@@ -78,10 +79,10 @@ public class DataExporterXLSX extends StreamExporterAbstract {
     private static final String PROP_SPLIT_BYCOL = "splitByColNum";
 
     private static final String PROP_DATE_FORMAT = "dateFormat";
+    private static final String PROP_APPEND_STRATEGY = "appendStrategy";
 
     private static final int EXCEL2007MAXROWS = 1048575;
     private static final int EXCEL_MAX_CELL_CHARACTERS = 32767; // Total number of characters that a cell can contain - 32,767 characters
-    private boolean showDescription;
 
     enum FontStyleProp {NONE, BOLD, ITALIC, STRIKEOUT, UNDERLINE}
 
@@ -90,23 +91,24 @@ public class DataExporterXLSX extends StreamExporterAbstract {
     private String nullString;
 
     private DBDAttributeBinding[] columns;
+    private DBDAttributeDecorator decorator;
 
     private SXSSFWorkbook wb;
 
-    private boolean printHeader = false;
+    private HeaderFormat headerFormat = HeaderFormat.LABEL;
     private boolean rowNumber = false;
     private String boolTrue = "true";
     private String boolFalse = "false";
     private boolean booleRedefined;
+    private boolean trimStrings;
     private boolean exportSql = false;
     private boolean splitSqlText = false;
-    private String dateFormat = "";
-    private boolean exportResults = false;
-    private String exportResultsFileName = "";
+    private AppendStrategy appendStrategy = AppendStrategy.CREATE_NEW_SHEETS;
 
     private int splitByRowCount = EXCEL2007MAXROWS;
     private int splitByCol = 0;
     private int rowCount = 0;
+    private int sheetIndex = 0;
 
     private XSSFCellStyle style;
     private XSSFCellStyle styleDate;
@@ -118,16 +120,18 @@ public class DataExporterXLSX extends StreamExporterAbstract {
         Map<String, Object> properties = new HashMap<>();
         properties.put(DataExporterXLSX.PROP_ROWNUMBER, false);
         properties.put(DataExporterXLSX.PROP_BORDER, "THIN");
-        properties.put(DataExporterXLSX.PROP_HEADER, true);
+        properties.put(DataExporterXLSX.PROP_HEADER, HeaderFormat.LABEL.value);
         properties.put(DataExporterXLSX.PROP_NULL_STRING, null);
         properties.put(DataExporterXLSX.PROP_HEADER_FONT, "BOLD");
         properties.put(DataExporterXLSX.PROP_TRUESTRING, "true");
         properties.put(DataExporterXLSX.PROP_FALSESTRING, "false");
+        properties.put(DataExporterXLSX.PROP_TRIM_STRINGS, "false");
         properties.put(DataExporterXLSX.PROP_EXPORT_SQL, false);
         properties.put(DataExporterXLSX.PROP_SPLIT_SQLTEXT, false);
         properties.put(DataExporterXLSX.PROP_SPLIT_BYROWCOUNT, EXCEL2007MAXROWS);
         properties.put(DataExporterXLSX.PROP_SPLIT_BYCOL, 0);
         properties.put(DataExporterXLSX.PROP_DATE_FORMAT, "");
+        properties.put(DataExporterXLSX.PROP_APPEND_STRATEGY, AppendStrategy.CREATE_NEW_SHEETS.value);
         return properties;
     }
 
@@ -136,113 +140,37 @@ public class DataExporterXLSX extends StreamExporterAbstract {
         Map<String, Object> properties = site.getProperties();
         Object nullStringProp = properties.get(PROP_NULL_STRING);
         nullString = nullStringProp == null ? null : nullStringProp.toString();
-
-        try {
-            printHeader = CommonUtils.getBoolean(properties.get(PROP_HEADER), true);
-        } catch (Exception e) {
-            printHeader = false;
-        }
-
-        try {
-            rowNumber = CommonUtils.getBoolean(properties.get(PROP_ROWNUMBER), false);
-        } catch (Exception e) {
-            rowNumber = false;
-        }
-
-        try {
-            boolTrue = CommonUtils.toString(properties.get(PROP_TRUESTRING), "true");
-        } catch (Exception e) {
-            boolTrue = "true";
-        }
-        try {
-            boolFalse = CommonUtils.toString(properties.get(PROP_FALSESTRING), "false");
-        } catch (Exception e) {
-            boolFalse = "false";
-        }
-        if (!"true".equals(boolTrue) || !"false".equals(boolFalse)) {
+        headerFormat = HeaderFormat.of(CommonUtils.toString(properties.get(PROP_HEADER)));
+        rowNumber = CommonUtils.getBoolean(properties.get(PROP_ROWNUMBER), false);
+        boolTrue = CommonUtils.toString(properties.get(PROP_TRUESTRING), Boolean.TRUE.toString());
+        boolFalse = CommonUtils.toString(properties.get(PROP_FALSESTRING), Boolean.FALSE.toString());
+        if (!Boolean.TRUE.toString().equals(boolTrue) || !Boolean.FALSE.toString().equals(boolFalse)) {
             booleRedefined = true;
         }
+        trimStrings = CommonUtils.getBoolean(properties.get(PROP_TRIM_STRINGS), false);
+        exportSql = CommonUtils.getBoolean(properties.get(PROP_EXPORT_SQL), false);
+        splitSqlText = CommonUtils.getBoolean(properties.get(PROP_SPLIT_SQLTEXT), false);
+        splitByRowCount = CommonUtils.toInt(properties.get(PROP_SPLIT_BYROWCOUNT), EXCEL2007MAXROWS);
+        splitByCol = CommonUtils.toInt(properties.get(PROP_SPLIT_BYCOL), 0);
+        String dateFormat = CommonUtils.toString(properties.get(PROP_DATE_FORMAT), "");
+        appendStrategy = AppendStrategy.of(CommonUtils.toString(properties.get(PROP_APPEND_STRATEGY)));
 
-        try {
-            exportSql = CommonUtils.getBoolean(properties.get(PROP_EXPORT_SQL), false);
-        } catch (Exception e) {
-            exportSql = false;
-        }
-
-        try {
-            splitSqlText = CommonUtils.getBoolean(properties.get(PROP_SPLIT_SQLTEXT), false);
-        } catch (Exception e) {
-            splitSqlText = false;
-        }
-
-        try {
-            splitByRowCount = CommonUtils.toInt(properties.get(PROP_SPLIT_BYROWCOUNT), EXCEL2007MAXROWS);
-        } catch (Exception e) {
-            splitByRowCount = EXCEL2007MAXROWS;
-        }
-
-        try {
-            splitByCol = CommonUtils.toInt(properties.get(PROP_SPLIT_BYCOL), 0);
-        } catch (Exception e) {
-            splitByCol = -1;
-        }
-
-        try {
-            dateFormat = CommonUtils.toString(properties.get(PROP_DATE_FORMAT), "");
-        } catch (Exception e) {
-            dateFormat = "";
-        }
-        
-        try {
-            exportResults = CommonUtils.getBoolean(properties.get("exportResults"), false);
-        } catch (Exception e) {
-        	exportResults = false;
-        }
-
-        try {
-        	exportResultsFileName = CommonUtils.toString(properties.get("exportResultsFileName"), "");
-        } catch (Exception e) {
-        	exportResultsFileName = "";
-        }
-
-        if (exportResults && !exportResultsFileName.isEmpty() && new File(exportResultsFileName).length() > 0) {
-        	try (InputStream is = Files.newInputStream(Paths.get(exportResultsFileName))) {
-        		wb = new SXSSFWorkbook(new XSSFWorkbook(is));
-        		Files.write(Paths.get(exportResultsFileName), new byte[0]);
-        	} catch (IOException e) {
-				throw new RuntimeException(e);
-			}
-        } else {
-        	wb = new SXSSFWorkbook(ROW_WINDOW);
+        if (wb == null) {
+            wb = new SXSSFWorkbook(ROW_WINDOW);
         }
 
         worksheets = new HashMap<>(1);
-
         styleHeader = (XSSFCellStyle) wb.createCellStyle();
 
-        BorderStyle border;
+        BorderStyle border = CommonUtils.valueOf(
+            BorderStyle.class,
+            CommonUtils.toString(properties.get(PROP_BORDER), BorderStyle.THIN.name()),
+            BorderStyle.THIN);
 
-        try {
-
-            border = BorderStyle.valueOf(CommonUtils.toString(properties.get(PROP_BORDER), BorderStyle.THIN.name()));
-
-        } catch (Exception e) {
-
-            border = BorderStyle.NONE;
-
-        }
-
-        FontStyleProp fontStyle;
-
-        try {
-
-            fontStyle = FontStyleProp.valueOf(CommonUtils.toString(properties.get(PROP_HEADER_FONT), FontStyleProp.BOLD.name()));
-
-        } catch (Exception e) {
-
-            fontStyle = FontStyleProp.NONE;
-
-        }
+        FontStyleProp fontStyle = CommonUtils.valueOf(
+            FontStyleProp.class,
+            CommonUtils.toString(properties.get(PROP_HEADER_FONT), FontStyleProp.BOLD.name()),
+            FontStyleProp.BOLD);
 
         styleHeader.setBorderTop(border);
         styleHeader.setBorderBottom(border);
@@ -252,25 +180,20 @@ public class DataExporterXLSX extends StreamExporterAbstract {
         XSSFFont fontBold = (XSSFFont) wb.createFont();
 
         switch (fontStyle) {
-
-        case BOLD:
-            fontBold.setBold(true);
-            break;
-
-        case ITALIC:
-            fontBold.setItalic(true);
-            break;
-
-        case STRIKEOUT:
-            fontBold.setStrikeout(true);
-            break;
-
-        case UNDERLINE:
-            fontBold.setUnderline((byte) 3);
-            break;
-
-        default:
-            break;
+            case BOLD:
+                fontBold.setBold(true);
+                break;
+            case ITALIC:
+                fontBold.setItalic(true);
+                break;
+            case STRIKEOUT:
+                fontBold.setStrikeout(true);
+                break;
+            case UNDERLINE:
+                fontBold.setUnderline((byte) 3);
+                break;
+            default:
+                break;
         }
 
         styleHeader.setFont(fontBold);
@@ -287,14 +210,14 @@ public class DataExporterXLSX extends StreamExporterAbstract {
         styleDate.setBorderLeft(border);
         styleDate.setBorderRight(border);
 
-        if (dateFormat == null || dateFormat.length() == 0) {
+        if (CommonUtils.isEmpty(dateFormat)) {
             styleDate.setDataFormat((short) 14);
         } else {
-           styleDate.setDataFormat(
-                wb.getCreationHelper().createDataFormat().getFormat(dateFormat));
+            styleDate.setDataFormat(wb.getCreationHelper().createDataFormat().getFormat(dateFormat));
         }
 
         this.rowCount = 0;
+        this.sheetIndex = 0;
 
         super.init(site);
     }
@@ -331,6 +254,7 @@ public class DataExporterXLSX extends StreamExporterAbstract {
             }
             if (wb != null) {
                 wb.write(getSite().getOutputStream());
+                wb.close();
                 wb.dispose();
             }
 
@@ -349,17 +273,25 @@ public class DataExporterXLSX extends StreamExporterAbstract {
     }
 
     @Override
-    public void exportHeader(DBCSession session) {
+    public void exportHeader(DBCSession session) throws DBException {
 
         columns = getSite().getAttributes();
-        // FIXME: we want to avoid UI component dependency. But still want to use its preferences
-        showDescription = session.getDataSource().getContainer().getPreferenceStore()
-                .getBoolean("resultset.show.columnDescription");
+        if (headerFormat.hasDescription()) {
+            DBSEntity srcEntity = DBUtils.getAdapter(DBSEntity.class, getSite().getSource());
+            DBExecUtils.bindAttributes(session, srcEntity, null, columns, null);
+        }
+        decorator = GeneralUtils.adapt(getSite().getSource(), DBDAttributeDecorator.class);
     }
 
     private void printHeader(DBCResultSet resultSet, Worksheet wsh) throws DBException {
+        final SXSSFSheet sh = (SXSSFSheet) wsh.getSh();
+
+        if (appendStrategy == AppendStrategy.USE_EXISTING_SHEETS && getPhysicalNumberOfRows(sh) > 0) {
+            return;
+        }
+
         boolean hasDescription = false;
-        if (showDescription) {
+        if (headerFormat.hasDescription()) {
             // Read bindings to extract column descriptions
             boolean bindingsOk = true;
             DBDAttributeBindingMeta[] bindings = new DBDAttributeBindingMeta[columns.length];
@@ -372,11 +304,10 @@ public class DataExporterXLSX extends StreamExporterAbstract {
                 }
             }
             if (bindingsOk) {
-                DBSEntity sourceEntity = null;
-                if (getSite().getSource() instanceof DBSEntity) {
-                    sourceEntity = (DBSEntity) getSite().getSource();
+                final DBSEntity sourceEntity = GeneralUtils.adapt(getSite().getSource(), DBSEntity.class);
+                if (sourceEntity != null) {
+                    DBExecUtils.bindAttributes(resultSet.getSession(), sourceEntity, resultSet, bindings, null);
                 }
-                DBExecUtils.bindAttributes(resultSet.getSession(), sourceEntity, resultSet, bindings, null);
             }
 
             for (DBDAttributeBinding column : columns) {
@@ -387,43 +318,44 @@ public class DataExporterXLSX extends StreamExporterAbstract {
             }
         }
 
-        SXSSFSheet sh = (SXSSFSheet) wsh.getSh();
-        Row row = sh.createRow(wsh.getCurrentRow());
+        if (!hasDescription && !headerFormat.hasLabel()) {
+            return;
+        }
+
+        sh.trackAllColumnsForAutoSizing();
 
         int startCol = rowNumber ? 1 : 0;
 
-        sh.trackAllColumnsForAutoSizing();
-        for (int i = 0, columnsSize = columns.length; i < columnsSize; i++) {
-            DBDAttributeBinding column = columns[i];
+        if (headerFormat.hasLabel()) {
+            Row row = sh.createRow(wsh.getCurrentRow());
+            for (int i = 0, columnsSize = columns.length; i < columnsSize; i++) {
+                DBDAttributeBinding column = columns[i];
 
-            String colName = column.getLabel();
-            if (CommonUtils.isEmpty(colName)) {
-                colName = column.getName();
+                String colName = column.getLabel();
+                if (CommonUtils.isEmpty(colName)) {
+                    colName = column.getName();
+                }
+                Cell cell = row.createCell(i + startCol, CellType.STRING);
+                cell.setCellValue(colName);
+                cell.setCellStyle(styleHeader);
             }
-            Cell cell = row.createCell(i + startCol, CellType.STRING);
-            cell.setCellValue(colName);
-            cell.setCellStyle(styleHeader);
+            wsh.incRow();
         }
 
         if (hasDescription) {
-            wsh.incRow();
             Row descRow = sh.createRow(wsh.getCurrentRow());
             for (int i = 0, columnsSize = columns.length; i < columnsSize; i++) {
                 Cell descCell = descRow.createCell(i + startCol, CellType.STRING);
                 String description = columns[i].getDescription();
-                if (CommonUtils.isEmpty(description)) {
-                    description = "";
-                }
-                descCell.setCellValue(description);
+                descCell.setCellValue(CommonUtils.notEmpty(description));
                 descCell.setCellStyle(styleHeader);
+
+                if (CommonUtils.isNotEmpty(description)) {
+                    sh.autoSizeColumn(i);
+                }
             }
+            wsh.incRow();
         }
-
-        for (int i = 0, columnsSize = columns.length; i < columnsSize; i++) {
-            sh.autoSizeColumn(i);
-        }
-
-        wsh.incRow();
 
         try {
             sh.flushRows();
@@ -452,15 +384,21 @@ public class DataExporterXLSX extends StreamExporterAbstract {
     }
 
     private Worksheet createSheet(DBCResultSet resultSet, Object colValue) throws DBException {
-        Worksheet w = new Worksheet(wb.createSheet(), colValue, 0);
-        if (printHeader) {
-            printHeader(resultSet, w);
+        final Sheet sheet;
+        final Worksheet worksheet;
+        if (appendStrategy == AppendStrategy.USE_EXISTING_SHEETS && sheetIndex < wb.getNumberOfSheets()) {
+            sheet = wb.getSheetAt(sheetIndex++);
+            worksheet = new Worksheet(sheet, colValue, getPhysicalNumberOfRows(sheet));
+        } else {
+            sheet = wb.createSheet();
+            worksheet = new Worksheet(sheet, colValue, 0);
         }
-        return w;
+        printHeader(resultSet, worksheet);
+        return worksheet;
     }
 
     private Worksheet getWsh(DBCResultSet resultSet, Object[] row) throws DBException {
-    	Object colValue = ((splitByCol <= 0) || (splitByCol >= columns.length)) ? "" : row[splitByCol];
+        Object colValue = ((splitByCol <= 0) || (splitByCol >= columns.length)) ? "" : row[splitByCol];
         Worksheet w = worksheets.get(colValue);
         if (w == null) {
             w = createSheet(resultSet, colValue);
@@ -495,7 +433,7 @@ public class DataExporterXLSX extends StreamExporterAbstract {
         for (int i = 0; i < row.length; i++) {
             DBDAttributeBinding column = columns[i];
             Cell cell = rowX.createCell(i + startCol, getCellType(column));
-            cell.setCellStyle(style);
+            cell.setCellStyle(getCellStyle(column, rowCount));
 
             if (DBUtils.isNullValue(row[i])) {
                 if (!CommonUtils.isEmpty(nullString)) {
@@ -564,13 +502,123 @@ public class DataExporterXLSX extends StreamExporterAbstract {
         }
     }
 
-    private String getPreparedString(String cellValue) {
-        if (cellValue.length() > EXCEL_MAX_CELL_CHARACTERS) {
+    @Override
+    public void importData(@NotNull IStreamDataExporterSite site) throws DBException {
+        final File file = site.getOutputFile();
+        if (file == null || !file.exists()) {
+            return;
+        }
+        try {
+            wb = new SXSSFWorkbook(new XSSFWorkbook(new FileInputStream(file)));
+        } catch (Exception e) {
+            throw new DBException("Error opening workbook", e);
+        }
+    }
+
+    @Override
+    public boolean shouldTruncateOutputFileBeforeExport() {
+        return true;
+    }
+
+    private int getPhysicalNumberOfRows(@NotNull Sheet sheet) {
+        return wb.getXSSFWorkbook().getSheetAt(wb.getSheetIndex(sheet)).getPhysicalNumberOfRows();
+    }
+
+    private String getPreparedString(@Nullable String cellValue) {
+        if (CommonUtils.isNotEmpty(cellValue) && cellValue.length() > EXCEL_MAX_CELL_CHARACTERS) {
             // We must truncate long strings from our side, otherwise we get the error of the insertion from the apache.poi library
             log.warn("The string value of the row " + (rowCount + 1) + " was more maximum length, so it was cropped.");
-            return CommonUtils.truncateString(cellValue, EXCEL_MAX_CELL_CHARACTERS);
+            cellValue = CommonUtils.truncateString(cellValue, EXCEL_MAX_CELL_CHARACTERS);
+        }
+        if (trimStrings && CommonUtils.isNotEmpty(cellValue)) {
+            cellValue = cellValue.trim();
         }
         return cellValue;
     }
 
+    @NotNull
+    private CellStyle getCellStyle(@NotNull DBDAttributeBinding attribute, int row) {
+        if (decorator != null) {
+            final String bg = decorator.getCellBackground(attribute, row);
+
+            if (bg != null) {
+                // Setting the foreground color sets the background color. Is this a bug/feature of POI?
+                final XSSFCellStyle style = (XSSFCellStyle) this.style.copy();
+                style.setFillForegroundColor(new XSSFColor(asColor(bg), new DefaultIndexedColorMap()));
+                style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+                return style;
+            }
+        }
+
+        return style;
+    }
+
+    /**
+     * A reimplementation of {@link org.eclipse.jface.resource.StringConverter#asRGB(String)}.
+     * <p>
+     * Let's keep it here until it will be required in other places too
+     */
+    @NotNull
+    private static Color asColor(@NotNull String value) {
+        final StringTokenizer tokenizer = new StringTokenizer(value, ",");
+        final int r = Integer.parseInt(tokenizer.nextToken().trim());
+        final int g = Integer.parseInt(tokenizer.nextToken().trim());
+        final int b = Integer.parseInt(tokenizer.nextToken().trim());
+        return new Color(r, g, b);
+    }
+
+    private enum AppendStrategy {
+        CREATE_NEW_SHEETS("create new sheets"),
+        USE_EXISTING_SHEETS("use existing sheets");
+
+        private final String value;
+
+        AppendStrategy(@NotNull String value) {
+            this.value = value;
+        }
+
+        @NotNull
+        public static AppendStrategy of(@NotNull String value) {
+            for (AppendStrategy strategy : values()) {
+                if (strategy.value.equals(value)) {
+                    return strategy;
+                }
+            }
+
+            return CREATE_NEW_SHEETS;
+        }
+    }
+
+    private enum HeaderFormat {
+        LABEL("label"),
+        DESCRIPTION("description"),
+        BOTH("both"),
+        NONE("none");
+
+        private final String value;
+
+        HeaderFormat(@NotNull String value) {
+            this.value = value;
+        }
+
+        @NotNull
+        public static HeaderFormat of(@NotNull String value) {
+            for (HeaderFormat format : values()) {
+                if (format.value.equals(value)) {
+                    return format;
+                }
+            }
+
+            return LABEL;
+        }
+
+        public boolean hasLabel() {
+            return this == LABEL || this == BOTH;
+        }
+
+        public boolean hasDescription() {
+            return this == DESCRIPTION || this == BOTH;
+        }
+    }
 }

@@ -28,6 +28,7 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.ext.xugu.Constants;
 import org.jkiss.dbeaver.ext.xugu.Messages;
 import org.jkiss.dbeaver.ext.xugu.Utils;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
@@ -37,6 +38,7 @@ import org.jkiss.dbeaver.ext.xugu.model.Synonym;
 import org.jkiss.dbeaver.ext.xugu.views.WarningDialog;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.edit.DBECommand;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
 import org.jkiss.dbeaver.model.edit.DBEObjectRenamer;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
@@ -71,75 +73,97 @@ public class SynonymManager extends SQLObjectEditor<Synonym, Schema> implements 
 		return object.getSchema().synonymCache;
 	}
 
-//	@Override
-//	protected Synonym createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context,
-//			final Object container, Object from, Map<String, Object> options) throws DBException {
-//		
-//		if(container instanceof DataSource) {
-//			DataSource dataSource = (DataSource) container;
-//			return new UITask<Synonym>() {
-//				@Override
-//				protected Synonym runTask() {
-//					NewSynonymDialog dialog = new NewSynonymDialog(UIUtils.getActiveWorkbenchShell(), dataSource);
-//					if (dialog.open() != IDialogConstants.OK_ID) {
-//						return null;
-//					}
-//					Synonym newSynonym = dialog.getSynonym();
-//					return newSynonym;
-//				}
-//			}.execute();
-//		}else {
-//			Schema schema = (Schema) container;
-//			return new UITask<Synonym>() {
-//				@Override
-//				protected Synonym runTask() {
-//					NewSynonymDialog dialog = new NewSynonymDialog(UIUtils.getActiveWorkbenchShell(), schema);
-//					if (dialog.open() != IDialogConstants.OK_ID) {
-//						return null;
-//					}
-//					Synonym newSynonym = dialog.getSynonym();
-//					return newSynonym;
-//				}
-//			}.execute();
-//		}
-//	}
+	@Override
+	protected Synonym createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context,
+			final Object container, Object from, Map<String, Object> options) throws DBException {
+		
+		if(container instanceof DataSource) {
+			DataSource dataSource = (DataSource) container;
+			return new UITask<Synonym>() {
+				@Override
+				protected Synonym runTask() {
+					NewSynonymDialog dialog = new NewSynonymDialog(UIUtils.getActiveWorkbenchShell(), dataSource.publicSchema);
+					if (dialog.open() != IDialogConstants.OK_ID) {
+						return null;
+					}
+					Synonym newSynonym = dialog.getSynonym();
+					return newSynonym;
+				}
+			}.execute();
+		}else {
+			return new UITask<Synonym>() {
+				@Override
+				protected Synonym runTask() {
+					NewSynonymDialog dialog = new NewSynonymDialog(UIUtils.getActiveWorkbenchShell(), (Schema) container);
+					if (dialog.open() != IDialogConstants.OK_ID) {
+						return null;
+					}
+					Synonym newSynonym = dialog.getSynonym();
+					return newSynonym;
+				}
+			}.execute();
+		}
+	}
 
 	@Override
 	protected void addObjectCreateActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
 			List<DBEPersistAction> actions, SQLObjectEditor<Synonym, Schema>.ObjectCreateCommand command,
 			Map<String, Object> options) throws DBException {
-		Synonym synonym = command.getObject();
-		String sql = "CREATE ";
-		if (synonym.isPublic()) {
-			sql += "PUBLIC ";
-		}
-		sql += "SYNONYM " + synonym.getParentObject().getName() + "." + synonym.getName() + " FOR "
-				+ synonym.getParentObject().getName() + "." + synonym.getTargetName();
-
-		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create synonym sql: " + sql);
-		actions.add(new SQLDatabasePersistAction("Create synonym", sql));
+		addCreateActions(monitor, executionContext, actions, command, options);
 	}
 
 	@Override
 	protected void addObjectDeleteActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
 			List<DBEPersistAction> actions, SQLObjectEditor<Synonym, Schema>.ObjectDeleteCommand command,
 			Map<String, Object> options) {
+		addDeleteActions(monitor, executionContext, actions, command, options);
+	}
+
+	@Override
+	protected void addObjectRenameActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
+			List<DBEPersistAction> actions, SQLObjectEditor<Synonym, Schema>.ObjectRenameCommand command,
+			Map<String, Object> options) {
+		command.getObject().setName(command.getOldName());
+		addDeleteActions(monitor, executionContext, actions, command, options);
+		command.getObject().setName(command.getNewName());
+		addCreateActions(monitor, executionContext, actions, command, options);
+	}
+
+	private void addCreateActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
+			List<DBEPersistAction> actions, DBECommand<Synonym> command,
+			Map<String, Object> options) {
+		Synonym synonym = command.getObject();
+		String sql = "CREATE ";
+		if (synonym.isPublic()) {
+			sql += "PUBLIC SYNONYM " + synonym.getName() + " FOR " + synonym.getTargetName();
+		} else {
+			sql += "SYNONYM " + synonym.getParentObject().getName() + "." + synonym.getName() + " FOR "
+					+ synonym.getParentObject().getName() + "." + synonym.getTargetName();
+		}
+
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create synonym sql: " + sql);
+		actions.add(new SQLDatabasePersistAction("Create synonym", sql));
+	}
+
+	private void addDeleteActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
+			List<DBEPersistAction> actions, DBECommand<Synonym> command,
+			Map<String, Object> options) {
 		Synonym synonym = command.getObject();
 		String sql = "DROP ";
 		if (synonym.isPublic()) {
-			sql += "PUBLIC ";
+			sql += "PUBLIC SYNONYM " + DBUtils.getQuotedIdentifier(synonym);
+		} else {
+			sql += "SYNONYM " + synonym.getParentObject().getName() + "." + DBUtils.getQuotedIdentifier(synonym);
 		}
-		sql += "SYNONYM " + synonym.getParentObject().getName() + "." + DBUtils.getQuotedIdentifier(synonym);
 
 		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct drop synonym sql: " + sql);
 		actions.add(new SQLDatabasePersistAction("Drop synonym", sql));
 	}
-
+	
 	@Override
 	public void renameObject(DBECommandContext commandContext, Synonym object, Map<String, Object> options,
 			String newName) throws DBException {
-		throw new DBException("Direct synonym rename is not yet implemented in " + OemConfig.OEM_NAME_EN
-				+ " Database. You should use export/import functions for that.");
+		processObjectRename(commandContext, object, options, newName);
 	}
 
 	static class NewSynonymDialog extends Dialog {
@@ -148,16 +172,11 @@ public class SynonymManager extends SQLObjectEditor<Synonym, Schema> implements 
 		private Text tarNameText;
 		private Button isPublicButton;
 
-		public NewSynonymDialog(Shell parentShell, Schema dataSource) {
+		public NewSynonymDialog(Shell parentShell, Schema schema) {
 			super(parentShell);
-			this.synonym = new Synonym(dataSource, null);
+			this.synonym = new Synonym(schema, null);
+			this.synonym.setPublic(Constants.USER_PUBLIC.equals(schema.getName()));
 		}
-		
-//		public NewSynonymDialog(Shell parentShell, DataSource dataSource) {
-//			super(parentShell);
-//			this.synonym = new Synonym(dataSource, null);
-//		}
-		
 
 		public Synonym getSynonym() {
 			return synonym;
@@ -175,7 +194,7 @@ public class SynonymManager extends SQLObjectEditor<Synonym, Schema> implements 
 
 		@Override
 		protected Control createDialogArea(Composite parent) {
-//			getShell().setText(Messages.dialog_synonym_create_title);
+			getShell().setText(Messages.dialog_synonym_create_title);
 
 			Control container = super.createDialogArea(parent);
 			Composite composite = UIUtils.createPlaceholder((Composite) container, 2, 5);
@@ -187,7 +206,8 @@ public class SynonymManager extends SQLObjectEditor<Synonym, Schema> implements 
 			tarNameText = UIUtils.createLabelText(composite, Messages.dialog_synonym_target, null);
 			tarNameText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 
-			isPublicButton = UIUtils.createCheckbox(composite, "Is Public", false);
+			isPublicButton = UIUtils.createCheckbox(composite, "Is Public", synonym.isPublic());
+			isPublicButton.setEnabled(false);
 
 			UIUtils.createInfoLabel(composite, Messages.dialog_synonym_create_info, GridData.FILL_HORIZONTAL, 2);
 
@@ -206,12 +226,5 @@ public class SynonymManager extends SQLObjectEditor<Synonym, Schema> implements 
 				warnDialog.open();
 			}
 		}
-	}
-
-	@Override
-	protected Synonym createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context, Object container,
-			Object copyFrom, Map<String, Object> options) throws DBException {
-		// TODO Auto-generated method stub
-		return null;
 	}
 }

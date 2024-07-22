@@ -176,14 +176,14 @@
                     <folder type="org.jkiss.dbeaver.ext.xugu.model.DataType" label="%tree.types.node.name" icon="#data_types" description="Types">
                         <items label="%tree.data_type.node.name" path="type" property="localDataTypes" icon="#data_type"/>
                     </folder>
-                    <folder type="org.jkiss.dbeaver.ext.xugu.model.PublicSynonym" label="%tree.synonyms.node.name" icon="#synonyms" description="Public synonyms">
+                    <folder type="org.jkiss.dbeaver.ext.xugu.model.Synonym" label="%tree.synonyms.node.name" icon="#synonyms" description="Public synonyms">
                         <items label="%tree.synonym.node.name" path="synonym" property="publicSynonyms" icon="#synonym"/>
                     </folder>
                 </folder>
             </tree>
 
             <drivers managable="true">
-                <driver class="com.xugu.cloudjdbc.Driver" defaultPort="5138" description="Xugu JDBC driver." icon="icons/icon.png" iconBig="icons/icon_big.png" id="Xugu SQL Server" label="Xugu" promoted="true" sampleURL="jdbc:xugu://{host}[:{port}]/{database}" useURL="false" webURL="https://gitee.com/XuguDB/org.jkiss.dbeaver.ext.xugu/tree/develop/drivers" categories="sql">
+                <driver class="com.xugu.cloudjdbc.Driver" defaultPort="5138" description="Xugu JDBC driver." icon="icons/icon.png" iconBig="icons/icon_big.png" id="Xugu SQL Server" label="Xugu" promoted="9999" sampleURL="jdbc:xugu://{host}[:{port}]/{database}" useURL="false" webURL="https://gitee.com/XuguDB/org.jkiss.dbeaver.ext.xugu/tree/develop/drivers" categories="sql">
                     <replace provider="generic" driver="xugu"/>
                     <replace provider="xugu" driver="xugu"/>
                     <replace provider="xugu" driver="xugu_oci"/>
@@ -234,7 +234,7 @@
         <manager class="org.jkiss.dbeaver.ext.xugu.edit.PackageManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Package"/>
       	<manager class="org.jkiss.dbeaver.ext.xugu.edit.TriggerManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Trigger"/>
         <manager class="org.jkiss.dbeaver.ext.xugu.edit.SequenceManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Sequence"/>
-      <!--  <manager class="org.jkiss.dbeaver.ext.xugu.edit.SynonymManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Synonym"/> -->
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.SynonymManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Synonym"/>
         <manager class="org.jkiss.dbeaver.ext.xugu.edit.SchedulerJobManager" objectType="org.jkiss.dbeaver.ext.xugu.model.SchedulerJob"/>
         <manager class="org.jkiss.dbeaver.ext.xugu.edit.TablespaceManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Tablespace"/>
         <manager class="org.jkiss.dbeaver.ext.xugu.edit.RoleManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Role"/>
@@ -322,6 +322,22 @@
                 singleton="true">
                 <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
             </tool>
+            <tool
+                class="org.jkiss.dbeaver.ext.xugu.tasks.FileViewer"	
+                description="File Viewer"
+                id="org.jkiss.dbeaver.ext.xugu.tasks.FileViewer"
+                label="查看数据库文件"
+                singleton="true">
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
+            </tool>
+            <tool
+                class="org.jkiss.dbeaver.ext.xugu.tasks.ResourceViewer"	
+                description="File Viewer"
+                id="org.jkiss.dbeaver.ext.xugu.tasks.ResourceViewer"
+                label="查看数据库资源"
+                singleton="true">
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
+            </tool>
         </tools>
      </extension>
     
@@ -331,6 +347,8 @@
 
             <datasource id="xugu"/>
 
+            <type name="JSON"/>
+            <type name="XML"/>
             <type name="XMLTYPE"/>
             <type kind="CONTENT"/>
             <type kind="DATETIME"/>
@@ -339,8 +357,11 @@
             <type name="TIMESTAMP WITH LOCAL TZ"/>
             <type name="TIMESTAMP WITH TIME ZONE"/>
             <type name="TIMESTAMP WITH LOCAL TIME ZONE"/>
+            <type name="TIMESTAMP WITH LOCAL TIME ZONE"/>
+            <type name="GEOMETRY"/>
             <!--type standard="STRUCT"/-->
-
+           <type name="BIT"/>
+           <type name="VARBIT"/>
         </provider>
     </extension>
     <extension point="org.eclipse.ui.commands">
@@ -403,5 +424,9 @@
         <generator id="tableMerge" class="org.jkiss.dbeaver.ext.xugu.model.sql.generator.SQLGeneratorMerge" label="MERGE(XUGU)" description="MERGE table using Xugu dialect" order="5">
             <objectType name="org.jkiss.dbeaver.model.struct.DBSDataManipulator"/>
         </generator>
+    </extension>
+    
+    <extension point="org.eclipse.core.runtime.preferences">
+        <initializer class="org.jkiss.dbeaver.ext.xugu.internal.PreferencesInitializer"/>
     </extension>
 </plugin>

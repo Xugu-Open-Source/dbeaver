@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,27 +40,32 @@ public interface DBSDictionary
 
     /**
      * Gets enumeration values
-     * @param monitor session
-     * @param keyColumn enumeration column.
-     * @param keyPattern pattern for enumeration values. If null or empty then returns full enumration set
-     * @param preceedingKeys other constrain key values. May be null.
-     * @param sortByValue sort results by value
-     * @param sortAsc ascending sorting (irrelevant is @sortByValue is false)
+     *
+     * @param monitor               session
+     * @param keyColumn             enumeration column.
+     * @param keyPattern            pattern for enumeration values. If null or empty then returns full enumration set
+     * @param searchText
+     * @param preceedingKeys        other constrain key values. May be null.
      * @param caseInsensitiveSearch use case-insensitive search for {@code keyPattern}
-     * @param maxResults maximum enumeration values in result set
+     * @param sortAsc               ascending sorting (irrelevant is {@code sortByValue} is false)
+     * @param sortByValue           sort results by value
+     * @param offset                enumeration values offset in result set
+     * @param maxResults            maximum enumeration values in result set
      * @return statement with result set which contains valid enumeration values.
      */
     @NotNull
     List<DBDLabelValuePair> getDictionaryEnumeration(
         @NotNull DBRProgressMonitor monitor,
         @NotNull DBSEntityAttribute keyColumn,
-        Object keyPattern,
+        @Nullable Object keyPattern,
+        @Nullable String searchText,
         @Nullable List<DBDAttributeValue> preceedingKeys,
-        boolean sortByValue,
-        boolean sortAsc,
         boolean caseInsensitiveSearch,
-        int maxResults)
-        throws DBException;
+        boolean sortAsc,
+        boolean sortByValue,
+        int offset,
+        int maxResults
+    ) throws DBException;
 
     @NotNull
     List<DBDLabelValuePair> getDictionaryValues(
@@ -69,7 +74,15 @@ public interface DBSDictionary
         @NotNull List<Object> keyValues,
         @Nullable List<DBDAttributeValue> preceedingKeys,
         boolean sortByValue,
-        boolean sortAsc)
-        throws DBException;
+        boolean sortAsc
+    ) throws DBException;
 
+    @NotNull
+    DBSDictionaryAccessor getDictionaryAccessor(
+        @NotNull DBRProgressMonitor monitor,
+        @Nullable List<DBDAttributeValue> precedingKeys,
+        @NotNull DBSEntityAttribute keyColumn,
+        boolean sortAsc,
+        boolean sortByDesc
+    ) throws DBException;
 }

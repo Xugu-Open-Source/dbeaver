@@ -73,6 +73,8 @@ public class Utils {
 	private static Map<String, Integer> typeMap = new HashMap<>();
 	public static final String COLUMN_POSTFIX_PRIV = "_priv";
 
+
+
 	static {
 		typeMap.put("bit", java.sql.Types.BIT);
 		typeMap.put("bool", java.sql.Types.BOOLEAN);
@@ -633,5 +635,26 @@ public class Utils {
 			e.printStackTrace();
 		}
 		return "";
+	}
+	public static boolean isXuguObject(Object object) {
+		if (object == null) {
+			return false;
+		}
+		String className = object.getClass().getName();
+		return className.equals(Constants.XUGU_DBOBJECT_CLASS);
+	}
+	public static Object extractPGObjectValue(Object xuguObject) {
+		if (xuguObject == null) {
+			return null;
+		}
+		if (!isXuguObject(xuguObject)) {
+			return xuguObject;
+		}
+		try {
+			return xuguObject.getClass().getMethod("getValue").invoke(xuguObject);
+		} catch (Exception e) {
+			LOG.debug("Can't extract value from " + xuguObject.getClass().getName(), e);
+		}
+		return null;
 	}
 }

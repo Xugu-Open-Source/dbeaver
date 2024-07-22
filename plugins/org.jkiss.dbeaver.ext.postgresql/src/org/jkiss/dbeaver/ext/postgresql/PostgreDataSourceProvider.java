@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,10 +26,10 @@ import org.jkiss.dbeaver.ext.postgresql.model.impls.PostgreServerType;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBPDataSourceURLProvider;
-import org.jkiss.dbeaver.model.auth.DBAAuthModel;
+import org.jkiss.dbeaver.model.DatabaseURL;
+import org.jkiss.dbeaver.model.access.DBAAuthModel;
 import org.jkiss.dbeaver.model.connection.*;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSourceProvider;
-import org.jkiss.dbeaver.model.impl.jdbc.JDBCURL;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
@@ -72,11 +72,17 @@ public class PostgreDataSourceProvider extends JDBCDataSourceProvider implements
     public String getConnectionURL(DBPDriver driver, DBPConnectionConfiguration connectionInfo) {
         DBAAuthModel authModel = connectionInfo.getAuthModel();
         if (authModel instanceof DBPDataSourceURLProvider) {
-            return ((DBPDataSourceURLProvider) authModel).getConnectionURL(driver, connectionInfo);
+            String connectionURL = ((DBPDataSourceURLProvider) authModel).getConnectionURL(driver, connectionInfo);
+            if (CommonUtils.isNotEmpty(connectionURL)) {
+                return connectionURL;
+            }
+        }
+        if (connectionInfo.getConfigurationType() == DBPDriverConfigurationType.URL) {
+            return connectionInfo.getUrl();
         }
         PostgreServerType serverType = PostgreUtils.getServerType(driver);
         if (serverType.supportsCustomConnectionURL()) {
-            return JDBCURL.generateUrlByTemplate(driver, connectionInfo);
+            return DatabaseURL.generateUrlByTemplate(driver, connectionInfo);
         }
 
         StringBuilder url = new StringBuilder();
@@ -106,6 +112,17 @@ public class PostgreDataSourceProvider extends JDBCDataSourceProvider implements
         @NotNull DBPDataSourceContainer container)
         throws DBException {
         return new PostgreDataSource(monitor, container);
+    }
+
+    /**
+     * We disable provider bundle as classes source because is contains JNA dependency
+     * which conflicts with Waffle (which contains JNA 4.5).
+     * Technically it is a hack.
+     * Solution: move all JNA-dependent functions to a separate bundle.
+     */
+    @Override
+    public boolean providesDriverClasses() {
+        return false;
     }
 
     ////////////////////////////////////////////////////////////////

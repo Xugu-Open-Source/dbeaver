@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
-import org.jkiss.dbeaver.model.IDataSourceContainerProvider;
+import org.jkiss.dbeaver.model.DBPDataSourceContainerProvider;
 import org.jkiss.dbeaver.model.navigator.*;
 import org.jkiss.dbeaver.model.navigator.meta.DBXTreeNodeHandler;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceListener;
@@ -55,7 +55,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 
-public abstract class NavigatorViewBase extends ViewPart implements INavigatorModelView, IDataSourceContainerProvider, DBPPreferenceListener {
+public abstract class NavigatorViewBase extends ViewPart implements INavigatorModelView, DBPDataSourceContainerProvider, DBPPreferenceListener {
 
     private DatabaseNavigatorTree tree;
     private transient Object lastSelection;
@@ -236,12 +236,17 @@ public abstract class NavigatorViewBase extends ViewPart implements INavigatorMo
     private void onSelectionChange(IStructuredSelection structSel) {
         if (!structSel.isEmpty()) {
             lastSelection = structSel.getFirstElement();
-            if (lastSelection instanceof DBNNode) {
-                String desc = ((DBNNode)lastSelection).getNodeDescription();
+            if (lastSelection instanceof DBNRoot) {
+                // Don't display status message for root node - it has no meaningful information
+                getViewSite().getActionBars().getStatusLineManager().setMessage(null);
+            } else if (lastSelection instanceof DBNNode) {
+                final String name = ((DBNNode) lastSelection).getNodeName();
+                final String desc = ((DBNNode) lastSelection).getNodeDescription();
                 if (CommonUtils.isEmpty(desc)) {
-                    desc = ((DBNNode)lastSelection).getNodeName();
+                    getViewSite().getActionBars().getStatusLineManager().setMessage(name);
+                } else {
+                    getViewSite().getActionBars().getStatusLineManager().setMessage(name + " - " + desc);
                 }
-                getViewSite().getActionBars().getStatusLineManager().setMessage(desc);
             }
         } else {
             lastSelection = null;
@@ -329,10 +334,15 @@ public abstract class NavigatorViewBase extends ViewPart implements INavigatorMo
                 break;
             case NavigatorPreferences.NAVIGATOR_SHOW_STATISTICS_INFO:
             case NavigatorPreferences.NAVIGATOR_SHOW_CONNECTION_HOST_NAME:
+            case NavigatorPreferences.NAVIGATOR_SHOW_OBJECTS_DESCRIPTION:
             case NavigatorPreferences.NAVIGATOR_SHOW_NODE_ACTIONS:
                 tree.getViewer().getTree().redraw();
                 break;
         }
+    }
+
+    protected void redrawTree() {
+        tree.getViewer().refresh();
     }
 
 }

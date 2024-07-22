@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,9 @@
 package org.jkiss.dbeaver.ui.controls.resultset;
 
 import org.eclipse.jface.viewers.SelectionChangedEvent;
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.model.impl.local.StatResultSet;
 
 /**
  * Result set provider
@@ -29,4 +32,12 @@ public interface IResultSetListener {
     void handleResultSetChange();
 
     void handleResultSetSelectionChange(SelectionChangedEvent event);
+
+    default void onModelPrepared() {
+        // do nothing
+    }
+    
+    default void onQueryExecuted(@NotNull String query, @Nullable StatResultSet statistics, @Nullable String errorMessage) {
+        // do nothing
+    }
 }

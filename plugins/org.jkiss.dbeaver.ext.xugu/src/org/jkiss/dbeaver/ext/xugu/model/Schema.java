@@ -74,7 +74,6 @@ public class Schema extends BaseGlobalObject
 	final public ProceduresCache proceduresCache = new ProceduresCache();
 	final public FunctionsCache functionsCache = new FunctionsCache();
 	final public TriggerCache triggerCache = new TriggerCache();
- 	final public ProcedurePackagedCache procedurePackagedCache = new ProcedurePackagedCache();
  	
 	private long id;
 	private String name;
@@ -459,19 +458,31 @@ public class Schema extends BaseGlobalObject
 		if (table != null) {
 			return table;
 		}
+
+		View view = viewCache.getObject(monitor, this, childName);
+		if (view != null) {
+			return view;
+		}
+
 		Synonym synonym = synonymCache.getObject(monitor, this, childName);
 		if (synonym != null) {
 			return synonym;
 		}
-		
+
 		Trigger trigger = triggerCache.getObject(monitor, this, childName);
 		if (trigger != null) {
 			return trigger;
 		}
-//		TriggerTest trigger = triggerCache.getObject(monitor, this, childName);
-//		if (trigger != null) {
-//			return trigger;
-//		}	
+		
+		ProcedureStandalone procedure = proceduresCache.getObject(monitor, this, childName);
+		if (procedure != null) {
+			return procedure;
+		}
+		
+		ProcedureStandalone function = functionsCache.getObject(monitor, this, childName);
+		if (function != null) {
+			return function;
+		}
 
 		return packageCache.getObject(monitor, this, childName);
 	}
@@ -1032,31 +1043,18 @@ public class Schema extends BaseGlobalObject
 	}
 
 	/**
-	 * 数据类型缓存
-	 */
-	static class DataTypeCache extends JDBCObjectCache<Schema, DataType> {
-		@Override
-		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull Schema owner)
-				throws SQLException {
-			// TODO 准备数据类型缓存声明
-			return null;
-		}
-
-		@Override
-		protected DataType fetchObject(@NotNull JDBCSession session, @NotNull Schema owner,
-				@NotNull JDBCResultSet resultSet) throws SQLException {
-			// TODO 获取数据类型缓存对象
-			return null;
-		}
-	}
-
-	/**
 	 * 序列缓存
 	 */
-	static class SequenceCache extends JDBCObjectCache<Schema, Sequence> {
+	static class SequenceCache extends JDBCObjectLookupCache<Schema, Sequence> {
 		@Override
-		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull Schema owner)
-				throws SQLException {
+		protected Sequence fetchObject(@NotNull JDBCSession session, @NotNull Schema owner,
+				@NotNull JDBCResultSet resultSet) throws SQLException, DBException {
+			return new Sequence(owner, resultSet);
+		}
+
+		@Override
+		public JDBCStatement prepareLookupStatement(JDBCSession session, Schema owner, Sequence object,
+				String objectName) throws SQLException {
 			// 修改了获取sequence信息的sql
 			String roleFlag = owner.getRoleFlag();
 			StringBuilder sql = new StringBuilder();
@@ -1067,18 +1065,22 @@ public class Schema extends BaseGlobalObject
 			sql.append(owner.getDbId(owner, session));
 			sql.append(" AND SCHEMA_ID=");
 			sql.append(owner.getId());
+			
+			if (object != null) {
+				sql.append(" AND SEQ_ID=");
+				sql.append(object.getSeqId());
+			} else if (objectName != null) {
+				sql.append(" AND SEQ_ID='");
+				sql.append(objectName);
+				sql.append("'");
+			}
+			
 			sql.append(" AND IS_SYS=FALSE");
 			sql.append(" ORDER BY SEQ_NAME");
 
 			log.debug("" + OemConfig.OEM_NAME_EN + " sequence metadata: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
 			return dbStat;
-		}
-
-		@Override
-		protected Sequence fetchObject(@NotNull JDBCSession session, @NotNull Schema owner,
-				@NotNull JDBCResultSet resultSet) throws SQLException, DBException {
-			return new Sequence(owner, resultSet);
 		}
 	}
 
@@ -1104,11 +1106,13 @@ public class Schema extends BaseGlobalObject
 			if (object != null) {
 				sql.append(" AND PROC_ID = ");
 				sql.append(object.getObjectId());
-				if (DBSProcedureType.FUNCTION == object.getProcedureType()) {
-					
-				} else {
+				if (DBSProcedureType.FUNCTION != object.getProcedureType()) {
 					sql.append(" AND RET_TYPE IS NOT NULL");
 				}
+			} else if (objectName != null) {
+				sql.append(" AND PROC_NAME = '");
+				sql.append(objectName);
+				sql.append("'");
 			}
 
 			log.debug("" + OemConfig.OEM_NAME_EN + " procedure metadata: " + sql.toString());
@@ -1122,7 +1126,7 @@ public class Schema extends BaseGlobalObject
 			return new ProcedureStandalone(session.getProgressMonitor(), owner, dbResult);
 		}
 	}
-	
+
 	/**
 	 * 函数缓存
 	 */
@@ -1145,6 +1149,10 @@ public class Schema extends BaseGlobalObject
 			if (object != null) {
 				sql.append(" AND PROC_ID = ");
 				sql.append(object.getObjectId());
+			} else if (objectName != null) {
+				sql.append(" AND PROC_NAME = '");
+				sql.append(objectName);
+				sql.append("'");
 			}
 
 			log.debug("" + OemConfig.OEM_NAME_EN + " function metadata: " + sql.toString());
@@ -1162,10 +1170,16 @@ public class Schema extends BaseGlobalObject
 	/**
 	 * 包缓存
 	 */
-	static class PackageCache extends JDBCObjectCache<Schema, Package> {
+	static class PackageCache extends JDBCObjectLookupCache<Schema, Package> {
 		@Override
-		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull Schema owner)
-				throws SQLException {
+		protected Package fetchObject(@NotNull JDBCSession session, @NotNull Schema owner,
+				@NotNull JDBCResultSet dbResult) throws SQLException, DBException {
+			return new Package(owner, dbResult);
+		}
+
+		@Override
+		public JDBCStatement prepareLookupStatement(JDBCSession session, Schema owner, Package object,
+				String objectName) throws SQLException {
 			// xfc 修改了获取所有包信息的sql语句
 			String roleFlag = owner.getRoleFlag();
 			StringBuilder sql = new StringBuilder();
@@ -1175,49 +1189,35 @@ public class Schema extends BaseGlobalObject
 			sql.append(owner.getDbId(owner, session));
 			sql.append(" AND SCHEMA_ID=");
 			sql.append(owner.id);
+
+			if (object != null) {
+				sql.append(" AND PACK_ID=");
+				sql.append(object.getObjectId());
+			} else if (objectName != null) {
+				sql.append(" AND PACK_NAME='");
+				sql.append(objectName);
+				sql.append("'");
+			}
+
 			log.debug("" + OemConfig.OEM_NAME_EN + " package metadata: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
 			return dbStat;
 		}
-
-		@Override
-		protected Package fetchObject(@NotNull JDBCSession session, @NotNull Schema owner,
-				@NotNull JDBCResultSet dbResult) throws SQLException, DBException {
-			return new Package(owner, dbResult);
-		}
 	}
-	
-	
-	/**
-	 *  包内存储过程缓存 
-	 */
-	class ProcedurePackagedCache extends JDBCObjectCache<Schema,ProcedurePackaged>{
-
-		@Override
-		protected JDBCStatement prepareObjectsStatement(JDBCSession session, Schema owner)
-				throws SQLException {
-			return null; 
-		}
-
-		@Override
-		protected ProcedurePackaged fetchObject(JDBCSession session, Schema owner, JDBCResultSet resultSet)
-				throws SQLException, DBException {
-			// TODO Auto-generated method stub
-			return null;
-		}
-		
-	}
-	
-	
 
 	/**
 	 * 同义词缓存
 	 */
-	static class SynonymCache extends JDBCObjectCache<Schema, Synonym> {
+	static class SynonymCache extends JDBCObjectLookupCache<Schema, Synonym> {
 		@Override
-		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull Schema owner)
-				throws SQLException {
-			
+		protected Synonym fetchObject(@NotNull JDBCSession session, @NotNull Schema owner,
+				@NotNull JDBCResultSet resultSet) throws SQLException, DBException {
+			return new Synonym(session.getProgressMonitor(), session, owner, resultSet);
+		}
+
+		@Override
+		public JDBCStatement prepareLookupStatement(JDBCSession session, Schema owner, Synonym object,
+				String objectName) throws SQLException {
 			// xfc 修改了获取同义词信息的语句
 			String roleFlag = owner.getRoleFlag();
 			StringBuilder sql = new StringBuilder();
@@ -1227,7 +1227,7 @@ public class Schema extends BaseGlobalObject
 				sql.append("_synonyms s1 left join ");
 				sql.append(roleFlag);
 				sql.append("_schemas s3  ON s3.schema_id=s1.targ_sche_id AND s3.db_id=current_db_id  ");
-				sql.append( " where s1.is_public = true ");
+				sql.append( " where s1.is_public = true");
 			}else {	
 				sql.append("select s2.schema_name CURR_SC,s3.schema_name TARG_SC, s1.*  from ");
 				sql.append(roleFlag);
@@ -1238,17 +1238,21 @@ public class Schema extends BaseGlobalObject
 				sql.append("_schemas s3  ON s3.schema_id=s1.targ_sche_id AND s3.db_id=current_db_id  ");
 				sql.append(" where s1.schema_id = ");
 				sql.append(owner.getId());
-				sql.append( " and s1.is_public = false ");
+				sql.append( " and s1.is_public = false");
 			}
+
+			if (object != null) {
+				sql.append(" AND SYNO_ID=");
+				sql.append(object.getObjectId());
+			} else if (objectName != null) {
+				sql.append(" AND SYNO_NAME='");
+				sql.append(objectName);
+				sql.append("'");
+			}
+
 			log.debug("" + OemConfig.OEM_NAME_EN + " synonyms metadata: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
 			return dbStat;
-		}
-
-		@Override
-		protected Synonym fetchObject(@NotNull JDBCSession session, @NotNull Schema owner,
-				@NotNull JDBCResultSet resultSet) throws SQLException, DBException {
-			return new Synonym(session.getProgressMonitor(), session, owner, resultSet);
 		}
 	}
 	
@@ -1257,27 +1261,7 @@ public class Schema extends BaseGlobalObject
 	 * @author zkun
 	 *
 	 */
-	 static class TriggerCache extends JDBCObjectCache<Schema,Trigger>{
-
-		@Override
-		protected JDBCStatement prepareObjectsStatement(JDBCSession session, Schema owner)
-				throws SQLException {
-			String orleFlag = owner.getRoleFlag();
-			StringBuilder sqlBuilder = new StringBuilder();
-			sqlBuilder.append("select st.db_id,st.schema_id,st.user_id, st.trig_name, st.trig_event,st.trig_type,st.trig_cond,st.Language,st.define,st.enable,st.valid,st.comments,so.obj_name,so.obj_type from ");
-			sqlBuilder.append(orleFlag);
-			sqlBuilder.append("_triggers st join ");
-			sqlBuilder.append(orleFlag);
-			sqlBuilder.append("_objects so");
-			sqlBuilder.append(" on st.obj_id = so.obj_id and st.db_id = so.db_id where st.db_id= ");
-			sqlBuilder.append(owner.getDbId(owner, session));
-			sqlBuilder.append(" and st.schema_id=");
-			sqlBuilder.append(owner.id);
-			log.debug("" + OemConfig.OEM_NAME_EN + " triggers metadata: " + sqlBuilder.toString());
-			JDBCPreparedStatement dbStat = session.prepareStatement(sqlBuilder.toString());
-			return dbStat;
-		}
-
+	 static class TriggerCache extends JDBCObjectLookupCache<Schema,Trigger>{
 		@Override
 		protected Trigger fetchObject(JDBCSession session, Schema owner, JDBCResultSet resultSet)
 				throws SQLException, DBException {
@@ -1288,14 +1272,49 @@ public class Schema extends BaseGlobalObject
 			}
 			return new Trigger(baseTable, resultSet);
 		}
+
+		@Override
+		public JDBCStatement prepareLookupStatement(JDBCSession session, Schema owner, Trigger object,
+				String objectName) throws SQLException {
+			String orleFlag = owner.getRoleFlag();
+			StringBuilder sqlBuilder = new StringBuilder();
+			sqlBuilder.append("select * from ");
+			sqlBuilder.append(orleFlag);
+			sqlBuilder.append("_triggers st join ");
+			sqlBuilder.append(orleFlag);
+			sqlBuilder.append("_objects so");
+			sqlBuilder.append(" on st.obj_id = so.obj_id and st.db_id = so.db_id where st.db_id= ");
+			sqlBuilder.append(owner.getDbId(owner, session));
+			sqlBuilder.append(" and st.schema_id=");
+			sqlBuilder.append(owner.id);
+
+			if (object != null) {
+				sqlBuilder.append(" and st.trig_id=");
+				sqlBuilder.append(object.getObjectId());
+			} else if (objectName != null) {
+				sqlBuilder.append(" and st.trig_name='");
+				sqlBuilder.append(objectName);
+				sqlBuilder.append("'");
+			}
+
+			log.debug("" + OemConfig.OEM_NAME_EN + " triggers metadata: " + sqlBuilder.toString());
+			JDBCPreparedStatement dbStat = session.prepareStatement(sqlBuilder.toString());
+			return dbStat;
+		}
 	}
 
 	/**
 	 * 用户自定义数据类型缓存
 	 */
-	static class UdtCache extends JDBCObjectCache<Schema, Udt> {
+	static class UdtCache extends JDBCObjectLookupCache<Schema, Udt> {
 		@Override
-		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull Schema owner)
+		protected Udt fetchObject(@NotNull JDBCSession session, @NotNull Schema owner, @NotNull JDBCResultSet resultSet)
+				throws SQLException, DBException {
+			return new Udt(owner, resultSet);
+		}
+
+		@Override
+		public JDBCStatement prepareLookupStatement(JDBCSession session, Schema owner, Udt object, String objectName)
 				throws SQLException {
 			// xfc 修改了获取同义词信息的语句
 			String roleFlag = owner.getRoleFlag();
@@ -1313,12 +1332,6 @@ public class Schema extends BaseGlobalObject
 			log.debug("" + OemConfig.OEM_NAME_EN + " udt metadata: " + sql.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
 			return dbStat;
-		}
-
-		@Override
-		protected Udt fetchObject(@NotNull JDBCSession session, @NotNull Schema owner, @NotNull JDBCResultSet resultSet)
-				throws SQLException, DBException {
-			return new Udt(owner, resultSet);
 		}
 	}
 
@@ -1346,6 +1359,10 @@ public class Schema extends BaseGlobalObject
 			if (object != null) {
 				sql.append(" AND VIEW_NAME='");
 				sql.append(object.getName());
+				sql.append("'");
+			} else if (objectName != null) {
+				sql.append(" AND VIEW_NAME='");
+				sql.append(objectName);
 				sql.append("'");
 			}
 

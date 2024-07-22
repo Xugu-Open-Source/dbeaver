@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.postgresql.PostgreConstants;
 import org.jkiss.dbeaver.ext.postgresql.PostgreUtils;
+import org.jkiss.dbeaver.model.DBPScriptObject;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.data.DBDPseudoAttribute;
 import org.jkiss.dbeaver.model.data.DBDPseudoAttributeContainer;
@@ -29,7 +30,9 @@ import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
+import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectCache;
 import org.jkiss.dbeaver.model.impl.struct.AbstractTableConstraint;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.IPropertyValueValidator;
@@ -59,6 +62,8 @@ public abstract class PostgreTable extends PostgreTableReal implements PostgreTa
     private SimpleObjectCache<PostgreTable, PostgreTableForeignKey> foreignKeys = new SimpleObjectCache<>();
     //private List<PostgreTablePartition>  partitions  = null;
 
+    private final PolicyCache policyCache = new PolicyCache();
+
     private boolean hasOids;
     private long tablespaceId;
     private List<PostgreTableInheritance> superTables;
@@ -66,8 +71,11 @@ public abstract class PostgreTable extends PostgreTableReal implements PostgreTa
     private boolean hasSubClasses;
 
     private boolean hasPartitions;
+    private boolean hasRowLevelSecurity;
     private String partitionKey;
     private String partitionRange;
+    private long depObjectId;
+    private long depObjectAttrNumber;
 
     public PostgreTable(PostgreTableContainer container)
     {
@@ -88,6 +96,8 @@ public abstract class PostgreTable extends PostgreTableReal implements PostgreTa
 
         this.partitionKey = getDataSource().isServerVersionAtLeast(10, 0) ? JDBCUtils.safeGetString(dbResult, "partition_key")  : null;
         this.hasPartitions = this.partitionKey != null;
+        this.hasRowLevelSecurity = getDataSource().getServerType().supportsRowLevelSecurity()
+            && JDBCUtils.safeGetBoolean(dbResult, "relrowsecurity");
     }
 
     // Copy constructor
@@ -155,6 +165,15 @@ public abstract class PostgreTable extends PostgreTableReal implements PostgreTa
 
     public void setHasOids(boolean hasOids) {
         this.hasOids = hasOids;
+    }
+
+    @Property(viewable = true, updatable = true, order = 41, visibleIf = PostgreColumnHasRowLevelSecurity.class)
+    public boolean isHasRowLevelSecurity() {
+        return hasRowLevelSecurity;
+    }
+
+    public void setHasRowLevelSecurity(boolean hasRowLevelSecurity) {
+        this.hasRowLevelSecurity = hasRowLevelSecurity;
     }
 
     @Property(viewable = true, order = 42)
@@ -324,6 +343,9 @@ public abstract class PostgreTable extends PostgreTableReal implements PostgreTa
         }
     }
 
+    void resetSuperInheritance() {
+        superTables = null;
+    }
 
     private List<PostgreTableInheritance> initSuperTables(DBRProgressMonitor monitor) throws DBException {
         List<PostgreTableInheritance> inheritanceList = new ArrayList<>();
@@ -445,10 +467,35 @@ public abstract class PostgreTable extends PostgreTableReal implements PostgreTa
             .collect(Collectors.toList());
     }
 
+    @NotNull
+    @Association
+    public List<PostgreTablePolicy> getPolicies(@NotNull DBRProgressMonitor monitor) throws DBException {
+        return policyCache.getAllObjects(monitor, this);
+    }
+
+    @Nullable
+    public PostgreTablePolicy getPolicy(@NotNull DBRProgressMonitor monitor, @NotNull String name) throws DBException {
+        return policyCache.getObject(monitor, this, name);
+    }
+
+    @NotNull
+    public PolicyCache getPolicyCache() {
+        return policyCache;
+    }
+
+    @Override
+    public boolean supportsObjectDefinitionOption(String option) {
+        if (hasPartitions && DBPScriptObject.OPTION_INCLUDE_PARTITIONS.equals(option)) {
+            return true;
+        }
+        return super.supportsObjectDefinitionOption(option);
+    }
+
     @Override
     public DBSObject refreshObject(@NotNull DBRProgressMonitor monitor) throws DBException {
         superTables = null;
         subTables = null;
+        policyCache.clearCache();
         return super.refreshObject(monitor);
     }
 
@@ -457,6 +504,37 @@ public abstract class PostgreTable extends PostgreTableReal implements PostgreTa
         @Override
         public boolean isValidValue(PostgreTable object, Object value) throws IllegalArgumentException {
             return object.getDataSource().getServerType().supportsHasOidsColumn();
+        }
+    }
+
+    public static class PostgreColumnHasRowLevelSecurity implements IPropertyValueValidator<PostgreTable, Object> {
+        @Override
+        public boolean isValidValue(PostgreTable object, Object value) throws IllegalArgumentException {
+            return object.getDataSource().getServerType().supportsRowLevelSecurity();
+        }
+    }
+
+    public static class PolicyCache extends JDBCObjectCache<PostgreTable, PostgreTablePolicy> {
+        @NotNull
+        @Override
+        protected JDBCStatement prepareObjectsStatement(
+            @NotNull JDBCSession session,
+            @NotNull PostgreTable table
+        ) throws SQLException {
+            final var stmt = session.prepareStatement("select * from pg_catalog.pg_policies where schemaname=? and tablename=?");
+            stmt.setString(1, table.getSchema().getName());
+            stmt.setString(2, table.getName());
+            return stmt;
+        }
+
+        @Nullable
+        @Override
+        protected PostgreTablePolicy fetchObject(
+            @NotNull JDBCSession session,
+            @NotNull PostgreTable table,
+            @NotNull JDBCResultSet resultSet
+        ) throws SQLException, DBException {
+            return new PostgreTablePolicy(session.getProgressMonitor(), table, resultSet);
         }
     }
 }

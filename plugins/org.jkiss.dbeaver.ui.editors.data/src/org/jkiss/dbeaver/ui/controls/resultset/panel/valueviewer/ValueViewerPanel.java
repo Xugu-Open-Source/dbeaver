@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,11 @@
 package org.jkiss.dbeaver.ui.controls.resultset.panel.valueviewer;
 
 import org.eclipse.core.runtime.IAdaptable;
-import org.eclipse.jface.action.Action;
-import org.eclipse.jface.action.GroupMarker;
-import org.eclipse.jface.action.IContributionManager;
-import org.eclipse.jface.action.Separator;
+import org.eclipse.jface.action.*;
 import org.eclipse.jface.dialogs.IDialogSettings;
 import org.eclipse.jface.viewers.ISelectionChangedListener;
 import org.eclipse.jface.viewers.ISelectionProvider;
+import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CCombo;
 import org.eclipse.swt.graphics.Point;
@@ -35,27 +33,26 @@ import org.eclipse.swt.widgets.*;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBPAdaptable;
 import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
-import org.jkiss.dbeaver.model.data.DBDContent;
 import org.jkiss.dbeaver.model.data.DBDValue;
 import org.jkiss.dbeaver.model.impl.data.DBDValueError;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.*;
 import org.jkiss.dbeaver.ui.controls.resultset.*;
 import org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain;
+import org.jkiss.dbeaver.ui.controls.resultset.internal.ResultSetMessages;
 import org.jkiss.dbeaver.ui.data.IValueController;
 import org.jkiss.dbeaver.ui.data.IValueEditor;
 import org.jkiss.dbeaver.ui.data.IValueManager;
 import org.jkiss.dbeaver.ui.data.editors.BaseValueEditor;
 import org.jkiss.dbeaver.ui.data.editors.ReferenceValueEditor;
-import org.jkiss.dbeaver.ui.data.managers.ContentValueManager;
-import org.jkiss.dbeaver.utils.ContentUtils;
 import org.jkiss.utils.CommonUtils;
 
 /**
  * RSV value view panel
  */
-public class ValueViewerPanel implements IResultSetPanel, IAdaptable {
+public class ValueViewerPanel implements IResultSetPanel, DBPAdaptable {
 
     private static final Log log = Log.getLog(ValueViewerPanel.class);
 
@@ -95,10 +92,12 @@ public class ValueViewerPanel implements IResultSetPanel, IAdaptable {
                     ValueViewerPanel.this.presentation.getController().getSite(),
                     true);
 
-                UIUtils.drawMessageOverControl(viewPlaceholder, e, "Select a cell to view/edit value", 0);
-                UIUtils.drawMessageOverControl(viewPlaceholder, e, "Press " + hidePanelCmd + " to hide this panel", 20);
+                UIUtils.drawMessageOverControl(viewPlaceholder, e, ResultSetMessages.value_viewer_select_view_message, 0);
+                UIUtils.drawMessageOverControl(viewPlaceholder, e, NLS.bind(ResultSetMessages.value_viewer_hide_panel_message, hidePanelCmd), 20);
             }
         });
+
+        viewPlaceholder.addDisposeListener(e -> disposeValueEditor());
 
 /*
         addTraverseListener(new TraverseListener() {
@@ -163,16 +162,17 @@ public class ValueViewerPanel implements IResultSetPanel, IAdaptable {
     private void refreshValue(boolean force) {
         DBDAttributeBinding attr = presentation.getCurrentAttribute();
         ResultSetRow row = presentation.getController().getCurrentRow();
+
         if (attr == null || row == null) {
             clearValue();
             return;
         }
+        int[] rowIndexes = presentation.getCurrentRowIndexes();
         boolean updateActions;
         if (previewController == null) {
             previewController = new ResultSetValueController(
                 presentation.getController(),
-                attr,
-                row,
+                new ResultSetCellLocation(attr, row, rowIndexes),
                 IValueController.EditType.PANEL,
                 viewPlaceholder)
             {
@@ -190,20 +190,15 @@ public class ValueViewerPanel implements IResultSetPanel, IAdaptable {
             updateActions = true;
             force = true;
         } else {
-            updateActions = force = (force || previewController.getBinding() != attr);
-            previewController.setCurRow(row);
-            previewController.setBinding(attr);
+            updateActions = force = (
+                force ||
+                previewController.getBinding() != attr ||
+                !CommonUtils.equalObjects(rowIndexes, previewController.getRowIndexes()));
+            previewController.setCellLocation(new ResultSetCellLocation(attr, row, rowIndexes));
         }
         if (!force && (valueManager == null || valueEditor == null)) {
             force = true;
-        }
-        if (!force && valueManager instanceof ContentValueManager) {
-            final Object value = previewController.getValue();
-            if (value instanceof DBDContent && !ContentUtils.isTextContent((DBDContent) value)) {
-                // Always perform refresh for non-textual data
-                force = true;
-                updateActions = true;
-            }
+            updateActions = true;
         }
         viewValue(force);
         if (updateActions) {
@@ -232,11 +227,16 @@ public class ValueViewerPanel implements IResultSetPanel, IAdaptable {
             try {
                 valueEditor = valueManager.createEditor(previewController);
             } catch (Throwable e) {
-                DBWorkbench.getPlatformUI().showError("Value preview", "Can't create value viewer", e);
+                DBWorkbench.getPlatformUI().showError(ResultSetMessages.value_viewer_preview_error_title, ResultSetMessages.value_viewer_preview_error_message, e);
                 return;
             }
             if (valueEditor != null) {
                 try {
+                    if (referenceValue) {
+                        Label valueLabel = new Label(viewPlaceholder, SWT.NONE);
+                        valueLabel.setText(ResultSetMessages.reference_value_editor_value_label);
+                        valueLabel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+                    }
                     valueEditor.createControl();
                 } catch (Exception e) {
                     log.error(e);
@@ -262,8 +262,9 @@ public class ValueViewerPanel implements IResultSetPanel, IAdaptable {
                 } else {
                     viewPlaceholder.setLayout(new FillLayout());
                 }
+            }
 
-            } else {
+            if (valueEditor == null || valueEditor.getControl() == null) {
                 final Composite placeholder = UIUtils.createPlaceholder(viewPlaceholder, 1);
                 placeholder.setBackground(placeholder.getDisplay().getSystemColor(SWT.COLOR_WIDGET_BACKGROUND));
                 placeholder.addPaintListener(e -> {
@@ -323,7 +324,7 @@ public class ValueViewerPanel implements IResultSetPanel, IAdaptable {
             previewController.updateValue(newValue, true);
             presentation.updateValueView();
         } catch (Exception e) {
-            DBWorkbench.getPlatformUI().showError("Value apply", "Can't apply edited value", e);
+            DBWorkbench.getPlatformUI().showError(ResultSetMessages.value_viewer_apply_error_title, ResultSetMessages.value_viewer_apply_error_message, e);
         } finally {
             valueSaving = false;
         }
@@ -341,8 +342,16 @@ public class ValueViewerPanel implements IResultSetPanel, IAdaptable {
 
     private void cleanupPanel()
     {
+        disposeValueEditor();
         // Cleanup previous viewer
         UIUtils.disposeChildControls(viewPlaceholder);
+    }
+
+    private void disposeValueEditor() {
+        if (valueEditor != null) {
+            valueEditor.dispose();
+            valueEditor = null;
+        }
     }
 
     private void fillToolBar(final IContributionManager contributionManager)
@@ -355,15 +364,18 @@ public class ValueViewerPanel implements IResultSetPanel, IAdaptable {
                 log.error("Can't contribute value manager actions", e);
             }
         }
-
         contributionManager.add(new GroupMarker(IValueManager.GROUP_ACTIONS_ADDITIONAL));
-
+        if (referenceValueEditor != null && referenceValueEditor.isReferenceValue()) {
+            for (ContributionItem contributionItem : referenceValueEditor.getContributionItems()) {
+                contributionManager.add(contributionItem);
+            }
+        }
         if (valueEditor != null && !valueEditor.isReadOnly()) {
             contributionManager.add(
                 ActionUtils.makeCommandContribution(presentation.getController().getSite(), ValueViewCommandHandler.CMD_SAVE_VALUE));
 
             contributionManager.add(
-                new Action("Auto-apply value", Action.AS_CHECK_BOX) {
+                new Action(ResultSetMessages.value_viewer_auto_apply_action_text, Action.AS_CHECK_BOX) {
                     {
                         setImageDescriptor(DBeaverIcons.getImageDescriptor(UIIcon.AUTO_SAVE));
                     }
@@ -396,4 +408,6 @@ public class ValueViewerPanel implements IResultSetPanel, IAdaptable {
 
         return null;
     }
+
+
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,10 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPReferentialIntegrityController;
-import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
+import org.jkiss.dbeaver.model.impl.struct.RelationalObjectType;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSObjectType;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -60,7 +62,7 @@ public class PostgreTableRegular extends PostgreTable implements DBPReferentialI
         }
         sql = sql.replace("?", getFullyQualifiedName(DBPEvaluationContext.DDL));
         try {
-            DBUtils.executeInMetaSession(monitor, this, "Changing referential integrity", sql);
+            JDBCUtils.executeInMetaSession(monitor, this, "Changing referential integrity", sql);
         } catch (SQLException e) {
             throw new DBException("Unable to change referential integrity", e);
         }
@@ -76,5 +78,10 @@ public class PostgreTableRegular extends PostgreTable implements DBPReferentialI
             return ENABLE_REFERENTIAL_INTEGRITY_STATEMENT;
         }
         return DISABLE_REFERENTIAL_INTEGRITY_STATEMENT;
+    }
+
+    @Override
+    public DBSObjectType getObjectType() {
+        return RelationalObjectType.TYPE_TABLE;
     }
 }

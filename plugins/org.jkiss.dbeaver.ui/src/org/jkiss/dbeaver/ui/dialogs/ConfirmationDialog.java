@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,15 +19,19 @@ package org.jkiss.dbeaver.ui.dialogs;
 
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.dialogs.MessageDialogWithToggle;
+import org.eclipse.jface.preference.IPreferenceStore;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Shell;
+import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.preferences.PreferenceStoreDelegate;
+import org.jkiss.dbeaver.ui.registry.ConfirmationRegistry;
+import org.jkiss.utils.CommonUtils;
 
 import java.util.ResourceBundle;
 
@@ -91,7 +95,9 @@ public class ConfirmationDialog extends MessageDialogWithToggle {
                 if (kind == QUESTION || kind == QUESTION_WITH_CANCEL) {
                     return IDialogConstants.NO_ID;
                 } else {
-                    return IDialogConstants.CANCEL_ID;
+                    // These dialog all have OK and maybe CANCEL buttons.
+                    // It makes no sense to return CANCEL_ID here as it's not a valid decision like YES or NO
+                    return IDialogConstants.OK_ID;
                 }
             }
         }
@@ -152,6 +158,14 @@ public class ConfirmationDialog extends MessageDialogWithToggle {
         }
     }
 
+    public static int confirmAction(@Nullable Shell shell, @NotNull String id, int type, @NotNull Object... args) {
+        return ConfirmationRegistry.getInstance().confirmAction(shell, id, type, -1, args);
+    }
+
+    public static int confirmAction(@Nullable Shell shell, int imageType, @NotNull String id, int type, @NotNull Object... args) {
+        return ConfirmationRegistry.getInstance().confirmAction(shell, id, type, imageType, args);
+    }
+
     public static boolean confirmAction(ResourceBundle bundle, Shell shell, String id)
     {
         return confirmActionWithParams(bundle, shell, id);
@@ -197,34 +211,23 @@ public class ConfirmationDialog extends MessageDialogWithToggle {
             prefKey);
     }
 
-    /**
-     * Confirmation with disabled NEVER answer.
-     */
-    public static int showConfirmDialogNoToggle(ResourceBundle bundle, Shell shell, String id, int type, int imageType, Object... args)
-    {
-        String titleKey = getResourceKey(id, RES_KEY_TITLE);
-        String messageKey = getResourceKey(id, RES_KEY_MESSAGE);
-        String toggleKey = getResourceKey(id, RES_KEY_TOGGLE_MESSAGE);
-        String prefKey = PREF_KEY_PREFIX + id;
-
-        DBPPreferenceStore prefStore = DBWorkbench.getPlatform().getPreferenceStore();
-        if (ConfirmationDialog.NEVER.equals(prefStore.getString(prefKey))) {
-            prefStore.setToDefault(prefKey);
-        }
-
-        return open(
-            type,
-            imageType,
-            shell,
-            UIUtils.formatMessage(bundle.getString(titleKey), args),
-            UIUtils.formatMessage(bundle.getString(messageKey), args),
-            UIUtils.formatMessage(bundle.getString(toggleKey), args),
-            false,
-            prefKey);
-    }
-
     public static String getResourceKey(String id, String key)
     {
         return RES_CONFIRM_PREFIX + id + "_" + key;  //$NON-NLS-1$
+    }
+
+    @Override
+    protected void buttonPressed(int buttonId) {
+        super.buttonPressed(buttonId);
+        IPreferenceStore prefStore = getPrefStore();
+        String prefKey = getPrefKey();
+
+        if (buttonId != IDialogConstants.CANCEL_ID && getToggleState() && prefStore != null && CommonUtils.isNotEmpty(prefKey)) {
+            if (buttonId == IDialogConstants.NO_ID) {
+                prefStore.setValue(prefKey, ConfirmationDialog.NEVER);
+            } else {
+                prefStore.setValue(prefKey, ConfirmationDialog.ALWAYS);
+            }
+        }
     }
 }

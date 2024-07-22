@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,6 +48,7 @@ public class SQLConstants {
     public static final String KEYWORD_INTO = "INTO";
     public static final String KEYWORD_JOIN = "JOIN";
     public static final String KEYWORD_WHERE = "WHERE";
+    public static final String KEYWORD_SET = "SET";
     public static final String KEYWORD_ON = "ON";
     public static final String KEYWORD_AND = "AND";
     public static final String KEYWORD_OR = "OR";
@@ -69,8 +70,20 @@ public class SQLConstants {
 
     public static final String KEYWORD_CASE = "CASE";
 
+    public static final String DATA_TYPE_VARCHAR = "varchar";
+    public static final String DATA_TYPE_BIGINT = "BIGINT";
+    public static final String DATA_TYPE_BINARY = "BINARY";
+    public static final String DATA_TYPE_BOOLEAN = "BOOLEAN";
+    public static final String DATA_TYPE_DOUBLE = "DOUBLE";
+    public static final String DATA_TYPE_FLOAT = "FLOAT";
+    public static final String DATA_TYPE_INT = "INT";
+    public static final String DATA_TYPE_SMALLINT = "SMALLINT";
+    public static final String DATA_TYPE_STRING = "STRING";
+    public static final String DATA_TYPE_TINYINT = "TINYINT";
+
     public static final String[] TABLE_KEYWORDS = {
         KEYWORD_FROM,
+        KEYWORD_INSERT,
         KEYWORD_UPDATE,
         KEYWORD_DELETE,
         KEYWORD_INTO,
@@ -84,7 +97,7 @@ public class SQLConstants {
     public static final String[] COLUMN_KEYWORDS = {
         KEYWORD_SELECT,
         KEYWORD_WHERE,
-        "SET",
+        KEYWORD_SET,
         KEYWORD_ON,
         KEYWORD_AND,
         KEYWORD_OR,
@@ -115,7 +128,7 @@ public class SQLConstants {
         "BEGIN",
         "BETWEEN",
         //"BIGINT",
-        "BINARY",
+        DATA_TYPE_BINARY,
         "BOTH",
         "BY",
         "CALL",
@@ -288,7 +301,7 @@ public class SQLConstants {
         KEYWORD_SELECT,
         "SENSITIVE",
         "SESSION_USER",
-        "SET",
+        KEYWORD_SET,
         "SIMILAR",
         "SMALLINT",
         "SOME",
@@ -612,20 +625,20 @@ public class SQLConstants {
         "MODIFY",
     };
     public static final String[] DEFAULT_TYPES = {
-        "BOOLEAN",
+        DATA_TYPE_BOOLEAN,
         "CHAR",
         "VARCHAR",
-        "BINARY",
+        DATA_TYPE_BINARY,
         "VARBINARY",
-        "INT",
+        DATA_TYPE_INT,
         "INTEGER",
-        "SMALLINT",
-        "BIGINT",
+        DATA_TYPE_SMALLINT,
+        DATA_TYPE_BIGINT,
         "NUMBER",
         "NUMERIC",
         "DECIMAL",
-        "FLOAT",
-        "DOUBLE",
+        DATA_TYPE_FLOAT,
+        DATA_TYPE_DOUBLE,
         "DATE",
         "TIME",
         "TIMESTAMP",
@@ -656,15 +669,15 @@ public class SQLConstants {
     public static final String CONFIG_COLOR_TEXT = "org.jkiss.dbeaver.sql.editor.color.text.foreground";
     public static final String CONFIG_COLOR_BACKGROUND = "org.jkiss.dbeaver.sql.editor.color.text.background";
     public static final String CONFIG_COLOR_DISABLED = "org.jkiss.dbeaver.sql.editor.color.disabled.background";
-    public static final String CONFIG_FONT_OUTPUT = "org.jkiss.dbeaver.sql.editor.font.output";
 
     public static final char DEFAULT_PARAMETER_MARK = '?';
     public static final char DEFAULT_PARAMETER_PREFIX = ':';
     public static final String DEFAULT_IDENTIFIER_QUOTE = "\"";
+    public static final String DEFAULT_LIKE_ESCAPE = "\\";
     public static final String KEYWORD_PATTERN_CHARS = "\\*\\";
     public static final String DEFAULT_CONTROL_COMMAND_PREFIX = "@";
 
     public final static char[] BRACKETS = {'{', '}', '(', ')', '[', ']', '<', '>'};
-
+    public static final String COLUMN_ASTERISK = "*";
 
 }

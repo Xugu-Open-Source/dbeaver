@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.jkiss.dbeaver.model.impl.app;
 
 import org.eclipse.core.runtime.IConfigurationElement;
+import org.jkiss.dbeaver.model.app.DBPApplication;
 import org.jkiss.dbeaver.model.impl.AbstractDescriptor;
 import org.jkiss.utils.CommonUtils;
 
@@ -32,9 +33,12 @@ public class ApplicationDescriptor extends AbstractDescriptor {
     private final String description;
     private final String parentId;
     private final String[] umbrellaProductIds;
-    private boolean serverApplication;
+    private final boolean serverApplication;
+    private final boolean hidden;
     private ApplicationDescriptor parent;
     private boolean finalApplication = true;
+
+    private final ObjectType implClass;
 
     ApplicationDescriptor(IConfigurationElement config) {
         super(config);
@@ -51,6 +55,8 @@ public class ApplicationDescriptor extends AbstractDescriptor {
             this.umbrellaProductIds = new String[0];
         }
         this.serverApplication = CommonUtils.toBoolean(config.getAttribute("server"));
+        this.hidden = CommonUtils.toBoolean(config.getAttribute("hidden"));
+        this.implClass = new ObjectType(config, "class");
     }
 
     public String getId() {
@@ -88,6 +94,14 @@ public class ApplicationDescriptor extends AbstractDescriptor {
 
     public boolean isServerApplication() {
         return serverApplication;
+    }
+
+    public boolean isHidden() {
+        return hidden;
+    }
+
+    public Class<? extends DBPApplication> getImplClass() {
+        return implClass.getObjectClass(DBPApplication.class);
     }
 
     boolean isFinalApplication() {

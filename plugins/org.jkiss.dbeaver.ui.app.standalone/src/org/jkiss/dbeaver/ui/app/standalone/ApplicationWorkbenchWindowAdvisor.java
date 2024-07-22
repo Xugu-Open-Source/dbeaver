@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.eclipse.core.runtime.IAdaptable;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.jface.preference.IPreferenceStore;
+import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.jface.util.IPropertyChangeListener;
 import org.eclipse.swt.dnd.DropTargetAdapter;
 import org.eclipse.swt.dnd.FileTransfer;
@@ -36,15 +37,14 @@ import org.eclipse.ui.internal.ide.IDEInternalPreferences;
 import org.eclipse.ui.internal.ide.IDEWorkbenchPlugin;
 import org.eclipse.ui.internal.ide.application.IDEWorkbenchWindowAdvisor;
 import org.eclipse.ui.internal.progress.ProgressManagerUtil;
+import org.eclipse.ui.internal.registry.EditorRegistry;
 import org.eclipse.ui.part.EditorInputTransfer;
 import org.eclipse.ui.part.MarkerTransfer;
 import org.eclipse.ui.part.ResourceTransfer;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.core.DBeaverUI;
-import org.jkiss.dbeaver.model.app.DBPPlatform;
-import org.jkiss.dbeaver.model.app.DBPProject;
-import org.jkiss.dbeaver.model.app.DBPProjectListener;
-import org.jkiss.dbeaver.model.app.DBPWorkspace;
+import org.jkiss.dbeaver.core.DesktopUI;
+import org.jkiss.dbeaver.model.app.*;
+import org.jkiss.dbeaver.registry.DataSourceProviderRegistry;
 import org.jkiss.dbeaver.registry.WorkbenchHandlerRegistry;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.IWorkbenchWindowInitializer;
@@ -56,6 +56,68 @@ import java.util.StringJoiner;
 
 public class ApplicationWorkbenchWindowAdvisor extends IDEWorkbenchWindowAdvisor implements DBPProjectListener, IResourceChangeListener {
     private static final Log log = Log.getLog(ApplicationWorkbenchWindowAdvisor.class);
+    
+    // Eclipse fonts
+    
+    /**
+     * Compare text font
+     */
+    public static String COMPARE_TEXT_FONT = "org.eclipse.compare.contentmergeviewer.TextMergeViewer";
+    
+    /**
+     * Detail pane text font
+     */
+    public static String DETAIL_PANE_TEXT_FONT = "org.eclipse.debug.ui.DetailPaneFont";
+    
+    /**
+     * Memory view table font
+     */
+    public static String MEMORY_VIEW_TABLE_FONT = "org.eclipse.debug.ui.MemoryViewTableFont";
+
+    /**
+     * Variable text font
+     */
+    public static String VARIABLE_TEXT_FONT = "org.eclipse.debug.ui.VariableTextFont";
+ 
+    /**
+     * Console font
+     */
+    public static String CONSOLE_FONT = "org.eclipse.debug.ui.consoleFont";
+
+    /**
+     * Part title font
+     */
+    public static String PART_TITLE_FONT = "org.eclipse.ui.workbench.TAB_TEXT_FONT";
+
+    /**
+     * Tree and Table font for views
+     */
+    public static String TREE_AND_TABLE_FONT_FOR_VIEWS = "org.eclipse.ui.workbench.TREE_TABLE_FONT";
+
+    /**
+     * Header Font
+     */
+    public static String HEADER_FONT = "org.eclipse.jface.headerfont";
+
+    /**
+     * Text Font
+     */
+    public static String TEXT_FONT = "org.eclipse.jface.textfont";
+
+    /**
+     * Text Editor Block Selection Font
+     */
+    public static String TEXT_EDITOR_BLOCK_SELECTION_FONT = "org.eclipse.ui.workbench.texteditor.blockSelectionModeFont";
+
+    /**
+     * Banner font
+     */
+    public static String BANNER_FONT = JFaceResources.BANNER_FONT;
+
+    /**
+     * Dialog font
+     */
+    public static String DIALOG_FONT = JFaceResources.DIALOG_FONT;
 
     private IEditorPart lastActiveEditor = null;
     private IPerspectiveDescriptor lastPerspective = null;
@@ -78,7 +140,7 @@ public class ApplicationWorkbenchWindowAdvisor extends IDEWorkbenchWindowAdvisor
             refreshProjects();
         }
 
-        DBWorkbench.getPlatform().getWorkspace().addProjectListener(this);
+        DBPPlatformDesktop.getInstance().getWorkspace().addProjectListener(this);
 
         ResourcesPlugin.getWorkspace().addResourceChangeListener(this);
     }
@@ -106,7 +168,7 @@ public class ApplicationWorkbenchWindowAdvisor extends IDEWorkbenchWindowAdvisor
         // Remove project listener
         DBPPlatform platform = DBWorkbench.getPlatform();
         if (platform != null) {
-            DBPWorkspace workspace = platform.getWorkspace();
+            DBPWorkspaceEclipse workspace = DBPPlatformDesktop.getInstance().getWorkspace();
             workspace.removeProjectListener(this);
         }
 
@@ -149,15 +211,15 @@ public class ApplicationWorkbenchWindowAdvisor extends IDEWorkbenchWindowAdvisor
         configurer.configureEditorAreaDropListener(new org.eclipse.ui.internal.ide.EditorAreaDropAdapter(
             configurer.getWindow()));
 
-        //PreferenceManager preferenceManager = PlatformUI.getWorkbench().getPreferenceManager();
-        //preferenceManager.remove("org.eclipse.ui.preferencePages.Workbench/org.eclipse.ui.preferencePages.Perspectives");
-        //preferenceManager.remove("org.eclipse.ui.preferencePages.Workbench/org.eclipse.ui.preferencePages.Workspace");
-
         // Show heap usage
         //PlatformUI.getPreferenceStore().setValue(IWorkbenchPreferenceConstants.SHOW_MEMORY_MONITOR, true);
         hookTitleUpdateListeners(configurer);
 
-        DBeaverUI.getInstance();
+        // Initialize desktop UI
+        DesktopUI.getInstance();
+
+        // Initialize drivers in the very beginning
+        DataSourceProviderRegistry.getInstance();
     }
 
     /**
@@ -288,14 +350,21 @@ public class ApplicationWorkbenchWindowAdvisor extends IDEWorkbenchWindowAdvisor
         }
     }
 
+    protected void initWorkbenchWindows() {
+        UIUtils.asyncExec(() -> {
+            for (IWorkbenchWindowInitializer wwInit : WorkbenchHandlerRegistry.getInstance().getWorkbenchWindowInitializers()) {
+                wwInit.initializeWorkbenchWindow(getWindowConfigurer().getWindow());
+            }
+        });
+    }
+
     @Override
     public void postWindowOpen() {
         log.debug("Finish initialization");
         super.postWindowOpen();
 
-        UIUtils.asyncExec(() -> {
+        closeEmptyEditors();
 
-        });
         try {
             ApplicationCSSManager.updateApplicationCSS(Display.getCurrent());
         } catch (Throwable e) {
@@ -303,11 +372,7 @@ public class ApplicationWorkbenchWindowAdvisor extends IDEWorkbenchWindowAdvisor
         }
         if (isRunWorkbenchInitializers()) {
             // Open New Connection wizard
-            UIUtils.asyncExec(() -> {
-                for (IWorkbenchWindowInitializer wwInit : WorkbenchHandlerRegistry.getInstance().getWorkbenchWindowInitializers()) {
-                    wwInit.initializeWorkbenchWindow(getWindowConfigurer().getWindow());
-                }
-            });
+                initWorkbenchWindows();
         }
     }
 
@@ -365,6 +430,28 @@ public class ApplicationWorkbenchWindowAdvisor extends IDEWorkbenchWindowAdvisor
     }
 
     public class EditorAreaDropAdapter extends DropTargetAdapter {
+    }
+
+    /**
+     * Closes all empty editors that has no persisted state associated with it.
+     * <p>
+     * This can be achieved by causing the workbench to persist its state without
+     * actually closing the application (e.g. using workbench auto-save feature),
+     * and then force-closing the application (via task manager, etc.), so exit
+     * hooks are not called. In fact, we do manually close non-persistable editors
+     * using such hook, so empty editors do not appear under normal circumstances.
+     * <p>
+     * Since such editors lack any data, Eclipse doesn't know what editor it is,
+     * and marks it with {@link EditorRegistry#EMPTY_EDITOR_ID}.
+     */
+    private void closeEmptyEditors() {
+        for (IWorkbenchPage page : getWindowConfigurer().getWindow().getPages()) {
+            for (IEditorReference reference : page.getEditorReferences()) {
+                if (EditorRegistry.EMPTY_EDITOR_ID.equals(reference.getId())) {
+                    page.closeEditors(new IEditorReference[]{reference}, false);
+                }
+            }
+        }
     }
 
     private void updateTitle(boolean editorHidden) {

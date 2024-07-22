@@ -33,6 +33,10 @@ public class TableSubPartition extends BasePartition<BaseTablePhysical> {
 		super(table, subpartition, dbResult);
 	}
 
+	public TableSubPartition(BaseTablePhysical table, boolean subpartition, TableSubPartition srcSubPartition) {
+		super(table, subpartition, srcSubPartition);
+	}
+
 	@Override
 	@Property(viewable = true, order = 5, updatable = false, editable = true)
 	public boolean isOnline() {

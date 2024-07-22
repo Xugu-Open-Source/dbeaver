@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,6 +31,7 @@ import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.ui.IEditorSite;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataSource;
@@ -110,9 +111,9 @@ public class PrefPageSQLFormat extends TargetPrefPage
         return true;
     }
 
+    @NotNull
     @Override
-    protected Control createPreferenceContent(Composite parent)
-    {
+    protected Control createPreferenceContent(@NotNull Composite parent) {
         Composite composite = UIUtils.createPlaceholder(parent, 3, 5);
 
         formatterSelector = UIUtils.createLabelCombo(composite, SQLEditorMessages.pref_page_sql_format_label_formatter, SWT.DROP_DOWN | SWT.READ_ONLY);
@@ -131,7 +132,13 @@ public class PrefPageSQLFormat extends TargetPrefPage
         });
         formatterSelector.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING));
 
-        formatCurrentQueryCheck = UIUtils.createCheckbox(composite, "Format active query only", "Formats only active query or selected text. Otherwise formats entire SQL script", true, 1);
+        formatCurrentQueryCheck = UIUtils.createCheckbox(
+            composite,
+            SQLEditorMessages.pref_page_sql_format_label_format_active_query,
+            SQLEditorMessages.pref_page_sql_format_label_format_active_query_tip,
+            true,
+            1
+        );
 
         Composite formatterGroup = UIUtils.createPlaceholder(composite, 1, 5);
         formatterGroup.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));

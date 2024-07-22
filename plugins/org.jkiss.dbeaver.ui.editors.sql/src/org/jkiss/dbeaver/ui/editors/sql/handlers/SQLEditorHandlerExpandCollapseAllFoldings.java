@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import org.eclipse.ui.handlers.HandlerUtil;
 import org.jkiss.dbeaver.ui.editors.sql.SQLEditorBase;
 
 public class SQLEditorHandlerExpandCollapseAllFoldings extends AbstractHandler {
-    private static final String PREFIX = "command.org.jkiss.dbeaver.ui.editors.sql.";
+    private static final String PREFIX = "org.jkiss.dbeaver.ui.editors.sql.";
     private static final String SUFFIX = "AllFoldings";
     private static final String EXPAND_COMMAND_ID = PREFIX + "Expand" + SUFFIX;
     private static final String COLLAPSE_COMMAND_ID = PREFIX + "Collapse" + SUFFIX;
@@ -40,7 +40,7 @@ public class SQLEditorHandlerExpandCollapseAllFoldings extends AbstractHandler {
         if (sqlEditor == null || !sqlEditor.isFoldingEnabled()) {
             return null;
         }
-        ProjectionAnnotationModel model = sqlEditor.getAnnotationModel();
+        ProjectionAnnotationModel model = sqlEditor.getProjectionAnnotationModel();
         if (model == null) {
             return null;
         }

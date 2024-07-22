@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -128,7 +128,9 @@ public class GroupingPanel implements IResultSetPanel {
 
     @Override
     public void activatePanel() {
+        getGroupingResultsContainer();
         refresh(false);
+        groupingPlaceholder.layout(true, true);
     }
 
     @Override
@@ -143,6 +145,9 @@ public class GroupingPanel implements IResultSetPanel {
 
     @Override
     public void refresh(boolean force) {
+        if (!force) {
+            return;
+        }
         // Here we can refresh grouping (makes sense if source query was modified with some conditions)
         // Or just clear it (if brand new query was executed)
         GroupingResultsContainer groupingResultsContainer = getGroupingResultsContainer();
@@ -185,7 +190,7 @@ public class GroupingPanel implements IResultSetPanel {
 
     static class EditColumnsAction extends GroupingAction {
         EditColumnsAction(GroupingResultsContainer resultsContainer) {
-            super(resultsContainer, ResultSetMessages.controls_resultset_grouping_edit, DBeaverIcons.getImageDescriptor(UIIcon.OBJ_ADD));
+            super(resultsContainer, ResultSetMessages.controls_resultset_grouping_edit, DBeaverIcons.getImageDescriptor(UIIcon.ADD));
         }
 
         @Override
@@ -203,7 +208,7 @@ public class GroupingPanel implements IResultSetPanel {
 
     static class DeleteColumnAction extends GroupingAction {
         DeleteColumnAction(GroupingResultsContainer resultsContainer) {
-            super(resultsContainer, ResultSetMessages.controls_resultset_grouping_remove_column, DBeaverIcons.getImageDescriptor(UIIcon.ACTION_OBJECT_DELETE));
+            super(resultsContainer, ResultSetMessages.controls_resultset_grouping_remove_column, DBeaverIcons.getImageDescriptor(UIIcon.DELETE));
         }
 
         @Override
@@ -229,7 +234,8 @@ public class GroupingPanel implements IResultSetPanel {
 
     static class ClearGroupingAction extends GroupingAction {
         ClearGroupingAction(GroupingResultsContainer resultsContainer) {
-            super(resultsContainer, ResultSetMessages.controls_resultset_grouping_clear, DBeaverIcons.getImageDescriptor(UIIcon.ERASE));
+            super(resultsContainer, ResultSetMessages.controls_resultset_grouping_clear,
+                DBeaverIcons.getImageDescriptor(UIIcon.CLEAN));
         }
 
         @Override
@@ -267,7 +273,10 @@ public class GroupingPanel implements IResultSetPanel {
         private final Boolean descending;
 
         ChangeSortingAction(Boolean descending) {
-            super(descending == null ? "Unsorted" : (descending ? "Decending" : "Ascending"), Action.AS_CHECK_BOX);
+            super(descending == null ?
+                ResultSetMessages.grouping_panel_sorting_action_unsorted :
+                (descending ? ResultSetMessages.grouping_panel_sorting_action_decending : ResultSetMessages.grouping_panel_sorting_action_ascending),
+                Action.AS_CHECK_BOX);
             setImageDescriptor(DBeaverIcons.getImageDescriptor(descending == null ? UIIcon.SORT_UNKNOWN : (descending ? UIIcon.SORT_INCREASE : UIIcon.SORT_DECREASE)));
             this.descending = descending;
         }
@@ -296,11 +305,11 @@ public class GroupingPanel implements IResultSetPanel {
                 return;
             }
             dataSource.getContainer().getPreferenceStore().setValue(ResultSetPreferences.RS_GROUPING_DEFAULT_SORTING, newValue);
-            dataSource.getContainer().getRegistry().flushConfig();
+            dataSource.getContainer().persistConfiguration();
             try {
                 getGroupingResultsContainer().rebuildGrouping();
             } catch (DBException e) {
-                DBWorkbench.getPlatformUI().showError("Grouping error", "Can't change sort order", e);
+                DBWorkbench.getPlatformUI().showError(ResultSetMessages.grouping_panel_error_title, ResultSetMessages.grouping_panel_error_change_sort_message, e);
             }
         }
     }
@@ -332,7 +341,7 @@ public class GroupingPanel implements IResultSetPanel {
             try {
                 getGroupingResultsContainer().rebuildGrouping();
             } catch (DBException e) {
-                DBWorkbench.getPlatformUI().showError("Grouping error", "Can't change duplicates presentation", e);
+                DBWorkbench.getPlatformUI().showError(ResultSetMessages.grouping_panel_error_title, ResultSetMessages.grouping_panel_error_change_duplicate_presentation_message, e);
             }
         }
     }

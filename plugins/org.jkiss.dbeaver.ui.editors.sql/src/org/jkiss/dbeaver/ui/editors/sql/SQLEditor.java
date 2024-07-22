@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,23 @@
  */
 package org.jkiss.dbeaver.ui.editors.sql;
 
+import org.eclipse.core.commands.ParameterizedCommand;
 import org.eclipse.core.filesystem.EFS;
 import org.eclipse.core.filesystem.IFileStore;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFileState;
+import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.runtime.*;
 import org.eclipse.core.runtime.jobs.Job;
+import org.eclipse.e4.ui.model.application.ui.menu.MHandledItem;
+import org.eclipse.e4.ui.workbench.renderers.swt.HandledContributionItem;
 import org.eclipse.jface.action.*;
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.preference.IPreferenceStore;
+import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.jface.text.*;
 import org.eclipse.jface.text.source.SourceViewer;
+import org.eclipse.jface.util.IPropertyChangeListener;
 import org.eclipse.jface.viewers.ISelectionProvider;
 import org.eclipse.jface.viewers.SelectionChangedEvent;
 import org.eclipse.jface.viewers.StructuredSelection;
@@ -34,6 +40,8 @@ import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.*;
 import org.eclipse.swt.events.*;
+import org.eclipse.swt.graphics.Color;
+import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.FillLayout;
@@ -44,6 +52,7 @@ import org.eclipse.ui.*;
 import org.eclipse.ui.actions.CompoundContributionItem;
 import org.eclipse.ui.ide.FileStoreEditorInput;
 import org.eclipse.ui.menus.CommandContributionItem;
+import org.eclipse.ui.menus.IMenuService;
 import org.eclipse.ui.texteditor.DefaultRangeIndicator;
 import org.eclipse.ui.texteditor.ITextEditorActionConstants;
 import org.eclipse.ui.texteditor.rulers.IColumnSupport;
@@ -53,50 +62,45 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ModelPreferences;
+import org.jkiss.dbeaver.ModelPreferences.SeparateConnectionBehavior;
 import org.jkiss.dbeaver.model.*;
+import org.jkiss.dbeaver.model.app.DBPPlatformDesktop;
 import org.jkiss.dbeaver.model.app.DBPProject;
-import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
+import org.jkiss.dbeaver.model.app.DBPWorkspaceDesktop;
 import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
 import org.jkiss.dbeaver.model.data.DBDDataFilter;
 import org.jkiss.dbeaver.model.data.DBDDataReceiver;
 import org.jkiss.dbeaver.model.exec.*;
+import org.jkiss.dbeaver.model.exec.output.DBCOutputSeverity;
+import org.jkiss.dbeaver.model.exec.output.DBCOutputWriter;
+import org.jkiss.dbeaver.model.exec.output.DBCServerOutputReader;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlan;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlanStyle;
 import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlanner;
 import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlannerConfiguration;
 import org.jkiss.dbeaver.model.impl.DefaultServerOutputReader;
-import org.jkiss.dbeaver.model.impl.jdbc.JDBCRemoteInstance;
 import org.jkiss.dbeaver.model.impl.sql.SQLQueryTransformerCount;
 import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.navigator.DBNUtils;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
-import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
 import org.jkiss.dbeaver.model.qm.QMUtils;
+import org.jkiss.dbeaver.model.rm.RMConstants;
 import org.jkiss.dbeaver.model.runtime.AbstractJob;
 import org.jkiss.dbeaver.model.runtime.DBRProgressListener;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableWithProgress;
-import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
 import org.jkiss.dbeaver.model.sql.*;
 import org.jkiss.dbeaver.model.sql.data.SQLQueryDataContainer;
 import org.jkiss.dbeaver.model.struct.DBSDataContainer;
 import org.jkiss.dbeaver.model.struct.DBSInstance;
 import org.jkiss.dbeaver.model.struct.DBSObject;
-import org.jkiss.dbeaver.registry.DataSourceDescriptor;
+import org.jkiss.dbeaver.model.struct.DBSObjectState;
 import org.jkiss.dbeaver.registry.DataSourceUtils;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
-import org.jkiss.dbeaver.runtime.DBeaverNotifications;
-import org.jkiss.dbeaver.runtime.sql.SQLResultsConsumer;
+import org.jkiss.dbeaver.runtime.ui.DBPPlatformUI.UserChoiceResponse;
 import org.jkiss.dbeaver.runtime.ui.UIServiceConnections;
-import org.jkiss.dbeaver.tools.transfer.IDataTransferConsumer;
 import org.jkiss.dbeaver.tools.transfer.IDataTransferProducer;
-import org.jkiss.dbeaver.tools.transfer.database.DatabaseProducerSettings;
 import org.jkiss.dbeaver.tools.transfer.database.DatabaseTransferProducer;
-import org.jkiss.dbeaver.tools.transfer.registry.DataTransferProcessorDescriptor;
-import org.jkiss.dbeaver.tools.transfer.registry.DataTransferRegistry;
-import org.jkiss.dbeaver.tools.transfer.stream.IStreamDataExporter;
-import org.jkiss.dbeaver.tools.transfer.stream.StreamConsumerSettings;
-import org.jkiss.dbeaver.tools.transfer.stream.StreamTransferConsumer;
 import org.jkiss.dbeaver.tools.transfer.ui.wizard.DataTransferWizard;
 import org.jkiss.dbeaver.ui.*;
 import org.jkiss.dbeaver.ui.controls.*;
@@ -107,7 +111,11 @@ import org.jkiss.dbeaver.ui.css.DBStyles;
 import org.jkiss.dbeaver.ui.dialogs.ConfirmationDialog;
 import org.jkiss.dbeaver.ui.dialogs.EnterNameDialog;
 import org.jkiss.dbeaver.ui.editors.*;
+import org.jkiss.dbeaver.ui.editors.sql.addins.SQLEditorAddIn;
+import org.jkiss.dbeaver.ui.editors.sql.addins.SQLEditorAddInDescriptor;
+import org.jkiss.dbeaver.ui.editors.sql.addins.SQLEditorAddInsRegistry;
 import org.jkiss.dbeaver.ui.editors.sql.execute.SQLQueryJob;
+import org.jkiss.dbeaver.ui.editors.sql.handlers.SQLEditorVariablesResolver;
 import org.jkiss.dbeaver.ui.editors.sql.handlers.SQLNavigatorContext;
 import org.jkiss.dbeaver.ui.editors.sql.internal.SQLEditorMessages;
 import org.jkiss.dbeaver.ui.editors.sql.log.SQLLogPanel;
@@ -115,12 +123,14 @@ import org.jkiss.dbeaver.ui.editors.sql.plan.ExplainPlanViewer;
 import org.jkiss.dbeaver.ui.editors.sql.registry.SQLPresentationDescriptor;
 import org.jkiss.dbeaver.ui.editors.sql.registry.SQLPresentationPanelDescriptor;
 import org.jkiss.dbeaver.ui.editors.sql.registry.SQLPresentationRegistry;
+import org.jkiss.dbeaver.ui.editors.sql.scripts.ScriptsHandlerImpl;
 import org.jkiss.dbeaver.ui.editors.sql.variables.AssignVariableAction;
 import org.jkiss.dbeaver.ui.editors.sql.variables.SQLVariablesPanel;
 import org.jkiss.dbeaver.ui.editors.text.ScriptPositionColumn;
 import org.jkiss.dbeaver.ui.navigator.INavigatorModelView;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.dbeaver.utils.PrefUtils;
+import org.jkiss.dbeaver.utils.ResourceUtils;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
@@ -133,26 +143,30 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * SQL Executor
  */
 public class SQLEditor extends SQLEditorBase implements
-    IDataSourceContainerProviderEx,
+    IDataSourceContainerUpdate,
     DBPEventListener,
     ISaveablePart2,
     DBPDataSourceTask,
-    DBPDataSourceHandler,
-    ISmartTransactionManager
+    DBPDataSourceAcquirer,
+    IResultSetProvider,
+    ISmartTransactionManager,
+    IStatefulEditor
 {
     private static final long SCRIPT_UI_UPDATE_PERIOD = 100;
     private static final int MAX_PARALLEL_QUERIES_NO_WARN = 1;
+
+    private static final int QUERIES_COUNT_FOR_NO_FETCH_RESULT_SET_CONFIRMATION = 100;
 
     private static final int SQL_EDITOR_CONTROL_INDEX = 1;
     private static final int EXTRA_CONTROL_INDEX = 0;
 
     private static final String PANEL_ITEM_PREFIX = "SQLPanelToggle:";
-
     private static final String EMBEDDED_BINDING_PREFIX = "-- CONNECTION: ";
     private static final Pattern EMBEDDED_BINDING_PREFIX_PATTERN = Pattern.compile("--\\s*CONNECTION:\\s*(.+)", Pattern.CASE_INSENSITIVE);
 
@@ -164,20 +178,17 @@ public class SQLEditor extends SQLEditorBase implements
     private static final Image IMG_OUTPUT = DBeaverIcons.getImage(UIIcon.SQL_PAGE_OUTPUT);
     private static final Image IMG_OUTPUT_ALERT = DBeaverIcons.getImage(UIIcon.SQL_PAGE_OUTPUT_ALERT);
 
-//    private static final String TOOLBAR_CONTRIBUTION_ID = "toolbar:org.jkiss.dbeaver.ui.editors.sql.toolbar.side";
-//    private static final String TOOLBAR_GROUP_TOP = "top";
-//    private static final String TOOLBAR_GROUP_ADDITIONS = IWorkbenchActionConstants.MB_ADDITIONS;
+    private static final String SIDE_TOP_TOOLBAR_CONTRIBUTION_ID = "toolbar:org.jkiss.dbeaver.ui.editors.sql.toolbar.side.top";
+    private static final String SIDE_BOTTOM_TOOLBAR_CONTRIBUTION_ID = "toolbar:org.jkiss.dbeaver.ui.editors.sql.toolbar.side.bottom";
+
 //    private static final String TOOLBAR_GROUP_PANELS = "panelToggles";
 
-    public static final String VAR_CONNECTION_NAME = "connectionName";
-    public static final String VAR_FILE_NAME = "fileName";
-    public static final String VAR_FILE_EXT = "fileExt";
-    public static final String VAR_DRIVER_NAME = "driverName";
-    public static final String VAR_ACTIVE_DATABASE = "database";
-    public static final String VAR_ACTIVE_SCHEMA = "schema";
+    public static final String VIEW_PART_PROP_NAME = "org.jkiss.dbeaver.ui.editors.sql.SQLEditor";
 
-    public static final String DEFAULT_TITLE_PATTERN = "<${" + VAR_CONNECTION_NAME + "}> ${" + VAR_FILE_NAME + "}";
 
+
+    public static final String DEFAULT_TITLE_PATTERN = "<${" + SQLPreferenceConstants.VAR_CONNECTION_NAME + "}> ${" + SQLPreferenceConstants.VAR_FILE_NAME + "}";
+    public static final String DEFAULT_SCRIPT_FILE_NAME = "Script";
     private ResultSetOrientation resultSetOrientation = ResultSetOrientation.HORIZONTAL;
     private CustomSashForm resultsSash;
     private Composite sqlEditorPanel;
@@ -192,7 +203,7 @@ public class SQLEditor extends SQLEditorBase implements
     private CTabItem activeResultsTab;
 
     private SQLLogPanel logViewer;
-    private SQLEditorOutputConsoleViewer outputViewer;
+    private SQLEditorOutputViewer outputViewer;
     private SQLVariablesPanel variablesViewer;
 
     private volatile QueryProcessor curQueryProcessor;
@@ -205,21 +216,29 @@ public class SQLEditor extends SQLEditorBase implements
     private volatile DBPContextProvider executionContextProvider;
     private SQLScriptContext globalScriptContext;
     private volatile boolean syntaxLoaded = false;
-    private final FindReplaceTarget findReplaceTarget = new FindReplaceTarget();
+    private FindReplaceTarget findReplaceTarget = new FindReplaceTarget();
     private final List<SQLQuery> runningQueries = new ArrayList<>();
     private QueryResultsContainer curResultsContainer;
+    private Image baseEditorImage;
     private Image editorImage;
-    private VerticalFolder sideToolBar;
+    private Composite leftToolPanel;
+    private ToolBarManager topBarMan;
+    private ToolBarManager bottomBarMan;
 
     private SQLPresentationDescriptor extraPresentationDescriptor;
     private SQLEditorPresentation extraPresentation;
-    private Map<SQLPresentationPanelDescriptor, SQLEditorPresentationPanel> extraPresentationPanels = new HashMap<>();
+    private final Map<SQLPresentationPanelDescriptor, SQLEditorPresentationPanel> extraPresentationPanels = new HashMap<>();
     private SQLEditorPresentationPanel extraPresentationCurrentPanel;
     private VerticalFolder presentationSwitchFolder;
 
     private final List<SQLEditorListener> listeners = new ArrayList<>();
     private final List<ServerOutputInfo> serverOutputs = new ArrayList<>();
     private ScriptAutoSaveJob scriptAutoSavejob;
+    private boolean isResultSetAutoFocusEnabled = true;
+    private Boolean isDisableFetchResultSet = null;
+    private boolean datasourceChanged;
+
+    private final ArrayList<SQLEditorAddIn> addIns = new ArrayList<>();
 
     private static class ServerOutputInfo {
         private final DBCServerOutputReader outputReader;
@@ -233,7 +252,7 @@ public class SQLEditor extends SQLEditorBase implements
         }
     }
 
-    private DisposeListener resultTabDisposeListener = new DisposeListener() {
+    private final DisposeListener resultTabDisposeListener = new DisposeListener() {
         @Override
         public void widgetDisposed(DisposeEvent e) {
             Object data = e.widget.getData();
@@ -257,6 +276,18 @@ public class SQLEditor extends SQLEditorBase implements
             }
         }
     };
+    private final IPropertyChangeListener themeChangeListener = e -> {
+        final Font font = JFaceResources.getFont(UIFonts.DBEAVER_FONTS_MAIN_FONT);
+        if (resultTabs != null) {
+            resultTabs.setFont(font);
+        }
+        if (this.switchPresentationSQLButton != null) {
+            this.switchPresentationSQLButton.setFont(font);
+        }
+        if (this.switchPresentationExtraButton != null) {
+            this.switchPresentationExtraButton.setFont(font);
+        }
+    };
     private VerticalButton switchPresentationSQLButton;
     private VerticalButton switchPresentationExtraButton;
 
@@ -265,11 +296,20 @@ public class SQLEditor extends SQLEditorBase implements
         super();
 
         this.extraPresentationDescriptor = SQLPresentationRegistry.getInstance().getPresentation(this);
+        PlatformUI.getWorkbench().getThemeManager().addPropertyChangeListener(themeChangeListener);
+    }
+
+    public void setResultSetAutoFocusEnabled(boolean value) {
+        isResultSetAutoFocusEnabled = value;
     }
 
     @Override
     protected String[] getKeyBindingContexts() {
-        return new String[]{TEXT_EDITOR_CONTEXT, SQLEditorContributions.SQL_EDITOR_CONTEXT, SQLEditorContributions.SQL_EDITOR_SCRIPT_CONTEXT};
+        return new String[]{
+            TEXT_EDITOR_CONTEXT,
+            SQLEditorContributions.SQL_EDITOR_CONTEXT,
+            SQLEditorContributions.SQL_EDITOR_SCRIPT_CONTEXT,
+            IResultSetController.RESULTS_CONTEXT_ID};
     }
 
     @Override
@@ -301,7 +341,25 @@ public class SQLEditor extends SQLEditorBase implements
     {
         IFile file = EditorUtils.getFileFromInput(getEditorInput());
         return file == null ?
-            DBWorkbench.getPlatform().getWorkspace().getActiveProject() : DBWorkbench.getPlatform().getWorkspace().getProject(file.getProject());
+            DBWorkbench.getPlatform().getWorkspace().getActiveProject() : DBPPlatformDesktop.getInstance().getWorkspace().getProject(file.getProject());
+    }
+
+    private boolean isProjectResourceEditable() {
+        if (getEditorInput() instanceof IFileEditorInput) {
+            DBPProject project = this.getProject();
+            return project == null || project.hasRealmPermission(RMConstants.PERMISSION_PROJECT_RESOURCE_EDIT);
+        }
+        return true;
+    }
+
+    @Override
+    protected boolean isReadOnly() {
+        return super.isReadOnly() || !this.isProjectResourceEditable();
+    }
+
+    @Override
+    public boolean isEditable() {
+        return super.isEditable() && this.isProjectResourceEditable();
     }
 
     @Nullable
@@ -322,7 +380,7 @@ public class SQLEditor extends SQLEditorBase implements
                         lines.add(k);
                     }
                 } catch (BadLocationException e) {
-                    // ignore - this may happen is SQL was edited after execution start
+                    // ignore - this may happen if SQL was edited after execution start
                 }
             }
             if (lines.isEmpty()) {
@@ -344,8 +402,10 @@ public class SQLEditor extends SQLEditorBase implements
     }
 
     @Override
-    public boolean setDataSourceContainer(@Nullable DBPDataSourceContainer container)
-    {
+    public boolean setDataSourceContainer(@Nullable DBPDataSourceContainer container) {
+        if (!datasourceChanged && curDataSource != null) {
+            datasourceChanged = true;
+        }
         if (container == dataSourceContainer) {
             return true;
         }
@@ -375,8 +435,8 @@ public class SQLEditor extends SQLEditorBase implements
             }
 
             IFile file = EditorUtils.getFileFromInput(input);
-            if (file != null) {
-                DBNUtils.refreshNavigatorResource(file, container);
+            if (file != null && dataSourceContainer != null) {
+                DBNUtils.refreshNavigatorResource(dataSourceContainer.getProject(), file, container);
             } else {
                 // FIXME: this is a hack. We can't fire event on resource change so editor's state won't be updated in UI.
                 // FIXME: To update main toolbar and other controls we hade and show this editor
@@ -394,7 +454,8 @@ public class SQLEditor extends SQLEditorBase implements
 
         checkConnected(false, status -> UIUtils.asyncExec(() -> {
             if (!status.isOK()) {
-                DBWorkbench.getPlatformUI().showError("Can't connect to database", "Error connecting to datasource", status);
+                DBWorkbench.getPlatformUI().showError(
+                    "Can't connect to database", "Connection to '" + container.getName() + "' cannot be established.", status);
             }
             setFocus();
         }));
@@ -426,8 +487,8 @@ public class SQLEditor extends SQLEditorBase implements
         if (inputDataSource == null) {
             // No datasource. Try to get one from active part
             IWorkbenchPart activePart = getSite().getWorkbenchWindow().getActivePage().getActivePart();
-            if (activePart != this && activePart instanceof IDataSourceContainerProvider) {
-                inputDataSource = ((IDataSourceContainerProvider) activePart).getDataSourceContainer();
+            if (activePart != this && activePart instanceof DBPDataSourceContainerProvider) {
+                inputDataSource = ((DBPDataSourceContainerProvider) activePart).getDataSourceContainer();
             }
         }
         setDataSourceContainer(inputDataSource);
@@ -448,7 +509,7 @@ public class SQLEditor extends SQLEditorBase implements
                 if (executionContextProvider == null) {
                     DBPDataSourceContainer container = dataSource.getContainer();
                     if (SQLEditorUtils.isOpenSeparateConnection(container)) {
-                        initSeparateConnection(dataSource, onSuccess);
+                        initSeparateConnection(dataSource, onSuccess, true);
                     } else {
                         if (onSuccess != null) {
                             onSuccess.run();
@@ -457,9 +518,10 @@ public class SQLEditor extends SQLEditorBase implements
                 }
             }
         }
+        UIUtils.asyncExec(() -> fireDataSourceChanged(null));
     }
 
-    private void initSeparateConnection(@NotNull DBPDataSource dataSource, Runnable onSuccess) {
+    private void initSeparateConnection(@NotNull DBPDataSource dataSource, Runnable onSuccess, boolean readDefaultsFromInstance) {
         DBSInstance dsInstance = dataSource.getDefaultInstance();
         String[] contextDefaults = isRestoreActiveSchemaFromScript() ?
             EditorUtils.getInputContextDefaults(dataSource.getContainer(), getEditorInput()) : null;
@@ -469,8 +531,8 @@ public class SQLEditor extends SQLEditorBase implements
                 dsInstance = selectedInstance;
             }
         }
-        if (dsInstance != null) {
-            final OpenContextJob job = new OpenContextJob(dsInstance, onSuccess);
+        {
+            final OpenContextJob job = new OpenContextJob(dsInstance, onSuccess, readDefaultsFromInstance);
             job.schedule();
         }
     }
@@ -540,7 +602,6 @@ public class SQLEditor extends SQLEditorBase implements
         }
 
         try {
-
             int totalLines = document.getNumberOfLines();
             IRegion region = null;
             if (totalLines > 0) {
@@ -573,7 +634,6 @@ public class SQLEditor extends SQLEditorBase implements
                     document.replace(0, 0, assocSpecLine.toString());
                 }
             }
-
         } catch (Throwable e) {
             log.debug("Error extracting datasource info from script's content", e);
         }
@@ -605,7 +665,29 @@ public class SQLEditor extends SQLEditorBase implements
 
     @Override
     public boolean isSmartAutoCommit() {
-        return getActivePreferenceStore().getBoolean(ModelPreferences.TRANSACTIONS_SMART_COMMIT);
+        DBPDataSourceContainer container = ((DBPDataSourceContainerProvider) this).getDataSourceContainer();
+        if (container == null) {
+            DBPDataSource dataSource = getDataSource();
+            if (dataSource != null) {
+                container = dataSource.getContainer();
+            }
+        }
+        if (container != null) {
+            DBPPreferenceStore preferenceStore = container.getPreferenceStore();
+            // First check current data source settings
+            if (preferenceStore.contains(ModelPreferences.TRANSACTIONS_SMART_COMMIT)) {
+                return preferenceStore.getBoolean(ModelPreferences.TRANSACTIONS_SMART_COMMIT);
+            } else {
+                return container.getConnectionConfiguration().getConnectionType().isSmartCommit();
+            }
+        }
+        return DBWorkbench.getPlatform().getPreferenceStore().getBoolean(ModelPreferences.TRANSACTIONS_SMART_COMMIT);
+    }
+
+    @Override
+    public boolean isFoldingEnabled() {
+        return SQLEditorUtils.isSQLSyntaxParserEnabled(getEditorInput())
+            && getActivePreferenceStore().getBoolean(SQLPreferenceConstants.FOLDING_ENABLED);
     }
 
     @Override
@@ -620,17 +702,21 @@ public class SQLEditor extends SQLEditorBase implements
 
     public void refreshActions() {
         // Redraw toolbar to refresh action sets
-        sideToolBar.redraw();
+        topBarMan.getControl().redraw();
+        bottomBarMan.getControl().redraw();
     }
 
     private class OpenContextJob extends AbstractJob {
         private final DBSInstance instance;
         private final Runnable onSuccess;
         private Throwable error;
-        OpenContextJob(DBSInstance instance, Runnable onSuccess) {
+        private boolean readDefaultsFromInstance;
+
+        OpenContextJob(DBSInstance instance, Runnable onSuccess, boolean readDefaultsFromInstance) {
             super("Open connection to " + instance.getDataSource().getContainer().getName());
             this.instance = instance;
             this.onSuccess = onSuccess;
+            this.readDefaultsFromInstance = readDefaultsFromInstance;
             setUser(true);
         }
 
@@ -641,6 +727,34 @@ public class SQLEditor extends SQLEditorBase implements
                 String title = "SQLEditor <" + getEditorInput().getName() + ">";
                 monitor.subTask("Open context " + title);
                 DBCExecutionContext newContext = instance.openIsolatedContext(monitor, title, instance.getDefaultContext(monitor, false));
+                // Set context defaults
+                String[] contextDefaultNames = null;
+                if (readDefaultsFromInstance && datasourceChanged) {
+                    DBCExecutionContext defaultContext = DBUtils.getDefaultContext(instance, false);
+                    if (defaultContext != null) {
+                        DBCExecutionContextDefaults contextDefaultsDB = defaultContext.getContextDefaults();
+                        if (contextDefaultsDB != null) {
+                            contextDefaultNames = new String[2];
+                            contextDefaultNames[0] = contextDefaultsDB.getDefaultCatalog() != null ?
+                                contextDefaultsDB.getDefaultCatalog().getName() : null;
+                            contextDefaultNames[1] = contextDefaultsDB.getDefaultSchema() != null ?
+                                contextDefaultsDB.getDefaultSchema().getName() : null;
+                        }
+                    }
+                }
+                if (contextDefaultNames == null) {
+                    contextDefaultNames = isRestoreActiveSchemaFromScript() && instance.getDataSource() != null ?
+                        EditorUtils.getInputContextDefaults(instance.getDataSource().getContainer(), getEditorInput()) : null;
+                }
+                if (contextDefaultNames != null && contextDefaultNames.length > 1 &&
+                    (!CommonUtils.isEmpty(contextDefaultNames[0]) || !CommonUtils.isEmpty(contextDefaultNames[1])))
+                {
+                    try {
+                        DBExecUtils.setExecutionContextDefaults(monitor, newContext.getDataSource(), newContext, contextDefaultNames[0], null, contextDefaultNames[1]);
+                    } catch (DBException e) {
+                        DBWorkbench.getPlatformUI().showError("New connection default", "Error setting default catalog/schema for new connection", e);
+                    }
+                }
                 SQLEditor.this.executionContext = newContext;
                 // Needed to update main toolbar
                 // FIXME: silly workaround. Command state update doesn't happen in some cases
@@ -675,11 +789,27 @@ public class SQLEditor extends SQLEditorBase implements
     }
 
     private boolean isRestoreActiveSchemaFromScript() {
-        return getActivePreferenceStore().getBoolean(SQLPreferenceConstants.AUTO_SAVE_ACTIVE_SCHEMA) &&
-            getActivePreferenceStore().getBoolean(SQLPreferenceConstants.EDITOR_SEPARATE_CONNECTION);
+        SeparateConnectionBehavior behavior = SeparateConnectionBehavior.parse(
+            getActivePreferenceStore().getString(SQLPreferenceConstants.EDITOR_SEPARATE_CONNECTION)
+        );
+        boolean isSeparateConnection;
+        switch (behavior) {
+            case ALWAYS:
+                isSeparateConnection = true;
+                break;
+            case NEVER:
+                isSeparateConnection = false;
+                break;
+            case DEFAULT:
+            default:
+                isSeparateConnection = this.getDataSourceContainer() == null
+                    || !this.getDataSourceContainer().isForceUseSingleConnection();
+                break;
+        }
+        return getActivePreferenceStore().getBoolean(SQLPreferenceConstants.AUTO_SAVE_ACTIVE_SCHEMA) && isSeparateConnection;
     }
 
-    private class CloseContextJob extends AbstractJob {
+    private static class CloseContextJob extends AbstractJob {
         private final DBCExecutionContext context;
         CloseContextJob(DBCExecutionContext context) {
             super("Close context " + context.getContextName());
@@ -709,14 +839,13 @@ public class SQLEditor extends SQLEditorBase implements
     }
 
     @Override
-    public boolean isDirty()
-    {
+    public boolean isDirty() {
         for (QueryProcessor queryProcessor : queryProcessors) {
             if (queryProcessor.isDirty() || queryProcessor.curJobRunning.get() > 0) {
                 return true;
             }
         }
-        if (executionContext != null && QMUtils.isTransactionActive(executionContext)) {
+        if (QMUtils.isTransactionActive(executionContext)) {
             return true;
         }
         if (isNonPersistentEditor()) {
@@ -731,10 +860,28 @@ public class SQLEditor extends SQLEditorBase implements
 
     @Nullable
     @Override
+    public IResultSetController getResultSetController() {
+        if (resultTabs != null && !resultTabs.isDisposed()) {
+            CTabItem activeResultsTab = getActiveResultsTab();
+            if (activeResultsTab != null && UIUtils.isUIThread()) {
+                Object tabControl = activeResultsTab.getData();
+                if (tabControl instanceof QueryResultsContainer) {
+                    return ((QueryResultsContainer) tabControl).viewer;
+                }
+            }
+        }
+        return null;
+    }
+
+    @Nullable
+    @Override
     public <T> T getAdapter(Class<T> required)
     {
         if (required == INavigatorModelView.class) {
             return null;
+        }
+        if (required == IResultSetController.class || required == ResultSetViewer.class) {
+            return required.cast(getResultSetController());
         }
 
         if (resultTabs != null && !resultTabs.isDisposed()) {
@@ -753,9 +900,6 @@ public class SQLEditor extends SQLEditorBase implements
                         return adapter;
                     }
                 }
-                if (tabControl instanceof ResultSetViewer && (required == IResultSetController.class || required == ResultSetViewer.class)) {
-                    return required.cast(tabControl);
-                }
             }
         }
 
@@ -766,7 +910,8 @@ public class SQLEditor extends SQLEditorBase implements
     {
         // Connect to datasource
         final DBPDataSourceContainer dataSourceContainer = getDataSourceContainer();
-        boolean doConnect = dataSourceContainer != null && forceConnect;
+        boolean doConnect = dataSourceContainer != null &&
+            (forceConnect || dataSourceContainer.getPreferenceStore().getBoolean(SQLPreferenceConstants.EDITOR_CONNECT_ON_ACTIVATE));
         if (doConnect) {
             if (!dataSourceContainer.isConnected()) {
                 UIServiceConnections serviceConnections = DBWorkbench.getService(UIServiceConnections.class);
@@ -779,8 +924,7 @@ public class SQLEditor extends SQLEditorBase implements
     }
 
     @Override
-    public void createPartControl(Composite parent)
-    {
+    public void createPartControl(Composite parent) {
         setRangeIndicator(new DefaultRangeIndicator());
 
         // divides editor area and results/panels area
@@ -788,8 +932,9 @@ public class SQLEditor extends SQLEditorBase implements
                 this,
                 parent,
                 resultSetOrientation.getSashOrientation() | SWT.SMOOTH);
+        resultsSash.setShowBorders(true);
         CSSUtils.setCSSClass(resultsSash, DBStyles.COLORED_BY_CONNECTION_TYPE);
-        resultsSash.setSashWidth(5);
+        resultsSash.setSashWidth(8);
 
         UIUtils.setHelp(resultsSash, IHelpContextIds.CTX_SQL_EDITOR);
 
@@ -824,11 +969,6 @@ public class SQLEditor extends SQLEditorBase implements
         getEditorControlWrapper().setLayoutData(new GridData(GridData.FILL_BOTH));
 
         sqlExtraPanelFolder = new CTabFolder(sqlExtraPanelSash, SWT.TOP | SWT.CLOSE | SWT.FLAT);
-//        CTabItem testItem = new CTabItem(sqlExtraPanelPlaceholder, SWT.LEFT);
-//        testItem.setText("Test output");
-//        testItem.setImage(IMG_OUTPUT);
-//        testItem.setShowClose(true);
-//        testItem.setControl(new StyledText(sqlExtraPanelPlaceholder, SWT.NONE));
         sqlExtraPanelFolder.setSelection(0);
         sqlExtraPanelFolder.addSelectionListener(new SelectionAdapter() {
             @Override
@@ -894,8 +1034,6 @@ public class SQLEditor extends SQLEditorBase implements
             }
         }
 
-        SQLEditorFeatures.SQL_EDITOR_OPEN.use();
-
         // Start output reader
         new ServerOutputReader().schedule();
 
@@ -903,6 +1041,11 @@ public class SQLEditor extends SQLEditorBase implements
 
         // Update controls
         UIExecutionQueue.queueExec(this::onDataSourceChange);
+        themeChangeListener.propertyChange(null);
+    }
+
+    protected boolean isHideQueryText() {
+        return false;
     }
 
     private void onTextChange(ModifyEvent e) {
@@ -912,58 +1055,43 @@ public class SQLEditor extends SQLEditorBase implements
     }
 
     private void createControlsBar(Composite sqlEditorPanel) {
+        leftToolPanel = new Composite(sqlEditorPanel, SWT.LEFT);
+        GridLayout panelsLayout = new GridLayout(1, true);
+        panelsLayout.marginHeight = 2;
+        panelsLayout.marginWidth = 1;
+        panelsLayout.marginTop = 1;
+        panelsLayout.marginBottom = 7;
+        panelsLayout.verticalSpacing = 1;
+        leftToolPanel.setLayout(panelsLayout);
+        leftToolPanel.setLayoutData(new GridData(GridData.FILL_VERTICAL));
 
-        sideToolBar = new VerticalFolder(sqlEditorPanel, SWT.LEFT);
-        sideToolBar.setCheckCommandEnablement(true);
-        ((GridLayout)sideToolBar.getLayout()).marginTop = 3;
-        ((GridLayout)sideToolBar.getLayout()).marginBottom = 10;
-        ((GridLayout)sideToolBar.getLayout()).verticalSpacing = 3;
-        VerticalButton.create(sideToolBar, SWT.LEFT | SWT.PUSH, getSite(), SQLEditorCommands.CMD_EXECUTE_STATEMENT, false);
-        VerticalButton.create(sideToolBar, SWT.LEFT | SWT.PUSH, getSite(), SQLEditorCommands.CMD_EXECUTE_STATEMENT_NEW, false);
-        VerticalButton.create(sideToolBar, SWT.LEFT | SWT.PUSH, getSite(), SQLEditorCommands.CMD_EXECUTE_SCRIPT, false);
-        VerticalButton.create(sideToolBar, SWT.LEFT | SWT.PUSH, getSite(), SQLEditorCommands.CMD_EXECUTE_SCRIPT_NEW, false);
-        VerticalButton.create(sideToolBar, SWT.LEFT | SWT.PUSH, getSite(), SQLEditorCommands.CMD_EXECUTE_SCRIPT_EXPORT, false);
-        VerticalButton.create(sideToolBar, SWT.LEFT | SWT.PUSH, getSite(), SQLEditorCommands.CMD_EXPLAIN_PLAN, false);
+        ToolBar topBar = new ToolBar(leftToolPanel, SWT.VERTICAL | SWT.FLAT);
+        topBar.setData(VIEW_PART_PROP_NAME, this);
+        topBarMan = new ToolBarManager(topBar);
 
-        UIUtils.createEmptyLabel(sideToolBar, 1, 1).setLayoutData(new GridData(GridData.FILL_VERTICAL));
-
-        VerticalButton.create(sideToolBar, SWT.LEFT | SWT.CHECK, new ShowPreferencesAction(), false);
-
-        new Label(sideToolBar, SWT.NONE).setImage(DBeaverIcons.getImage(UIIcon.SEPARATOR_H));
-
-        VerticalButton.create(
-            sideToolBar,
-            SWT.LEFT | SWT.CHECK,
-            getSite(),
-            SQLEditorCommands.CMD_SQL_SHOW_OUTPUT,
-            false);
-        VerticalButton.create(
-            sideToolBar,
-            SWT.LEFT | SWT.CHECK,
-            getSite(),
-            SQLEditorCommands.CMD_SQL_SHOW_LOG,
-            false);
-        VerticalButton.create(
-            sideToolBar,
-            SWT.LEFT | SWT.CHECK,
-            getSite(),
-            SQLEditorCommands.CMD_SQL_SHOW_VARIABLES,
-            false);
-
-/*
-        sideToolBar.add(new GroupMarker(TOOLBAR_GROUP_PANELS));
         final IMenuService menuService = getSite().getService(IMenuService.class);
         if (menuService != null) {
-            int prevSize = sideToolBar.getSize();
-            menuService.populateContributionManager(sideToolBar, TOOLBAR_CONTRIBUTION_ID);
-            if (prevSize != sideToolBar.getSize()) {
-                // Something was populated
-                sideToolBar.insertBefore(TOOLBAR_GROUP_ADDITIONS, new ToolbarSeparatorContribution(false));
-            }
+            menuService.populateContributionManager(topBarMan, SIDE_TOP_TOOLBAR_CONTRIBUTION_ID);
         }
-*/
+        topBar.setLayoutData(new GridData(SWT.CENTER, SWT.TOP, true, false));
+        CSSUtils.setCSSClass(topBar, DBStyles.COLORED_BY_CONNECTION_TYPE);
+        topBarMan.update(true);
+        topBar.pack();
 
-        sideToolBar.setLayoutData(new GridData(GridData.FILL_VERTICAL | GridData.VERTICAL_ALIGN_BEGINNING));
+        UIUtils.createEmptyLabel(leftToolPanel, 1, 1).setLayoutData(new GridData(SWT.CENTER, SWT.FILL, true, true));
+
+        bottomBarMan = new ToolBarManager(SWT.VERTICAL | SWT.FLAT);
+        bottomBarMan.add(ActionUtils.makeActionContribution(new ShowPreferencesAction(), false));
+        if (menuService != null) {
+            menuService.populateContributionManager(bottomBarMan, SIDE_BOTTOM_TOOLBAR_CONTRIBUTION_ID);
+        }
+
+        ToolBar bottomBar = bottomBarMan.createControl(leftToolPanel);
+        bottomBar.setLayoutData(new GridData(SWT.CENTER, SWT.BOTTOM, true, false));
+        CSSUtils.setCSSClass(bottomBar, DBStyles.COLORED_BY_CONNECTION_TYPE);
+
+        bottomBar.pack();
+        bottomBarMan.update(true);
     }
 
     private void createPresentationSwitchBar(Composite sqlEditorPanel) {
@@ -976,7 +1104,7 @@ public class SQLEditor extends SQLEditorBase implements
 
         switchPresentationSQLButton = new VerticalButton(presentationSwitchFolder, SWT.RIGHT | SWT.CHECK);
         switchPresentationSQLButton.setText(SQLEditorMessages.editors_sql_description);
-        switchPresentationSQLButton.setImage(DBeaverIcons.getImage(UIIcon.SQL_SCRIPT));
+        switchPresentationSQLButton.setImage(DBeaverIcons.getImage(DBIcon.TREE_SCRIPT));
 
         switchPresentationExtraButton = new VerticalButton(presentationSwitchFolder, SWT.RIGHT | SWT.CHECK);
         switchPresentationExtraButton.setData(extraPresentationDescriptor);
@@ -1032,8 +1160,7 @@ public class SQLEditor extends SQLEditorBase implements
         return res;
     }
 
-    private void createResultTabs()
-    {
+    private void createResultTabs() {
         resultTabs = new CTabFolder(resultsSash, SWT.TOP | SWT.FLAT);
         CSSUtils.setCSSClass(resultTabs, DBStyles.COLORED_BY_CONNECTION_TYPE);
         resultTabsReorder = new TabFolderReorder(resultTabs);
@@ -1068,16 +1195,20 @@ public class SQLEditor extends SQLEditorBase implements
         });
         restoreSashRatio(resultsSash, SQLPreferenceConstants.RESULTS_PANEL_RATIO);
 
-        getTextViewer().getTextWidget().addTraverseListener(e -> {
-            if (e.detail == SWT.TRAVERSE_TAB_NEXT && e.stateMask == SWT.MOD1) {
-                ResultSetViewer viewer = getActiveResultSetViewer();
-                if (viewer != null && viewer.getActivePresentation().getControl().isVisible()) {
-                    viewer.getActivePresentation().getControl().setFocus();
-                    e.detail = SWT.TRAVERSE_NONE;
+        TextViewer textViewer = getTextViewer();
+        if (textViewer != null) {
+            textViewer.getTextWidget().addTraverseListener(e -> {
+                if (e.detail == SWT.TRAVERSE_TAB_NEXT && e.stateMask == SWT.MOD1) {
+                    ResultSetViewer viewer = getActiveResultSetViewer();
+                    if (viewer != null && viewer.getActivePresentation().getControl().isVisible()) {
+                        viewer.getActivePresentation().getControl().setFocus();
+                        e.detail = SWT.TRAVERSE_NONE;
+                    }
                 }
-            }
-        });
+            });
+        }
         resultTabs.setSimple(true);
+        resultTabs.setFont(JFaceResources.getFont(UIFonts.DBEAVER_FONTS_MAIN_FONT));
 
         resultTabs.addMouseListener(new MouseAdapter() {
             @Override
@@ -1105,7 +1236,11 @@ public class SQLEditor extends SQLEditorBase implements
 
         // Create results tab
         createQueryProcessor(true, true);
-        resultsSash.setMaximizedControl(sqlEditorPanel);
+        if (isHideQueryText()) {
+            resultsSash.setMaximizedControl(resultTabs);
+        } else {
+            resultsSash.setMaximizedControl(sqlEditorPanel);
+        }
 
         {
             resultTabs.addMouseListener(new MouseAdapter() {
@@ -1117,135 +1252,146 @@ public class SQLEditor extends SQLEditorBase implements
             MenuManager menuMgr = new MenuManager();
             Menu menu = menuMgr.createContextMenu(resultTabs);
             menuMgr.addMenuListener(manager -> {
-                int pinnedTabsCount = 0;
-                int resultTabsCount = 0;
-                for (CTabItem item : resultTabs.getItems()) {
-                    if (item.getData() instanceof QueryResultsContainer) {
-                        resultTabsCount++;
-                        if (((QueryResultsContainer) item.getData()).isPinned()) {
-                            pinnedTabsCount++;
-                        }
-                    }
-                }
                 final CTabItem activeTab = getActiveResultsTab();
                 if (activeTab != null && activeTab.getData() instanceof QueryResultsContainer) {
-                    {
-                        final QueryResultsContainer resultsContainer = (QueryResultsContainer) activeTab.getData();
-                        if (resultsContainer.getResultSetController().hasData()) {
-                            final boolean isPinned = resultsContainer.isPinned();
-                            manager.add(new Action(isPinned ? SQLEditorMessages.action_result_tabs_unpin_tab : SQLEditorMessages.action_result_tabs_pin_tab) {
+                    final QueryResultsContainer container = (QueryResultsContainer) activeTab.getData();
+                    int pinnedTabsCount = 0;
+                    int resultTabsCount = 0;
+
+                    for (CTabItem item : resultTabs.getItems()) {
+                        if (item.getData() instanceof QueryResultsContainer) {
+                            resultTabsCount++;
+                            if (((QueryResultsContainer) item.getData()).isPinned()) {
+                                pinnedTabsCount++;
+                            }
+                        }
+                    }
+
+                    if (activeTab.getShowClose()) {
+                        manager.add(ActionUtils.makeCommandContribution(getSite(), SQLEditorCommands.CMD_SQL_EDITOR_CLOSE_TAB));
+
+                        if (resultTabsCount - pinnedTabsCount > 1) {
+                            manager.add(new Action(SQLEditorMessages.action_result_tabs_close_all_tabs) {
                                 @Override
                                 public void run() {
-                                    resultsContainer.setPinned(!isPinned);
+                                    closeExtraResultTabs(null, false, false);
+                                }
+                            });
 
-                                    CTabItem currTabItem = activeTab;
-                                    CTabItem nextTabItem;
-
-                                    if (isPinned) {
-                                        for (int i = resultTabs.indexOf(activeTab) + 1; i < resultTabs.getItemCount(); i++) {
-                                            nextTabItem = resultTabs.getItem(i);
-                                            if (nextTabItem.getShowClose()) {
-                                                break;
-                                            }
-                                            resultTabsReorder.swapTabs(currTabItem, nextTabItem);
-                                            currTabItem = nextTabItem;
+                            manager.add(new Action(SQLEditorMessages.action_result_tabs_close_query_tabs) {
+                                @Override
+                                public void run() {
+                                    final QueryProcessor processor = ((QueryResultsContainer) activeTab.getData()).queryProcessor;
+                                    final List<CTabItem> tabs = new ArrayList<>();
+                                    for (QueryResultsContainer container : processor.getResultContainers()) {
+                                        if (!container.isPinned() && container.queryProcessor == processor) {
+                                            tabs.add(container.getTabItem());
                                         }
-                                    } else {
-                                        for (int i = resultTabs.indexOf(activeTab) - 1; i >= 0; i--) {
-                                            nextTabItem = resultTabs.getItem(i);
-                                            if (!nextTabItem.getShowClose()) {
-                                                break;
+                                    }
+                                    for (CTabItem tab : tabs) {
+                                        tab.dispose();
+                                    }
+                                }
+                            });
+
+                            manager.add(new Action(SQLEditorMessages.action_result_tabs_close_other_tabs) {
+                                @Override
+                                public void run() {
+                                    final List<CTabItem> tabs = new ArrayList<>();
+                                    for (CTabItem tab : resultTabs.getItems()) {
+                                        if (tab.getShowClose() && tab != activeTab && !isPinned(tab)) {
+                                            tabs.add(tab);
+                                        }
+                                    }
+                                    for (CTabItem tab : tabs) {
+                                        tab.dispose();
+                                    }
+                                    setActiveResultsContainer((QueryResultsContainer) activeTab.getData());
+                                }
+                            });
+
+                            if (resultTabs.indexOf(activeTab) - pinnedTabsCount > 0) {
+                                manager.add(new Action(SQLEditorMessages.action_result_tabs_close_tabs_to_the_left) {
+                                    @Override
+                                    public void run() {
+                                        final List<CTabItem> tabs = new ArrayList<>();
+                                        for (int i = 0, last = resultTabs.indexOf(activeTab); i < last; i++) {
+                                            CTabItem tab = resultTabs.getItem(i);
+                                            if (!isPinned(tab)) {
+                                                tabs.add(tab);
                                             }
-                                            resultTabsReorder.swapTabs(currTabItem, nextTabItem);
-                                            currTabItem = nextTabItem;
+                                        }
+                                        for (CTabItem tab : tabs) {
+                                            tab.dispose();
+                                        }
+                                    }
+                                });
+                            }
+
+                            if (resultTabs.indexOf(activeTab) < resultTabsCount - pinnedTabsCount - 1) {
+                                manager.add(new Action(SQLEditorMessages.action_result_tabs_close_tabs_to_the_right) {
+                                    @Override
+                                    public void run() {
+                                        final List<CTabItem> tabs = new ArrayList<>();
+                                        for (int i = resultTabs.indexOf(activeTab) + 1; i < resultTabs.getItemCount(); i++) {
+                                            CTabItem tab = resultTabs.getItem(i);
+                                            if (!isPinned(tab)) {
+                                                tabs.add(tab);
+                                            }
+                                        }
+                                        for (CTabItem tab : tabs) {
+                                            tab.dispose();
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    }
+
+                    if (container.hasData()) {
+                        final boolean isPinned = container.isPinned();
+
+                        manager.add(new Separator());
+                        manager.add(ActionUtils.makeCommandContribution(getSite(), SQLEditorCommands.CMD_SQL_EDITOR_TOGGLE_TAB_PINNED));
+
+                        if (isPinned && pinnedTabsCount > 1) {
+                            manager.add(new Action(SQLEditorMessages.action_result_tabs_unpin_all_tabs) {
+                                @Override
+                                public void run() {
+                                    for (CTabItem item : resultTabs.getItems()) {
+                                        if (item.getData() instanceof QueryResultsContainer) {
+                                            if (((QueryResultsContainer) item.getData()).isPinned()) {
+                                                ((QueryResultsContainer) item.getData()).setPinned(false);
+                                            }
                                         }
                                     }
                                 }
                             });
                         }
-                    }
-                    manager.add(new Action(SQLEditorMessages.action_result_tabs_set_name) {
-                        @Override
-                        public void run() {
-                            EnterNameDialog dialog = new EnterNameDialog(resultTabs.getShell(), SQLEditorMessages.action_result_tabs_set_name_title, activeTab.getText());
-                            if (dialog.open() == IDialogConstants.OK_ID) {
-                                if (activeTab.getData() instanceof QueryResultsContainer) {
-                                    final QueryResultsContainer resultsContainer = (QueryResultsContainer) activeTab.getData();
-                                    resultsContainer.setTabName(dialog.getResult());
-                                }
-                            }
-                        }
-                    });
-                    if (activeTab.getData() instanceof QueryResultsContainer) {
-                        QueryResultsContainer rc = ((QueryResultsContainer) activeTab.getData());
-                        if (rc.hasData()) {
-                            AssignVariableAction action = new AssignVariableAction(
-                                SQLEditor.this,
-                                rc.getQuery().getText());
-                            action.setEditable(false);
-                            manager.add(action);
-                        }
-                    }
-                }
-                if (pinnedTabsCount > 1 || resultTabsCount > 1 || (activeTab != null && activeTab.getShowClose())) {
-                    manager.add(new Separator());
-                    if (pinnedTabsCount > 1 && activeTab != null && !activeTab.getShowClose()) {
-                        manager.add(new Separator());
-                        manager.add(new Action(SQLEditorMessages.action_result_tabs_unpin_all_tabs) {
+
+                        manager.add(new Action(SQLEditorMessages.action_result_tabs_set_name) {
                             @Override
                             public void run() {
-                                for (CTabItem item : resultTabs.getItems()) {
-                                    if (item.getData() instanceof QueryResultsContainer) {
-                                        if (((QueryResultsContainer) item.getData()).isPinned()) {
-                                            ((QueryResultsContainer) item.getData()).setPinned(false);
-                                        }
-                                    }
+                                EnterNameDialog dialog = new EnterNameDialog(resultTabs.getShell(), SQLEditorMessages.action_result_tabs_set_name_title, activeTab.getText());
+                                if (dialog.open() == IDialogConstants.OK_ID) {
+                                    container.setTabName(dialog.getResult());
                                 }
-                            }
-                        });
-                    }
-                    if (resultTabsCount - pinnedTabsCount > 1 && activeTab != null && activeTab.getShowClose() && activeTab.getData() instanceof QueryResultsContainer) {
-                        manager.add(new Action(SQLEditorMessages.action_result_tabs_close_all_tabs) {
-                            @Override
-                            public void run() {
-                                closeExtraResultTabs(null, false, false);
                             }
                         });
 
-                        manager.add(new Action(SQLEditorMessages.action_result_tabs_close_query_tabs) {
+                        manager.add(new Action(SQLEditorMessages.action_result_tabs_detach_tab) {
                             @Override
                             public void run() {
-                                QueryProcessor processor = ((QueryResultsContainer) activeTab.getData()).queryProcessor;
-                                List<CTabItem> tabsToRemove = new ArrayList<>();
-                                for (QueryResultsContainer container : processor.getResultContainers()) {
-                                    CTabItem tab = container.getTabItem();
-                                    if (tab.getShowClose() && container.queryProcessor == processor) {
-                                        tabsToRemove.add(tab);
-                                    }
-                                }
-                                for (CTabItem tab : tabsToRemove) {
-                                    tab.dispose();
-                                }
+                                container.detach();
                             }
                         });
-                        manager.add(new Action(SQLEditorMessages.action_result_tabs_close_other_tabs) {
-                            @Override
-                            public void run() {
-                                List<CTabItem> tabsToRemove = new ArrayList<>();
-                                for (CTabItem tab : resultTabs.getItems()) {
-                                    if (tab.getShowClose() && tab != activeTab) {
-                                        tabsToRemove.add(tab);
-                                    }
-                                }
-                                for (CTabItem tab : tabsToRemove) {
-                                    tab.dispose();
-                                }
-                                setActiveResultsContainer((QueryResultsContainer) activeTab.getData());
-                            }
-                        });
-                    }
-                    if (activeTab != null && activeTab.getShowClose()) {
-                        manager.add(ActionUtils.makeCommandContribution(getSite(), SQLEditorCommands.CMD_SQL_EDITOR_CLOSE_TAB));
+
+                        if (container.getQuery() != null) {
+                            manager.add(new Separator());
+                            AssignVariableAction action = new AssignVariableAction(SQLEditor.this, container.getQuery().getText());
+                            action.setEditable(false);
+                            manager.add(action);
+                        }
                     }
                 }
                 manager.add(new Separator());
@@ -1293,11 +1439,18 @@ public class SQLEditor extends SQLEditorBase implements
         curQueryProcessor = curResultsContainer.queryProcessor;
     }
 
+    private boolean isPinned(CTabItem tabItem) {
+        if (tabItem.getData() instanceof QueryResultsContainer) {
+            return ((QueryResultsContainer) tabItem.getData()).isPinned();
+        }
+        return false;
+    }
+
     /////////////////////////////////////////////////////////////
     // Panels
 
     public void toggleExtraPanelsLayout() {
-        CTabItem outTab = getExtraViewTab(outputViewer.getControl());
+        CTabItem outTab = getExtraViewTab(outputViewer);
         CTabItem logTab = getExtraViewTab(logViewer);
         CTabItem varTab = getExtraViewTab(variablesViewer);
         if (outTab != null) outTab.dispose();
@@ -1348,11 +1501,16 @@ public class SQLEditor extends SQLEditorBase implements
 
         logViewer = new SQLLogPanel(folder, this);
         variablesViewer = new SQLVariablesPanel(folder, this);
-        outputViewer = new SQLEditorOutputConsoleViewer(getSite(), folder, SWT.NONE);
+        outputViewer = new SQLEditorOutputViewer(getSite(), folder, SWT.LEFT);
+        outputViewer.setExecutionContext(executionContext);
 
         if (getFolderForExtraPanels() != sqlExtraPanelFolder) {
             sqlExtraPanelSash.setMaximizedControl(sqlExtraPanelSash.getChildren()[0]);
         }
+    }
+
+    public CTabFolder getResultTabsContainer() {
+        return resultTabs;
     }
 
     private CTabFolder getFolderForExtraPanels() {
@@ -1375,7 +1533,7 @@ public class SQLEditor extends SQLEditorBase implements
     }
 
     private void showExtraView(final String commandId, String name, String toolTip, Image image, Control view, IActionContributor actionContributor) {
-        VerticalButton viewItem = getViewToolItem(commandId);
+        ToolItem viewItem = getViewToolItem(commandId);
         if (viewItem == null) {
             log.warn("Tool item for command " + commandId + " not found");
             return;
@@ -1384,8 +1542,7 @@ public class SQLEditor extends SQLEditorBase implements
         CTabItem curItem = getExtraViewTab(view);
         if (curItem != null) {
             // Close tab if it is already open
-            viewItem.setChecked(false);
-            viewItem.redraw();
+            viewItem.setSelection(false);
             curItem.dispose();
             return;
         }
@@ -1402,12 +1559,12 @@ public class SQLEditor extends SQLEditorBase implements
             showResultsPanel(true);
         }
 
-        if (view == outputViewer.getControl()) {
+        if (view == outputViewer) {
             updateOutputViewerIcon(false);
             outputViewer.resetNewOutput();
         }
         // Create new tab
-        viewItem.setChecked(true);
+        viewItem.setSelection(true);
 
         CTabItem item = new CTabItem(tabFolder, SWT.CLOSE);
         item.setControl(view);
@@ -1419,15 +1576,13 @@ public class SQLEditor extends SQLEditorBase implements
         // De-select tool item on tab close
         item.addDisposeListener(e -> {
             if (!viewItem.isDisposed()) {
-                viewItem.setChecked(false);
-                viewItem.redraw();
+                viewItem.setSelection(false);
             }
             if (tabFolder.getItemCount() == 0) {
                 sqlExtraPanelSash.setMaximizedControl(sqlExtraPanelSash.getChildren()[0]);
             }
         });
         tabFolder.setSelection(item);
-        viewItem.redraw();
 
         if (isTabsToTheRight) {
             updateExtraViewToolbar(actionContributor);
@@ -1448,15 +1603,35 @@ public class SQLEditor extends SQLEditorBase implements
         sqlExtraPanelToolbar.update(true);
     }
 
-    private VerticalButton getViewToolItem(String commandId) {
-        VerticalButton viewItem = null;
-        for (VerticalButton item : sideToolBar.getItems()) {
-            if (commandId.equals(item.getCommandId())) {
-                viewItem = item;
-                break;
-            }
+    @Nullable
+    private ToolItem getViewToolItem(@NotNull String commandId) {
+        ToolItem viewItem = findViewItemByCommandId(topBarMan, commandId);
+        if (viewItem == null) {
+            viewItem = findViewItemByCommandId(bottomBarMan, commandId);
         }
         return viewItem;
+    }
+    
+    @Nullable
+    private ToolItem findViewItemByCommandId(@NotNull ToolBarManager toolbarManager, @NotNull String commandId) {
+        for (ToolItem item : toolbarManager.getControl().getItems()) {
+            Object data = item.getData();
+            if (data instanceof CommandContributionItem) {
+                ParameterizedCommand cmd = ((CommandContributionItem) data).getCommand(); 
+                if (cmd != null && commandId.equals(cmd.getId())) {
+                    return item;
+                }
+            } else if (data instanceof HandledContributionItem) {
+                MHandledItem model = ((HandledContributionItem) data).getModel();
+                if (model != null ) {
+                    ParameterizedCommand cmd = model.getWbCommand();
+                    if (cmd != null && commandId.equals(cmd.getId())) {
+                        return item;
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     private CTabItem getActiveResultsTab() {
@@ -1471,6 +1646,56 @@ public class SQLEditor extends SQLEditorBase implements
             activeResultsTab = null;
         }
     }
+    
+    /**
+     * Toggle isPinned value of active tab container,
+     * then move tab to left of all unpinned tabs if pinning,
+     * or move tab to right of all pinned tabs if unpinning
+     */
+    public void toggleActiveTabPinned() {
+        CTabItem activeTab = getActiveResultsTab();
+        QueryResultsContainer container = (QueryResultsContainer) activeTab.getData();
+        
+        if (!container.hasData()) {
+            return;
+        }
+
+        boolean isPinned = container.isPinned();
+
+        container.setPinned(!isPinned);
+
+        CTabItem currTabItem = activeTab;
+        CTabItem nextTabItem;
+
+        if (isPinned) {
+            for (int i = resultTabs.indexOf(activeTab) + 1; i < resultTabs.getItemCount(); i++) {
+                nextTabItem = resultTabs.getItem(i);
+                if (nextTabItem.getShowClose()) {
+                    break;
+                }
+                resultTabsReorder.swapTabs(currTabItem, nextTabItem);
+                currTabItem = nextTabItem;
+            }
+        } else {
+            for (int i = resultTabs.indexOf(activeTab) - 1; i >= 0; i--) {
+                nextTabItem = resultTabs.getItem(i);
+                if (!nextTabItem.getShowClose()) {
+                    break;
+                }
+                resultTabsReorder.swapTabs(currTabItem, nextTabItem);
+                currTabItem = nextTabItem;
+            }
+        }
+
+    }
+
+    /**
+     * Return true if there is an active tab, and its container is pinned
+     */
+    public boolean isActiveTabPinned() {
+        CTabItem tabItem = getActiveResultsTab();
+        return tabItem != null && ((QueryResultsContainer) tabItem.getData()).isPinned();
+    }
 
     public void showOutputPanel() {
         showExtraView(
@@ -1478,7 +1703,7 @@ public class SQLEditor extends SQLEditorBase implements
             SQLEditorMessages.editors_sql_output,
             SQLEditorMessages.editors_sql_output_tip,
             IMG_OUTPUT,
-            outputViewer.getControl(),
+            outputViewer,
             manager -> manager.add(new OutputAutoShowToggleAction()));
     }
 
@@ -1515,18 +1740,37 @@ public class SQLEditor extends SQLEditorBase implements
     public boolean showPresentationPanel(SQLEditorPresentationPanel panel) {
         for (CTabItem item : resultTabs.getItems()) {
             if (item.getData() == panel) {
-                resultTabs.setSelection(item);
+                setResultTabSelection(item);
                 return true;
             }
         }
         return false;
     }
 
+    private void setResultTabSelection(CTabItem item) {
+        if (isResultSetAutoFocusEnabled || !(item.getData() instanceof QueryResultsContainer) || resultTabs.getItemCount() == 1) {
+            resultTabs.setSelection(item);
+        }
+    }
+
     public SQLEditorPresentationPanel showPresentationPanel(String panelID) {
-        for (VerticalButton cItem : sideToolBar.getItems()) {
-            IAction action = cItem.getAction();
-            if (action != null) {
-                if (action instanceof PresentationPanelToggleAction && ((PresentationPanelToggleAction) action).panel.getId().equals(panelID)) {
+        for (IContributionItem contributionItem : topBarMan.getItems()) {
+            if (contributionItem instanceof ActionContributionItem) {
+                IAction action = ((ActionContributionItem) contributionItem).getAction();
+                if (action instanceof PresentationPanelToggleAction
+                    && ((PresentationPanelToggleAction) action).panel.getId().equals(panelID)
+                ) {
+                    action.run();
+                    return extraPresentationCurrentPanel;
+                }
+            }
+        }
+        for (IContributionItem contributionItem : bottomBarMan.getItems()) {
+            if (contributionItem instanceof ActionContributionItem) {
+                IAction action = ((ActionContributionItem) contributionItem).getAction();
+                if (action instanceof PresentationPanelToggleAction
+                    && ((PresentationPanelToggleAction) action).panel.getId().equals(panelID)
+                ) {
                     action.run();
                     return extraPresentationCurrentPanel;
                 }
@@ -1582,6 +1826,7 @@ public class SQLEditor extends SQLEditorBase implements
                         log.error("Error creating presentation", e);
                     }
                 }
+                getSite().setSelectionProvider(extraPresentation.getSelectionProvider());
                 if (maximize) {
                     stackLayout.topControl = getExtraPresentationControl();
                     getExtraPresentationControl().setFocus();
@@ -1634,7 +1879,10 @@ public class SQLEditor extends SQLEditorBase implements
             presentationSwitchFolder.redraw();
 
             if (sideBarChanged) {
-                sideToolBar.getParent().layout(true, true);
+                topBarMan.update(true);
+                bottomBarMan.update(true);
+                topBarMan.getControl().getParent().layout(true);
+                bottomBarMan.getControl().getParent().layout(true);
             }
 
             presentationStack.layout(true, true);
@@ -1656,10 +1904,13 @@ public class SQLEditor extends SQLEditorBase implements
     }
 
     private Control getExtraPresentationControl() {
-        return presentationStack.getChildren()[EXTRA_CONTROL_INDEX];
+        return presentationStack == null ? null : presentationStack.getChildren()[EXTRA_CONTROL_INDEX];
     }
 
     public void toggleResultPanel(boolean switchFocus, boolean createQueryProcessor) {
+        if (isHideQueryText()) {
+            return;
+        }
         UIUtils.syncExec(() -> {
             if (resultsSash.getMaximizedControl() == null) {
                 resultsSash.setMaximizedControl(sqlEditorPanel);
@@ -1680,8 +1931,13 @@ public class SQLEditor extends SQLEditorBase implements
         });
     }
 
-    public void toggleEditorMaximize()
-    {
+    /**
+     * Toggles editor/results maximization
+     */
+    public void toggleEditorMaximize() {
+        if (isHideQueryText()) {
+            return;
+        }
         if (resultsSash.getMaximizedControl() == null) {
             resultsSash.setMaximizedControl(resultTabs);
             switchFocus(true);
@@ -1746,7 +2002,7 @@ public class SQLEditor extends SQLEditorBase implements
 
         @Override
         public void run() {
-            if (resultsSash.getMaximizedControl() != null) {
+            if (!isHideQueryText() && resultsSash.getMaximizedControl() != null) {
                 resultsSash.setMaximizedControl(null);
             }
             setChecked(!isChecked());
@@ -1786,11 +2042,11 @@ public class SQLEditor extends SQLEditorBase implements
                     resultTabDisposeListener.widgetDisposed(e);
                 });
                 extraPresentationCurrentPanel = panelInstance;
-                resultTabs.setSelection(tabItem);
+                setResultTabSelection(tabItem);
             } else {
                 for (CTabItem tabItem : resultTabs.getItems()) {
                     if (tabItem.getData() == panelInstance) {
-                        resultTabs.setSelection(tabItem);
+                        setResultTabSelection(tabItem);
                         break;
                     }
                 }
@@ -1846,11 +2102,36 @@ public class SQLEditor extends SQLEditorBase implements
             }
 
         });
+
+        // Initialize the add-ins and keep references for further cleanup on editor dispose
+        for (SQLEditorAddInDescriptor addInDesc : SQLEditorAddInsRegistry.getInstance().getAddIns()) {
+            try {
+                SQLEditorAddIn addIn = addInDesc.createInstance();
+                addIn.init(this);
+                addIns.add(addIn);
+            } catch (Throwable ex) {
+                log.error("Error during SQL editor add-in initialilzation", ex); //$NON-NLS-1$
+            }
+        }
+    }
+
+    /**
+     * Obtain the add-in instance by its concrete type
+     */
+    @Nullable
+    public <T extends SQLEditorAddIn> T findAddIn(@NotNull Class<T> addInClass) {
+        for (SQLEditorAddIn addIn : addIns) { // we are ok with brute-force until there are not many of add-ins
+            if (addInClass.isInstance(addIn)) {
+                @SuppressWarnings("unchecked")
+                T concreteAddIn = (T) addIn;
+                return concreteAddIn;
+            }
+        }
+        return null;
     }
 
     @Override
-    protected void doSetInput(IEditorInput editorInput)
-    {
+    protected void doSetInput(IEditorInput editorInput) throws CoreException {
         // Check for file existence
         try {
             if (editorInput instanceof IFileEditorInput) {
@@ -1874,6 +2155,7 @@ public class SQLEditor extends SQLEditorBase implements
         }
         syntaxLoaded = false;
 
+        IEditorInput finalEditorInput = editorInput;
         Runnable inputinitializer = () -> {
             DBPDataSourceContainer oldDataSource = SQLEditor.this.getDataSourceContainer();
             DBPDataSourceContainer newDataSource = EditorUtils.getInputDataSource(SQLEditor.this.getEditorInput());
@@ -1884,6 +2166,13 @@ public class SQLEditor extends SQLEditorBase implements
             } else {
                 SQLEditor.this.reloadSyntaxRules();
             }
+
+            {
+                DBPDataSourceContainer dataSource = EditorUtils.getInputDataSource(finalEditorInput);
+                SQLEditorFeatures.SQL_EDITOR_OPEN.use(Map.of(
+                    "driver", dataSource == null ? "" : dataSource.getDriver().getPreconfiguredId()
+                ));
+            }
         };
         if (isNonPersistentEditor()) {
             inputinitializer.run();
@@ -1893,10 +2182,15 @@ public class SQLEditor extends SQLEditorBase implements
         }
 
         setPartName(getEditorName());
-        if (isNonPersistentEditor()) {
+        if (isNonPersistentEditor() && isDetectTitleImageFromInput()) {
             setTitleImage(DBeaverIcons.getImage(UIIcon.SQL_CONSOLE));
         }
-        editorImage = getTitleImage();
+        baseEditorImage = getTitleImage();
+        editorImage = new Image(Display.getCurrent(), baseEditorImage, SWT.IMAGE_COPY);
+    }
+
+    protected boolean isDetectTitleImageFromInput() {
+        return true;
     }
 
     @Override
@@ -1933,25 +2227,32 @@ public class SQLEditor extends SQLEditorBase implements
 
         StringBuilder tip = new StringBuilder();
         tip
-            .append("Script: ").append(scriptPath)
-            .append(" \nConnection: ").append(dataSourceContainer.getName())
-            .append(" \nLogged: ").append(dataSourceContainer.getConnectionConfiguration().getDatabaseName() + " - " + dataSourceContainer.getConnectionConfiguration().getUserName())
-            .append(" \nValid: ").append(dataSourceContainer.isConnected())
-            .append(" \nType: ").append(dataSourceContainer.getDriver().getFullName())
-            .append(" \nURL: ").append(dataSourceContainer.getConnectionConfiguration().getUrl());
+            .append(NLS.bind(SQLEditorMessages.sql_editor_title_tooltip_path, scriptPath))
+            .append("\n").append(NLS.bind(SQLEditorMessages.sql_editor_title_tooltip_connecton, dataSourceContainer.getName()))
+            .append("\n").append(NLS.bind(SQLEditorMessages.sql_editor_title_tooltip_type, dataSourceContainer.getDriver().getFullName()))
+            .append("\n").append(NLS.bind(SQLEditorMessages.sql_editor_title_tooltip_url, dataSourceContainer.getConnectionConfiguration().getUrl()));
 
-        Map<String, Object> vars = getScriptVariables(null, scriptPath);
-        if (vars.get(VAR_ACTIVE_DATABASE) != null) {
-            tip.append(" \nDatabase: ").append(vars.get(VAR_ACTIVE_DATABASE));
+        SQLEditorVariablesResolver scriptNameResolver = new SQLEditorVariablesResolver(dataSourceContainer,
+                dataSourceContainer.getConnectionConfiguration(),
+                getExecutionContext(),
+                scriptPath,
+                null,
+                getProject());
+        if (scriptNameResolver.get(SQLPreferenceConstants.VAR_ACTIVE_DATABASE) != null) {
+            tip.append("\n").append(NLS.bind(SQLEditorMessages.sql_editor_title_tooltip_database, scriptNameResolver.get(SQLPreferenceConstants.VAR_ACTIVE_DATABASE)));
         }
-        if (vars.get(VAR_ACTIVE_SCHEMA) != null) {
-            tip.append(" \nSchema: ").append(vars.get(VAR_ACTIVE_SCHEMA));
+        if (scriptNameResolver.get(SQLPreferenceConstants.VAR_ACTIVE_SCHEMA) != null) {
+            tip.append("\n").append(NLS.bind(SQLEditorMessages.sql_editor_title_tooltip_schema, scriptNameResolver.get(SQLPreferenceConstants.VAR_ACTIVE_SCHEMA)));
         }
+        EditorUtils.appendProjectToolTip(tip, getProject());
 
+        if (dataSourceContainer.getConnectionError() != null) {
+            tip.append("\n\nConnection error:\n").append(dataSourceContainer.getConnectionError());
+        }
         return tip.toString();
     }
 
-    private String getEditorName() {
+    protected String getEditorName() {
         final IFile file = EditorUtils.getFileFromInput(getEditorInput());
         String scriptName;
         if (file != null) {
@@ -1965,36 +2266,16 @@ public class SQLEditor extends SQLEditorBase implements
             }
         }
 
-        Map<String, Object> vars = getScriptVariables(file, scriptName);
 
         DBPPreferenceStore preferenceStore = getActivePreferenceStore();
         String pattern = preferenceStore.getString(SQLPreferenceConstants.SCRIPT_TITLE_PATTERN);
-        pattern = "${valid}" + pattern.concat("${databaseName}${userName}");
-        return GeneralUtils.replaceVariables(pattern, new GeneralUtils.MapResolver(vars));
-    }
-
-    @NotNull
-    private Map<String, Object> getScriptVariables(IFile file, String scriptName) {
-        DBPDataSourceContainer dataSourceContainer = getDataSourceContainer();
-        Map<String, Object> vars = new HashMap<>();
-        vars.put(VAR_CONNECTION_NAME, dataSourceContainer == null ? "none" : dataSourceContainer.getName());
-        vars.put(VAR_FILE_NAME, scriptName);
-        vars.put(VAR_FILE_EXT,
-            file == null ? "" : file.getFullPath().getFileExtension());
-        vars.put(VAR_DRIVER_NAME, dataSourceContainer == null ? "?" : dataSourceContainer.getDriver().getFullName());
-        vars.put("valid", dataSourceContainer == null ? "[×]" : dataSourceContainer.isConnected() ? "[√]" : "[×]");
-        vars.put("userName", dataSourceContainer == null ? "" : dataSourceContainer.getConnectionConfiguration().getUserName() == null ? "" : " [" + dataSourceContainer.getConnectionConfiguration().getUserName() + "]");
-        vars.put("databaseName", dataSourceContainer == null ? "" : dataSourceContainer.getConnectionConfiguration().getDatabaseName() == null ? "" : " [" + dataSourceContainer.getConnectionConfiguration().getDatabaseName() + "]");
-
-        final DBCExecutionContext executionContext = getExecutionContext();
-        if (executionContext != null) {
-            DBCExecutionContextDefaults<?, ?> contextDefaults = executionContext.getContextDefaults();
-            if (contextDefaults != null) {
-                vars.put(VAR_ACTIVE_DATABASE, contextDefaults.getDefaultCatalog());
-                vars.put(VAR_ACTIVE_SCHEMA, contextDefaults.getDefaultSchema());
-            }
-        }
-        return vars;
+        return GeneralUtils.replaceVariables(pattern, new SQLEditorVariablesResolver(
+                dataSourceContainer,
+                null,
+                getExecutionContext(),
+                scriptName,
+                file,
+                getProject()));
     }
 
     @Override
@@ -2007,6 +2288,7 @@ public class SQLEditor extends SQLEditorBase implements
         ExplainPlanViewer planView = getPlanView(null, planner);
 
         if (planView != null) {
+            showResultsPanel(false);
             if (!planView.loadQueryPlan(planner, planView)) {
                 closeActiveTab();
             }
@@ -2086,7 +2368,7 @@ public class SQLEditor extends SQLEditorBase implements
                 if (item.getData() instanceof ExplainPlanViewer) {
                     ExplainPlanViewer pv = (ExplainPlanViewer) item.getData();
                     if (pv.getQuery() != null && pv.getQuery().equals(sqlQuery)) {
-                        resultTabs.setSelection(item);
+                        setResultTabSelection(item);
                         planView = pv;
                         break;
                     }
@@ -2120,7 +2402,7 @@ public class SQLEditor extends SQLEditorBase implements
             item.setData(planView);
             item.addDisposeListener(resultTabDisposeListener);
             UIUtils.disposeControlOnItemDispose(item);
-            resultTabs.setSelection(item);
+            setResultTabSelection(item);
         }
         return planView;
     }
@@ -2146,19 +2428,20 @@ public class SQLEditor extends SQLEditorBase implements
     }
 
     public void processSQL(boolean newTab, boolean script) {
-    	processSQL(newTab, script, null, null, false);
+        processSQL(newTab, script, null, null);
     }
 
-    public void processSQL(boolean newTab, boolean script, boolean exportXlsx) {
-        processSQL(newTab, script, null, null, exportXlsx);
-    }
-    
     public boolean processSQL(boolean newTab, boolean script, SQLQueryTransformer transformer, @Nullable SQLQueryListener queryListener) {
-    	return processSQL(newTab, script, transformer, queryListener, false);
+        return processSQL(newTab, script, false, transformer, queryListener);
     }
 
-    public boolean processSQL(boolean newTab, boolean script, SQLQueryTransformer transformer, @Nullable SQLQueryListener queryListener, final boolean exportXlsx)
-    {
+    public boolean processSQL(boolean newTab, boolean script, boolean executeFromPosition) {
+        return processSQL(newTab, script, executeFromPosition, null, null);
+    }
+
+    public boolean processSQL(boolean newTab, boolean script, boolean executeFromPosition, SQLQueryTransformer transformer,
+        @Nullable SQLQueryListener queryListener
+    ) {
         IDocument document = getDocument();
         if (document == null) {
             setStatus(SQLEditorMessages.editors_sql_status_cant_obtain_document, DBPMessageType.ERROR);
@@ -2174,12 +2457,21 @@ public class SQLEditor extends SQLEditorBase implements
 
         List<SQLScriptElement> elements;
         if (script) {
-            // Execute all SQL statements consequently
-            ITextSelection selection = (ITextSelection) getSelectionProvider().getSelection();
-            if (selection.getLength() > 1) {
-                elements = extractScriptQueries(selection.getOffset(), selection.getLength(), true, false, true);
+            if (executeFromPosition) {
+                // Get all queries from the current position
+                ITextSelection selection = (ITextSelection) getSelectionProvider().getSelection();
+                elements = extractScriptQueries(selection.getOffset(), document.getLength(), true, false, true);
+                // Replace first query with query under cursor for case if the cursor is in the middle of the query
+                elements.remove(0);
+                elements.add(0, extractActiveQuery());
             } else {
-                elements = extractScriptQueries(0, document.getLength(), true, false, true);
+                // Execute all SQL statements consequently
+                ITextSelection selection = (ITextSelection) getSelectionProvider().getSelection();
+                if (selection.getLength() > 1) {
+                    elements = extractScriptQueries(selection.getOffset(), selection.getLength(), true, false, true);
+                } else {
+                    elements = extractScriptQueries(0, document.getLength(), true, false, true);
+                }
             }
         } else {
             // Execute statement under cursor or selected text (if selection present)
@@ -2219,7 +2511,7 @@ public class SQLEditor extends SQLEditorBase implements
             return false;
         }
         if (!CommonUtils.isEmpty(elements)) {
-            return processQueries(elements, script, newTab, false, true, queryListener, null, exportXlsx);
+            return processQueries(elements, script, newTab, false, true, queryListener, null);
         } else {
             return false;
         }
@@ -2245,13 +2537,10 @@ public class SQLEditor extends SQLEditorBase implements
         }
     }
 
-    private boolean processQueries(@NotNull final List<SQLScriptElement> queries, final boolean forceScript, boolean newTab, final boolean export, final boolean checkSession, @Nullable final SQLQueryListener queryListener, @Nullable final SQLScriptContext context)
-    {
-    	return processQueries(queries, forceScript, newTab, export, checkSession, queryListener, context, false);
-    }
-
-    private boolean processQueries(@NotNull final List<SQLScriptElement> queries, final boolean forceScript, boolean newTab, final boolean export, final boolean checkSession, @Nullable final SQLQueryListener queryListener, @Nullable final SQLScriptContext context, final boolean exportXlsx)
-    {
+    public boolean processQueries(@NotNull final List<SQLScriptElement> queries, final boolean forceScript,
+        boolean newTab, final boolean export, final boolean checkSession,
+        @Nullable final SQLQueryListener queryListener, @Nullable final SQLScriptContext context
+    ) {
         if (queries.isEmpty()) {
             // Nothing to process
             return false;
@@ -2304,17 +2593,16 @@ public class SQLEditor extends SQLEditorBase implements
         final boolean isSingleQuery = !forceScript && (queries.size() == 1);
         if (isSingleQuery && queries.get(0) instanceof SQLQuery) {
             SQLQuery query = (SQLQuery) queries.get(0);
-            if (query.isDeleteUpdateDangerous()) {
+            boolean isDropTable = query.isDropTableDangerous();
+            if (query.isDeleteUpdateDangerous() || isDropTable) {
                 String targetName = "multiple tables";
-                if (query.getSingleSource() != null) {
-                    targetName = query.getSingleSource().getEntityName();
+                if (query.getEntityMetadata(false) != null) {
+                    targetName = query.getEntityMetadata(false).getEntityName();
                 }
-                if (ConfirmationDialog.showConfirmDialogEx(
-                    ResourceBundle.getBundle(SQLEditorMessages.BUNDLE_NAME),
+                if (ConfirmationDialog.confirmAction(
                     getSite().getShell(),
-                    SQLPreferenceConstants.CONFIRM_DANGER_SQL,
+                    ConfirmationDialog.WARNING, isDropTable ? SQLPreferenceConstants.CONFIRM_DROP_SQL : SQLPreferenceConstants.CONFIRM_DANGER_SQL,
                     ConfirmationDialog.CONFIRM,
-                    ConfirmationDialog.WARNING,
                     query.getType().name(),
                     targetName) != IDialogConstants.OK_ID)
                 {
@@ -2322,12 +2610,10 @@ public class SQLEditor extends SQLEditorBase implements
                 }
             }
         } else if (newTab && queries.size() > MAX_PARALLEL_QUERIES_NO_WARN) {
-            if (ConfirmationDialog.showConfirmDialogEx(
-                ResourceBundle.getBundle(SQLEditorMessages.BUNDLE_NAME),
+            if (ConfirmationDialog.confirmAction(
                 getSite().getShell(),
-                SQLPreferenceConstants.CONFIRM_MASS_PARALLEL_SQL,
+                ConfirmationDialog.WARNING, SQLPreferenceConstants.CONFIRM_MASS_PARALLEL_SQL,
                 ConfirmationDialog.CONFIRM,
-                ConfirmationDialog.WARNING,
                 queries.size()) != IDialogConstants.OK_ID)
             {
                 return false;
@@ -2335,7 +2621,7 @@ public class SQLEditor extends SQLEditorBase implements
         }
 
 
-        if (resultsSash.getMaximizedControl() != null) {
+        if (!isHideQueryText() && resultsSash.getMaximizedControl() != null) {
             resultsSash.setMaximizedControl(null);
         }
 
@@ -2349,11 +2635,14 @@ public class SQLEditor extends SQLEditorBase implements
             outputViewer.clearOutput();
         }
 
+        boolean replaceCurrentTab = getActivePreferenceStore().getBoolean(SQLPreferenceConstants.RESULT_SET_REPLACE_CURRENT_TAB);
+
         if (!export) {
             // We only need to prompt user to close extra (unpinned) tabs if:
             // 1. The user is not executing query in a new tab
             // 2. The user is executing script that may open several result sets
-            if (!newTab && !isSingleQuery) {
+            //    and replace current tab on single query execution option is not set
+            if (isResultSetAutoFocusEnabled && !newTab && (!isSingleQuery || (isSingleQuery && !replaceCurrentTab))) {
                 int tabsClosed = closeExtraResultTabs(null, true, false);
                 if (tabsClosed == IDialogConstants.CANCEL_ID) {
                     return false;
@@ -2400,229 +2689,14 @@ public class SQLEditor extends SQLEditorBase implements
             if (tabItem != null) {
                 // Do not switch tab if Output tab is active
                 CTabItem selectedTab = resultTabs.getSelection();
-                if (selectedTab == null || selectedTab.getData() != outputViewer.getControl()) {
-                    resultTabs.setSelection(tabItem);
+                if (selectedTab == null || selectedTab.getData() != outputViewer) {
+                    setResultTabSelection(tabItem);
                 }
             }
         }
 
         if (curQueryProcessor == null) {
             createQueryProcessor(true, true);
-        }
-
-        List<SQLScriptElement> actualQueries = new ArrayList<>();
-        String driverName = dataSourceContainer.getDriver().getName().toLowerCase();
-        String jdbcUrlTemplate;
-        if ("oracle".equals(driverName)) {
-            jdbcUrlTemplate = "jdbc:%s:thin:@//%s:%d/%s";
-        } else {
-            jdbcUrlTemplate = "jdbc:%s://%s:%d/%s";
-        }
-        for(SQLScriptElement query : queries) {
-            String queryText = query.getText().trim();
-            Pattern connectHeadPattern = Pattern.compile("^(CON|CONNECT)\\s+\\S+$", Pattern.CASE_INSENSITIVE);
-            Pattern useHeadPattern = Pattern.compile("^use\\s+\\S+$", Pattern.CASE_INSENSITIVE);
-            if (connectHeadPattern.matcher(queryText).find()) {
-                curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, !export && getActivePreferenceStore().getBoolean(SQLPreferenceConstants.RESULT_SET_CLOSE_ON_ERROR), queryListener);
-                actualQueries.clear();
-                String connectBody;
-                if (queryText.toUpperCase().startsWith("CONNECT")) {
-                    connectBody = queryText.substring(7).trim();
-                } else {
-                    connectBody = queryText.substring(3).trim();
-                }
-                Pattern connectBodyPattern = Pattern.compile("^\\S+/\\S+@\\S+:\\d+/\\S+$", Pattern.CASE_INSENSITIVE);
-                if (connectBodyPattern.matcher(connectBody).find()) {
-                    int partIndex = 0;
-                    boolean isQuoted = false;
-                    StringBuilder builder = new StringBuilder();
-                    String username = "";
-                    String password = "";
-                    String hostName = "";
-                    String hostPort = "0";
-                    String catalog = "";
-                    for (int i = 0; i < connectBody.length(); ++i) {
-                        char c = connectBody.charAt(i);
-                        if (c == '"') {
-                            isQuoted = !isQuoted;
-                            continue;
-                        } else if (c == '/' || c== '@' || c == ':') {
-                            if (isQuoted) {
-                                builder.append(c);
-                            } else {
-                                switch (partIndex) {
-                                    case 0:
-                                        // USERNAME
-                                        username = builder.toString();
-                                        break;
-                                    case 1:
-                                        // PASSWORD
-                                        password = builder.toString();
-                                        break;
-                                    case 2:
-                                        // HOSTNAME
-                                        hostName = builder.toString();
-                                        break;
-                                    case 3:
-                                        // HOSTORT
-                                        hostPort = builder.toString();
-                                        break;
-                                    default:
-                                        curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, !export && getActivePreferenceStore().getBoolean(SQLPreferenceConstants.RESULT_SET_CLOSE_ON_ERROR), queryListener);
-                                        throw new RuntimeException("解析连接命令失败，数据段索引越界：" + partIndex);
-                                }
-                                builder = new StringBuilder();
-                                ++partIndex;
-                            }
-                        } else {
-                            builder.append(c);
-                        }
-                    }
-                    // CATALOG
-                    if (connectBody.endsWith("\"")) {
-                        catalog = builder.toString();
-                    } else {
-                        catalog = builder.toString().toUpperCase();
-                    }
-
-                    DBPConnectionConfiguration config = dataSourceContainer.getConnectionConfiguration();
-                    String originUrl = config.getUrl();
-                    String originHostName = config.getHostName();
-                    String originHostPort = config.getHostPort();
-                    String originDatabaseName = config.getDatabaseName();
-                    String originUsername = config.getUserName();
-                    String originPassword = config.getUserPassword();
-                    config.setUrl(String.format(jdbcUrlTemplate, driverName, hostName, Integer.valueOf(hostPort), catalog));
-                    config.setHostName(hostName);
-                    config.setHostPort(hostPort);
-                    config.setDatabaseName(catalog);
-                    config.setUserName(username);
-                    config.setUserPassword(password);
-                    DBRProgressMonitor monitor = new LoggingProgressMonitor();
-                    try {
-                        dataSourceContainer.disconnect(monitor);
-                        dataSourceContainer.reconnect(monitor);
-                        curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, !export && getActivePreferenceStore().getBoolean(SQLPreferenceConstants.RESULT_SET_CLOSE_ON_ERROR), queryListener);
-                        dataSourceContainer.persistConfiguration();
-                        DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "登录成功",
-                                String.format("登录成功，当前连接信息：\n主机：%s:%s\n库名：%s\n用户名：%s", hostName, hostPort, catalog, username),
-                                DBPMessageType.INFORMATION, () -> {
-                                    try {
-                                        Thread.sleep(10000);
-                                    } catch (InterruptedException e) {
-                                        e.printStackTrace();
-                                    }
-                                });
-                    } catch (DBException e) {
-                        config.setUrl(originUrl);
-                        config.setHostName(originHostName);
-                        config.setHostPort(originHostPort);
-                        config.setDatabaseName(originDatabaseName);
-                        config.setUserName(originUsername);
-                        config.setUserPassword(originPassword);
-                        dataSourceContainer.persistConfiguration();
-                        try {
-                            dataSourceContainer.disconnect(monitor);
-                            dataSourceContainer.reconnect(monitor);
-                            curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, !export && getActivePreferenceStore().getBoolean(SQLPreferenceConstants.RESULT_SET_CLOSE_ON_ERROR), queryListener);
-                            DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "登录失败",
-                                    String.format("登录失败，已为您恢复到原连接：\n主机：%s:%s\n库名：%s\n用户名：%s", originHostName, originHostPort, originDatabaseName, originUsername),
-                                    DBPMessageType.ERROR, () -> {
-                                        try {
-                                            Thread.sleep(10000);
-                                        } catch (InterruptedException ex) {
-                                            ex.printStackTrace();
-                                        }
-                                    });
-                        } catch (DBException e1) {
-                            throw new RuntimeException("回退到原数据源失败", e);
-                        }
-                        throw new RuntimeException("连接失败：" + e.getCause().getLocalizedMessage(), e);
-                    } finally {
-                        monitor.done();
-                    }
-                    try {
-                        ((DataSourceDescriptor)dataSourceContainer).refreshObject(monitor);
-                    } catch (DBException e1) {
-                        try {
-                            dataSourceContainer.disconnect(monitor);
-                        } catch (DBException e) {
-                            throw new RuntimeException("断开数据源失败", e1);
-                        }
-                        throw new RuntimeException("回退到原数据源失败", e1);
-                    }
-                    initSeparateConnection(dataSourceContainer.getDataSource(), null);
-                } else {
-                    curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, !export && getActivePreferenceStore().getBoolean(SQLPreferenceConstants.RESULT_SET_CLOSE_ON_ERROR), queryListener);
-                    throw new IllegalStateException("Connect command format invalid: [REQUIRED]CON[NECT] USERNAME/PASSWORD@HOST:PORT/DATABASE [ACTUAL]" + queryText);
-                }
-            } else if (useHeadPattern.matcher(queryText).find()) {
-                String useCatalog = queryText.substring(3).trim();
-                if (useCatalog.startsWith("\"") && useCatalog.endsWith("\"")) {
-                    useCatalog = useCatalog.substring(1, useCatalog.length()-1);
-                } else if ("tunton".equals(driverName)) {
-                    useCatalog = useCatalog.toUpperCase();
-                }
-                DBPConnectionConfiguration config = dataSourceContainer.getConnectionConfiguration();
-                String originUrl = config.getUrl();
-                String originHostName = config.getHostName();
-                String originHostPort = config.getHostPort();
-                String originDatabaseName = config.getDatabaseName();
-                config.setUrl(String.format(jdbcUrlTemplate, driverName, originHostName, Integer.valueOf(originHostPort), useCatalog));
-                config.setDatabaseName(useCatalog);
-                DBRProgressMonitor monitor = new LoggingProgressMonitor();
-                try {
-                    dataSourceContainer.disconnect(monitor);
-                    dataSourceContainer.reconnect(monitor);
-                    dataSourceContainer.persistConfiguration();
-                    curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, !export && getActivePreferenceStore().getBoolean(SQLPreferenceConstants.RESULT_SET_CLOSE_ON_ERROR), queryListener);
-                    DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "登录成功",
-                            String.format("登录成功，当前连接信息：\n主机：%s:%s\n库名：%s\n用户名：%s", originHostName, originHostPort, useCatalog, config.getUserName()),
-                            DBPMessageType.INFORMATION, () -> {
-                                try {
-                                    Thread.sleep(10000);
-                                } catch (InterruptedException e) {
-                                    e.printStackTrace();
-                                }
-                            });
-                } catch (DBException e) {
-                    config.setUrl(originUrl);
-                    config.setDatabaseName(originDatabaseName);
-                    dataSourceContainer.persistConfiguration();
-                    try {
-                        dataSourceContainer.disconnect(monitor);
-                        dataSourceContainer.reconnect(monitor);
-                        curQueryProcessor.processQueries(scriptContext, actualQueries, forceScript, false, export, !export && getActivePreferenceStore().getBoolean(SQLPreferenceConstants.RESULT_SET_CLOSE_ON_ERROR), queryListener);
-                        DBeaverNotifications.showNotification(DBeaverNotifications.NT_RECONNECT, "登录失败",
-                                String.format("登录失败，已为您恢复到原连接：\n主机：%s:%s\n库名：%s\n用户名：%s", originHostName, originHostPort, originDatabaseName, config.getUserName()),
-                                DBPMessageType.ERROR, () -> {
-                                    try {
-                                        Thread.sleep(10000);
-                                    } catch (InterruptedException ex) {
-                                        ex.printStackTrace();
-                                    }
-                                });
-                    } catch (DBException e1) {
-                        throw new RuntimeException("回退到原数据源失败", e);
-                    }
-                    throw new RuntimeException("连接失败：" + e.getCause().getLocalizedMessage(), e);
-                } finally {
-                    monitor.done();
-                }
-                try {
-                    ((DataSourceDescriptor)dataSourceContainer).refreshObject(monitor);
-                } catch (DBException e1) {
-                    try {
-                        dataSourceContainer.disconnect(monitor);
-                    } catch (DBException e) {
-                        throw new RuntimeException("断开数据源失败", e1);
-                    }
-                    throw new RuntimeException("回退到原数据源失败", e1);
-                }
-                initSeparateConnection(dataSourceContainer.getDataSource(), null);
-            } else {
-                actualQueries.add(query);
-            }
         }
 
         return curQueryProcessor.processQueries(
@@ -2633,6 +2707,16 @@ public class SQLEditor extends SQLEditorBase implements
             export,
             !export && getActivePreferenceStore().getBoolean(SQLPreferenceConstants.RESULT_SET_CLOSE_ON_ERROR),
             queryListener);
+    }
+
+    public boolean isActiveQueryRunning() {
+        return curQueryProcessor != null && curQueryProcessor.curJobRunning.get() > 0;
+    }
+
+    public void cancelActiveQuery() {
+        if (isActiveQueryRunning()) {
+            curQueryProcessor.cancelJob();
+        }
     }
 
     @NotNull
@@ -2652,7 +2736,7 @@ public class SQLEditor extends SQLEditorBase implements
     private int closeExtraResultTabs(@Nullable QueryProcessor queryProcessor, boolean confirmClose, boolean keepFirstTab) {
         List<CTabItem> tabsToClose = new ArrayList<>();
         for (CTabItem item : resultTabs.getItems()) {
-            if (item.getData() instanceof QueryResultsContainer && item.getShowClose()) {
+            if (item.getData() instanceof QueryResultsContainer && item.getShowClose() && !isPinned(item)) {
                 QueryResultsContainer resultsProvider = (QueryResultsContainer)item.getData();
                 if (queryProcessor != null && queryProcessor != resultsProvider.queryProcessor) {
                     continue;
@@ -2669,12 +2753,13 @@ public class SQLEditor extends SQLEditorBase implements
         if (tabsToClose.size() > 1 || (tabsToClose.size() == 1 && keepFirstTab)) {
             int confirmResult = IDialogConstants.YES_ID;
             if (confirmClose) {
-                confirmResult = ConfirmationDialog.showConfirmDialog(
-                    ResourceBundle.getBundle(SQLEditorMessages.BUNDLE_NAME),
+                confirmResult = ConfirmationDialog.confirmAction(
                     getSite().getShell(),
+                    ConfirmationDialog.WARNING,
                     SQLPreferenceConstants.CONFIRM_RESULT_TABS_CLOSE,
                     ConfirmationDialog.QUESTION_WITH_CANCEL,
-                    tabsToClose.size());
+                    tabsToClose.size()
+                );
                 if (confirmResult == IDialogConstants.CANCEL_ID || confirmResult < 0) {
                     return IDialogConstants.CANCEL_ID;
                 }
@@ -2705,11 +2790,16 @@ public class SQLEditor extends SQLEditorBase implements
             throw new DBException("No active connection");
         }
         if (!ds.isConnected()) {
-        	return checkConnected(true, onFinish);
+            boolean doConnect = ds.getPreferenceStore().getBoolean(SQLPreferenceConstants.EDITOR_CONNECT_ON_EXECUTE);
+            if (doConnect) {
+                return checkConnected(true, onFinish);
+            } else {
+                throw new DBException("Disconnected from database");
+            }
         }
         DBPDataSource dataSource = ds.getDataSource();
         if (dataSource != null && executionContextProvider == null && SQLEditorUtils.isOpenSeparateConnection(ds) && executionContext == null) {
-            initSeparateConnection(dataSource, () -> onFinish.onTaskFinished(Status.OK_STATUS));
+            initSeparateConnection(dataSource, () -> onFinish.onTaskFinished(Status.OK_STATUS), false);
             return executionContext != null;
         }
         return true;
@@ -2718,23 +2808,25 @@ public class SQLEditor extends SQLEditorBase implements
     /**
      * Handles datasource change action in UI
      */
-    private void fireDataSourceChange()
-    {
+    private void fireDataSourceChange() {
         updateExecutionContext(null);
         UIUtils.syncExec(this::onDataSourceChange);
     }
 
-    private void onDataSourceChange()
-    {
+    protected void onDataSourceChange() {
         if (resultsSash == null || resultsSash.isDisposed()) {
             reloadSyntaxRules();
             return;
         }
 
-        DatabaseEditorUtils.setPartBackground(this, resultTabs);
+        DBPDataSourceContainer dsContainer = getDataSourceContainer();
 
-        if (getSourceViewerConfiguration() instanceof SQLEditorSourceViewerConfiguration) {
-            ((SQLEditorSourceViewerConfiguration) getSourceViewerConfiguration()).onDataSourceChange();
+        if (resultTabs != null) {
+            DatabaseEditorUtils.setPartBackground(this, resultTabs);
+            Color bgColor = dsContainer == null ? null : UIUtils.getConnectionColor(dsContainer.getConnectionConfiguration());
+            resultsSash.setBackground(bgColor);
+            topBarMan.getControl().setBackground(bgColor);
+            bottomBarMan.getControl().setBackground(bgColor);
         }
 
         DBCExecutionContext executionContext = getExecutionContext();
@@ -2743,9 +2835,12 @@ public class SQLEditor extends SQLEditorBase implements
         }
         refreshActions();
 
+        refreshEditorIconAndTitle();
+
         if (syntaxLoaded && lastExecutionContext == executionContext) {
             return;
         }
+
         if (curResultsContainer != null) {
             ResultSetViewer rsv = curResultsContainer.getResultSetController();
             if (rsv != null) {
@@ -2765,12 +2860,13 @@ public class SQLEditor extends SQLEditorBase implements
             reloadSyntaxRules();
         }
 
-        DBPDataSourceContainer dataSourceContainer = getDataSourceContainer();
-        if (dataSourceContainer == null) {
-            resultsSash.setMaximizedControl(sqlEditorPanel);
-        } else {
-            if (curQueryProcessor != null && curQueryProcessor.getFirstResults().hasData()) {
-                resultsSash.setMaximizedControl(null);
+        if (!isHideQueryText()) {
+            if (dsContainer == null) {
+                resultsSash.setMaximizedControl(sqlEditorPanel);
+            } else {
+                if (curQueryProcessor != null && curQueryProcessor.getFirstResults().hasData()) {
+                    resultsSash.setMaximizedControl(null);
+                }
             }
         }
 
@@ -2779,13 +2875,58 @@ public class SQLEditor extends SQLEditorBase implements
 
         loadActivePreferenceSettings();
 
-        if (dataSourceContainer != null) {
-            globalScriptContext.loadVariables(dataSourceContainer.getDriver(), null);
+        if (dsContainer != null) {
+            globalScriptContext.loadVariables(dsContainer.getDriver(), null);
         } else {
             globalScriptContext.clearVariables();
         }
 
+        if (outputViewer != null && executionContext != null) {
+            outputViewer.setExecutionContext(executionContext);
+        }
+    }
+
+    /**
+     * Build and update icon and title
+     */
+    public void refreshEditorIconAndTitle() {
+        DBPDataSourceContainer dsContainer = getDataSourceContainer();
         setPartName(getEditorName());
+
+        // Update icon
+        if (editorImage != null) {
+            editorImage.dispose();
+        }
+
+        DBPImage bottomLeft;
+        DBPImage bottomRight;
+
+        if (executionContext == null) {
+            if (dsContainer instanceof DBPStatefulObject && ((DBPStatefulObject) dsContainer).getObjectState() == DBSObjectState.INVALID) {
+                bottomRight = DBIcon.OVER_ERROR;
+            } else {
+                bottomRight = null;
+            }
+        } else {
+            bottomRight = DBIcon.OVER_SUCCESS;
+        }
+
+        if (SQLEditorUtils.isSQLSyntaxParserApplied(getEditorInput())) {
+            bottomLeft = null;
+        } else {
+            bottomLeft = DBIcon.OVER_RED_LAMP;
+        }
+
+        if (baseEditorImage == null) {
+            baseEditorImage = getTitleImage();
+        }
+        if (bottomLeft != null || bottomRight != null) {
+            DBPImage image = new DBIconComposite(new DBIconBinary(null, baseEditorImage), false, null, null, bottomLeft, bottomRight);
+            editorImage = DBeaverIcons.getImage(image, false);
+        } else {
+            editorImage = new Image(Display.getCurrent(), baseEditorImage, SWT.IMAGE_COPY);
+        }
+        setTitleImage(editorImage);
     }
 
     @Override
@@ -2800,8 +2941,7 @@ public class SQLEditor extends SQLEditorBase implements
     }
 
     @Override
-    public void dispose()
-    {
+    public void dispose() {
         if (extraPresentation != null) {
             extraPresentation.dispose();
             extraPresentation = null;
@@ -2820,11 +2960,28 @@ public class SQLEditor extends SQLEditorBase implements
         curResultsContainer = null;
         curQueryProcessor = null;
 
+        { // Clean up the add-ins in reverse order
+            ListIterator<SQLEditorAddIn> addInsIterator = addIns.listIterator(addIns.size());
+            while (addInsIterator.hasPrevious()) {
+                SQLEditorAddIn addIn = addInsIterator.previous();
+                try {
+                    addIn.cleanup(this);
+                } catch (Throwable ex) {
+                    log.error("Error during SQL editor add-in cleanup", ex); //$NON-NLS-1$
+                }
+            }
+        }
+
         super.dispose();
 
         if (sqlFile != null && !PlatformUI.getWorkbench().isClosing()) {
             deleteFileIfEmpty(sqlFile);
         }
+
+        PlatformUI.getWorkbench().getThemeManager().removePropertyChangeListener(themeChangeListener);
+        UIUtils.dispose(editorImage);
+        baseEditorImage = null;
+        editorImage = null;
     }
 
     private void deleteFileIfEmpty(IFile sqlFile) {
@@ -2836,8 +2993,8 @@ public class SQLEditor extends SQLEditorBase implements
         if (emptyScriptCloseBehavior == SQLPreferenceConstants.EmptyScriptCloseBehavior.NOTHING) {
             return;
         }
-        File osFile = sqlFile.getLocation().toFile();
-        if (!osFile.exists() || osFile.length() != 0) {
+
+        if (!sqlFile.exists() || ResourceUtils.getFileLength(sqlFile) != 0) {
             // Not empty
             return;
         }
@@ -2859,10 +3016,12 @@ public class SQLEditor extends SQLEditorBase implements
             }
             // This file is empty and never (at least during this session) had any contents.
             // Drop it.
-            log.debug("Delete empty SQL script '" + sqlFile.getFullPath().toOSString() + "'");
-            sqlFile.delete(true, monitor);
+            if (sqlFile.exists()) {
+                log.debug("Delete empty SQL script '" + sqlFile.getFullPath().toOSString() + "'");
+                sqlFile.delete(true, monitor);
+            }
         } catch (Exception e) {
-            log.error("Can't delete empty script file", e); //$NON-NLS-1$
+            log.error("Error deleting empty script file", e); //$NON-NLS-1$
         }
     }
 
@@ -2885,8 +3044,9 @@ public class SQLEditor extends SQLEditorBase implements
     public void handleDataSourceEvent(final DBPEvent event)
     {
         final boolean dsEvent = event.getObject() == getDataSourceContainer();
-        final boolean objectEvent = event.getObject().getDataSource() == getDataSource();
-        if (dsEvent || objectEvent) {
+        final boolean objectEvent = event.getObject() != null && event.getObject().getDataSource() == getDataSource();
+        final boolean registryEvent = getDataSourceContainer() != null && event.getData() == getDataSourceContainer().getRegistry(); 
+        if (dsEvent || objectEvent || registryEvent) {
             UIUtils.asyncExec(
                 () -> {
                     switch (event.getAction()) {
@@ -2923,7 +3083,7 @@ public class SQLEditor extends SQLEditorBase implements
                 saveJob.schedule();
 
                 // Wait until job finished
-                UIUtils.waitJobCompletion(saveJob);
+                UIUtils.waitJobCompletion(saveJob, monitor);
                 if (!saveJob.success) {
                     monitor.setCanceled(true);
                     return;
@@ -2969,12 +3129,13 @@ public class SQLEditor extends SQLEditorBase implements
         if (jobsRunning > 0) {
             log.warn("There are " + jobsRunning + " SQL job(s) still running in the editor");
 
-            if (ConfirmationDialog.showConfirmDialog(
-                ResourceBundle.getBundle(SQLEditorMessages.BUNDLE_NAME),
+            if (ConfirmationDialog.confirmAction(
                 null,
+                ConfirmationDialog.WARNING,
                 SQLPreferenceConstants.CONFIRM_RUNNING_QUERY_CLOSE,
                 ConfirmationDialog.QUESTION,
-                jobsRunning) != IDialogConstants.YES_ID)
+                jobsRunning
+            ) != IDialogConstants.YES_ID)
             {
                 return ISaveablePart2.CANCEL;
             }
@@ -3035,6 +3196,28 @@ public class SQLEditor extends SQLEditorBase implements
         }
     }
 
+    @Override
+    public void saveToExternalFile() {
+        saveToExternalFile(getScriptDirectory());
+    }
+
+    @Nullable
+    private String getScriptDirectory() {
+        final File inputFile = EditorUtils.getLocalFileFromInput(getEditorInput());
+        if (inputFile != null) {
+            return inputFile.getParent();
+        }
+        final DBPWorkspaceDesktop workspace = DBPPlatformDesktop.getInstance().getWorkspace();
+        final IFolder root = workspace.getResourceDefaultRoot(workspace.getActiveProject(), ScriptsHandlerImpl.class, false);
+        if (root != null) {
+            URI locationURI = root.getLocationURI();
+            if (locationURI.getScheme().equals("file")) {
+                return new File(locationURI).toString();
+            }
+        }
+        return null;
+    }
+
     @Nullable
     private ResultSetViewer getActiveResultSetViewer()
     {
@@ -3084,7 +3267,7 @@ public class SQLEditor extends SQLEditorBase implements
         if (setSelection) {
             CTabItem tabItem = curResultsContainer.getTabItem();
             if (tabItem != null) {
-                resultTabs.setSelection(tabItem);
+                setResultTabSelection(tabItem);
             }
         }
 
@@ -3115,7 +3298,7 @@ public class SQLEditor extends SQLEditorBase implements
                 // Restore cur data source (as it is reset in releaseExecutionContext)
                 curDataSource = dataSource;
                 if (dataSource != null && SQLEditorUtils.isOpenSeparateConnection(dataSource.getContainer())) {
-                    initSeparateConnection(dataSource, null);
+                    initSeparateConnection(dataSource, null, false);
                 }
                 return;
             }
@@ -3123,7 +3306,26 @@ public class SQLEditor extends SQLEditorBase implements
                 setPartName(getEditorName());
                 return;
         }
+
+        UIUtils.asyncExec(() -> {
+            topBarMan.update(true);
+        });
+
+        fireDataSourceChanged(event);
         super.preferenceChange(event);
+    }
+
+    private void fireDataSourceChanged(PreferenceChangeEvent event) {
+        // Notify listeners
+        synchronized (listeners) {
+            for (SQLEditorListener listener : listeners) {
+                try {
+                    listener.onDataSourceChanged(event);
+                } catch (Throwable ex) {
+                    log.debug(ex);
+                }
+            }
+        }
     }
 
     public enum ResultSetOrientation {
@@ -3281,12 +3483,8 @@ public class SQLEditor extends SQLEditorBase implements
                 }
             }
         }
-        
-        boolean processQueries(SQLScriptContext scriptContext, final List<SQLScriptElement> queries, boolean forceScript, final boolean fetchResults, boolean export, boolean closeTabOnError, SQLQueryListener queryListener) {
-        	return processQueries(scriptContext, queries, forceScript, fetchResults, export, closeTabOnError, queryListener, false);
-        }
 
-        boolean processQueries(SQLScriptContext scriptContext, final List<SQLScriptElement> queries, boolean forceScript, final boolean fetchResults, boolean export, boolean closeTabOnError, SQLQueryListener queryListener, boolean exportXlsx)
+        boolean processQueries(SQLScriptContext scriptContext, final List<SQLScriptElement> queries, boolean forceScript, final boolean fetchResults, boolean export, boolean closeTabOnError, SQLQueryListener queryListener)
         {
             if (queries.isEmpty()) {
                 // Nothing to process
@@ -3311,7 +3509,6 @@ public class SQLEditor extends SQLEditorBase implements
             {
                 showScriptPositionRuler(true);
                 QueryResultsContainer resultsContainer = getFirstResults();
-                resultsContainer.setExportXlsx(exportXlsx);
 
                 SQLEditorQueryListener listener = new SQLEditorQueryListener(this, closeTabOnError);
                 if (queryListener != null) {
@@ -3343,15 +3540,32 @@ public class SQLEditor extends SQLEditorBase implements
                         null,
                         new StructuredSelection(this));
                 } else {
-                    final SQLQueryJob job = new SQLQueryJob(
-                        getSite(),
-                        isSingleQuery ? SQLEditorMessages.editors_sql_job_execute_query : SQLEditorMessages.editors_sql_job_execute_script,
-                        executionContext,
-                        resultsContainer,
-                        queries,
-                        scriptContext,
-                        this,
-                        listener);
+                    boolean disableFetchCurrentResultSets;
+                    if (queries.size() > QUERIES_COUNT_FOR_NO_FETCH_RESULT_SET_CONFIRMATION) {
+                        if (isDisableFetchResultSet == null) {
+                            UserChoiceResponse rs = DBWorkbench.getPlatformUI().showUserChoice(
+                                SQLEditorMessages.sql_editor_confirm_no_fetch_result_for_big_script_title,
+                                SQLEditorMessages.sql_editor_confirm_no_fetch_result_for_big_script_question,
+                                List.of(
+                                    SQLEditorMessages.sql_editor_confirm_no_fetch_result_for_big_script_yes,
+                                    SQLEditorMessages.sql_editor_confirm_no_fetch_result_for_big_script_no
+                                ),
+                                List.of(SQLEditorMessages.sql_editor_confirm_no_fetch_result_for_big_script_remember), 0, 0);
+                            disableFetchCurrentResultSets = rs.choiceIndex == 0;
+                            if (rs.forAllChoiceIndex != null) {
+                                isDisableFetchResultSet = disableFetchCurrentResultSets;
+                            }
+                        } else {
+                            disableFetchCurrentResultSets = isDisableFetchResultSet;
+                        }
+                    } else {
+                        disableFetchCurrentResultSets = false;
+                    }
+                    final SQLQueryJob job = new SQLQueryJob(getSite(),
+                        isSingleQuery ? SQLEditorMessages.editors_sql_job_execute_query
+                            : SQLEditorMessages.editors_sql_job_execute_script,
+                        executionContext, resultsContainer, queries, scriptContext, this, listener,
+                        disableFetchCurrentResultSets);
 
                     if (isSingleQuery) {
                         resultsContainer.query = queries.get(0);
@@ -3434,10 +3648,17 @@ public class SQLEditor extends SQLEditorBase implements
                 String tabName = null;
                 String queryText = CommonUtils.truncateString(statement.getText(), 1000);
                 DBPDataSourceContainer dataSourceContainer = getDataSourceContainer();
+                
+                String dataSourceContainerName = dataSourceContainer == null ? "N/A" : dataSourceContainer.getName();
+                String processedQueryText = CommonUtils.isEmpty(queryText) ? "N/A" : queryText;
+                
                 String toolTip =
-                    "Connection: " + (dataSourceContainer == null ? "N/A" : dataSourceContainer.getName()) + GeneralUtils.getDefaultLineSeparator() +
-                    "Time: " + new SimpleDateFormat(DBConstants.DEFAULT_TIMESTAMP_FORMAT).format(new Date()) + GeneralUtils.getDefaultLineSeparator() +
-                    "Query: " + (CommonUtils.isEmpty(queryText) ? "N/A" : queryText);
+                    NLS.bind(SQLEditorMessages.sql_editor_data_receiver_result_name_tooltip_connection, dataSourceContainerName) + 
+                    GeneralUtils.getDefaultLineSeparator() +
+                    NLS.bind(SQLEditorMessages.sql_editor_data_receiver_result_name_tooltip_time, 
+                            new SimpleDateFormat(DBConstants.DEFAULT_TIMESTAMP_FORMAT).format(new Date())) +
+                    GeneralUtils.getDefaultLineSeparator() +
+                    NLS.bind(SQLEditorMessages.sql_editor_data_receiver_result_name_tooltip_query, processedQueryText);
                 // Special statements (not real statements) have their name in data
                 if (isStatsResult) {
                     tabName = SQLEditorMessages.editors_sql_statistics;
@@ -3449,6 +3670,14 @@ public class SQLEditor extends SQLEditorBase implements
             }
             ResultSetViewer rsv = resultsProvider.getResultSetController();
             return rsv == null ? null : rsv.getDataReceiver();
+        }
+
+        @Override
+        public void releaseDataReceiver(int resultSetNumber) {
+            if (resultContainers.size() > resultSetNumber) {
+                final CTabItem tab = resultContainers.get(resultSetNumber).resultsTab;
+                UIUtils.syncExec(tab::dispose);
+            }
         }
 
         @Override
@@ -3480,56 +3709,38 @@ public class SQLEditor extends SQLEditorBase implements
         private SQLScriptElement lastGoodQuery = null;
         // Data container and filter are non-null only in case of associations navigation
         private DBSDataContainer dataContainer;
-        private boolean exportXlsx = false;
         private CTabItem resultsTab;
         private String tabName;
+        private boolean detached;
 
-        private QueryResultsContainer(QueryProcessor queryProcessor, int resultSetNumber, int resultSetIndex, boolean makeDefault)
-        {
+        private QueryResultsContainer(QueryProcessor queryProcessor, int resultSetNumber, int resultSetIndex, boolean makeDefault) {
             this.queryProcessor = queryProcessor;
             this.resultSetNumber = resultSetNumber;
             this.resultSetIndex = resultSetIndex;
 
-            boolean detachedViewer = false;
-            SQLResultsView sqlView = null;
-            if (detachedViewer) {
-                try {
-                    sqlView = (SQLResultsView) getSite().getPage().showView(SQLResultsView.VIEW_ID, null, IWorkbenchPage.VIEW_CREATE);
-                } catch (Throwable e) {
-                    DBWorkbench.getPlatformUI().showError("Detached results", "Can't open results view", e);
-                }
-            }
+            this.viewer = new ResultSetViewer(resultTabs, getSite(), this);
+            this.viewer.addListener(this);
 
-            if (sqlView != null) {
-                // Detached results viewer
-                sqlView.setContainer(this);
-                this.viewer = sqlView.getViewer();
-            } else {
-                // Embedded results viewer
-                this.viewer = new ResultSetViewer(resultTabs, getSite(), this);
-                this.viewer.addListener(this);
-
-                int tabCount = resultTabs.getItemCount();
-                int tabIndex = 0;
-                if (!makeDefault) {
-                    for (int i = tabCount; i > 0; i--) {
-                        if (resultTabs.getItem(i - 1).getData() instanceof QueryResultsContainer) {
-                            tabIndex = i;
-                            break;
-                        }
+            int tabCount = resultTabs.getItemCount();
+            int tabIndex = 0;
+            if (!makeDefault) {
+                for (int i = tabCount; i > 0; i--) {
+                    if (resultTabs.getItem(i - 1).getData() instanceof QueryResultsContainer) {
+                        tabIndex = i;
+                        break;
                     }
                 }
-                resultsTab = new CTabItem(resultTabs, SWT.NONE, tabIndex);
-                resultsTab.setImage(IMG_DATA_GRID);
-                resultsTab.setData(this);
-                resultsTab.setShowClose(true);
-                resultsTab.setText(getResultsTabName(resultSetNumber, getQueryIndex(), null));
-                CSSUtils.setCSSClass(resultsTab, DBStyles.COLORED_BY_CONNECTION_TYPE);
-
-                resultsTab.setControl(viewer.getControl());
-                resultsTab.addDisposeListener(resultTabDisposeListener);
-                UIUtils.disposeControlOnItemDispose(resultsTab);
             }
+            resultsTab = new CTabItem(resultTabs, SWT.NONE, tabIndex);
+            resultsTab.setImage(IMG_DATA_GRID);
+            resultsTab.setData(this);
+            resultsTab.setShowClose(true);
+            resultsTab.setText(getResultsTabName(resultSetNumber, getQueryIndex(), null));
+            CSSUtils.setCSSClass(resultsTab, DBStyles.COLORED_BY_CONNECTION_TYPE);
+
+            resultsTab.setControl(viewer.getControl());
+            resultsTab.addDisposeListener(resultTabDisposeListener);
+            UIUtils.disposeControlOnItemDispose(resultsTab);
 
             viewer.getControl().addDisposeListener(e -> {
                 QueryResultsContainer.this.queryProcessor.removeResults(QueryResultsContainer.this);
@@ -3545,15 +3756,27 @@ public class SQLEditor extends SQLEditorBase implements
             updateResultsName(getResultsTabName(resultSetNumber, 0, dataContainer.getName()), null);
         }
 
-        public boolean isExportXlsx() {
-			return exportXlsx;
-		}
+        public void detach() {
+            try {
+                detached = true;
+                getSite().getPage().openEditor(
+                    new SQLResultsEditorInput(this),
+                    SQLResultsEditor.class.getName(),
+                    true,
+                    IWorkbenchPage.MATCH_NONE
+                );
+            } catch (Throwable e) {
+                DBWorkbench.getPlatformUI().showError("Detached results", "Can't open results view", e);
+                detached = false;
+            }
 
-		public void setExportXlsx(boolean exportXlsx) {
-			this.exportXlsx = exportXlsx;
-		}
+            if (detached) {
+                resultsTab.dispose();
+                resultsTab = null;
+            }
+        }
 
-		private CTabItem getTabItem() {
+        private CTabItem getTabItem() {
             return resultsTab;
         }
 
@@ -3646,35 +3869,40 @@ public class SQLEditor extends SQLEditorBase implements
 
         @Override
         public IResultSetDecorator createResultSetDecorator() {
-            return new QueryResultsDecorator() {
-                @Override
-                public String getEmptyDataDescription() {
-                    String execQuery = ActionUtils.findCommandDescription(SQLEditorCommands.CMD_EXECUTE_STATEMENT, getSite(), true);
-                    String execScript = ActionUtils.findCommandDescription(SQLEditorCommands.CMD_EXECUTE_SCRIPT, getSite(), true);
-                    return NLS.bind(ResultSetMessages.sql_editor_resultset_filter_panel_control_execute_to_see_reslut, execQuery, execScript);
-                }
-            };
+            return createQueryResultsDecorator();
         }
 
         @Override
-        public int getSupportedFeatures()
+        public String[] getSupportedFeatures()
         {
             if (dataContainer != null) {
                 return dataContainer.getSupportedFeatures();
             }
-            int features = DATA_SELECT;
-            features |= DATA_COUNT;
+            List<String> features = new ArrayList<>(3);
+            features.add(FEATURE_DATA_SELECT);
+            if (query instanceof SQLQuery && ((SQLQuery) query).isModifiyng()) {
+                features.add(FEATURE_DATA_MODIFIED_ON_REFRESH);
+            }
+            features.add(FEATURE_DATA_COUNT);
 
             if (getQueryResultCounts() <= 1) {
-                features |= DATA_FILTER;
+                features.add(FEATURE_DATA_FILTER);
             }
-            return features;
+            return features.toArray(new String[0]);
         }
 
         @NotNull
         @Override
-        public DBCStatistics readData(@NotNull DBCExecutionSource source, @NotNull DBCSession session, @NotNull DBDDataReceiver dataReceiver, DBDDataFilter dataFilter, long firstRow, long maxRows, long flags, int fetchSize) throws DBCException
-        {
+        public DBCStatistics readData(
+            @NotNull DBCExecutionSource source,
+            @NotNull DBCSession session,
+            @NotNull DBDDataReceiver dataReceiver,
+            DBDDataFilter dataFilter,
+            long firstRow,
+            long maxRows,
+            long flags,
+            int fetchSize
+        ) throws DBCException {
             if (dataContainer != null) {
                 return dataContainer.readData(source, session, dataReceiver, dataFilter, firstRow, maxRows, flags, fetchSize);
             }
@@ -3709,7 +3937,7 @@ public class SQLEditor extends SQLEditorBase implements
                 job.setFetchSize(fetchSize);
                 job.setFetchFlags(flags);
 
-                job.extractData(session, this.query, resultCounts > 1 ? 0 : resultSetNumber);
+                job.extractData(session, this.query, resultCounts > 1 ? 0 : resultSetNumber, !detached);
 
                 lastGoodQuery = job.getLastGoodQuery();
 
@@ -3731,7 +3959,7 @@ public class SQLEditor extends SQLEditorBase implements
         }
 
         @Override
-        public long countData(@NotNull DBCExecutionSource source, @NotNull DBCSession session, DBDDataFilter dataFilter, long flags)
+        public long countData(@NotNull DBCExecutionSource source, @NotNull DBCSession session, @Nullable DBDDataFilter dataFilter, long flags)
             throws DBCException
         {
             if (dataContainer != null) {
@@ -3750,7 +3978,7 @@ public class SQLEditor extends SQLEditorBase implements
                     countQuery.setParameters(parseQueryParameters(countQuery));
                 }
 
-                try (DBCStatement dbStatement = DBUtils.makeStatement(source, session, DBCStatementType.QUERY, countQuery, 0, 0)) {
+                try (DBCStatement dbStatement = DBUtils.makeStatement(source, session, DBCStatementType.SCRIPT, countQuery, 0, 0)) {
                     if (dbStatement.executeStatement()) {
                         try (DBCResultSet rs = dbStatement.openResultSet()) {
                             if (rs.nextRow()) {
@@ -3871,6 +4099,11 @@ public class SQLEditor extends SQLEditorBase implements
         }
 
         @Override
+        public void onModelPrepared() {
+            notifyOnDataListeners(this);
+        }
+
+        @Override
         public SQLScriptContext getScriptContext() {
             return SQLEditor.this.getGlobalScriptContext();
         }
@@ -3935,6 +4168,26 @@ public class SQLEditor extends SQLEditorBase implements
         public void handleExecuteResult(DBCExecutionResult result) {
             dumpQueryServerOutput(result);
         }
+
+        @Override
+        public void showCurrentError() {
+            if (getLastQueryErrorPosition() > -1) {
+                getSelectionProvider().setSelection(new TextSelection(getLastQueryErrorPosition(), 0));
+                setFocus();
+            }
+        }
+    }
+
+    @NotNull
+    protected QueryResultsDecorator createQueryResultsDecorator() {
+        return new QueryResultsDecorator() {
+            @Override
+            public String getEmptyDataDescription() {
+                String execQuery = ActionUtils.findCommandDescription(SQLEditorCommands.CMD_EXECUTE_STATEMENT, getSite(), true);
+                String execScript = ActionUtils.findCommandDescription(SQLEditorCommands.CMD_EXECUTE_SCRIPT, getSite(), true);
+                return NLS.bind(ResultSetMessages.sql_editor_resultset_filter_panel_control_execute_to_see_reslut, execQuery, execScript);
+            }
+        };
     }
 
     private int getMaxResultsTabIndex() {
@@ -3990,9 +4243,13 @@ public class SQLEditor extends SQLEditorBase implements
                     if (isDisposed()) {
                         return;
                     }
-                    if (getActivePreferenceStore().getBoolean(SQLPreferenceConstants.MAXIMIZE_EDITOR_ON_SCRIPT_EXECUTE)) {
+                    if (getActivePreferenceStore().getBoolean(SQLPreferenceConstants.MAXIMIZE_EDITOR_ON_SCRIPT_EXECUTE)
+                        && isResultSetAutoFocusEnabled
+                        && !isHideQueryText()
+                    ) {
                         resultsSash.setMaximizedControl(sqlEditorPanel);
                     }
+                    clearProblems(null);
                 });
             } finally {
                 if (extListener != null) extListener.onStartScript();
@@ -4007,6 +4264,9 @@ public class SQLEditor extends SQLEditorBase implements
                     UIUtils.asyncExec(() -> {
                         setTitleImage(DBeaverIcons.getImage(UIIcon.SQL_SCRIPT_EXECUTE));
                         updateDirtyFlag();
+                        if (!scriptMode) {
+                            clearProblems(query);
+                        }
                     });
                 }
                 queryProcessor.curJobRunning.incrementAndGet();
@@ -4082,27 +4342,36 @@ public class SQLEditor extends SQLEditorBase implements
             }
             if (error != null) {
                 setStatus(GeneralUtils.getFirstMessage(error), DBPMessageType.ERROR);
-                if (!scrollCursorToError(monitor, query, error)) {
+                SQLQuery originalQuery = curResultsContainer.query instanceof SQLQuery ? (SQLQuery) curResultsContainer.query : null; // SQLQueryResult stores modified query
+                if (!visualizeQueryErrors(monitor, query, error, originalQuery)) {
                     int errorQueryOffset = query.getOffset();
                     int errorQueryLength = query.getLength();
                     if (errorQueryOffset >= 0 && errorQueryLength > 0) {
-                        if (scriptMode) {
-                            selectionProvider.setSelection(new TextSelection(errorQueryOffset, errorQueryLength));
-                        } else {
-                            selectionProvider.setSelection(originalSelection);
+                        if (!addProblem(GeneralUtils.getFirstMessage(error), new Position(errorQueryOffset, errorQueryLength))) {
+                            if (scriptMode) {
+                                selectionProvider.setSelection(new TextSelection(errorQueryOffset, errorQueryLength));
+                            } else {
+                                selectionProvider.setSelection(originalSelection);
+                            }
                         }
+                        setLastQueryErrorPosition(errorQueryOffset);
                     }
                 }
             } else if (!scriptMode && getActivePreferenceStore().getBoolean(SQLPreferenceConstants.RESET_CURSOR_ON_EXECUTE)) {
                 selectionProvider.setSelection(originalSelection);
             }
+            notifyOnQueryResultListeners(curResultsContainer, result);
             // Get results window (it is possible that it was closed till that moment
             {
                 for (QueryResultsContainer cr : queryProcessor.resultContainers) {
                     cr.viewer.updateFiltersText(false);
                 }
                 if (!result.hasError() && !queryProcessor.resultContainers.isEmpty()) {
-                    resultTabs.setSelection(queryProcessor.resultContainers.get(0).resultsTab);
+                    if (activeResultsTab != null && !activeResultsTab.isDisposed()) {
+                        setResultTabSelection(activeResultsTab);
+                    } else {
+                        setResultTabSelection(queryProcessor.resultContainers.get(0).resultsTab);
+                    }
                 }
                 // Set tab names by query results names
                 if (scriptMode || queryProcessor.getResultContainers().size() > 0) {
@@ -4111,6 +4380,15 @@ public class SQLEditor extends SQLEditorBase implements
                     int resultsIndex = 0;
                     for (QueryResultsContainer results : queryProcessor.resultContainers) {
                         if (results.query != query) {
+                            // This happens when query results is statistics tab
+                            // in that case we need to update tab selection and
+                            // select new statistics tab
+                            // see #16605
+                            // But we need to avoid the result tab with the select statement
+                            // because the statistics window can not be in focus in this case
+                            if (query.getType() != SQLQueryType.SELECT) {
+                                setResultTabSelection(results.resultsTab);
+                            }
                             continue;
                         }
                         if (resultsIndex < result.getExecuteResults().size()) {
@@ -4119,6 +4397,7 @@ public class SQLEditor extends SQLEditorBase implements
                             if (CommonUtils.isEmpty(resultSetName)) {
                                 resultSetName = getResultsTabName(results.resultSetNumber, queryIndex, executeResult.getResultSetName());
                                 results.updateResultsName(resultSetName, null);
+                                setResultTabSelection(results.resultsTab);
                             }
                             ResultSetViewer resultSetViewer = results.getResultSetController();
                             if (resultSetViewer != null) {
@@ -4155,81 +4434,24 @@ public class SQLEditor extends SQLEditorBase implements
                     return;
                 }
                 runPostExecuteActions(null);
-				UIUtils.asyncExec(() -> {
-					if (isDisposed()) {
-						// Editor closed
-						return;
-					}
-					resultsSash.setMaximizedControl(null);
-					if (!hasErrors) {
-						getSelectionProvider().setSelection(originalSelection);
-					}
-					QueryResultsContainer results = queryProcessor.getFirstResults();
-					ResultSetViewer viewer = results.getResultSetController();
-					if (viewer != null) {
-						viewer.getModel().setStatistics(statistics);
-						viewer.updateStatusMessage();
-					}
-
-					if (results.exportXlsx) {
-						try {
-							LoggingProgressMonitor monitor = new LoggingProgressMonitor();
-							ResultSetDataContainerOptions options = new ResultSetDataContainerOptions();
-							DataTransferProcessorDescriptor processor = DataTransferRegistry.getInstance()
-									.getProcessor("stream_consumer:stream.xlsx");
-							File tempDir = DBWorkbench.getPlatform().getTempFolder(monitor, "data-files");
-							File tempFile = new File(tempDir, new SimpleDateFormat("yyyyMMdd-HHmmss")
-									.format(System.currentTimeMillis()) + "." + processor.getAppFileExtension());
-							queryProcessor.getResultContainers().forEach(container -> {
-								if (container.getQuery().getLength() < 1) {
-									return;
-								}
-								try {
-									tempFile.deleteOnExit();
-									StreamTransferConsumer consumer = new StreamTransferConsumer();
-									StreamConsumerSettings settings = new StreamConsumerSettings();
-									settings.setOutputEncodingBOM(false);
-									settings.setOpenFolderOnFinish(false);
-									settings.setOutputFolder(tempDir.getAbsolutePath());
-									settings.setOutputFilePattern(tempFile.getName());
-									settings.setUseSingleFile(true);
-									IStreamDataExporter exporter = (IStreamDataExporter) processor.getInstance();
-									Map<String, Object> properties = new HashMap<>();
-									for (DBPPropertyDescriptor prop : processor.getProperties()) {
-										properties.put(prop.getId(), prop.getDefaultValue());
-									}
-									properties.put("exportResults", true);
-									properties.put("exportResultsFileName", tempFile.getCanonicalPath());
-				                    properties.remove(StreamConsumerSettings.PROP_FILE_EXTENSION);
-				                    consumer.initTransfer((DBSObject)container, settings, new IDataTransferConsumer.TransferParameters(
-											processor.isBinaryFormat(), processor.isHTMLFormat()), exporter, properties);
-				                    DBDDataFilter dataFilter = container.getResultSetController().getModel().getDataFilter();
-				                    DatabaseTransferProducer producer = new DatabaseTransferProducer(container, dataFilter);
-				                    DatabaseProducerSettings producerSettings = new DatabaseProducerSettings();
-				                    producerSettings.setExtractType(DatabaseProducerSettings.ExtractType.SINGLE_QUERY);
-				                    producerSettings.setQueryRowCount(false);
-				                    // disable OpenNewconnection by default (#6432)
-				                    producerSettings.setOpenNewConnections(false);
-
-				                    producer.transferData(monitor, consumer, null, producerSettings, null);
-
-				                    consumer.finishTransfer(monitor, false);
-								} catch (Exception e) {
-									DBWorkbench.getPlatformUI().showError("Open XLSX file failed", null, e);
-								}
-							});
-		                    UIUtils.asyncExec(() -> {
-		                        if (!ShellUtils.launchProgram(tempFile.getAbsolutePath())) {
-		                            DBWorkbench.getPlatformUI().showError(
-		                                "Open " + processor.getAppName(),
-		                                "Can't open " + processor.getAppFileExtension() + " file '" + tempFile.getAbsolutePath() + "'");
-		                        }
-		                    });
-						} catch (Exception e) {
-							DBWorkbench.getPlatformUI().showError("Open XLSX file failed", null, e);
-						}
-					}
-				});
+                UIUtils.asyncExec(() -> {
+                    if (isDisposed()) {
+                        // Editor closed
+                        return;
+                    }
+                    if (!isHideQueryText()) {
+                        resultsSash.setMaximizedControl(null);
+                        if (!hasErrors) {
+                            getSelectionProvider().setSelection(originalSelection);
+                        }
+                    }
+                    QueryResultsContainer results = queryProcessor.getFirstResults();
+                    ResultSetViewer viewer = results.getResultSetController();
+                    if (viewer != null) {
+                        viewer.getModel().setStatistics(statistics);
+                        viewer.updateStatusMessage();
+                    }
+                });
             } finally {
                 if (extListener != null) extListener.onEndScript(statistics, hasErrors);
             }
@@ -4237,43 +4459,38 @@ public class SQLEditor extends SQLEditorBase implements
         }
     }
 
+    @Override
     public void updateDirtyFlag() {
         firePropertyChange(IWorkbenchPartConstants.PROP_DIRTY);
     }
 
     private class FindReplaceTarget extends DynamicFindReplaceTarget {
-        private boolean lastFocusInEditor = true;
+        private IFindReplaceTarget previousTarget = null;
         @Override
         public IFindReplaceTarget getTarget() {
+            //getTarget determines current composite used for find/replace
+            //We should update it, when we focus on the other panels or output view
             ResultSetViewer rsv = getActiveResultSetViewer();
             TextViewer textViewer = getTextViewer();
+            final SQLEditorOutputConsoleViewer outputViewer = SQLEditor.this.outputViewer.getViewer();
             boolean focusInEditor = textViewer != null && textViewer.getTextWidget() != null && textViewer.getTextWidget().isFocusControl();
-
-            CTabItem activeResultsTab = getActiveResultsTab();
-            if (activeResultsTab != null && activeResultsTab.getData() instanceof StyledText) {
-                StyledText styledText = (StyledText) activeResultsTab.getData();
-                if (!focusInEditor) {
-                    return new StyledTextFindReplaceTarget(styledText);
-                }
-            }
-
             if (!focusInEditor) {
+                if (rsv == null && !outputViewer.getText().isFocusControl() && previousTarget != null) {
+                    focusInEditor = textViewer != null && previousTarget.equals(textViewer.getFindReplaceTarget());
+                }
+            }
+            if (!focusInEditor) {
+                //Focus is on presentation we need to find a class for it
                 if (rsv != null && rsv.getActivePresentation().getControl().isFocusControl()) {
-                    focusInEditor = false;
-                } else {
-                    focusInEditor = lastFocusInEditor;
+                    previousTarget = rsv.getAdapter(IFindReplaceTarget.class);
+                } else if (outputViewer.getControl().isFocusControl()) {
+                    //Output viewer is just StyledText we use StyledTextFindReplace
+                    previousTarget = new StyledTextFindReplaceTarget(outputViewer.getText());
                 }
+            } else {
+                previousTarget = textViewer.getFindReplaceTarget();
             }
-            lastFocusInEditor = focusInEditor;
-            if (!focusInEditor && rsv != null) {
-                IFindReplaceTarget nested = rsv.getAdapter(IFindReplaceTarget.class);
-                if (nested != null) {
-                    return nested;
-                }
-            } else if (textViewer != null) {
-                return textViewer.getFindReplaceTarget();
-            }
-            return null;
+            return previousTarget;
         }
     }
 
@@ -4334,7 +4551,7 @@ public class SQLEditor extends SQLEditorBase implements
         if (executionContext != null) {
             // Refresh active object
             if (result == null || !result.hasError() && getActivePreferenceStore().getBoolean(SQLPreferenceConstants.REFRESH_DEFAULTS_AFTER_EXECUTE)) {
-                DBCExecutionContextDefaults contextDefaults = executionContext.getContextDefaults();
+                DBCExecutionContextDefaults<?,?> contextDefaults = executionContext.getContextDefaults();
                 if (contextDefaults != null) {
                     new AbstractJob("Refresh default object") {
                         @Override
@@ -4355,10 +4572,14 @@ public class SQLEditor extends SQLEditorBase implements
 
     private void updateOutputViewerIcon(boolean alert) {
         Image image = alert ? IMG_OUTPUT_ALERT : IMG_OUTPUT;
-        CTabItem outputItem = UIUtils.getTabItem(resultTabs, outputViewer.getControl());
+        CTabItem outputItem = UIUtils.getTabItem(resultTabs, outputViewer);
         if (outputItem != null && outputItem != resultTabs.getSelection()) {
             outputItem.setImage(image);
         } else {
+            ToolItem viewItem = getViewToolItem(SQLEditorCommands.CMD_SQL_SHOW_OUTPUT);
+            if (viewItem != null) {
+                viewItem.setImage(image);
+            }
             // TODO: make icon update. Can't call setImage because this will break contract f VerticalButton
 /*
             VerticalButton viewItem = getViewToolItem(SQLEditorCommands.CMD_SQL_SHOW_OUTPUT);
@@ -4382,9 +4603,8 @@ public class SQLEditor extends SQLEditorBase implements
             }
             monitor.beginTask("Auto-save SQL script", 1);
             try {
-                UIUtils.asyncExec(() -> {
-                    SQLEditor.this.doTextEditorSave(monitor);
-                });
+                UIUtils.asyncExec(() ->
+                    SQLEditor.this.doTextEditorSave(monitor));
             } catch (Throwable e) {
                 log.debug(e);
             } finally {
@@ -4429,13 +4649,13 @@ public class SQLEditor extends SQLEditorBase implements
         }
     }
 
-    private class OutputLogWriter extends Writer {
+    private class OutputLogWriter implements DBCOutputWriter {
         @Override
-        public void write(@NotNull final char[] cbuf, final int off, final int len) {
+        public void println(@Nullable DBCOutputSeverity severity, @Nullable String message) {
             UIUtils.syncExec(() -> {
                 if (!outputViewer.isDisposed()) {
-                    outputViewer.getOutputWriter().write(cbuf, off, len);
-                    outputViewer.scrollToEnd();
+                    outputViewer.println(severity, message);
+                    outputViewer.getViewer().scrollToEnd();
                     if (!outputViewer.isVisible()) {
                         updateOutputViewerIcon(true);
                     }
@@ -4444,13 +4664,8 @@ public class SQLEditor extends SQLEditorBase implements
         }
 
         @Override
-        public void flush() throws IOException {
-            outputViewer.getOutputWriter().flush();
-        }
-
-        @Override
-        public void close() throws IOException {
-
+        public void flush() {
+            outputViewer.flush();
         }
     }
 
@@ -4464,7 +4679,11 @@ public class SQLEditor extends SQLEditorBase implements
         @Override
         protected IStatus run(DBRProgressMonitor monitor) {
             if (!DBWorkbench.getPlatform().isShuttingDown() && resultsSash != null && !resultsSash.isDisposed()) {
-                dumpOutput(monitor);
+                try {
+                    dumpOutput(monitor);
+                } catch (Exception e) {
+                    log.debug(e);
+                }
                 schedule(200);
             }
 
@@ -4472,7 +4691,8 @@ public class SQLEditor extends SQLEditorBase implements
         }
 
         private void dumpOutput(DBRProgressMonitor monitor) {
-            if (outputViewer == null) {
+            SQLEditorOutputViewer currentOutputViewer = outputViewer;
+            if (currentOutputViewer == null || currentOutputViewer.isDisposed()) {
                 return;
             }
 
@@ -4482,7 +4702,32 @@ public class SQLEditor extends SQLEditorBase implements
                 serverOutputs.clear();
             }
 
-            PrintWriter outputWriter = outputViewer.getOutputWriter();
+            List<PrintWriter> addInWriters = addIns.stream()
+                .map(SQLEditorAddIn::getServerOutputConsumer)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+            final DBCOutputWriter outputWriter = new DBCOutputWriter() {
+                @Override
+                public void println(@Nullable DBCOutputSeverity severity, @Nullable String message) {
+                    currentOutputViewer.println(severity, message);
+
+                    if (message != null) {
+                        for (PrintWriter writer : addInWriters) {
+                            writer.println(message);
+                        }
+                    }
+                }
+
+                @Override
+                public void flush() {
+                    currentOutputViewer.flush();
+
+                    for (PrintWriter writer : addInWriters) {
+                        writer.flush();
+                    }
+                }
+            };
 
             if (!outputs.isEmpty()) {
                 for (ServerOutputInfo info : outputs) {
@@ -4511,12 +4756,12 @@ public class SQLEditor extends SQLEditorBase implements
                         SQLQueryJob queryJob = qp.curJob;
                         if (queryJob != null) {
                             DBCStatement statement = queryJob.getCurrentStatement();
-                            if (statement != null) {
-                                try {
+                            try {
+                                if (statement != null && !statement.isStatementClosed()) {
                                     outputReader.readServerOutput(monitor, executionContext, null, statement, outputWriter);
-                                } catch (DBCException e) {
-                                    log.error(e);
                                 }
+                            } catch (DBCException e) {
+                                log.error(e);
                             }
                         }
                     }
@@ -4524,15 +4769,15 @@ public class SQLEditor extends SQLEditorBase implements
             }
 
             outputWriter.flush();
-            if (!outputViewer.isHasNewOutput()) {
+            if (currentOutputViewer == null || currentOutputViewer.isDisposed() || !currentOutputViewer.isHasNewOutput()) {
                 return;
             }
-            outputViewer.resetNewOutput();
+            currentOutputViewer.resetNewOutput();
             // Show output log view if needed
             UIUtils.asyncExec(() -> {
-                outputViewer.scrollToEnd();
+                currentOutputViewer.getViewer().scrollToEnd();
                 if (getActivePreferenceStore().getBoolean(SQLPreferenceConstants.OUTPUT_PANEL_AUTO_SHOW)) {
-                    if (!getViewToolItem(SQLEditorCommands.CMD_SQL_SHOW_OUTPUT).isChecked()) {
+                    if (!getViewToolItem(SQLEditorCommands.CMD_SQL_SHOW_OUTPUT).getSelection()) {
                         showOutputPanel();
                     }
                 }
@@ -4569,4 +4814,45 @@ public class SQLEditor extends SQLEditorBase implements
 
     }
 
+    private void notifyOnDataListeners(@NotNull QueryResultsContainer container) {
+        // Notify listeners
+        synchronized (listeners) {
+            SQLScriptElement query = container.getQuery();
+            String queryText = query == null ? "" : query.getOriginalText();
+            for (SQLEditorListener listener : listeners) {
+                try {
+                    listener.onDataReceived(
+                        getContextPrefStore(container),
+                        container.getResultSetController().getModel(),
+                        queryText
+                    );
+                } catch (Throwable ex) {
+                    log.error(ex);
+                }
+            }
+        }
+    }
+
+
+    private void notifyOnQueryResultListeners(@NotNull QueryResultsContainer container, @NotNull SQLQueryResult result) {
+        // Notify listeners
+        synchronized (listeners) {
+            for (SQLEditorListener listener : listeners) {
+                try {
+                    listener.onQueryResult(getContextPrefStore(container), result);
+                } catch (Throwable ex) {
+                    log.error(ex);
+                }
+            }
+        }
+    }
+
+    @NotNull
+    private DBPPreferenceStore getContextPrefStore(@NotNull QueryResultsContainer container) {
+        DBCExecutionContext context = container.getExecutionContext();
+        DBPPreferenceStore contextPrefStore = context != null
+            ? context.getDataSource().getContainer().getPreferenceStore()
+            : DBWorkbench.getPlatform().getPreferenceStore();
+        return contextPrefStore;
+    }
 }

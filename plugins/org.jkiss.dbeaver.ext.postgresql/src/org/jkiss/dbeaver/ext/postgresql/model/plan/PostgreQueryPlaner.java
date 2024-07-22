@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,14 @@ import java.util.Map;
  */
 public class PostgreQueryPlaner extends AbstractExecutionPlanSerializer implements DBCQueryPlanner 
 {
-    public static final String PARAM_ANALYSE = "use.analyze";
+    public static final String PARAM_ANALYSE = "ANALYZE";
+    public static final String PARAM_VERBOSE = "VERBOSE";
+    public static final String PARAM_COSTS = "COSTS";
+    public static final String PARAM_SETTINGS = "SETTINGS";
+    public static final String PARAM_BUFFERS = "BUFFERS";
+    public static final String PARAM_WAL = "WAL";
+    public static final String PARAM_TIMING = "TIMING";
+    public static final String PARAM_SUMMARY = "SUMMARY";
 
     private final PostgreDataSource dataSource;
 

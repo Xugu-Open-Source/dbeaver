@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,15 +20,17 @@ import org.jkiss.dbeaver.ext.mssql.model.SQLServerTableColumn;
 import org.jkiss.dbeaver.model.edit.DBEObjectConfigurator;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.ui.UITask;
-import org.jkiss.dbeaver.ui.editors.object.struct.AttributeEditPage;
+import org.jkiss.dbeaver.ui.editors.object.struct.PropertyObjectEditPage;
+
+import java.util.Map;
 
 public class SQLServerColumnConfigurator implements DBEObjectConfigurator<SQLServerTableColumn> {
     @Override
-    public SQLServerTableColumn configureObject(DBRProgressMonitor monitor, Object container, SQLServerTableColumn column) {
+    public SQLServerTableColumn configureObject(DBRProgressMonitor monitor, Object container, SQLServerTableColumn column, Map<String, Object> options) {
         return new UITask<SQLServerTableColumn>() {
             @Override
             protected SQLServerTableColumn runTask() {
-                final AttributeEditPage page = new AttributeEditPage(null, column);
+                final PropertyObjectEditPage page = new PropertyObjectEditPage(null, column);
                 if (!page.edit()) {
                     return null;
                 }

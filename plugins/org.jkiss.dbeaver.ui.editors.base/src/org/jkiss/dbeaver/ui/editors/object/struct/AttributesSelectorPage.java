@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -193,7 +193,7 @@ public abstract class AttributesSelectorPage extends BaseObjectEditPage {
         };
 
         toggleButton = new Button(columnsGroup, SWT.PUSH);
-        toggleButton.setText("Select All");
+        toggleButton.setText(EditorsMessages.selector_select_all_text);
         gd = new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING);
         gd.widthHint = 120;
         toggleButton.setLayoutData(gd);
@@ -428,9 +428,9 @@ public abstract class AttributesSelectorPage extends BaseObjectEditPage {
     private void updateToggleButton()
     {
         if (hasCheckedColumns()) {
-            toggleButton.setText("Clear All");
+            toggleButton.setText(EditorsMessages.selector_clear_all_text);
         } else {
-            toggleButton.setText("Select All");
+            toggleButton.setText(EditorsMessages.selector_select_all_text);
         }
     }
 

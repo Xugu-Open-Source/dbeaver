@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,10 @@ package org.jkiss.dbeaver.model.navigator;
 
 import org.eclipse.core.resources.IProject;
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBPImage;
+import org.jkiss.dbeaver.model.app.DBPPlatform;
+import org.jkiss.dbeaver.model.app.DBPPlatformDesktop;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.app.DBPProjectListener;
 import org.jkiss.dbeaver.model.messages.ModelMessages;
@@ -27,6 +30,7 @@ import org.jkiss.dbeaver.model.navigator.registry.DBNRegistry;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.utils.ArrayUtils;
+import org.jkiss.utils.CommonUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -44,16 +48,21 @@ public class DBNRoot extends DBNNode implements DBNContainer, DBNNodeExtendable,
     public DBNRoot(DBNModel model) {
         super();
         this.model = model;
-        DBPProject globalProject = model.getModelProject();
-        if (globalProject != null) {
-            addProject(globalProject, false);
+        List<? extends DBPProject> globalProjects = model.getModelProjects();
+        if (globalProjects != null) {
+            for (DBPProject project : globalProjects) {
+                addProject(project, false);
+            }
         } else {
             for (DBPProject project : DBWorkbench.getPlatform().getWorkspace().getProjects()) {
                 addProject(project, false);
             }
         }
         if (model.isGlobal()) {
-            model.getPlatform().getWorkspace().addProjectListener(this);
+            DBPPlatform platform = DBWorkbench.getPlatform();
+            if (platform instanceof DBPPlatformDesktop) {
+                ((DBPPlatformDesktop)platform).getWorkspace().addProjectListener(this);
+            }
         }
         DBNRegistry.getInstance().extendNode(this, false);
     }
@@ -70,7 +79,10 @@ public class DBNRoot extends DBNNode implements DBNContainer, DBNNodeExtendable,
         extraNodes.clear();
 
         if (model.isGlobal()) {
-            model.getPlatform().getWorkspace().removeProjectListener(this);
+            DBPPlatform platform = DBWorkbench.getPlatform();
+            if (platform instanceof DBPPlatformDesktop) {
+                ((DBPPlatformDesktop)platform).getWorkspace().removeProjectListener(this);
+            }
         }
     }
 
@@ -171,9 +183,15 @@ public class DBNRoot extends DBNNode implements DBNContainer, DBNNodeExtendable,
         return null;
     }
 
-    public DBNProject getProjectNode(DBPProject project) {
+    @Nullable
+    public DBNProject getProjectNode(@Nullable DBPProject project) {
+        if (project == null) {
+            return null;
+        }
         for (DBNProject node : projects) {
-            if (node.getProject() == project) {
+            if (node.getProject().equals(project) ||
+                CommonUtils.equalObjects(node.getProject().getId(), project.getId()))
+            {
                 return node;
             }
         }
@@ -181,10 +199,12 @@ public class DBNRoot extends DBNNode implements DBNContainer, DBNNodeExtendable,
     }
 
     public DBNProject addProject(DBPProject project, boolean reflect) {
+        DBPPlatform platform = DBWorkbench.getPlatform();
         DBNProject projectNode = new DBNProject(
             this,
             project,
-            project.getWorkspace().getResourceHandler(project.getEclipseProject()));
+            platform instanceof DBPPlatformDesktop ?
+                ((DBPPlatformDesktop)platform).getWorkspace().getResourceHandler(project.getEclipseProject()) : null);
         projects = ArrayUtils.add(DBNProject.class, projects, projectNode);
         Arrays.sort(projects, Comparator.comparing(DBNResource::getNodeName));
         if (reflect) {

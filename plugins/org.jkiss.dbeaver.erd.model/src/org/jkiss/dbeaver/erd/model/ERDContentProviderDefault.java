@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPObjectWithLazyDescription;
 import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.navigator.DBNUtils;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.*;
@@ -36,6 +37,8 @@ public class ERDContentProviderDefault implements ERDContentProvider {
 
     private static final Log log = Log.getLog(ERDContentProviderDefault.class);
 
+    private static final boolean READ_LAZY_DESCRIPTIONS = false;
+
     private final Map<String, Object> attributes = new HashMap<>();
 
     public ERDContentProviderDefault() {
@@ -47,14 +50,15 @@ public class ERDContentProviderDefault implements ERDContentProvider {
     }
 
     @Override
-    public void fillEntityFromObject(@NotNull DBRProgressMonitor monitor, @NotNull ERDDiagram diagram, @NotNull List<ERDEntity> otherEntities, @NotNull ERDEntity erdEntity) {
+    public void fillEntityFromObject(@NotNull DBRProgressMonitor monitor, @NotNull ERDDiagram diagram,
+                                     @NotNull List<ERDEntity> otherEntities, @NotNull ERDEntity erdEntity) throws DBCException {
         fillEntityFromObject(monitor, diagram, otherEntities, erdEntity, new ERDAttributeSettings(ERDAttributeVisibility.ALL, false));
     }
 
     @Override
     public void fillEntityFromObject(@NotNull DBRProgressMonitor monitor, @NotNull ERDDiagram diagram, @NotNull List<ERDEntity> otherEntities, @NotNull ERDEntity erdEntity, @NotNull ERDAttributeSettings settings) {
         DBSEntity entity = erdEntity.getObject();
-        if (entity instanceof DBPObjectWithLazyDescription) {
+        if (READ_LAZY_DESCRIPTIONS && entity instanceof DBPObjectWithLazyDescription) {
             try {
                 ((DBPObjectWithLazyDescription) entity).getDescription(monitor);
             } catch (DBException e) {
@@ -95,8 +99,8 @@ public class ERDContentProviderDefault implements ERDContentProvider {
                 if (!CommonUtils.isEmpty(attributes)) {
                     for (DBSEntityAttribute attribute : attributes) {
                         boolean isInIdentifier = idColumns != null && idColumns.contains(attribute);
-                        if (!keyColumns.contains(attribute) && !isAttributeVisible(erdEntity, attribute)) {
-                            // Show all visible attributes and all key attributes
+                        if (!isAttributeVisible(erdEntity, attribute)) {
+                            // Show only visible attributes
                             continue;
                         }
                         if (columnFilter != null && !columnFilter.matches(attribute.getName())) {

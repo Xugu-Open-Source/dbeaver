@@ -18,8 +18,10 @@ package org.jkiss.dbeaver.ext.xugu.model;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.impl.struct.AbstractTableIndexColumn;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 
 /**
  * 索引字段信息类，包含索引和字段信息
@@ -51,6 +53,16 @@ public class TableIndexColumn extends AbstractTableIndexColumn {
 	TableIndexColumn(TableIndex toIndex, TableIndexColumn source) {
 		this.index = toIndex;
 		this.tableColumn = source.tableColumn;
+		this.ordinalPosition = source.ordinalPosition;
+		this.ascending = source.ascending;
+		this.columnExpression = source.columnExpression;
+	}
+
+	TableIndexColumn(DBRProgressMonitor monitor, TableIndex toIndex, TableIndexColumn source) throws DBException {
+		this.index = toIndex;
+        if (source.getTableColumn() != null) {
+            this.tableColumn = toIndex.getTable().getAttribute(monitor, source.getTableColumn().getName());
+        }
 		this.ordinalPosition = source.ordinalPosition;
 		this.ascending = source.ascending;
 		this.columnExpression = source.columnExpression;

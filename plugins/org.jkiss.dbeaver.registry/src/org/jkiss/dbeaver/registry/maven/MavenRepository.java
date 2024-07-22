@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,13 +23,14 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.connection.DBPAuthInfo;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.registry.RegistryConstants;
-import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.dbeaver.registry.driver.DriverDescriptor;
 import org.jkiss.utils.CommonUtils;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -62,9 +63,10 @@ public class MavenRepository
     private int order;
     private boolean enabled = true;
     private String description;
+    private boolean isSnapshot = false;
     private final DBPAuthInfo authInfo = new DBPAuthInfo();
 
-    private Map<String, MavenArtifact> cachedArtifacts = new LinkedHashMap<>();
+    private final transient Map<String, MavenArtifact> cachedArtifacts = new LinkedHashMap<>();
 
     public MavenRepository(IConfigurationElement config)
     {
@@ -75,7 +77,7 @@ public class MavenRepository
         if (!urlString.endsWith("/")) urlString += "/";
         this.url = urlString;
         this.type = RepositoryType.GLOBAL;
-
+        this.isSnapshot = CommonUtils.toBoolean(config.getAttribute(RegistryConstants.ATTR_SNAPSHOT));
         for (IConfigurationElement scope : config.getChildren("scope")) {
             final String group = scope.getAttribute("group");
             if (!CommonUtils.isEmpty(group)) {
@@ -103,6 +105,7 @@ public class MavenRepository
         this.order = source.order;
         this.enabled = source.enabled;
         this.description = source.description;
+        this.isSnapshot = source.isSnapshot;
         this.authInfo.setUserName(source.authInfo.getUserName());
         this.authInfo.setUserPassword(source.authInfo.getUserPassword());
     }
@@ -113,6 +116,14 @@ public class MavenRepository
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public boolean isSnapshot() {
+        return isSnapshot;
+    }
+
+    public void setIsSnapshot(boolean snapshot) {
+        isSnapshot = snapshot;
     }
 
     public String getName() {
@@ -186,7 +197,7 @@ public class MavenRepository
         boolean newArtifact = false;
         MavenArtifact artifact = cachedArtifacts.get(ref.getId());
         if (artifact == null) {
-            artifact = new MavenArtifact(this, ref.getGroupId(), ref.getArtifactId(), ref.getClassifier());
+            artifact = new MavenArtifact(this, ref.getGroupId(), ref.getArtifactId(), ref.getClassifier(), ref.getFallbackVersion());
             newArtifact = true;
         }
         try {
@@ -206,7 +217,7 @@ public class MavenRepository
         cachedArtifacts.remove(artifactReference.getId());
     }
 
-    File getLocalCacheDir()
+    Path getLocalCacheDir()
     {
         String extPath;
         switch (type) {
@@ -222,11 +233,13 @@ public class MavenRepository
                 extPath = id;
                 break;
         }
-        File homeFolder = new File(DBWorkbench.getPlatform().getCustomDriversHome(), "maven/" + extPath);
+        Path homeFolder = DriverDescriptor.getCustomDriversHome().resolve("maven/" + extPath);
         //File homeFolder = new File(DBeaverActivator.getInstance().getStateLocation().toFile(), "maven/" + extPath);
-        if (!homeFolder.exists()) {
-            if (!homeFolder.mkdirs()) {
-                log.warn("Can't create maven repository '" + name + "' cache folder '" + homeFolder + "'");
+        if (!Files.exists(homeFolder)) {
+            try {
+                Files.createDirectories(homeFolder);
+            } catch (IOException e) {
+                log.warn("Can't create maven repository '" + name + "' cache folder '" + homeFolder + "'", e);
             }
         }
 

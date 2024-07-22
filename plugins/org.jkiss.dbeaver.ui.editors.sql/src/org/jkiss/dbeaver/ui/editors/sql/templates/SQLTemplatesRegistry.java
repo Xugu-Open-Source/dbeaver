@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,9 @@ package org.jkiss.dbeaver.ui.editors.sql.templates;
 
 import org.eclipse.jface.text.templates.ContextTypeRegistry;
 import org.eclipse.jface.text.templates.persistence.TemplateStore;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.WorkspaceConfigEventManager;
 
 import java.io.IOException;
 
@@ -31,7 +33,7 @@ public class SQLTemplatesRegistry {
     private static SQLTemplatesRegistry instance;
 
     private ContextTypeRegistry templateContextTypeRegistry;
-    private TemplateStore templateStore;
+    private SQLTemplateStore templateStore;
 
     public synchronized static SQLTemplatesRegistry getInstance()
     {
@@ -53,9 +55,13 @@ public class SQLTemplatesRegistry {
         return templateContextTypeRegistry;
     }
 
-    public TemplateStore getTemplateStore() {
+    /**
+     * Creates and loads SQLTemplateStore or returns an existing one
+     */
+    @NotNull
+    public SQLTemplateStore getTemplateStore() {
         if (templateStore == null) {
-            templateStore = new SQLTemplateStore(getTemplateContextRegistry());
+            templateStore = SQLTemplateStore.createInstance(getTemplateContextRegistry());
 
             try {
                 templateStore.load();
@@ -63,6 +69,14 @@ public class SQLTemplatesRegistry {
                 log.error("Can't load template store", e);
             }
             templateStore.startListeningForPreferenceChanges();
+            
+            WorkspaceConfigEventManager.addConfigChangedListener(SQLTemplateStore.TEMPLATES_CONFIG_XML, o -> {
+                try {
+                    templateStore.reload();
+                } catch (IOException e) {
+                    log.error("Can't reload template store", e);
+                }
+            });
         }
 
         return templateStore;

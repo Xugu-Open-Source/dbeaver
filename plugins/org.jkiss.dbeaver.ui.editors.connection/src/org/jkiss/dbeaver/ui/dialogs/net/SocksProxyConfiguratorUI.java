@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Spinner;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.dialogs.PreferencesUtil;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.model.impl.net.SocksConstants;
 import org.jkiss.dbeaver.model.net.DBWHandlerConfiguration;
 import org.jkiss.dbeaver.ui.IObjectPropertyConfigurator;
@@ -37,7 +38,7 @@ import org.jkiss.utils.CommonUtils;
 /**
  * SOCKS proxy configuration
  */
-public class SocksProxyConfiguratorUI implements IObjectPropertyConfigurator<DBWHandlerConfiguration> {
+public class SocksProxyConfiguratorUI implements IObjectPropertyConfigurator<Object, DBWHandlerConfiguration> {
 
     public static final String NETWORK_PREF_PAGE_ID = "org.eclipse.ui.net.NetPreferences";
 
@@ -48,7 +49,7 @@ public class SocksProxyConfiguratorUI implements IObjectPropertyConfigurator<DBW
     private Button savePasswordCheckbox;
 
     @Override
-    public void createControl(Composite parent, Runnable propertyChangeListener)
+    public void createControl(@NotNull Composite parent, Object object, @NotNull Runnable propertyChangeListener)
     {
         final Composite composite = new Composite(parent, SWT.NONE);
         composite.setLayout(new GridLayout(1, true));
@@ -75,7 +76,7 @@ public class SocksProxyConfiguratorUI implements IObjectPropertyConfigurator<DBW
         UIUtils.createEmptyLabel(composite,1, 1);
         savePasswordCheckbox = UIUtils.createCheckbox(composite, UIConnectionMessages.dialog_connection_auth_checkbox_save_password, false);
 
-        UIUtils.createLink(parent, "<a>Open global network preferences</a>", new SelectionAdapter() {
+        UIUtils.createLink(parent, UIConnectionMessages.dialog_connection_open_global_network_preferences_link, new SelectionAdapter() {
             @Override
             public void widgetSelected(SelectionEvent e) {
                 PreferenceDialog dialog = PreferencesUtil.createPreferenceDialogOn(
@@ -89,7 +90,7 @@ public class SocksProxyConfiguratorUI implements IObjectPropertyConfigurator<DBW
     }
 
     @Override
-    public void loadSettings(DBWHandlerConfiguration configuration)
+    public void loadSettings(@NotNull DBWHandlerConfiguration configuration)
     {
         hostText.setText(CommonUtils.notEmpty(configuration.getStringProperty(SocksConstants.PROP_HOST)));
         String portString = configuration.getStringProperty(SocksConstants.PROP_PORT);
@@ -104,7 +105,7 @@ public class SocksProxyConfiguratorUI implements IObjectPropertyConfigurator<DBW
     }
 
     @Override
-    public void saveSettings(DBWHandlerConfiguration configuration)
+    public void saveSettings(@NotNull DBWHandlerConfiguration configuration)
     {
         configuration.setProperty(SocksConstants.PROP_HOST, hostText.getText().trim());
         configuration.setProperty(SocksConstants.PROP_PORT, portText.getSelection());
@@ -114,7 +115,7 @@ public class SocksProxyConfiguratorUI implements IObjectPropertyConfigurator<DBW
     }
 
     @Override
-    public void resetSettings(DBWHandlerConfiguration configuration) {
+    public void resetSettings(@NotNull DBWHandlerConfiguration configuration) {
 
     }
 

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,11 +29,13 @@ import org.jkiss.dbeaver.model.impl.edit.AbstractObjectManager;
 import org.jkiss.dbeaver.model.impl.edit.DBECommandAbstract;
 import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
+import org.jkiss.dbeaver.model.rm.RMConstants;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
 import org.jkiss.dbeaver.model.struct.cache.DBSCompositeCache;
 import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
 
@@ -57,10 +59,11 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
     public static final String PATTERN_ITEM_TABLE = "%TABLE%"; //$NON-NLS-1$
     public static final String PATTERN_ITEM_INDEX_SHORT = "%INDEX_SHORT%"; //$NON-NLS-1$
     public static final String PATTERN_ITEM_CONSTRAINT = "%CONSTRAINT%"; //$NON-NLS-1$
+    private static final int MAX_NAME_GEN_ATTEMPTS = 100;
 
     @Override
     public boolean canEditObject(OBJECT_TYPE object) {
-        return true;
+        return DBWorkbench.getPlatform().getWorkspace().hasRealmPermission(RMConstants.PERMISSION_METADATA_EDITOR);
     }
 
     @Override
@@ -70,12 +73,12 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
 
     @Override
     public boolean canCreateObject(Object container) {
-        return true;
+        return DBWorkbench.getPlatform().getWorkspace().hasRealmPermission(RMConstants.PERMISSION_METADATA_EDITOR);
     }
 
     @Override
     public boolean canDeleteObject(OBJECT_TYPE object) {
-        return true;
+        return DBWorkbench.getPlatform().getWorkspace().hasRealmPermission(RMConstants.PERMISSION_METADATA_EDITOR);
     }
 
     //////////////////////////////////////////////////
@@ -178,16 +181,18 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
 
     protected String getNewChildName(DBRProgressMonitor monitor, CONTAINER_TYPE container, String baseName) {
         try {
-            for (int i = 0; ; i++) {
+            for (int i = 0; i < MAX_NAME_GEN_ATTEMPTS; i++) {
                 String tableName = DBObjectNameCaseTransformer.transformName(container.getDataSource(), i == 0 ? baseName : (baseName + "_" + i));
                 DBSObject child = container instanceof DBSObjectContainer ? ((DBSObjectContainer)container).getChild(monitor, tableName) : null;
                 if (child == null) {
                     return tableName;
                 }
             }
+            log.error("Error generating child object name: max attempts reached");
+            return baseName;
         } catch (DBException e) {
             log.error("Error generating child object name", e);
-            return baseName;
+            return DBObjectNameCaseTransformer.transformName(container.getDataSource(), baseName);
         }
     }
 
@@ -219,7 +224,7 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
     protected OBJECT_TYPE configureObject(DBRProgressMonitor monitor, Object parent, OBJECT_TYPE object, Map<String, Object> options) {
         DBEObjectConfigurator<OBJECT_TYPE> configurator = GeneralUtils.adapt(object, DBEObjectConfigurator.class);
         if (configurator != null) {
-            return configurator.configureObject(monitor, parent, object);
+            return configurator.configureObject(monitor, parent, object, options);
         }
         return object;
     }
@@ -349,7 +354,7 @@ public abstract class SQLObjectEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
                     }
                     OBJECT_TYPE cachedObject = DBUtils.findObject(cachedObjects, objectName);
                     if (cachedObject != null && cachedObject != newObject && cachedObject.isPersisted()) {
-                        throw new DBException(DBUtils.getObjectTypeName(newObject) + " '" + objectName + "' already exists");
+                        throw new DBException(DBUtils.getObjectTypeName(cachedObject) + " '" + objectName + "' already exists");
                     }
                 }
             }

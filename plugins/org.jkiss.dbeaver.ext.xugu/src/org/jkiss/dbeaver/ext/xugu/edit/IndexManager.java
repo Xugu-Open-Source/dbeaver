@@ -28,6 +28,8 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.Constants;
 import org.jkiss.dbeaver.ext.xugu.Messages;
 import org.jkiss.dbeaver.ext.xugu.model.TableColumn;
+import org.jkiss.dbeaver.ext.xugu.model.TableConstraint;
+import org.jkiss.dbeaver.ext.xugu.model.TableConstraintColumn;
 import org.jkiss.dbeaver.ext.xugu.model.TableIndex;
 import org.jkiss.dbeaver.ext.xugu.model.TableIndexColumn;
 import org.jkiss.dbeaver.ext.xugu.model.BaseTable;
@@ -46,6 +48,7 @@ import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
+import org.jkiss.dbeaver.model.struct.DBSEntityConstraintType;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.rdb.DBSIndexType;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
@@ -58,6 +61,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 索引管理器， 进行索引的增加和删除
@@ -116,7 +120,33 @@ public class IndexManager extends SQLIndexManager<TableIndex, BaseTablePhysical>
 			List<DBEPersistAction> actions, ObjectCreateCommand command, Map<String, Object> options) {
 		final BaseTablePhysical table = command.getObject().getTable();
 		final TableIndex index = command.getObject();
+		Collection<TableConstraint> constraints;
+		// 若约束中已有当前索引包含的列，则跳过索引创建，约束将会隐式创建索引
+		try {
+			constraints = table.getConstraints(monitor);
+			if (constraints != null) {
+				List<TableColumn> indexTableCols = index.getColumns().stream()
+						.map(TableIndexColumn::getTableColumn)
+						.collect(Collectors.toList());
 
+				for (TableConstraint cons : constraints) {
+					List<TableConstraintColumn> consCols = cons.getColumns();
+					List<TableColumn> consTableCols;
+					if (consCols == null) {
+						continue;
+					} else {
+						consTableCols = consCols.stream()
+							.map(TableConstraintColumn::getAttribute)
+							.collect(Collectors.toList());
+						if (consTableCols.equals(indexTableCols)) {
+							return;
+						}
+					}
+				}
+			}
+		} catch (DBException e) {
+			throw new IllegalStateException(e);
+		}
 		// Create index
 		final String indexName = DBUtils.getQuotedIdentifier(index.getDataSource(), index.getName());
 		index.setName(indexName);

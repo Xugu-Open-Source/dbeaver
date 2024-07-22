@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,13 +24,15 @@ import org.jkiss.dbeaver.ui.UITask;
 import org.jkiss.dbeaver.ui.editors.object.struct.CreateProcedurePage;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 
+import java.util.Map;
+
 /**
  * OracleProcedureConfigurator
  */
 public class OracleProcedureConfigurator implements DBEObjectConfigurator<OracleProcedureStandalone> {
 
     @Override
-    public OracleProcedureStandalone configureObject(DBRProgressMonitor monitor, Object container, OracleProcedureStandalone procedure) {
+    public OracleProcedureStandalone configureObject(DBRProgressMonitor monitor, Object container, OracleProcedureStandalone procedure, Map<String, Object> options) {
         return new UITask<OracleProcedureStandalone>() {
             @Override
             protected OracleProcedureStandalone runTask() {

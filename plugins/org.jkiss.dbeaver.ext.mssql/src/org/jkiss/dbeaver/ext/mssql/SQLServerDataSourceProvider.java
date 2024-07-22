@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,20 +18,24 @@ package org.jkiss.dbeaver.ext.mssql;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.ext.mssql.model.SQLServerAuthentication;
 import org.jkiss.dbeaver.ext.mssql.model.SQLServerDataSource;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
-import org.jkiss.dbeaver.model.auth.DBAUserCredentialsProvider;
+import org.jkiss.dbeaver.model.connection.DBPAuthModelDescriptor;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
+import org.jkiss.dbeaver.model.connection.DBPDriverConfigurationType;
+import org.jkiss.dbeaver.model.impl.auth.AuthModelDatabaseNative;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSourceProvider;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class SQLServerDataSourceProvider extends JDBCDataSourceProvider implements DBAUserCredentialsProvider {
+public class SQLServerDataSourceProvider extends JDBCDataSourceProvider {
 
     private static Map<String,String> connectionsProps;
 
@@ -54,6 +58,10 @@ public class SQLServerDataSourceProvider extends JDBCDataSourceProvider implemen
 
     @Override
     public String getConnectionURL(DBPDriver driver, DBPConnectionConfiguration connectionInfo) {
+        if (connectionInfo.getConfigurationType() == DBPDriverConfigurationType.URL) {
+            return connectionInfo.getUrl();
+        }
+        
         StringBuilder url = new StringBuilder();
         boolean isJtds = SQLServerUtils.isDriverJtds(driver);
         boolean isSqlServer = SQLServerUtils.isDriverSqlServer(driver);
@@ -129,25 +137,22 @@ public class SQLServerDataSourceProvider extends JDBCDataSourceProvider implemen
         return new SQLServerDataSource(monitor, container);
     }
 
-    //////////////////////////////////////////////////////////
-    // Windows authentication
-
     @Override
-    public String getConnectionUserName(@NotNull DBPConnectionConfiguration connectionInfo) {
-        if (SQLServerUtils.isWindowsAuth(connectionInfo)) {
-            return "";
-        } else {
-            return connectionInfo.getUserName();
+    public DBPAuthModelDescriptor detectConnectionAuthModel(DBPDriver driver, DBPConnectionConfiguration connectionInfo) {
+        if (driver.getProviderDescriptor().matchesId(SQLServerConstants.PROVIDER_SQL_SERVER) &&
+            (CommonUtils.isEmpty(connectionInfo.getAuthModelId()) ||
+            connectionInfo.getAuthModelId().equals(AuthModelDatabaseNative.ID)))
+        {
+            // Convert legacy config to auth model
+            SQLServerAuthentication authSchema = SQLServerUtils.detectAuthSchema(connectionInfo);
+            String amId = authSchema.getReplacedByAuthModelId();
+            DBPAuthModelDescriptor authModel = DBWorkbench.getPlatform().getDataSourceProviderRegistry().getAuthModel(amId);
+            if (authModel != null) {
+                return authModel;
+            }
+            log.error("Replacement auth model " + amId + " not found");
         }
-    }
-
-    @Override
-    public String getConnectionUserPassword(@NotNull DBPConnectionConfiguration connectionInfo) {
-        if (SQLServerUtils.isWindowsAuth(connectionInfo)) {
-            return "";
-        } else {
-            return connectionInfo.getUserPassword();
-        }
+        return super.detectConnectionAuthModel(driver, connectionInfo);
     }
 
 }

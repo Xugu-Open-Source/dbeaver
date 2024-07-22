@@ -79,7 +79,7 @@ public class StructureAssistant implements DBSStructureAssistant<ExecutionContex
         try (JDBCSession session = executionContext.openSession(monitor, DBCExecutionPurpose.META, "Find objects by name")) {
             List<DBSObjectReference> objects = new ArrayList<>();
 
-            if (ArrayUtils.contains(params.getObjectTypes(), ObjectType.CONSTRAINT, ObjectType.FOREIGN_KEY)) {
+            if (ArrayUtils.containsAny(params.getObjectTypes(), ObjectType.CONSTRAINT, ObjectType.FOREIGN_KEY)) {
                 // Search constraints
                 findConstraintsByMask(session, schema, params, objects);
                 if (!containsOnlyConstraintOrFK(params.getObjectTypes())) {

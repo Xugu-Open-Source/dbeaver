@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.jkiss.dbeaver.ui.controls.resultset.panel.grouping;
 
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBUtils;
@@ -29,6 +30,7 @@ import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.DBSDataContainer;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.ui.controls.resultset.IResultSetController;
+import org.jkiss.utils.ArrayUtils;
 
 public class GroupingDataContainer implements DBSDataContainer {
 
@@ -36,6 +38,7 @@ public class GroupingDataContainer implements DBSDataContainer {
 
     private IResultSetController parentController;
     private String query;
+    private String[] attributes;
 
     public GroupingDataContainer(IResultSetController parentController) {
         this.parentController = parentController;
@@ -49,7 +52,11 @@ public class GroupingDataContainer implements DBSDataContainer {
     @NotNull
     @Override
     public String getName() {
-        return "Grouping";
+        if (ArrayUtils.isEmpty(attributes)) {
+            return "Grouping";
+        } else {
+            return "GROUP BY " + String.join(",", attributes);
+        }
     }
 
     @Override
@@ -63,8 +70,8 @@ public class GroupingDataContainer implements DBSDataContainer {
     }
 
     @Override
-    public int getSupportedFeatures() {
-        return DATA_SELECT;
+    public String[] getSupportedFeatures() {
+        return new String[] {FEATURE_DATA_SELECT, FEATURE_DATA_FILTER};
     }
 
     @NotNull
@@ -80,9 +87,20 @@ public class GroupingDataContainer implements DBSDataContainer {
         DBRProgressMonitor monitor = session.getProgressMonitor();
 
         StringBuilder sqlQuery = new StringBuilder(this.query);
-        SQLUtils.appendQueryOrder(getDataSource(), sqlQuery, null, dataFilter);
+        DBPDataSource dataSource = getDataSource();
+        if (dataSource != null) {
+            SQLUtils.appendQueryOrder(dataSource, sqlQuery, null, dataFilter);
+        }
 
-        statistics.setQueryText(sqlQuery.toString());
+        String sql = sqlQuery.toString();
+        if (dataSource != null && dataFilter.hasConditions()) {
+            sqlQuery.setLength(0);
+            String gbAlias = "gbq_";
+            SQLUtils.appendQueryConditions(dataSource, sqlQuery, gbAlias, dataFilter);
+            sql = "SELECT * FROM (" + sql + ") " + gbAlias + " " + sqlQuery;
+        }
+
+        statistics.setQueryText(sql);
         statistics.addStatementsCount();
 
         monitor.subTask(ModelMessages.model_jdbc_fetch_table_data);
@@ -91,7 +109,7 @@ public class GroupingDataContainer implements DBSDataContainer {
             source,
             session,
             DBCStatementType.SCRIPT,
-            sqlQuery.toString(),
+            sql,
             firstRow,
             maxRows))
         {
@@ -135,7 +153,7 @@ public class GroupingDataContainer implements DBSDataContainer {
     }
 
     @Override
-    public long countData(@NotNull DBCExecutionSource source, @NotNull DBCSession session, DBDDataFilter dataFilter, long flags) throws DBCException {
+    public long countData(@NotNull DBCExecutionSource source, @NotNull DBCSession session, @Nullable DBDDataFilter dataFilter, long flags) throws DBCException {
         return 0;
     }
 
@@ -146,5 +164,14 @@ public class GroupingDataContainer implements DBSDataContainer {
 
     public void setGroupingQuery(String sql) {
         this.query = sql;
+    }
+
+    public void setGroupingAttributes(@Nullable String[] attributes) {
+        this.attributes = attributes;
+    }
+
+    @Override
+    public String toString() {
+        return getName();
     }
 }

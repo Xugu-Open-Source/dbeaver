@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -210,10 +210,21 @@ public class MySQLConstants {
     public static final String TYPE_VARCHAR = "varchar";
     public static final String TYPE_JSON = "json";
     public static final String TYPE_GEOMETRY = "geometry";
+    public static final String TYPE_POINT = "point";
+    public static final String TYPE_LINESTRING = "linestring";
+    public static final String TYPE_POLYGON = "polygon";
+    public static final String TYPE_MULTIPOINT = "multipoint";
+    public static final String TYPE_MULTILINESTRING = "multilinestring";
+    public static final String TYPE_MULTIPOLYGON = "multipolygon";
+    public static final String TYPE_GEOMETRYCOLLECTION = "geometrycollection";
+    public static final String TYPE_GEOGRAPHY = "geography";
+    public static final String TYPE_GEOGRAPHYPOINT = "geographypoint";
+
     public static final String TYPE_YEAR = "year";
     public static final String TYPE_ENUM = "enum";
     public static final String TYPE_SET = "set";
     public static final String TYPE_VARBINARY = "VARBINARY";
+    public static final String TYPE_UUID = "uuid";
 
     public static final String BIN_FOLDER = "bin";
     public static final String ENV_VAR_MYSQL_PWD = "MYSQL_PWD";
@@ -222,4 +233,6 @@ public class MySQLConstants {
 
     public static final String EXTRA_INFO_VIRTUAL_GENERATED = "VIRTUAL GENERATED";
     public static final String EXTRA_INFO_DEFAULT_GENERATED = "DEFAULT_GENERATED";
+
+    public static final String PRIVILEGE_GRANT_OPTION_NAME = "Grant option";
 }

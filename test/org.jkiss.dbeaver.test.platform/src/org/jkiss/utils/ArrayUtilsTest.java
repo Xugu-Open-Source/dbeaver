@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -119,9 +119,9 @@ public class ArrayUtilsTest {
 
   @Test
   public void testContains() {
-    Assert.assertFalse(ArrayUtils.contains(new String[]{}, new String[]{"a"}));
-    Assert.assertFalse(ArrayUtils.contains(new String[]{"b"}, new String[]{"a"}));
-    Assert.assertTrue(ArrayUtils.contains(new String[]{"a"}, new String[]{"a"}));
+    Assert.assertFalse(ArrayUtils.containsAny(new String[]{}, new String[]{"a"}));
+    Assert.assertFalse(ArrayUtils.containsAny(new String[]{"b"}, new String[]{"a"}));
+    Assert.assertTrue(ArrayUtils.containsAny(new String[]{"a"}, new String[]{"a"}));
   }
 
   @Test

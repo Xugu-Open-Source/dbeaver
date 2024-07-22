@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.connection.DBPNativeClientLocation;
 import org.jkiss.dbeaver.model.runtime.AbstractJob;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
@@ -34,14 +35,9 @@ import org.jkiss.utils.StandardConstants;
 
 import java.io.*;
 import java.lang.reflect.InvocationTargetException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
+import java.net.*;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 
 /**
  * RuntimeUtils
@@ -52,6 +48,10 @@ public final class RuntimeUtils {
     private static final boolean IS_WINDOWS = Platform.getOS().equals(Platform.OS_WIN32);
     private static final boolean IS_MACOS = Platform.getOS().equals(Platform.OS_MACOSX);
     private static final boolean IS_LINUX = Platform.getOS().equals(Platform.OS_LINUX);
+
+    private static final boolean IS_GTK = Platform.getWS().equals(Platform.WS_GTK);
+
+    private static final byte[] NULL_MAC_ADDRESS = new byte[] {0, 0, 0, 0, 0, 0};
 
     private RuntimeUtils() {
         //intentionally left blank
@@ -112,7 +112,7 @@ public final class RuntimeUtils {
 */
     }
 
-    public static boolean isTypeSupported(Class<?> type, Class[] supportedTypes) {
+    public static boolean isTypeSupported(Class<?> type, Class<?>[] supportedTypes) {
         if (type == null || ArrayUtils.isEmpty(supportedTypes)) {
             return false;
         }
@@ -197,7 +197,31 @@ public final class RuntimeUtils {
         // Escape spaces to avoid URI syntax error
         try {
             URI filePath = GeneralUtils.makeURIFromFilePath(fileURL.toString());
+            /*
+                File can't accept URI with file authority in it. This created a problem for shared folders.
+                see dbeaver#15117
+             */
+            if (filePath.getAuthority() != null) {
+                return new File(filePath.getSchemeSpecificPart());
+            }
             return new File(filePath);
+        } catch (URISyntaxException e) {
+            throw new IOException("Bad local file path: " + fileURL, e);
+        }
+    }
+
+    public static java.nio.file.Path getLocalPathFromURL(URL fileURL) throws IOException {
+        // Escape spaces to avoid URI syntax error
+        try {
+            URI filePath = GeneralUtils.makeURIFromFilePath(fileURL.toString());
+            /*
+                File can't accept URI with file authority in it. This created a problem for shared folders.
+                see dbeaver#15117
+             */
+            if (filePath.getAuthority() != null) {
+                return java.nio.file.Path.of(filePath.getSchemeSpecificPart());
+            }
+            return java.nio.file.Path.of(filePath);
         } catch (URISyntaxException e) {
             throw new IOException("Bad local file path: " + fileURL, e);
         }
@@ -236,13 +260,14 @@ public final class RuntimeUtils {
         monitorJob.schedule();
 
         // Wait for job to finish
+        boolean headlessMode = DBWorkbench.getPlatform().getApplication().isHeadlessMode();
         long startTime = System.currentTimeMillis();
         while (!monitoringTask.finished) {
             if (waitTime > 0 && System.currentTimeMillis() - startTime > waitTime) {
                 break;
             }
             try {
-                if (!DBWorkbench.getPlatformUI().readAndDispatchEvents()) {
+                if (headlessMode || !DBWorkbench.getPlatformUI().readAndDispatchEvents()) {
                     Thread.sleep(50);
                 }
             } catch (InterruptedException e) {
@@ -279,6 +304,41 @@ public final class RuntimeUtils {
         }
     }
 
+    public static String executeProcessAndCheckResult(String binPath, String ... args) throws DBException {
+        try {
+            String[] cmdBin = {binPath};
+            String[] cmd = args == null ? cmdBin : ArrayUtils.concatArrays(cmdBin, args);
+            Process p = Runtime.getRuntime().exec(cmd);
+            return getProcessResults(p);
+        }
+        catch (Exception ex) {
+            if (ex instanceof DBException) {
+                throw (DBException) ex;
+            }
+            throw new DBException("Error executing process " + binPath, ex);
+        }
+    }
+
+    @NotNull
+    public static String getProcessResults(Process p) throws IOException, InterruptedException, DBException {
+        try {
+            StringBuilder out = new StringBuilder();
+            readStringToBuffer(p.getInputStream(), out);
+
+            StringBuilder err = new StringBuilder();
+            readStringToBuffer(p.getErrorStream(), err);
+
+            p.waitFor();
+            if (p.exitValue() != 0) {
+                throw new DBException(err.toString());
+            }
+
+            return out.toString();
+        } finally {
+            p.destroy();
+        }
+    }
+
     private static void readStringToBuffer(InputStream is, StringBuilder out) throws IOException {
         try (BufferedReader input = new BufferedReader(new InputStreamReader(is))) {
             for (;;) {
@@ -298,6 +358,19 @@ public final class RuntimeUtils {
         return IS_WINDOWS;
     }
 
+
+    /**
+     * Checks if current application is shipped from Windows store
+     * @return true if shipped from Windows store, false if not.
+     */
+    public static boolean isWindowsStoreApplication() {
+        if (!IS_WINDOWS) {
+            return false;
+        }
+        final String property = System.getProperty(DBConstants.IS_WINDOWS_STORE_APP);
+        return property != null && property.equalsIgnoreCase("true");
+    }
+
     public static boolean isMacOS() {
         return IS_MACOS;
     }
@@ -305,9 +378,25 @@ public final class RuntimeUtils {
     public static boolean isLinux() {
         return IS_LINUX;
     }
+    
+    public static boolean isGtk() {
+        return IS_GTK;
+    }
 
     public static void setThreadName(String name) {
         Thread.currentThread().setName("DBeaver: " + name);
+    }
+
+    public static byte[] getLocalMacAddress() throws IOException {
+        InetAddress localHost = InetAddress.getLocalHost();
+        NetworkInterface ni = NetworkInterface.getByInetAddress(localHost);
+        if (ni == null) {
+            Enumeration<NetworkInterface> niEnum = NetworkInterface.getNetworkInterfaces();
+            if (niEnum.hasMoreElements()) {
+                ni = niEnum.nextElement();
+            }
+        }
+        return ni == null ? NULL_MAC_ADDRESS : ni.getHardwareAddress();
     }
 
     /**
@@ -385,6 +474,36 @@ public final class RuntimeUtils {
         }
 
         return arguments;
+    }
+
+    @NotNull
+    public static String getWorkingDirectory(String defaultWorkspaceLocation) {
+        String osName = (System.getProperty("os.name")).toUpperCase();
+        String workingDirectory;
+        if (osName.contains("WIN")) {
+            String appData = System.getenv("AppData");
+            if (appData == null) {
+                appData = System.getProperty("user.home");
+            }
+            workingDirectory = appData + "\\" + defaultWorkspaceLocation;
+        } else if (osName.contains("MAC")) {
+            workingDirectory = System.getProperty("user.home") + "/Library/" + defaultWorkspaceLocation;
+        } else {
+            // Linux
+            String dataHome = System.getProperty("XDG_DATA_HOME");
+            if (dataHome == null) {
+                dataHome = System.getProperty("user.home") + "/.local/share";
+            }
+            String badWorkingDir = dataHome + "/." + defaultWorkspaceLocation;
+            String goodWorkingDir = dataHome + "/" + defaultWorkspaceLocation;
+            if (!new File(goodWorkingDir).exists() && new File(badWorkingDir).exists()) {
+                // Let's use bad working dir if it exists (#6316)
+                workingDirectory = badWorkingDir;
+            } else {
+                workingDirectory = goodWorkingDir;
+            }
+        }
+        return workingDirectory;
     }
 
     private enum CommandLineState {

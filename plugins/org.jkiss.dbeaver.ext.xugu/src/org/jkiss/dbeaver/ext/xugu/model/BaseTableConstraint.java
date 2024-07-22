@@ -21,6 +21,7 @@ import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTableConstraint;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSEntityConstraint;
 import org.jkiss.dbeaver.model.struct.DBSEntityConstraintType;
 
 import java.util.ArrayList;
@@ -43,6 +44,10 @@ public abstract class BaseTableConstraint extends JDBCTableConstraint<BaseTable>
 			DBSEntityConstraintType constraintType, boolean persisted) {
 		super(tableBase, name, description, constraintType, persisted);
 	}
+	
+	public BaseTableConstraint(BaseTable table, BaseTableConstraint source) {
+		super(table, source.getName(), source.getDescription(), source.getConstraintType(), false);
+	}
 
 	@NotNull
 	@Override
@@ -64,6 +69,10 @@ public abstract class BaseTableConstraint extends JDBCTableConstraint<BaseTable>
 
 	@Override
 	public List<TableConstraintColumn> getAttributeReferences(DBRProgressMonitor monitor) {
+		return columns;
+	}
+
+	public List<TableConstraintColumn> getColumns() {
 		return columns;
 	}
 

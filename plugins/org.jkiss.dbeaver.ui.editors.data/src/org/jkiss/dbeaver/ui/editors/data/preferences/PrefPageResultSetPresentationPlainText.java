@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,6 +19,7 @@ package org.jkiss.dbeaver.ui.editors.data.preferences;
 
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.*;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
@@ -29,6 +30,7 @@ import org.jkiss.dbeaver.ui.controls.resultset.ResultSetPreferences;
 import org.jkiss.dbeaver.ui.editors.data.internal.DataEditorsMessages;
 import org.jkiss.dbeaver.ui.preferences.TargetPrefPage;
 import org.jkiss.dbeaver.utils.PrefUtils;
+import org.jkiss.utils.CommonUtils;
 
 /**
  * PrefPageResultSetPlainText
@@ -48,6 +50,7 @@ public class PrefPageResultSetPresentationPlainText extends TargetPrefPage
     private Button textDelimiterTop;
     private Button textDelimiterBottom;
     private Button textExtraSpaces;
+    private Button textLineNumber;
 
     public PrefPageResultSetPresentationPlainText()
     {
@@ -67,7 +70,8 @@ public class PrefPageResultSetPresentationPlainText extends TargetPrefPage
             store.contains(ResultSetPreferences.RESULT_TEXT_DELIMITER_TRAILING) ||
             store.contains(ResultSetPreferences.RESULT_TEXT_DELIMITER_TOP) ||
             store.contains(ResultSetPreferences.RESULT_TEXT_DELIMITER_BOTTOM) ||
-            store.contains(ResultSetPreferences.RESULT_TEXT_EXTRA_SPACES);
+            store.contains(ResultSetPreferences.RESULT_TEXT_EXTRA_SPACES) ||
+            store.contains(ResultSetPreferences.RESULT_TEXT_LINE_NUMBER);
     }
 
     @Override
@@ -76,9 +80,9 @@ public class PrefPageResultSetPresentationPlainText extends TargetPrefPage
         return true;
     }
 
+    @NotNull
     @Override
-    protected Control createPreferenceContent(Composite parent)
-    {
+    protected Control createPreferenceContent(@NotNull Composite parent) {
         Composite composite = UIUtils.createPlaceholder(parent, 2, 5);
         
         {
@@ -88,6 +92,7 @@ public class PrefPageResultSetPresentationPlainText extends TargetPrefPage
             textMaxColumnSize = UIUtils.createLabelSpinner(uiGroup, DataEditorsMessages.pref_page_database_resultsets_label_maximum_column_length, 0, 10, Integer.MAX_VALUE);
             textValueFormat = new ValueFormatSelector(uiGroup);
             showNulls = UIUtils.createCheckbox(uiGroup, DataEditorsMessages.pref_page_database_resultsets_label_text_show_nulls, null, false, 2);
+            textLineNumber = UIUtils.createCheckbox(uiGroup, DataEditorsMessages.pref_page_database_resultsets_label_text_show_line_numbers, DataEditorsMessages.pref_page_database_resultsets_label_text_show_line_numbers_tip, false, 2);
             textDelimiterLeading = UIUtils.createCheckbox(uiGroup, DataEditorsMessages.pref_page_database_resultsets_label_text_delimiter_leading, null, false, 2);
             textDelimiterTrailing = UIUtils.createCheckbox(uiGroup, DataEditorsMessages.pref_page_database_resultsets_label_text_delimiter_trailing, null, false, 2);
             textDelimiterTop = UIUtils.createCheckbox(uiGroup, DataEditorsMessages.pref_page_database_resultsets_label_text_delimiter_top, null, false, 2);
@@ -104,11 +109,12 @@ public class PrefPageResultSetPresentationPlainText extends TargetPrefPage
         try {
             textTabSize.setSelection(store.getInt(ResultSetPreferences.RESULT_TEXT_TAB_SIZE));
             textMaxColumnSize.setSelection(store.getInt(ResultSetPreferences.RESULT_TEXT_MAX_COLUMN_SIZE));
-            textValueFormat.select(DBDDisplayFormat.safeValueOf(store.getString(ResultSetPreferences.RESULT_TEXT_VALUE_FORMAT)));
+            textValueFormat.select(CommonUtils.valueOf(DBDDisplayFormat.class, store.getString(ResultSetPreferences.RESULT_TEXT_VALUE_FORMAT), DBDDisplayFormat.EDIT));
             showNulls.setSelection(store.getBoolean(ResultSetPreferences.RESULT_TEXT_SHOW_NULLS));
             textDelimiterLeading.setSelection(store.getBoolean(ResultSetPreferences.RESULT_TEXT_DELIMITER_LEADING));
             textDelimiterTrailing.setSelection(store.getBoolean(ResultSetPreferences.RESULT_TEXT_DELIMITER_TRAILING));
             textDelimiterTop.setSelection(store.getBoolean(ResultSetPreferences.RESULT_TEXT_DELIMITER_TOP));
+            textLineNumber.setSelection(store.getBoolean(ResultSetPreferences.RESULT_TEXT_LINE_NUMBER));
             textDelimiterBottom.setSelection(store.getBoolean(ResultSetPreferences.RESULT_TEXT_DELIMITER_BOTTOM));
             textExtraSpaces.setSelection(store.getBoolean(ResultSetPreferences.RESULT_TEXT_EXTRA_SPACES));
         } catch (Exception e) {
@@ -127,6 +133,7 @@ public class PrefPageResultSetPresentationPlainText extends TargetPrefPage
             store.setValue(ResultSetPreferences.RESULT_TEXT_DELIMITER_LEADING, textDelimiterLeading.getSelection());
             store.setValue(ResultSetPreferences.RESULT_TEXT_DELIMITER_TRAILING, textDelimiterTrailing.getSelection());
             store.setValue(ResultSetPreferences.RESULT_TEXT_DELIMITER_TOP, textDelimiterTop.getSelection());
+            store.setValue(ResultSetPreferences.RESULT_TEXT_LINE_NUMBER, textLineNumber.getSelection());
             store.setValue(ResultSetPreferences.RESULT_TEXT_DELIMITER_BOTTOM, textDelimiterBottom.getSelection());
             store.setValue(ResultSetPreferences.RESULT_TEXT_EXTRA_SPACES, textExtraSpaces.getSelection());
         } catch (Exception e) {

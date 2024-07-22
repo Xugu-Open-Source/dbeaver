@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,10 @@ package org.jkiss.dbeaver.ext.clickhouse.model;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.ext.generic.model.*;
+import org.jkiss.dbeaver.ext.generic.model.GenericCatalog;
+import org.jkiss.dbeaver.ext.generic.model.GenericDataSource;
+import org.jkiss.dbeaver.ext.generic.model.GenericSchema;
+import org.jkiss.dbeaver.ext.generic.model.GenericTableBase;
 import org.jkiss.dbeaver.model.DBPObjectStatisticsCollector;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.exec.DBCException;
@@ -29,6 +32,7 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
+import org.jkiss.dbeaver.model.struct.DBSObject;
 
 import java.sql.SQLException;
 import java.util.List;
@@ -38,7 +42,7 @@ import java.util.List;
  */
 public class ClickhouseSchema extends GenericSchema implements DBPObjectStatisticsCollector
 {
-    private boolean hasStatistics;
+    private boolean hasStatistics = true;
 
     public ClickhouseSchema(@NotNull GenericDataSource dataSource, @Nullable GenericCatalog catalog, @NotNull String schemaName) {
         super(dataSource, catalog, schemaName);
@@ -60,6 +64,16 @@ public class ClickhouseSchema extends GenericSchema implements DBPObjectStatisti
     }
 
     @Override
+    public synchronized DBSObject refreshObject(@NotNull DBRProgressMonitor monitor) throws DBException {
+        resetStatistics();
+        return super.refreshObject(monitor);
+    }
+
+    void resetStatistics() {
+        hasStatistics = false;
+    }
+
+    @Override
     public void collectObjectStatistics(DBRProgressMonitor monitor, boolean totalSizeOnly, boolean forceRefresh) throws DBException {
         if (hasStatistics && !forceRefresh) {
             return;
@@ -71,8 +85,7 @@ public class ClickhouseSchema extends GenericSchema implements DBPObjectStatisti
                         "sum(rows) as table_rows, " +
                         "max(modification_time) as latest_modification," +
                         "min(min_date) AS min_date," +
-                        "max(max_date) AS max_date," +
-                        "any(engine) as engine\n" +
+                        "max(max_date) AS max_date " +
                     "FROM system.parts\n" +
                     "WHERE database=? AND active\n" +
                     "GROUP BY table"))

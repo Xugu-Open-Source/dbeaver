@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,7 +68,14 @@ public class PropertySourceCustom implements DBPPropertySource {
                 for (DBPPropertyDescriptor prop : props) {
                     if (prop.getId().equals(value.getKey())) {
                         if (propValue instanceof String) {
-                            propValue = GeneralUtils.convertString((String) value.getValue(), prop.getDataType());
+                            Class<?> dataType = prop.getDataType();
+                            if ((dataType == null || CharSequence.class.isAssignableFrom(dataType))
+                                && ((String) propValue).isEmpty()) {
+                                // Do nothing let it be empty, because if we will store here null value
+                                // It will turn into default value
+                            } else {
+                                propValue = GeneralUtils.convertString((String) propValue, dataType);
+                            }
                         }
                         originalValues.put(value.getKey(), propValue);
                         break;

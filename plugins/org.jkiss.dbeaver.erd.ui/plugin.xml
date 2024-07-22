@@ -2,7 +2,7 @@
 <?eclipse version="3.2"?>
 <!--
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,15 +19,7 @@
 
 <plugin>
 
-    <extension-point id="org.jkiss.dbeaver.erd.ui.export.format" name="%extension-point.org.jkiss.dbeaver.erd.ui.export.format.name" schema="schema/org.jkiss.dbeaver.erd.ui.export.format.exsd"/>
-
-    <extension point="org.eclipse.core.contenttype.contentTypes">
-        <content-type
-                file-extensions="erd"
-                id="org.jkiss.dbeaver.erd"
-                name="%content-type.org.jkiss.dbeaver.erd.name"
-                priority="normal"/>
-    </extension>
+    <extension-point id="org.jkiss.dbeaver.erd.ui.export.format" name="ERD Export Formats" schema="schema/org.jkiss.dbeaver.ext.erd.export.format.exsd"/>
 
     <extension point="org.jkiss.dbeaver.databaseEditor">
         <editor
@@ -37,21 +29,18 @@
             label="%editor.erd.name"
             description="%editor.erd.description"
             position="additions_end"
-            icon="icons/erd.png">
+            icon="platform:/plugin/org.jkiss.dbeaver.erd.model/icons/erd.png">
             <objectType name="org.jkiss.dbeaver.model.struct.DBSObjectContainer" forceCheck="true" if="context.isEntityContainer(object)"/>
             <objectType name="org.jkiss.dbeaver.model.struct.rdb.DBSTable" forceCheck="true"/>
         </editor>
     </extension>
 
     <extension point="org.jkiss.dbeaver.resourceHandler">
-        <handler id="er-diagrams" class="org.jkiss.dbeaver.erd.ui.navigator.ERDResourceHandler" name="ER diagrams" managable="true" icon="icons/erd_folder.png">
-            <root folder="Diagrams"/>
-            <contentTypeBinding contentTypeId="org.jkiss.dbeaver.erd"/>
-        </handler>
+        <handler type="er-diagram" class="org.jkiss.dbeaver.erd.ui.navigator.ERDResourceHandler"/>
     </extension>
 
     <extension point="org.eclipse.core.runtime.adapters">
-        <factory adaptableType="org.eclipse.gef3.EditPart" class="org.jkiss.dbeaver.erd.ui.model.ERDObjectAdapter">
+        <factory adaptableType="org.eclipse.gef.EditPart" class="org.jkiss.dbeaver.erd.ui.model.ERDObjectAdapter">
             <adapter type="org.jkiss.dbeaver.model.DBPNamedObject"/>
             <adapter type="org.jkiss.dbeaver.model.DBPQualifiedObject"/>
             <adapter type="org.jkiss.dbeaver.model.struct.DBSObject"/>
@@ -164,6 +153,13 @@
                 </with>
             </activeWhen>
         </handler>
+        <handler commandId="org.jkiss.dbeaver.erd.diagram.saveAs" class="org.jkiss.dbeaver.erd.ui.action.ERDHandlerSaveImage">
+            <activeWhen>
+                <with variable="activeEditor">
+                    <adapt type="org.jkiss.dbeaver.erd.ui.editor.ERDEditorPart"/>
+                </with>
+            </activeWhen>
+        </handler>
 
     </extension>
 
@@ -187,8 +183,9 @@
         </themeElementCategory>
         <fontDefinition
                 label="%fontDefinition.org.jkiss.dbeaver.erd.diagram.font.label"
-                categoryId="org.jkiss.dbeaver.ui.presentation.erd"
-                id="org.jkiss.dbeaver.erd.diagram.font">
+                categoryId="org.jkiss.dbeaver.ui.fonts"
+                id="org.jkiss.dbeaver.erd.diagram.font"
+                defaultsTo="org.jkiss.dbeaver.dbeaver.ui.fonts.main">
             <description>%fontDefinition.org.jkiss.dbeaver.erd.diagram.font.description</description>
         </fontDefinition>
         <colorDefinition
@@ -225,6 +222,20 @@
                 id="org.jkiss.dbeaver.erd.diagram.attributes.foreground"
                 value="COLOR_LIST_FOREGROUND">
             <description>%colorDefinition.org.jkiss.dbeaver.erd.diagram.attributes.foreground.description</description>
+        </colorDefinition>
+        <colorDefinition
+                label="%colorDefinition.org.jkiss.dbeaver.erd.diagram.search.highlighting.label"
+                categoryId="org.jkiss.dbeaver.ui.presentation.erd"
+                id="org.jkiss.dbeaver.erd.diagram.search.highlighting"
+                value="255,230,100">
+            <description>%colorDefinition.org.jkiss.dbeaver.erd.diagram.search.highlighting.description</description>
+        </colorDefinition>
+        <colorDefinition
+                label="%colorDefinition.org.jkiss.dbeaver.erd.diagram.fk.highlighting.label"
+                categoryId="org.jkiss.dbeaver.ui.presentation.erd"
+                id="org.jkiss.dbeaver.erd.diagram.fk.highlighting"
+                value="165,225,135">
+            <description>%colorDefinition.org.jkiss.dbeaver.erd.diagram.fk.highlighting.description</description>
         </colorDefinition>
         <colorDefinition
                 label="%colorDefinition.org.jkiss.dbeaver.erd.diagram.notes.foreground.label"
@@ -385,35 +396,43 @@
         </page>
     </extension>
 
-    <extension point="org.eclipse.core.contenttype.contentTypes">
-        <content-type
-            base-type="org.eclipse.core.runtime.text"
-            default-charset="utf-8"
-            file-extensions="erd"
-            id="org.jkiss.dbeaver.erd.content-type-erd"
-            name="%content-type.org.jkiss.dbeaver.erd.content-type-erd.name"
-            priority="normal"/>
-    </extension>
-
     <extension point="org.eclipse.ui.editors">
         <editor name="%editor.org.jkiss.dbeaver.erd.ui.editor.ERDEditorStandalone.name"
                 extensions="erd"
-                icon="icons/erd.png"
+                icon="platform:/plugin/org.jkiss.dbeaver.erd.model/icons/erd.png"
                 contributorClass="org.jkiss.dbeaver.erd.ui.editor.ERDEditorContributor"
                 class="org.jkiss.dbeaver.erd.ui.editor.ERDEditorStandalone"
                 id="org.jkiss.dbeaver.erd.ui.editor.ERDEditorStandalone">
-            <contentTypeBinding contentTypeId="org.jkiss.dbeaver.erd.content-type-erd"/>
+            <contentTypeBinding contentTypeId="org.jkiss.dbeaver.erd"/>
         </editor>
     </extension>
 
     <extension point="org.eclipse.ui.commands">
         <command id="org.jkiss.dbeaver.erd.diagram.view" name="%command.org.jkiss.dbeaver.erd.diagram.view.name" description="%command.org.jkiss.dbeaver.erd.diagram.view.description" categoryId="org.jkiss.dbeaver.core.navigator"/>
         <command id="org.jkiss.dbeaver.erd.diagram.create" name="%command.org.jkiss.dbeaver.erd.diagram.create.name" description="%command.org.jkiss.dbeaver.erd.diagram.create.description" categoryId="org.jkiss.dbeaver.core.navigator"/>
+        <command id="org.jkiss.dbeaver.erd.diagram.saveAs" name="%command.org.jkiss.dbeaver.erd.diagram.saveAs.name" description="%command.org.jkiss.dbeaver.erd.diagram.saveAs.description" categoryId="org.eclipse.gef.category.view"/>
+        <command id="org.jkiss.dbeaver.erd.toggleHand" name="%command.org.jkiss.dbeaver.erd.toggleHand.name" description="%command.org.jkiss.dbeaver.erd.toggleHand.description" categoryId="org.eclipse.gef.category.view"/>
+
+        <command id="org.jkiss.dbeaver.erd.focus.diagram" name="%command.org.jkiss.dbeaver.erd.focus.diagram.name" description="%command.org.jkiss.dbeaver.erd.focus.diagram.description" categoryId="org.eclipse.gef.category.view"/>
+        <command id="org.jkiss.dbeaver.erd.focus.palette" name="%command.org.jkiss.dbeaver.erd.focus.palette.name" description="%command.org.jkiss.dbeaver.erd.focus.palette.description" categoryId="org.eclipse.gef.category.view"/>
+        <command id="org.jkiss.dbeaver.erd.focus.outline" name="%command.org.jkiss.dbeaver.erd.focus.outline.name" description="%command.org.jkiss.dbeaver.erd.focus.outline.description" categoryId="org.eclipse.gef.category.view"/>
+        <command id="org.jkiss.dbeaver.erd.focus.parameter" name="%command.org.jkiss.dbeaver.erd.focus.parameters.name" description="%command.org.jkiss.dbeaver.erd.focus.parameters.description" categoryId="org.eclipse.gef.category.view"/>
     </extension>
 
     <extension point="org.eclipse.ui.commandImages">
-        <image commandId="org.jkiss.dbeaver.erd.diagram.view" icon="icons/erd.png"/>
-        <image commandId="org.jkiss.dbeaver.erd.diagram.create" icon="icons/erd.png"/>
+        <image commandId="org.jkiss.dbeaver.erd.diagram.view" icon="platform:/plugin/org.jkiss.dbeaver.erd.model/icons/erd.png"/>
+        <image commandId="org.jkiss.dbeaver.erd.diagram.create" icon="platform:/plugin/org.jkiss.dbeaver.erd.model/icons/erd.png"/>
+        <image commandId="org.jkiss.dbeaver.erd.diagram.saveAs" icon="platform:/plugin/org.jkiss.dbeaver.ui/icons/picture_save.png"/>
+        <image commandId="org.jkiss.dbeaver.erd.toggleHand" icon="platform:/plugin/org.jkiss.dbeaver.erd.ui/icons/move.png"/>
+    </extension>
+
+    <extension point="org.eclipse.ui.bindings">
+        <key commandId="org.jkiss.dbeaver.erd.focus.diagram" contextId="org.eclipse.ui.contexts.window" schemeId="org.jkiss.dbeaver.keyboardOnlyKeyScheme" sequence="ALT+1"/>
+        <key commandId="org.jkiss.dbeaver.erd.focus.palette" contextId="org.eclipse.ui.contexts.window" schemeId="org.jkiss.dbeaver.keyboardOnlyKeyScheme" sequence="ALT+2"/>
+        <key commandId="org.jkiss.dbeaver.erd.focus.outline" contextId="org.eclipse.ui.contexts.window" schemeId="org.jkiss.dbeaver.keyboardOnlyKeyScheme" sequence="ALT+3"/>
+        <key commandId="org.jkiss.dbeaver.erd.focus.parameter" contextId="org.eclipse.ui.contexts.window" schemeId="org.jkiss.dbeaver.keyboardOnlyKeyScheme" sequence="ALT+4"/>
+        <key commandId="org.jkiss.dbeaver.erd.toggleHand" contextId="org.eclipse.ui.contexts.window" schemeId="org.eclipse.ui.defaultAcceleratorConfiguration" sequence="TAB"/>
+        <key commandId="org.jkiss.dbeaver.erd.diagram.view" contextId="org.eclipse.ui.contexts.window" schemeId="org.eclipse.ui.defaultAcceleratorConfiguration" sequence="CTRL+SHIFT+ENTER"/>
     </extension>
 
     <extension point="org.eclipse.ui.handlers">
@@ -422,15 +441,54 @@
                 <with variable="selection">
                     <count value="1"/>
                     <iterate operator="and">
-                        <or>
-                            <adapt type="org.jkiss.dbeaver.model.struct.rdb.DBSSchema"/>
-                            <adapt type="org.jkiss.dbeaver.model.struct.DBSEntity"/>
-                        </or>
+                        <adapt type="org.jkiss.dbeaver.model.struct.DBSObject">
+                            <or>
+                                <instanceof value="org.jkiss.dbeaver.model.struct.rdb.DBSTable"/>
+                                <test property="org.jkiss.dbeaver.model.isTableContainer"/>
+                            </or>
+                        </adapt>
                     </iterate>
                 </with>
             </enabledWhen>
         </handler>
-        <handler commandId="org.jkiss.dbeaver.erd.diagram.create" class="org.jkiss.dbeaver.erd.ui.navigator.CreateDiagramHandler"/>
+        <handler commandId="org.jkiss.dbeaver.erd.diagram.create" class="org.jkiss.dbeaver.erd.ui.navigator.CreateDiagramHandler">
+            <enabledWhen>
+                <with variable="activePart">
+                    <and>
+                        <test property="org.jkiss.dbeaver.core.global.currentProjectResourceEditable"/>
+                        <test property="org.jkiss.dbeaver.core.global.hasPermission" value="database-developer"/>
+                    </and>
+                </with>
+            </enabledWhen>
+        </handler>
+        <handler commandId="org.jkiss.dbeaver.erd.focus.diagram" class="org.jkiss.dbeaver.erd.ui.action.ERDHandlerFocus">
+            <activeWhen>
+                <with variable="activeEditor">
+                    <adapt type="org.jkiss.dbeaver.erd.ui.editor.ERDEditorPart"/>
+                </with>
+            </activeWhen>
+        </handler>
+        <handler commandId="org.jkiss.dbeaver.erd.focus.palette" class="org.jkiss.dbeaver.erd.ui.action.ERDHandlerFocus">
+            <activeWhen>
+                <with variable="activeEditor">
+                    <adapt type="org.jkiss.dbeaver.erd.ui.editor.ERDEditorPart"/>
+                </with>
+            </activeWhen>
+        </handler>
+        <handler commandId="org.jkiss.dbeaver.erd.focus.outline" class="org.jkiss.dbeaver.erd.ui.action.ERDHandlerFocus">
+            <activeWhen>
+                <with variable="activeEditor">
+                    <adapt type="org.jkiss.dbeaver.erd.ui.editor.ERDEditorPart"/>
+                </with>
+            </activeWhen>
+        </handler>
+        <handler commandId="org.jkiss.dbeaver.erd.focus.parameter" class="org.jkiss.dbeaver.erd.ui.action.ERDHandlerFocus">
+            <activeWhen>
+                <with variable="activeEditor">
+                    <adapt type="org.jkiss.dbeaver.erd.ui.editor.ERDEditorPart"/>
+                </with>
+            </activeWhen>
+        </handler>
     </extension>
 
     <extension point="org.eclipse.ui.menus">
@@ -443,12 +501,15 @@
 
         <menuContribution allPopups="false" locationURI="popup:org.eclipse.ui.popup.any?after=create">
             <command commandId="org.jkiss.dbeaver.erd.diagram.create" label="%menu.create.new.diagram">
-                <visibleWhen>
+                <visibleWhen checkEnabled="true">
                     <with variable="selection">
                         <count value="1"/>
                         <iterate operator="and">
                             <adapt type="org.eclipse.core.resources.IFolder">
-                                <test property="org.jkiss.dbeaver.core.resource.type" value="diagram folder"/>
+                                <and>
+                                    <test property="org.jkiss.dbeaver.core.resource.type" value="diagram folder"/>
+                                    <test property="org.jkiss.dbeaver.core.global.hasPermission" value="database-developer"/>
+                                </and>
                             </adapt>
                         </iterate>
                     </with>
@@ -458,7 +519,7 @@
 
         <menuContribution allPopups="false" locationURI="popup:org.eclipse.ui.popup.any?before=generate">
             <command commandId="org.jkiss.dbeaver.erd.diagram.create" label="%menu.create.new.diagram">
-                <visibleWhen>
+                <visibleWhen checkEnabled="true">
                     <with variable="selection">
                         <count value="(1-"/>
                         <iterate operator="and">
@@ -471,11 +532,14 @@
 
         <menuContribution allPopups="false" locationURI="menu:dataSourceMenu?after=tools">
             <command commandId="org.jkiss.dbeaver.erd.diagram.create" label="%menu.create.new.diagram">
-                <visibleWhen>
+                <visibleWhen checkEnabled="true">
                     <with variable="selection">
                         <count value="+"/>
                         <iterate operator="and">
-                            <adapt type="org.jkiss.dbeaver.model.struct.DBSEntity"/>
+                            <and>
+                                <adapt type="org.jkiss.dbeaver.model.struct.DBSEntity"/>
+                                <test property="org.jkiss.dbeaver.core.global.hasPermission" value="database-developer"/>
+                            </and>
                         </iterate>
                     </with>
                 </visibleWhen>
@@ -495,7 +559,7 @@
         <wizard
              category="org.jkiss.dbeaver.core.new.general"
              class="org.jkiss.dbeaver.erd.ui.navigator.DiagramCreateWizard"
-             icon="icons/erd.png"
+             icon="platform:/plugin/org.jkiss.dbeaver.erd.model/icons/erd.png"
              id="org.jkiss.dbeaver.erd.ui.navigator.DiagramCreateWizard"
              name="%wizard.erd.name">
            <description>
@@ -514,19 +578,17 @@
         <exportFormat ext="png" label="PNG format" class="org.jkiss.dbeaver.erd.ui.export.ERDExportRasterImage"/>
         <exportFormat ext="gif" label="GIF format" class="org.jkiss.dbeaver.erd.ui.export.ERDExportRasterImage"/>
         <exportFormat ext="bmp" label="BMP format" class="org.jkiss.dbeaver.erd.ui.export.ERDExportRasterImage"/>
+        <exportFormat ext="erd" label="ERD format" class="org.jkiss.dbeaver.erd.ui.export.ERDExportERD"/>
         <exportFormat ext="graphml" label="GraphML format" class="org.jkiss.dbeaver.erd.ui.export.ERDExportGraphML"/>
     </extension>
 
-    <extension point="org.eclipse.ui.commands">
-        <command id="org.jkiss.dbeaver.erd.toggleHand" name="Toggle hand tool" description="Cycle through hand tool and previously used tool" categoryId="org.eclipse.gef3.category.view"/>
-    </extension>
-
-    <extension point="org.eclipse.ui.bindings">
-        <key commandId="org.jkiss.dbeaver.erd.toggleHand" contextId="org.eclipse.ui.contexts.window" schemeId="org.eclipse.ui.defaultAcceleratorConfiguration" sequence="TAB"/>
-    </extension>
-
-    <extension point="org.eclipse.ui.commandImages">
-        <image commandId="org.jkiss.dbeaver.erd.toggleHand" icon="platform:/plugin/org.jkiss.dbeaver.erd.ui/icons/move.png"/>
+    <extension point="org.jkiss.dbeaver.confirmations">
+        <confirmation
+            id="erd_open_exported_file"
+            title="%confirm.erd_open_exported_file.title"
+            message="%confirm.erd_open_exported_file.message"
+            toggleMessage="%confirm.erd_open_exported_file.toggleMessage"
+            group="%editor.erd.name"/>
     </extension>
 
 </plugin>

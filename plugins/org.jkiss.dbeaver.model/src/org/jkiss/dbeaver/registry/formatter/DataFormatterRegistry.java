@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,15 @@ package org.jkiss.dbeaver.registry.formatter;
 import org.eclipse.core.runtime.IConfigurationElement;
 import org.eclipse.core.runtime.IExtensionRegistry;
 import org.eclipse.core.runtime.Platform;
+import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.WorkspaceConfigEventManager;
 import org.jkiss.dbeaver.model.app.DBPDataFormatterRegistry;
 import org.jkiss.dbeaver.model.data.DBDDataFormatterProfile;
 import org.jkiss.dbeaver.model.impl.preferences.SimplePreferenceStore;
+import org.jkiss.dbeaver.model.rm.RMConstants;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
@@ -107,9 +110,9 @@ public class DataFormatterRegistry implements DBPDataFormatterRegistry
 
     @Override
     @Nullable
-    public DBDDataFormatterProfile getCustomProfile(String name)
+    public synchronized DBDDataFormatterProfile getCustomProfile(String name)
     {
-        for (DBDDataFormatterProfile profile : getCustomProfiles()) {
+        for (DBDDataFormatterProfile profile : getCustomProfilesInternal()) {
             if (profile.getProfileName().equals(name)) {
                 return profile;
             }
@@ -117,49 +120,53 @@ public class DataFormatterRegistry implements DBPDataFormatterRegistry
         return null;
     }
 
+    @NotNull
     @Override
-    public synchronized List<DBDDataFormatterProfile> getCustomProfiles()
-    {
+    public synchronized List<DBDDataFormatterProfile> getCustomProfiles() {
+        return List.copyOf(getCustomProfilesInternal());
+    }
+
+    private synchronized List<DBDDataFormatterProfile> getCustomProfilesInternal() {
         if (customProfiles == null) {
             loadProfiles();
+            WorkspaceConfigEventManager.addConfigChangedListener(CONFIG_FILE_NAME, o -> {
+                loadProfiles();
+            });
         }
         return customProfiles;
     }
 
-    private void loadProfiles()
-    {
+    private synchronized void loadProfiles() {
         customProfiles = new ArrayList<>();
-
-        File storeFile = DBWorkbench.getPlatform().getConfigurationFile(CONFIG_FILE_NAME);
-        if (!storeFile.exists()) {
-            return;
-        }
         try {
-            try (InputStream is = new FileInputStream(storeFile)) {
+            String content = DBWorkbench.getPlatform().getProductConfigurationController().loadConfigurationFile(CONFIG_FILE_NAME);
+            if (CommonUtils.isEmpty(content)) {
+                return;
+            }
+            try (StringReader is = new StringReader(content)) {
                 SAXReader parser = new SAXReader(is);
                 try {
                     parser.parse(new FormattersParser());
-                } catch (XMLException ex) {
+                } catch (Throwable ex) {
                     throw new DBException("Datasource config parse error", ex);
                 }
-            } catch (DBException ex) {
-                log.warn("Can't load profiles config from " + storeFile.getPath(), ex);
             }
-        }
-        catch (IOException ex) {
-            log.warn("IO error", ex);
+        } catch (DBException ex) {
+            log.warn("Can't load profiles config from " + CONFIG_FILE_NAME, ex);
         }
     }
 
 
-    private void saveProfiles()
-    {
+    private synchronized void saveProfiles() {
         if (customProfiles == null) {
             return;
         }
-        File storeFile = DBWorkbench.getPlatform().getConfigurationFile(CONFIG_FILE_NAME);
-        try (OutputStream os = new FileOutputStream(storeFile)) {
-            XMLBuilder xml = new XMLBuilder(os, GeneralUtils.UTF8_ENCODING);
+        if (!DBWorkbench.getPlatform().getWorkspace().hasRealmPermission(RMConstants.PERMISSION_CONFIGURATION_MANAGER)) {
+            log.warn("The user has no permission to save data formatter configuration");
+            return;
+        }
+        try (StringWriter out = new StringWriter()) {
+            XMLBuilder xml = new XMLBuilder(out, GeneralUtils.UTF8_ENCODING);
             xml.setButify(true);
             xml.startElement("profiles");
             for (DBDDataFormatterProfile profile : customProfiles) {
@@ -168,7 +175,7 @@ public class DataFormatterRegistry implements DBPDataFormatterRegistry
                 SimplePreferenceStore store = (SimplePreferenceStore) profile.getPreferenceStore();
                 Map<String, String> props = store.getProperties();
                 if (props != null) {
-                    for (Map.Entry<String,String> entry : props.entrySet()) {
+                    for (Map.Entry<String, String> entry : props.entrySet()) {
                         xml.startElement("property");
                         xml.addAttribute("name", entry.getKey());
                         xml.addAttribute("value", entry.getValue());
@@ -179,24 +186,31 @@ public class DataFormatterRegistry implements DBPDataFormatterRegistry
             }
             xml.endElement();
             xml.flush();
-        }
-        catch (IOException ex) {
-            log.warn("IO error", ex);
+
+            out.flush();
+            DBWorkbench.getPlatform().getProductConfigurationController()
+                .saveConfigurationFile(CONFIG_FILE_NAME, out.getBuffer().toString());
+        } catch (Throwable ex) {
+            log.warn("Failed to save data formatter profiles to " + CONFIG_FILE_NAME, ex);
         }
     }
 
-    public DBDDataFormatterProfile createCustomProfile(String profileName)
-    {
-        getCustomProfiles();
+    /**
+     * Create custom data formatter profile with specified name and default settings
+     */
+    public synchronized DBDDataFormatterProfile createCustomProfile(String profileName) {
+        getCustomProfilesInternal();
         DBDDataFormatterProfile profile = new DataFormatterProfile(profileName, new CustomProfileStore());
         customProfiles.add(profile);
         saveProfiles();
         return profile;
     }
 
-    public void deleteCustomProfile(DBDDataFormatterProfile profile)
-    {
-        getCustomProfiles();
+    /**
+     * Delete custom data formatter profile
+     */
+    public synchronized void deleteCustomProfile(DBDDataFormatterProfile profile) {
+        getCustomProfilesInternal();
         if (customProfiles.remove(profile)) {
             saveProfiles();
         }

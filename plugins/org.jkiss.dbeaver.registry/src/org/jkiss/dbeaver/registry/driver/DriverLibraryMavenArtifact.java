@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import org.jkiss.utils.CommonUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -188,7 +189,12 @@ public class DriverLibraryMavenArtifact extends DriverLibraryAbstract
         if (this.localVersion == null) {
             MavenArtifactReference ref = reference;
             if (preferredVersion != null) {
-                ref = new MavenArtifactReference(reference.getGroupId(), reference.getArtifactId(), reference.getClassifier(), preferredVersion);
+                ref = new MavenArtifactReference(
+                    reference.getGroupId(),
+                    reference.getArtifactId(),
+                    reference.getClassifier(),
+                    reference.getFallbackVersion(),
+                    preferredVersion);
                 if (loadOptionalDependencies) {
                     ref.setResolveOptionalDependencies(true);
                 }
@@ -211,16 +217,16 @@ public class DriverLibraryMavenArtifact extends DriverLibraryAbstract
 
     @Nullable
     @Override
-    public File getLocalFile()
+    public Path getLocalFile()
     {
         // Try to get local file
         File platformFile = detectLocalFile();
-        if (platformFile != null && platformFile.exists()) {
+        if (platformFile != null) {
             // Relative file do not exists - use plain one
-            return platformFile;
+            return platformFile.toPath();
         }
         // Nothing fits - just return plain url
-        return platformFile;
+        return null;
     }
 
     private File detectLocalFile()
@@ -281,7 +287,7 @@ public class DriverLibraryMavenArtifact extends DriverLibraryAbstract
 
     @Override
     public String getVersion() {
-        if (preferredVersion != null) {
+        if (preferredVersion != null && !preferredVersion.isEmpty()) {
             return preferredVersion;
         }
         if (localVersion != null) {

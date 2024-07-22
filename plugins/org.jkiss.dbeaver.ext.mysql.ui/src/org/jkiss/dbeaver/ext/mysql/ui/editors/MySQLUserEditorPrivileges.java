@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +17,7 @@
  */
 package org.jkiss.dbeaver.ext.mysql.ui.editors;
 
+import org.eclipse.jface.layout.GridLayoutFactory;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.DisposeEvent;
 import org.eclipse.swt.events.DisposeListener;
@@ -34,11 +35,13 @@ import org.jkiss.dbeaver.ext.mysql.ui.controls.PrivilegeTableControl;
 import org.jkiss.dbeaver.ext.mysql.ui.internal.MySQLUIMessages;
 import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.edit.DBECommandReflector;
+import org.jkiss.dbeaver.model.navigator.DBNEvent;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.load.DatabaseLoadService;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.ui.LoadingJob;
 import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.ui.controls.CustomSashForm;
 import org.jkiss.utils.ArrayUtils;
 
 import java.lang.reflect.InvocationTargetException;
@@ -72,13 +75,13 @@ public class MySQLUserEditorPrivileges extends MySQLUserEditorAbstract
 
         pageControl = new PageControl(parent);
 
-        Composite container = UIUtils.createPlaceholder(pageControl, 2, 5);
         GridData gd = new GridData(GridData.FILL_BOTH);
-        container.setLayoutData(gd);
+        CustomSashForm sash = new CustomSashForm(pageControl, SWT.HORIZONTAL);
+        sash.setLayoutData(gd);
 
-        Composite leftPane = UIUtils.createPlaceholder(container, 2);
+        Composite leftPane = UIUtils.createPlaceholder(sash, 2);
         leftPane.setLayoutData(new GridData(GridData.FILL_BOTH));
-        leftPane.setLayout(new GridLayout(2, true));
+        leftPane.setLayout(GridLayoutFactory.fillDefaults().numColumns(2).create());
         {
             Composite catalogGroup = UIUtils.createControlGroup(leftPane, MySQLUIMessages.editors_user_editor_privileges_group_catalogs, 1, GridData.FILL_BOTH, 0);
 
@@ -136,7 +139,7 @@ public class MySQLUserEditorPrivileges extends MySQLUserEditorAbstract
             UIUtils.createTableColumn(tablesTable, SWT.LEFT, MySQLUIMessages.editors_user_editor_privileges_column_table);
             UIUtils.packColumns(tablesTable);
         }
-        Composite ph = UIUtils.createPlaceholder(container, 1);
+        Composite ph = UIUtils.createPlaceholder(sash, 1);
         ph.setLayoutData(new GridData(GridData.FILL_BOTH));
 
         tablePrivilegesTable = new PrivilegeTableControl(ph, MySQLUIMessages.editors_user_editor_privileges_control_table_privileges, false);
@@ -146,6 +149,8 @@ public class MySQLUserEditorPrivileges extends MySQLUserEditorAbstract
         otherPrivilegesTable = new PrivilegeTableControl(ph, MySQLUIMessages.editors_user_editor_privileges_control_other_privileges, false);
         gd = new GridData(GridData.FILL_BOTH);
         otherPrivilegesTable.setLayoutData(gd);
+
+        sash.setSashBorders(new boolean[]{false, false});
 
         catalogsTable.setSelection(0);
         showCatalogTables();
@@ -171,16 +176,18 @@ public class MySQLUserEditorPrivileges extends MySQLUserEditorAbstract
             public void handleEvent(Event event)
             {
                 final MySQLPrivilege privilege = (MySQLPrivilege) event.data;
-                final boolean isGrant = event.detail == 1;
+                final boolean isGrant = event.detail >= 1;
+                final boolean withGrantOption = event.detail == 2;
                 final MySQLCatalog curCatalog = selectedCatalog;
                 final MySQLTableBase curTable = selectedTable;
-                updateLocalData(privilege, isGrant, curCatalog, curTable);
+                updateLocalData(privilege, isGrant, withGrantOption, curCatalog, curTable);
 
                 // Add command
                 addChangeCommand(
                     new MySQLCommandGrantPrivilege(
                         getDatabaseObject(),
                         isGrant,
+                        withGrantOption,
                         curCatalog,
                         curTable,
                         privilege),
@@ -191,7 +198,7 @@ public class MySQLUserEditorPrivileges extends MySQLUserEditorAbstract
                             if (!privTable.isDisposed() && curCatalog == selectedCatalog && curTable == selectedTable) {
                                 privTable.checkPrivilege(privilege, isGrant);
                             }
-                            updateLocalData(privilege, isGrant, curCatalog, curTable);
+                            updateLocalData(privilege, isGrant, withGrantOption, curCatalog, curTable);
                         }
                         @Override
                         public void undoCommand(MySQLCommandGrantPrivilege mySQLCommandGrantPrivilege)
@@ -199,23 +206,24 @@ public class MySQLUserEditorPrivileges extends MySQLUserEditorAbstract
                             if (!privTable.isDisposed() && curCatalog == selectedCatalog && curTable == selectedTable) {
                                 privTable.checkPrivilege(privilege, !isGrant);
                             }
-                            updateLocalData(privilege, !isGrant, curCatalog, curTable);
+                            updateLocalData(privilege, !isGrant, !withGrantOption, curCatalog, curTable);
                         }
                     });
             }
         });
     }
 
-    private void updateLocalData(MySQLPrivilege privilege, boolean isGrant, MySQLCatalog curCatalog, MySQLTableBase curTable)
+    private void updateLocalData(MySQLPrivilege privilege, boolean isGrant, boolean withGrantOption, MySQLCatalog curCatalog, MySQLTableBase curTable)
     {
         // Modify local grants (and clear grants cache in user objects)
         getDatabaseObject().clearGrantsCache();
         boolean found = false;
         for (MySQLGrant grant : grants) {
             if (grant.matches(curCatalog) && grant.matches(curTable)) {
-                if (privilege.isGrantOption()) {
-                    grant.setGrantOption(isGrant);
-                } else if (isGrant) {
+                //if (privilege.isGrantOption()) {
+                    grant.setGrantOption(withGrantOption);
+                //} else
+                if (isGrant) {
                     if (!ArrayUtils.contains(grant.getPrivileges(), privilege)) {
                         grant.addPrivilege(privilege);
                     }
@@ -237,7 +245,7 @@ public class MySQLUserEditorPrivileges extends MySQLUserEditorAbstract
                 curCatalog == null ? "*" : curCatalog.getName(), //$NON-NLS-1$
                 curTable == null ? "*" : curTable.getName(), //$NON-NLS-1$
                 false,
-                privilege.isGrantOption());
+                withGrantOption);
             grants.add(grant);
         }
         highlightCatalogs();
@@ -278,7 +286,12 @@ public class MySQLUserEditorPrivileges extends MySQLUserEditorAbstract
             }
         }
         tablePrivilegesTable.fillGrants(curGrants);
-        otherPrivilegesTable.fillGrants(curGrants);
+        if (selectedTable == null) {
+            otherPrivilegesTable.fillGrants(curGrants, true);
+        } else {
+            // Privilege table will be grayed. No grants for this table
+            otherPrivilegesTable.fillGrants(new ArrayList<>(), false);
+        }
     }
 
     @Override
@@ -365,7 +378,13 @@ public class MySQLUserEditorPrivileges extends MySQLUserEditorAbstract
     @Override
     public RefreshResult refreshPart(Object source, boolean force)
     {
-        // do nothing
+        if (force ||
+            (source instanceof DBNEvent && ((DBNEvent) source).getSource() == DBNEvent.UPDATE_ON_SAVE) ||
+            !isLoaded) {
+            isLoaded = false;
+            activatePart();
+            return RefreshResult.REFRESHED;
+        }
         return RefreshResult.IGNORED;
     }
 

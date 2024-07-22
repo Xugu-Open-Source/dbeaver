@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,24 @@
 
 package org.jkiss.dbeaver.model.app;
 
+import org.eclipse.core.resources.IWorkspace;
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+
+import java.nio.file.Path;
 
 /**
  * DB application.
  * Application implementors may redefine core app behavior and/or settings.
  */
-public interface DBPApplication
-{
+public interface DBPApplication {
+
+    default void beforeWorkspaceInitialization() {}
+
+    @NotNull
+    DBPWorkspace createWorkspace(@NotNull DBPPlatform platform, @NotNull IWorkspace eclipseWorkspace);
+
     boolean isStandalone();
 
     /**
@@ -45,27 +55,52 @@ public interface DBPApplication
      */
     boolean isExclusiveMode();
 
-    @NotNull
-    DBASecureStorage getSecureStorage();
+    /**
+     * Multiple users can login into the app at the same time
+     */
+    boolean isMultiuser();
 
-    @NotNull
-    DBASecureStorage getProjectSecureStorage(DBPProject project);
+    /**
+     * Distributed application requires remote server.
+     */
+    boolean isDistributed();
+
+    boolean isDetachedProcess();
 
     /**
      * Application information details.
      * Like license info or some custom produce info
      */
-    String getInfoDetails();
-
-    /**
-     * Returns last user activity time
-     * @return -1 by default
-     */
-    long getLastUserActivityTime();
+    String getInfoDetails(DBRProgressMonitor monitor);
 
     /**
      * Default project name, e.g. 'General'.
      */
+    @Nullable
     String getDefaultProjectName();
+
+    @Nullable
+    String getProductProperty(@NotNull String propName);
+
+    boolean hasProductFeature(@NotNull String featureName);
+
+    /**
+     * @return null if not found, otherwise returns default workspace path
+     */
+    @Nullable
+    Path getDefaultWorkingFolder();
+
+    /**
+     * Unique application instance identifier.
+     * Generated on every application launch.
+     */
+    @NotNull
+    String getApplicationRunId();
+
+    /**
+     * Application start time
+     */
+    long getApplicationStartTime();
+
 
 }

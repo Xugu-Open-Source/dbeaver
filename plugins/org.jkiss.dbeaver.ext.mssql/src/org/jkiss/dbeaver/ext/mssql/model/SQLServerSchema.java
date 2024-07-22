@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -242,6 +242,11 @@ public class SQLServerSchema implements DBSSchema, DBPSaveableObject, DBPQualifi
         return tableCache.getTypedObjects(monitor, this, SQLServerTableType.class);
     }
 
+    @Association
+    public Collection<SQLServerExternalTable> getExternalTables(DBRProgressMonitor monitor) throws DBException {
+        return tableCache.getTypedObjects(monitor, this, SQLServerExternalTable.class);
+    }
+
     public SQLServerTableType getTableType(DBRProgressMonitor monitor, long tableId) throws DBException {
         for (SQLServerTableBase table : tableCache.getAllObjects(monitor, this)) {
             if (table.getObjectId() == tableId && table instanceof SQLServerTableType) {
@@ -324,6 +329,10 @@ public class SQLServerSchema implements DBSSchema, DBPSaveableObject, DBPQualifi
         if (hasTableStatistics && !forceRefresh) {
             return;
         }
+        if (SQLServerUtils.isDriverBabelfish(getDataSource().getContainer().getDriver())) {
+            hasTableStatistics = true;
+            return;
+        }
         try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load table statistics")) {
             try (JDBCPreparedStatement dbStat = SQLServerUtils.prepareTableStatisticLoadStatement(
                 session,
@@ -368,8 +377,15 @@ public class SQLServerSchema implements DBSSchema, DBPSaveableObject, DBPQualifi
         public JDBCStatement prepareLookupStatement(@NotNull JDBCSession session, @NotNull SQLServerSchema owner, @Nullable SQLServerTableBase object, @Nullable String objectName) throws SQLException {
             StringBuilder sql = new StringBuilder();
             SQLServerDataSource dataSource = owner.getDataSource();
-            sql.append("SELECT o.*,ep.value as description FROM ").append(SQLServerUtils.getSystemTableName(owner.getDatabase(), "all_objects")).append(" o");
+            sql.append("SELECT o.*,ep.value as description");
+            if (owner.getDataSource().supportsExternalTables(session)) {
+                sql.append(",t.is_external");
+            }
+            sql.append(" FROM ").append(SQLServerUtils.getSystemTableName(owner.getDatabase(), "all_objects")).append(" o");
             sql.append("\nLEFT OUTER JOIN ").append(SQLServerUtils.getExtendedPropsTableName(owner.getDatabase())).append(" ep ON ep.class=").append(SQLServerObjectClass.OBJECT_OR_COLUMN.getClassId()).append(" AND ep.major_id=o.object_id AND ep.minor_id=0 AND ep.name='").append(SQLServerConstants.PROP_MS_DESCRIPTION).append("'");
+            if (owner.getDataSource().supportsExternalTables(session)) {
+                sql.append("\nLEFT OUTER JOIN ").append(SQLServerUtils.getSystemTableName(owner.getDatabase(), "tables")).append(" t ON t.object_id=o.object_id");
+            }
             sql.append("\nWHERE o.type IN ('U','S','V','TT') AND o.schema_id = ").append(owner.getObjectId());
             if (object != null || objectName != null) {
                 sql.append(" AND o.name = ").append(SQLUtils.quoteString(session.getDataSource(), object != null ? object.getName() : objectName));
@@ -397,16 +413,22 @@ public class SQLServerSchema implements DBSSchema, DBPSaveableObject, DBPQualifi
         }
 
         @Override
-        protected SQLServerTableBase fetchObject(@NotNull JDBCSession session, @NotNull SQLServerSchema owner, @NotNull JDBCResultSet dbResult)
-            throws SQLException, DBException
-        {
+        protected SQLServerTableBase fetchObject(@NotNull JDBCSession session, @NotNull SQLServerSchema owner, @NotNull JDBCResultSet dbResult) {
+            String name = JDBCUtils.safeGetString(dbResult, "name");
+            if (CommonUtils.isEmpty(name)) {
+                log.debug("Empty table name fetched");
+                return null;
+            }
+            if (owner.getDataSource().supportsExternalTables(session) && JDBCUtils.safeGetBoolean(dbResult, "is_external")) {
+                return new SQLServerExternalTable(owner, dbResult, name);
+            }
             String type = JDBCUtils.safeGetStringTrimmed(dbResult, "type");
             if (SQLServerObjectType.U.name().equals(type) || SQLServerObjectType.S.name().equals(type)) {
-                return new SQLServerTable(owner, dbResult);
+                return new SQLServerTable(owner, dbResult, name);
             } else if (SQLServerObjectType.TT.name().equals(type)) {
-                return new SQLServerTableType(owner, dbResult);
+                return new SQLServerTableType(owner, dbResult, name);
             } else {
-                return new SQLServerView(owner, dbResult);
+                return new SQLServerView(owner, dbResult, name);
             }
         }
 
@@ -467,6 +489,15 @@ public class SQLServerSchema implements DBSSchema, DBPSaveableObject, DBPQualifi
      * Index cache implementation
      */
     static class IndexCache extends JDBCCompositeCache<SQLServerSchema, SQLServerTableBase, SQLServerTableIndex, SQLServerTableIndexColumn> {
+        private static final int INDEX_TYPE_HEAP = 0;
+        private static final int INDEX_TYPE_CLUSTERED_ROWSTORE = 1;
+        private static final int INDEX_TYPE_NONCLUSTERED_ROWSTORE = 2;
+        private static final int INDEX_TYPE_XML = 3;
+        private static final int INDEX_TYPE_SPATIAL = 4;
+        private static final int INDEX_TYPE_CLUSTERED_COLUMNSTORE = 5;
+        private static final int INDEX_TYPE_NONCLUSTERED_COLUMNSTORE = 6;
+        private static final int INDEX_TYPE_NONCLUSTERED_HASH = 7;
+
         IndexCache(TableCache tableCache)
         {
             super(tableCache, SQLServerTableBase.class, "table_name", "name");
@@ -507,22 +538,32 @@ public class SQLServerSchema implements DBSSchema, DBPSaveableObject, DBPQualifi
             int indexTypeNum = JDBCUtils.safeGetInt(dbResult, "type");
             DBSIndexType indexType;
             switch (indexTypeNum) {
-                case 0: indexType = SQLServerConstants.INDEX_TYPE_HEAP; break;
-                case 1:
-                case 5:
-                    indexType = DBSIndexType.CLUSTERED; break;
-                case 2:
-                case 6:
-                    indexType = SQLServerConstants.INDEX_TYPE_NON_CLUSTERED; break;
+                case INDEX_TYPE_HEAP:
+                    indexType = SQLServerConstants.INDEX_TYPE_HEAP;
+                    break;
+                case INDEX_TYPE_CLUSTERED_ROWSTORE:
+                case INDEX_TYPE_CLUSTERED_COLUMNSTORE:
+                    indexType = DBSIndexType.CLUSTERED;
+                    break;
+                case INDEX_TYPE_NONCLUSTERED_ROWSTORE:
+                case INDEX_TYPE_NONCLUSTERED_COLUMNSTORE:
+                    indexType = SQLServerConstants.INDEX_TYPE_NON_CLUSTERED;
+                    break;
+                case INDEX_TYPE_XML:
+                case INDEX_TYPE_SPATIAL:
+                case INDEX_TYPE_NONCLUSTERED_HASH:
                 default:
                     indexType = DBSIndexType.OTHER;
                     break;
             }
+            boolean isColumnstoreIndex = indexTypeNum == INDEX_TYPE_CLUSTERED_COLUMNSTORE
+                || indexTypeNum == INDEX_TYPE_NONCLUSTERED_COLUMNSTORE;
             return new SQLServerTableIndex(
                 parent,
                 indexName,
                 indexType,
-                dbResult);
+                dbResult,
+                isColumnstoreIndex);
         }
 
         @Nullable
@@ -744,10 +785,10 @@ public class SQLServerSchema implements DBSSchema, DBPSaveableObject, DBPQualifi
         protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull SQLServerSchema schema) throws SQLException {
             StringBuilder sql = new StringBuilder(500);
             sql.append(
-                "SELECT * FROM \n")
-                .append(SQLServerUtils.getSystemTableName(schema.getDatabase(), "sequences")).append("\n");
-            sql.append("WHERE schema_id=?");
-            sql.append("\nORDER BY name");
+                "SELECT s.* FROM \n")
+                .append(SQLServerUtils.getSystemTableName(schema.getDatabase(), "sequences")).append(" s\n");
+            sql.append("WHERE s.schema_id=?");
+            sql.append("\nORDER BY s.name");
 
             JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
             dbStat.setLong(1, schema.getObjectId());
@@ -786,10 +827,10 @@ public class SQLServerSchema implements DBSSchema, DBPSaveableObject, DBPQualifi
         @Override
         protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull SQLServerSchema schema) throws SQLException {
             StringBuilder sql = new StringBuilder(500);
-            sql.append("SELECT * FROM \n")
-                .append(SQLServerUtils.getSystemTableName(schema.getDatabase(), "synonyms")).append("\n");
-            sql.append("WHERE schema_id=?");
-            sql.append("\nORDER BY name");
+            sql.append("SELECT s.* FROM \n")
+                .append(SQLServerUtils.getSystemTableName(schema.getDatabase(), "synonyms")).append(" s\n");
+            sql.append("WHERE s.schema_id=?");
+            sql.append("\nORDER BY s.name");
 
             JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
             dbStat.setLong(1, schema.getObjectId());
@@ -891,9 +932,13 @@ public class SQLServerSchema implements DBSSchema, DBPSaveableObject, DBPQualifi
         @NotNull
         @Override
         public JDBCStatement prepareLookupStatement(@NotNull JDBCSession session, @NotNull SQLServerSchema schema, SQLServerTableTrigger object, String objectName) throws SQLException {
+            final SQLServerDataSource dataSource = schema.getDataSource();
             StringBuilder sql = new StringBuilder(500);
             sql.append("SELECT ");
-            if (schema.getDataSource().isServerVersionAtLeast(14, 0)) {
+            if (SQLServerUtils.isDriverBabelfish(dataSource.getContainer().getDriver())) {
+                sql.append("t.*, ''");
+            }
+            else if (dataSource.isServerVersionAtLeast(14, 0)) {
                 sql.append(" t.*, (SELECT STRING_AGG(te.type_desc, ', ') FROM ")
                     .append(SQLServerUtils.getSystemTableName(schema.getDatabase(), "trigger_events")).append(" te ")
                     .append("WHERE t.object_id = te.object_id)");

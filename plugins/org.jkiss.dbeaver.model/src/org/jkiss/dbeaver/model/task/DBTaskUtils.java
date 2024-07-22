@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  */
 package org.jkiss.dbeaver.model.task;
 
+import org.eclipse.osgi.util.NLS;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
@@ -26,13 +27,19 @@ import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContextDefaults;
 import org.jkiss.dbeaver.model.exec.DBCTransactionManager;
 import org.jkiss.dbeaver.model.exec.DBExecUtils;
+import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.rdb.DBSCatalog;
 import org.jkiss.dbeaver.model.struct.rdb.DBSSchema;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.utils.CommonUtils;
 
+import java.io.PrintStream;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Task utils
@@ -41,6 +48,7 @@ public class DBTaskUtils {
     private static final Log log = Log.getLog(DBTaskUtils.class);
 
     public static final String TASK_VARIABLES = "taskVariables";
+    public static final String TASK_PROMPT_VARIABLES = "promptTaskVariables";
     public static final String TASK_CONTEXT = "taskContext";
 
     @NotNull
@@ -141,5 +149,70 @@ public class DBTaskUtils {
             return false;
         }
         return task.getProject().getTaskManager().getTaskById(task.getId()) != null;
+    }
+
+    public static void confirmTaskOrThrow(DBTTask task, Log taskLog, PrintStream logWriter) throws InterruptedException {
+        if (!confirmTask(task, taskLog, logWriter, (sb, t) -> false)) {
+            throw new InterruptedException(ModelMessages.tasks_restore_confirmation_cancelled_message);
+        }
+    }
+
+    public static void confirmTaskOrThrow(DBTTask task, Log taskLog, PrintStream logWriter, TaskConfirmationsCollector extraConfirmationsCollector) throws InterruptedException {
+        if (!confirmTask(task, taskLog, logWriter, extraConfirmationsCollector)) {
+            throw new InterruptedException(ModelMessages.tasks_restore_confirmation_cancelled_message);
+        }
+    }
+
+    public static boolean confirmTask(DBTTask task, Log taskLog, PrintStream logWriter) {
+        return confirmTask(task, taskLog, logWriter, (sb, t) -> false);
+    }
+
+    public static boolean confirmTask(DBTTask task, Log taskLog, PrintStream logWriter, TaskConfirmationsCollector extraConfirmationsCollector) {
+        if (DBWorkbench.getPlatform().getApplication().isHeadlessMode()) {
+            return true;
+        }
+
+        StringBuilder messageBuilder = new StringBuilder();
+        if (!collectConfirmationMessages(messageBuilder, task, extraConfirmationsCollector)) {
+            return true;
+        } else {
+            messageBuilder.append("\n").append(ModelMessages.tasks_restore_confirmation_message);
+        }
+        if (DBWorkbench.getPlatformUI().confirmAction(NLS.bind(ModelMessages.tasks_restore_confirmation_title, task.getName()), messageBuilder.toString())) {
+            return true;
+        }
+        
+        if (taskLog != null) {
+            taskLog.warn(ModelMessages.tasks_restore_confirmation_cancelled_message);
+        }
+        if (logWriter != null) {
+            logWriter.println();
+            logWriter.println(ModelMessages.tasks_restore_confirmation_cancelled_message);
+            logWriter.println();
+        }
+        return false;
+    }
+
+    public static boolean collectConfirmationMessages(StringBuilder messageBuilder, DBTTask task, TaskConfirmationsCollector extraConfirmationsCollector) {
+        boolean confirmationRequired = false;
+        String messageOrNull = task.getType().confirmationMessageIfNeeded();
+        if (messageOrNull != null) {
+            Optional<String> inputFileKey = task.getProperties().keySet().stream().filter(k -> k.contains("inputFile")).findFirst();
+            String inputFile = inputFileKey.isPresent() ? task.getProperties().get(inputFileKey.get()).toString() : "file";
+            String dbObjectNames = "";
+            Object dbObjectIdsObj = task.getProperties().get("databaseObjects");
+            if (dbObjectIdsObj != null) {
+                List<String> dbObjectIds = (List<String>)dbObjectIdsObj;
+                dbObjectNames = dbObjectIds.stream().map(id -> DBUtils.getObjectNameFromId(id)).collect(Collectors.joining(", "));
+            }
+            messageBuilder.append(NLS.bind(messageOrNull, dbObjectNames, inputFile)).append("\n");
+            confirmationRequired |= true;
+        }
+        confirmationRequired |= extraConfirmationsCollector.collect(messageBuilder, task); 
+        return confirmationRequired;
+    }
+    
+    public static interface TaskConfirmationsCollector {
+        boolean collect(StringBuilder messageBuilder, DBTTask task);
     }
 }

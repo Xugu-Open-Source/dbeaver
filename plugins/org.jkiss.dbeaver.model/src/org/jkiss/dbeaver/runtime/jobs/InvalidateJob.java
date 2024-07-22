@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -108,9 +108,10 @@ public class InvalidateJob extends DataSourceJob
         if (dsLock == DBPExclusiveResource.TASK_PROCESED) {
             // Already invalidated
             monitor.done();
-            log.debug("Datasource was already invalidated");
+            log.debug("Datasource '" + dataSource.getContainer().getName() + "' was already invalidated");
             return invalidateResults;
         }
+        log.debug("Invalidate datasource '" + container.getName() + "' (" + container.getId() + ")");
         try {
             long timeSpent = 0;
 
@@ -121,7 +122,8 @@ public class InvalidateJob extends DataSourceJob
             goodContextsNumber = 0;
             if (activeHandlers != null && activeHandlers.length > 0) {
                 for (DBWNetworkHandler nh : activeHandlers) {
-                    monitor.subTask("Invalidate handler [" + container.getClass().getSimpleName() + "]");
+                    log.debug("\tInvalidate network handler '" + nh.getClass().getSimpleName() + "' for " + container.getId());
+                    monitor.subTask("Invalidate handler [" + nh.getClass().getSimpleName() + "]");
                     try {
                         nh.invalidateHandler(monitor, dataSource);
                     } catch (Exception e) {
@@ -137,6 +139,7 @@ public class InvalidateJob extends DataSourceJob
             monitor.subTask("Invalidate connections of [" + container.getName() + "]");
             for (DBSInstance instance : dataSource.getAvailableInstances()) {
                 for (DBCExecutionContext context : instance.getAllContexts()) {
+                    log.debug("\tInvalidate context '" + context.getContextName() + "' for " + container.getId());
                     totalContexts++;
                     if (networkOK) {
                         long startTime = System.currentTimeMillis();
@@ -151,6 +154,7 @@ public class InvalidateJob extends DataSourceJob
                             }
                             invalidateResults.add(new ContextInvalidateResult(result, null));
                         } catch (Exception e) {
+                            log.debug("\tFailed: " + e.getMessage());
                             invalidateResults.add(new ContextInvalidateResult(DBCExecutionContext.InvalidateResult.ERROR, e));
                         } finally {
                             timeSpent += (System.currentTimeMillis() - startTime);
@@ -186,7 +190,7 @@ public class InvalidateJob extends DataSourceJob
                     if (showErrors) {
                         DBeaverNotifications.showNotification(
                             dataSource,
-                            DBeaverNotifications.NT_RECONNECT,
+                            DBeaverNotifications.NT_RECONNECT_FAILURE,
                             "Datasource invalidate failed",
                             DBPMessageType.ERROR,
                             feedback);
@@ -194,7 +198,7 @@ public class InvalidateJob extends DataSourceJob
                 } else {
                     DBeaverNotifications.showNotification(
                         dataSource,
-                        DBeaverNotifications.NT_RECONNECT,
+                        DBeaverNotifications.NT_RECONNECT_SUCCESS,
                         "Datasource was invalidated\n\n" +
                             "Live connection count: " + goodContextsNumber + "/" + totalContexts,
                         DBPMessageType.INFORMATION);

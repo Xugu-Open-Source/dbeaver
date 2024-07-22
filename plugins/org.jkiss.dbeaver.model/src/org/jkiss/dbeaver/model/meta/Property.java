@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,12 +43,21 @@ public @interface Property
 
     /**
      * Property human readable name
+     *
      * @return name
      */
     String name() default DEFAULT_LOCAL_STRING;
 
     /**
+     * Property name which used on serialization
+     *
+     * @return name
+     */
+    String keyName() default DEFAULT_LOCAL_STRING;
+
+    /**
      * Property category (optional). A human readable string
+     *
      * @return category
      */
     String category() default ""; //NON-NLS-1
@@ -124,9 +133,21 @@ public @interface Property
      */
     boolean password() default false;
 
+    /**
+     * Does not show the field in the connection window of CB when this property is true.
+     */
+    boolean nonSecuredProperty() default false;
+
     int order() default Integer.MAX_VALUE;
 
     String helpContextId() default ""; //NON-NLS-1
+
+    /**
+     * Features list as a string with comma delimiter .
+     *
+     * @return the string
+     */
+    String[] features() default {};
 
     /**
      * Can be used to format numbers and date/time property values

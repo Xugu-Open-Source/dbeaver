@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,11 @@
 package org.jkiss.dbeaver.ui.editors.object.struct;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.PlatformUI;
 import org.jkiss.dbeaver.DBException;
@@ -31,6 +33,7 @@ import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
 import org.jkiss.dbeaver.model.virtual.DBVEntity;
 import org.jkiss.dbeaver.model.virtual.DBVUtils;
 import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.ui.editors.internal.EditorsMessages;
 import org.jkiss.utils.CommonUtils;
 
 import java.lang.reflect.InvocationTargetException;
@@ -78,8 +81,13 @@ public class EditDictionaryPage extends AttributesSelectorPage {
     @Override
     protected void createContentsBeforeColumns(Composite panel)
     {
-        Label label = UIUtils.createControlLabel(panel,
-            "Choose dictionary description columns or set custom criteria");
+        Link label = UIUtils.createLink(panel, EditorsMessages.dialog_struct_edit_dictionary_tip, new SelectionAdapter() {
+            @Override
+            public void widgetSelected(SelectionEvent e) {
+                // FIXME: Cannot use constant due to circular dependency.
+                UIUtils.showPreferencesFor(null, null, /*PrefPageDataViewer.PAGE_ID*/ "org.jkiss.dbeaver.preferences.main.dataviewer");
+            }
+        });
         GridData gd = new GridData(GridData.FILL_HORIZONTAL);
         gd.horizontalSpan = 2;
         label.setLayoutData(gd);
@@ -90,11 +98,12 @@ public class EditDictionaryPage extends AttributesSelectorPage {
     {
         Composite group = UIUtils.createComposite(panel, 1);
         group.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-        UIUtils.createControlLabel(group, "Custom criteria");
+        UIUtils.createControlLabel(group, EditorsMessages.dialog_struct_edit_dictionary_custom_criteria);
         criteriaText = new Text(group, SWT.BORDER | SWT.MULTI | SWT.V_SCROLL | SWT.WRAP);
         GridData gd = new GridData(GridData.FILL_BOTH);
         gd.heightHint = 50;
         criteriaText.setLayoutData(gd);
+        criteriaText.setToolTipText(EditorsMessages.dialog_struct_edit_dictionary_custom_criteria_tip);
         if (!CommonUtils.isEmpty(dictionary.getDescriptionColumnNames())) {
             criteriaText.setText(dictionary.getDescriptionColumnNames());
         }
@@ -103,8 +112,9 @@ public class EditDictionaryPage extends AttributesSelectorPage {
         settingsPanel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
         columnDividerText = UIUtils.createLabelText(
             settingsPanel,
-            "Column divider",
+            EditorsMessages.dialog_struct_edit_dictionary_column_delimiter,
             entity.getDataSource().getContainer().getPreferenceStore().getString(ModelPreferences.DICTIONARY_COLUMN_DIVIDER));
+        columnDividerText.setToolTipText(EditorsMessages.dialog_struct_edit_dictionary_column_delimiter_tip);
     }
 
     @Override

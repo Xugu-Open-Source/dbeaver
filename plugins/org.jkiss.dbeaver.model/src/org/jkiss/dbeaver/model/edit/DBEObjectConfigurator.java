@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,14 @@ package org.jkiss.dbeaver.model.edit;
 import org.jkiss.dbeaver.model.DBPObject;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 
+import java.util.Map;
+
 /**
  * Object configurator.
  * May perform UI interactions.
  */
 public interface DBEObjectConfigurator<OBJECT_TYPE extends DBPObject> {
 
-    OBJECT_TYPE configureObject(DBRProgressMonitor monitor, Object container, OBJECT_TYPE object);
+    OBJECT_TYPE configureObject(DBRProgressMonitor monitor, Object container, OBJECT_TYPE object, Map<String, Object> options);
 
 }

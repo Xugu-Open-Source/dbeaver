@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,11 @@
 
 package org.jkiss.dbeaver.model.data;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCResultSet;
 import org.jkiss.dbeaver.model.exec.DBCSession;
+import org.jkiss.dbeaver.model.exec.DBCStatistics;
 
 /**
  * Data receiver.
@@ -49,4 +51,9 @@ public interface DBDDataReceiver extends AutoCloseable {
      */
     void close();
 
+    // FIXME: we should keep in variable or do not keep it at all (use separate interface)
+    @NotNull
+    default DBCStatistics getStatistics() {
+        return new DBCStatistics();
+    }
 }

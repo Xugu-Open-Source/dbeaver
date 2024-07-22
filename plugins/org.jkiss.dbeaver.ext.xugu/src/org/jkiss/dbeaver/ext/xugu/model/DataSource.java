@@ -23,49 +23,47 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.xugu.Constants;
 import org.jkiss.dbeaver.model.*;
-import org.jkiss.dbeaver.model.app.DBPDataSourceRegistry;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
 import org.jkiss.dbeaver.model.exec.*;
 import org.jkiss.dbeaver.model.exec.jdbc.*;
+import org.jkiss.dbeaver.model.exec.output.DBCOutputWriter;
+import org.jkiss.dbeaver.model.exec.output.DBCServerOutputReader;
 import org.jkiss.dbeaver.model.impl.AsyncServerOutputReader;
 import org.jkiss.dbeaver.model.impl.jdbc.*;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectCache;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCStructLookupCache;
 import org.jkiss.dbeaver.model.impl.jdbc.exec.JDBCStatementImpl;
+import org.jkiss.dbeaver.model.impl.sql.QueryTransformerLimit;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLConstants;
-import org.jkiss.dbeaver.model.sql.SQLQueryResult;
 import org.jkiss.dbeaver.model.sql.SQLState;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.*;
-import org.jkiss.dbeaver.registry.DataSourceDescriptor;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.BeanUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.StandardConstants;
 
-import cn.hutool.core.util.EscapeUtil;
-
 import org.jkiss.dbeaver.model.exec.plan.DBCPlan;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlanStyle;
 import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlanner;
 import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlannerConfiguration;
-import org.jkiss.dbeaver.ext.xugu.model.DataSource.SchedulerJobCache;
 import org.jkiss.dbeaver.ext.xugu.model.Schema.SynonymCache;
 import org.jkiss.dbeaver.ext.xugu.model.plan.PlanAnalyser;
 import org.jkiss.dbeaver.ext.xugu.Utils;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.io.StringReader;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -83,13 +81,10 @@ import java.util.regex.Pattern;
  */
 public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdaptable, javax.sql.DataSource {
 	private static final Log log = Log.getLog(DataSource.class);
-	
-	
-	
+
 	private static final String DBA = "DBA";
 	private static final String SYSDBA = "SYSDBA";
 	private static final String M = "M";
-	
 
 	public enum UserLoginRole {
 		/**
@@ -109,11 +104,12 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	private JDBCSession metaSession;
 	private JDBCSession utilSession;
 
+	final public Schema publicSchema;
 	final public SchemaCache schemaCache = new SchemaCache();
 	final public DatabaseCache databaseCache = new DatabaseCache();
 	final DataTypeCache dataTypeCache = new DataTypeCache();
 	final public SchedulerJobCache schedulerJobCache = new SchedulerJobCache();
-	final public SynonymCache synonymCache = new SynonymCache();
+	final public SynonymCache publicSynonymCache = new SynonymCache();
 
 	private final TablespaceCache tablespaceCache = new TablespaceCache();
 	final public UserCache userCache = new UserCache();
@@ -122,7 +118,6 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	private static final ExecutorService THREAD_POOL_EXECUTOR = Executors.newCachedThreadPool();
 
 	private OutputReader outputReader;
-	private Schema publicSchema;
 	private String activeSchemaName;
 	private boolean isAdmin;
 	private boolean isAdminVisible;
@@ -137,11 +132,11 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	private List<Charset> charsets;
 
 	private final Map<String, Boolean> availableViews = new HashMap<>();
-	
-	private String  roleString;
-	private String 	userString;
+
+	private String roleString;
+	private String userString;
 	private Driver driver;
-	
+
 	public DataSource(DBRProgressMonitor monitor, DBPDataSourceContainer container) throws DBException {
 		super(monitor, container, new SqlDialect());
 		DBPConnectionConfiguration config = container.getConnectionConfiguration();
@@ -159,13 +154,15 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		} else {
 			this.roleFlag = UserRoleFlag.ALL.name();
 		}
+		publicSchema = new Schema(this, -1, Constants.USER_PUBLIC);
+		publicSchema.setPersisted(true);
 		this.outputReader = new OutputReader();
 	}
-	
+
 	@Override
 	public Object getDataSourceFeature(String featureId) {
 		switch (featureId) {
-        case DBPDataSource.FEATURE_MAX_STRING_LENGTH:
+		case DBPDataSource.FEATURE_MAX_STRING_LENGTH:
 			return 4000;
 		default:
 			return super.getDataSourceFeature(featureId);
@@ -176,7 +173,8 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		if (database == null) {
 			try {
 				DBPConnectionConfiguration config = this.getContainer().getConnectionConfiguration();
-				this.database = this.databaseCache.getObject(new LoggingProgressMonitor(), this, config.getDatabaseName());
+				this.database = this.databaseCache.getObject(new LoggingProgressMonitor(), this,
+						config.getDatabaseName());
 			} catch (DBException e) {
 				throw new RuntimeException(e);
 			}
@@ -199,21 +197,20 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		// 校验用户权限
 		try {
 			Statement statement = connection.createStatement();
-			String sqlString  = "select user_id,role_id,authority "
-					+ "from dba_role_members m,dba_acls a "
+			String sqlString = "select user_id,role_id,authority " + "from dba_role_members m,dba_acls a "
 					+ "where m.role_id=a.grantee_id and  m.user_id=current_userid "
 					+ "union select db_id,grantee_id,authority "
 					+ "from dba_acls where db_id=current_db_id and grantee_id=current_userid";
-			if(DBA.equals(roleString)) {
-			  statement.executeQuery(sqlString);
+			if (DBA.equals(roleString)) {
+				statement.executeQuery(sqlString);
 			}
-			if(SYSDBA.equals(roleString)) {
+			if (SYSDBA.equals(roleString)) {
 				statement.executeQuery(sqlString);
 			}
 		} catch (SQLException e) {
-			if(DBA.equals(roleString)) {
+			if (DBA.equals(roleString)) {
 				throw new DBCException("No DBA authority", e);
-			}else {
+			} else {
 				throw new DBCException("No SYSDBA authority", e);
 			}
 		}
@@ -224,35 +221,40 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		String enableConnectKeepAliveValue = "true";
 		String connectKeepAliveMillisecondsKey = "connect-keep-alive-milliseconds";
 		String connectKeepAliveMillisecondsValue = "5000";
-		
-		// 检测配置文件是否存在，若不存在，创建新的默认配置文件
-		if (!Files.exists(configPath)) {
-			try {
-				Files.createFile(configPath);
-				Properties defaultConfigProperties = new Properties();
-				try (OutputStream os = Files.newOutputStream(configPath)) {
-					defaultConfigProperties.setProperty(enableConnectKeepAliveKey, enableConnectKeepAliveValue);
-					defaultConfigProperties.setProperty(connectKeepAliveMillisecondsKey, connectKeepAliveMillisecondsValue);
-					defaultConfigProperties.store(os, null);
-					log.debug(OemConfig.OEM_NAME_EN + "配置文件默认配置保存成功：" + configPath.toAbsolutePath());
-				} catch (IOException e) {
-					throw new IllegalStateException(OemConfig.OEM_NAME_EN + "配置文件默认配置保存失败：" + configPath.toAbsolutePath(), e);
-				}
-			} catch (IOException e) {
-				throw new IllegalStateException(OemConfig.OEM_NAME_EN + "配置文件创建失败：" + configPath.toAbsolutePath(), e);
-			}
-		}
-		
-		// 从配置文件加载配置
+
 		Properties configProperties = new Properties();
-		try (InputStream is = Files.newInputStream(configPath)) {
-			configProperties.load(is);
-			log.debug(OemConfig.OEM_NAME_EN + "配置文件读取成功：" + configPath.toAbsolutePath());
-		} catch (IOException e) {
-			throw new IllegalStateException(OemConfig.OEM_NAME_EN + "配置文件读取失败：" + configPath.toAbsolutePath(), e);
+		configProperties.setProperty("enable-connect-keep-alive", "true");
+		configProperties.setProperty("connect-keep-alive-milliseconds", "5000");
+
+		// 从工作区的配置文件中获取值
+		try {
+			String propsText = DBWorkbench.getPlatform()
+					.getPluginConfigurationController(Constants.PLUGIN_ID)
+					.loadConfigurationFile(OemConfig.OEM_NAME_EN.toLowerCase() + ".properties");
+			if (propsText != null && propsText.length() > 0) {
+				// 不为空加载
+				configProperties.setProperty("enable-connect-keep-alive", "false");
+				configProperties.load(new StringReader(propsText));
+			} else {
+				// 为空写出
+				try (ByteArrayOutputStream baos = new ByteArrayOutputStream();) {
+					PrintWriter writer = new PrintWriter(new OutputStreamWriter(baos, "UTF-8"));
+					configProperties.store(writer, null);
+					writer.flush();
+					propsText = baos.toString("UTF-8");
+				}
+				DBWorkbench.getPlatform()
+						.getPluginConfigurationController(Constants.PLUGIN_ID)
+						.saveConfigurationFile(OemConfig.OEM_NAME_EN.toLowerCase() + ".properties", propsText);
+			}
+		} catch (DBException | IOException e) {
+			throw new DBCException("Can't locad xugu.properties config", e);
 		}
-		String enableConnectKeepAlive = configProperties.getProperty(enableConnectKeepAliveKey, enableConnectKeepAliveValue);
-		String connectKeepAliveMilliseconds = configProperties.getProperty(connectKeepAliveMillisecondsKey, connectKeepAliveMillisecondsValue);
+
+		String enableConnectKeepAlive = configProperties.getProperty(enableConnectKeepAliveKey,
+				enableConnectKeepAliveValue);
+		String connectKeepAliveMilliseconds = configProperties.getProperty(connectKeepAliveMillisecondsKey,
+				connectKeepAliveMillisecondsValue);
 		if (Boolean.parseBoolean(enableConnectKeepAlive)) {
 			// 创建连接保活线程
 			long keepAliveTime = Long.parseLong(connectKeepAliveMilliseconds);
@@ -388,8 +390,8 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	}
 
 	@Association
-	public Collection<PublicSynonym> getPublicSynonyms(DBRProgressMonitor monitor) throws DBException {
-		return synonymCache.getAllObjects(monitor, this);
+	public Collection<Synonym> getPublicSynonyms(DBRProgressMonitor monitor) throws DBException {
+		return publicSynonymCache.getAllObjects(monitor, publicSchema);
 	}
 
 	@Override
@@ -428,7 +430,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			this.roleCache.clearCache();
 		}
 		this.schedulerJobCache.clearCache();
-		this.synonymCache.clearCache();
+		this.publicSynonymCache.clearCache();
 
 		this.initialize(monitor);
 		return this;
@@ -557,7 +559,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	@NotNull
 	@Override
 	public DBPDataKind resolveDataKind(@NotNull String typeName, int valueType) {
-		if ((typeName.equals(Constants.TYPE_NAME_XML) || typeName.equals(Constants.TYPE_FQ_XML))) {
+		if (typeName.equals(Constants.TYPE_NAME_XML) || typeName.equals(Constants.TYPE_NAME_XMLTYPE)) {
 			return DBPDataKind.CONTENT;
 		}
 		DBPDataKind dataKind = DataType.getDataKind(typeName);
@@ -593,6 +595,9 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	@Nullable
 	@Override
 	public DBCQueryTransformer createQueryTransformer(@NotNull DBCQueryTransformType type) {
+		if (type == DBCQueryTransformType.RESULT_SET_LIMIT) {
+			return new QueryTransformerLimit();
+		}
 		return super.createQueryTransformer(type);
 	}
 
@@ -700,40 +705,46 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 		@SuppressWarnings("unchecked")
 		@Override
-		public void readServerOutput(@NotNull DBRProgressMonitor monitor, @NotNull DBCExecutionContext context, DBCExecutionResult executionResult, DBCStatement statement, @NotNull PrintWriter output) throws DBCException {
+		public void readServerOutput(@NotNull DBRProgressMonitor monitor, @NotNull DBCExecutionContext context,
+				DBCExecutionResult executionResult, DBCStatement statement, @NotNull DBCOutputWriter output)
+				throws DBCException {
 			try {
 				if (statement == null) {
 					if (executionResult != null) {
-			            dumpWarnings(output, executionResult.getWarnings());
-			        }
-	            } else {
-	            	Object originStatement = getOriginalStatement(statement);
-					Class<?> oemStatementClass =Class.forName(String.format("com.%s.cloudjdbc.Statement", OemConfig.OEM_NAME_EN_LOWER));
+						dumpWarnings(output, executionResult.getWarnings());
+					}
+				} else {
+					Object originStatement = getOriginalStatement(statement);
+					Class<?> oemStatementClass = Class
+							.forName(String.format("com.%s.cloudjdbc.Statement", OemConfig.OEM_NAME_EN_LOWER));
 					Method method = oemStatementClass.getMethod("getSqlsEffectCountVector");
 					Vector<Vector<Object>> messageVector = (Vector<Vector<Object>>) method.invoke(originStatement);
-					messageVector.forEach((messageColumnVector) -> {
-						Object object = messageColumnVector.get(1);
-						if (object instanceof String) {
-							String type = (String) object;
-							if (M.equalsIgnoreCase(type)) {
-								output.append((String) messageColumnVector.get(0));
-							}
-						}
-					});
 					
+					if (messageVector != null) {
+						messageVector.forEach((messageColumnVector) -> {
+							Object object = messageColumnVector.get(1);
+							if (object instanceof String) {
+								String type = (String) object;
+								if (M.equalsIgnoreCase(type)) {
+									output.println(null, (String) messageColumnVector.get(0));
+								}
+							}
+						});
+					}
+
 					Throwable[] statementWarnings = statement.getStatementWarnings();
-	                if (statementWarnings != null && statementWarnings.length > 0) {
-	                	output.println("---警告---");
-	                    dumpWarnings(output, Arrays.asList(statementWarnings));
-	                }
-	            }
-			} catch(ClassNotFoundException ignore) {
+					if (statementWarnings != null && statementWarnings.length > 0) {
+						output.println(null, "---警告---");
+						dumpWarnings(output, Arrays.asList(statementWarnings));
+					}
+				}
+			} catch (ClassNotFoundException ignore) {
 				// 忽略驱动未注入期间调用此方式产生的类未找到异常
 			} catch (Exception e) {
 				throw new DBCException("获取原始Statement失败", e);
 			}
 		}
-		
+
 		/**
 		 * 由于JDBCStatementImpl获取原始Statement方法为protect权限<br>
 		 * 因此使用反射调用方法获取原始Statement
@@ -749,7 +760,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			method.setAccessible(true);
 			Object returnObject = method.invoke((JDBCStatementImpl) dbcStatement);
 			method.setAccessible(accessible);
-			return   returnObject;
+			return returnObject;
 		}
 	}
 
@@ -838,7 +849,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 				schemasQuery.append(SQLUtils.quoteString(owner, name));
 			}
 			schemasQuery.append(" ORDER BY S.SCHEMA_ID ASC");
-			log.debug("schema message ：" + schemasQuery.toString()); 
+			log.debug("schema message ：" + schemasQuery.toString());
 
 			JDBCPreparedStatement dbStat = session.prepareStatement(schemasQuery.toString());
 
@@ -1005,7 +1016,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			return null;
 		}
 	}
-	
+
 	/**
 	 * 作业缓存
 	 */
@@ -1039,7 +1050,8 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		@Override
 		protected SchedulerJob fetchObject(@NotNull JDBCSession session, @NotNull DataSource owner,
 				@NotNull JDBCResultSet dbResult) throws SQLException, DBException {
-			return new SchedulerJob(session.getProgressMonitor(), (DataSource)session.getDataSource().getDataSource(), dbResult);
+			return new SchedulerJob(session.getProgressMonitor(), (DataSource) session.getDataSource().getDataSource(),
+					dbResult);
 		}
 
 		@Override
@@ -1050,50 +1062,6 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 		@Override
 		protected SchedulerJob fetchChild(JDBCSession session, DataSource owner, SchedulerJob parent,
-				JDBCResultSet dbResult) throws SQLException, DBException {
-			return null;
-		}
-	}
-
-	/**
-	 * 全局同义词缓存
-	 */
-	static class SynonymCache extends JDBCStructLookupCache<DataSource, PublicSynonym, PublicSynonym> {
-		public SynonymCache() {
-			super("SYNO_NAME");
-			setListOrderComparator(DBUtils.<PublicSynonym>nameComparator());
-		}
-
-		@Override
-		public JDBCStatement prepareLookupStatement(@NotNull JDBCSession session, @NotNull DataSource owner, PublicSynonym object, String objectName)
-				throws SQLException {
-			String roleFlag = owner.getRoleFlag();
-			StringBuilder sql = new StringBuilder();
-			sql.append("select s3.schema_name TARG_SC, s1.*  from ");
-			sql.append(roleFlag);
-			sql.append("_synonyms s1 left join ");
-			sql.append(roleFlag);
-			sql.append("_schemas s3  ON s3.schema_id=s1.targ_sche_id AND s3.db_id=current_db_id  ");
-			sql.append( " where s1.is_public = true ");
-			log.debug("" + OemConfig.OEM_NAME_EN + " public synonyms metadata: " + sql.toString());
-			JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
-			return dbStat;
-		}
-
-		@Override
-		protected PublicSynonym fetchObject(@NotNull JDBCSession session, @NotNull DataSource owner,
-				@NotNull JDBCResultSet resultSet) throws SQLException, DBException {
-			return new PublicSynonym(owner, resultSet);
-		}
-
-		@Override
-		protected JDBCStatement prepareChildrenStatement(JDBCSession session, DataSource owner, PublicSynonym forObject)
-				throws SQLException {
-			return null;
-		}
-
-		@Override
-		protected PublicSynonym fetchChild(JDBCSession session, DataSource owner, PublicSynonym parent,
 				JDBCResultSet dbResult) throws SQLException, DBException {
 			return null;
 		}
@@ -1141,8 +1109,8 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	 * @throws DBException 数据库异常
 	 */
 	@Association
-	public Collection<PublicSynonym> getSynonyms(DBRProgressMonitor monitor) throws DBException {
-		Collection<PublicSynonym> list = synonymCache.getAllObjects(monitor, this);
+	public Collection<Synonym> getSynonyms(DBRProgressMonitor monitor) throws DBException {
+		Collection<Synonym> list = publicSynonymCache.getAllObjects(monitor, publicSchema);
 		return list;
 	}
 

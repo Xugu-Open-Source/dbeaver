@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
  */
 package org.jkiss.dbeaver.ui.dialogs.connection;
 
+import org.eclipse.core.runtime.Assert;
+import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Composite;
 import org.jkiss.code.NotNull;
@@ -25,7 +27,6 @@ import org.jkiss.dbeaver.model.connection.DBPAuthModelDescriptor;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.impl.auth.AuthModelDatabaseNative;
 import org.jkiss.dbeaver.registry.DataSourceProviderRegistry;
-import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.utils.CommonUtils;
 
 /**
@@ -39,12 +40,24 @@ public abstract class ConnectionPageWithAuth extends ConnectionPageAbstract {
     private AuthModelSelector authModelSelector;
 
     protected void createAuthPanel(Composite parent, int hSpan) {
-        authModelSelector = new AuthModelSelector(parent, () -> getSite().updateButtons());
+        createAuthPanel(parent, hSpan, null);
+    }
+
+    protected void createAuthPanel(Composite parent, int hSpan, Runnable panelExtender) {
+        Assert.isLegal(isAuthEnabled());
+        authModelSelector = new AuthModelSelector(parent, () -> {
+            // Apply font on auth mode change
+            Dialog.applyDialogFont(authModelSelector);
+            if (panelExtender != null) {
+                panelExtender.run();
+            }
+        }, () -> getSite().updateButtons());
         authModelSelector.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
         ((GridData)authModelSelector.getLayoutData()).horizontalSpan = hSpan;
     }
 
     protected Composite getAuthPanelComposite() {
+        Assert.isLegal(isAuthEnabled());
         return authModelSelector.getAuthPanelComposite();
     }
 
@@ -52,19 +65,21 @@ public abstract class ConnectionPageWithAuth extends ConnectionPageAbstract {
     public void loadSettings() {
         super.loadSettings();
 
+        if (!isAuthEnabled()) {
+            return;
+        }
+
         DBPDataSourceContainer activeDataSource = getSite().getActiveDataSource();
 
-        DBPAuthModelDescriptor selectedAuthModel = null;
         DBPConnectionConfiguration configuration = activeDataSource.getConnectionConfiguration();
 
         if (site.isNew() && CommonUtils.isEmpty(configuration.getUserName())) {
             configuration.setUserName(activeDataSource.getDriver().getDefaultUser());
         }
 
-        String dsModelId = configuration.getAuthModelId();
-        if (dsModelId != null) {
-            selectedAuthModel = DBWorkbench.getPlatform().getDataSourceProviderRegistry().getAuthModel(dsModelId);
-        }
+        DBPAuthModelDescriptor selectedAuthModel = activeDataSource.getDriver().getDataSourceProvider().detectConnectionAuthModel(
+            activeDataSource.getDriver(), configuration);
+
         if (selectedAuthModel != null) {
             DBPAuthModelDescriptor amReplace = selectedAuthModel.getReplacedBy(activeDataSource.getDriver());
             if (amReplace != null) {
@@ -85,16 +100,26 @@ public abstract class ConnectionPageWithAuth extends ConnectionPageAbstract {
 
     @Override
     public void saveSettings(DBPDataSourceContainer dataSource) {
-        DBPAuthModelDescriptor selectedAuthModel = authModelSelector.getSelectedAuthModel();
-        dataSource.getConnectionConfiguration().setAuthModelId(
-            selectedAuthModel == null ? null : selectedAuthModel.getId());
-        authModelSelector.saveSettings(dataSource);
         super.saveSettings(dataSource);
+
+        if (!isAuthEnabled()) {
+            return;
+        }
+
+        if (authModelSelector != null) {
+            DBPAuthModelDescriptor selectedAuthModel = authModelSelector.getSelectedAuthModel();
+            dataSource.getConnectionConfiguration().setAuthModelId(
+                selectedAuthModel == null ? null : selectedAuthModel.getId());
+            authModelSelector.saveSettings(dataSource);
+        }
     }
 
     @Override
     public boolean isComplete() {
-        return authModelSelector.isComplete();
+        return !isAuthEnabled() || (authModelSelector != null && authModelSelector.isComplete());
     }
 
+    protected boolean isAuthEnabled() {
+        return true;
+    }
 }

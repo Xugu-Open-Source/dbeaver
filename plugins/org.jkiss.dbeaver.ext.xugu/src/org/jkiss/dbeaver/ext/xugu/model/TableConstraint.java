@@ -17,15 +17,22 @@
 package org.jkiss.dbeaver.ext.xugu.model;
 
 import org.jkiss.code.NotNull;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSEntityAttributeRef;
+import org.jkiss.dbeaver.model.struct.DBSEntityConstraint;
 import org.jkiss.dbeaver.model.struct.DBSEntityConstraintType;
+import org.jkiss.dbeaver.model.struct.DBSEntityReferrer;
 import org.jkiss.dbeaver.ext.xugu.Constants;
 
 import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 约束信息类，包含约束相关的基本信息
@@ -90,6 +97,24 @@ public class TableConstraint extends BaseTableConstraint {
 			}
 			this.sys = JDBCUtils.safeGetBoolean(dbResult, "IS_SYS");
 		}
+	}
+
+	public TableConstraint(DBRProgressMonitor monitor, Table table, TableConstraint source) throws DBException {
+		super(table, source);
+		this.searchCondition = source.getSearchCondition();
+		this.define = source.getDefine();
+		this.enable = source.isEnable();
+        if (source instanceof DBSEntityReferrer) {
+            List<? extends DBSEntityAttributeRef> columns = ((DBSEntityReferrer) source).getAttributeReferences(monitor);
+            if (columns != null) {
+                for (DBSEntityAttributeRef col : columns) {
+                    if (col.getAttribute() != null) {
+                        TableColumn ownCol = table.getAttribute(monitor, col.getAttribute().getName());
+                        this.addColumn(new TableConstraintColumn(this, ownCol, col.getAttribute().getOrdinalPosition()));
+                    }
+                }
+            }
+        }
 	}
 
 	@Property(viewable = true, editable = false, updatable = false, order = 3)

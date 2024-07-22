@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package org.jkiss.dbeaver.ui.editors.sql;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DataSourceVariableResolver;
-import org.jkiss.dbeaver.registry.DataSourceDescriptor;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.StandardConstants;
 
@@ -32,13 +31,18 @@ public class SQLNewScriptTemplateVariablesResolver extends DataSourceVariableRes
     public static final String VAR_USER = "user";
 
     public static final String[][] ALL_VARIABLES_INFO = ArrayUtils.concatArrays(
-        DataSourceDescriptor.CONNECT_VARIABLES,
+        DBPConnectionConfiguration.CONNECT_VARIABLES,
         new String[][]{
             {VAR_DATE, "current date"},
             {VAR_TIME, "current time"},
             {VAR_USER, "OS user name"},
         }
     );
+
+    @Override
+    public boolean isSecure() {
+        return false;
+    }
 
     public SQLNewScriptTemplateVariablesResolver(DBPDataSourceContainer dataSourceContainer, DBPConnectionConfiguration configuration) {
         super(dataSourceContainer, configuration);

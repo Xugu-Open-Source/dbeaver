@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.postgresql.PostgreUtils;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPQualifiedObject;
+import org.jkiss.dbeaver.model.DBPScriptObject;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCException;
@@ -30,14 +31,13 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
-import org.jkiss.dbeaver.model.meta.IPropertyCacheValidator;
-import org.jkiss.dbeaver.model.meta.LazyProperty;
-import org.jkiss.dbeaver.model.meta.Property;
-import org.jkiss.dbeaver.model.meta.PropertyGroup;
+import org.jkiss.dbeaver.model.impl.struct.RelationalObjectType;
+import org.jkiss.dbeaver.model.meta.*;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.DBSEntityType;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.DBSObjectType;
 import org.jkiss.dbeaver.model.struct.rdb.DBSSequence;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
 import org.jkiss.utils.CommonUtils;
@@ -109,7 +109,7 @@ public class PostgreSequence extends PostgreTableBase implements DBSSequence, DB
             this.incrementBy = incrementBy;
         }
 
-        @Property(viewable = true, editable = true, updatable = true, order = 24)
+        @Property(viewable = true, editable = true, updatable = true, order = 24, visibleIf = CacheAndCycleValidator.class)
         public long getCacheValue() {
             return cacheValue;
         }
@@ -118,7 +118,7 @@ public class PostgreSequence extends PostgreTableBase implements DBSSequence, DB
             this.cacheValue = cacheValue;
         }
 
-        @Property(viewable = true, editable = true, updatable = true, order = 25)
+        @Property(viewable = true, editable = true, updatable = true, order = 25, visibleIf = CacheAndCycleValidator.class)
         public boolean isCycled() {
             return isCycled;
         }
@@ -126,7 +126,12 @@ public class PostgreSequence extends PostgreTableBase implements DBSSequence, DB
         public void setCycled(boolean cycled) {
             isCycled = cycled;
         }
+
+        public void setLoaded(boolean loaded) {
+            this.loaded = loaded;
+        }
     }
+
     public static class AdditionalInfoValidator implements IPropertyCacheValidator<PostgreSequence> {
         @Override
         public boolean isPropertyCached(PostgreSequence object, Object propertyId)
@@ -157,7 +162,11 @@ public class PostgreSequence extends PostgreTableBase implements DBSSequence, DB
         }
     }
 
-    private void loadAdditionalInfo(DBRProgressMonitor monitor) {
+    protected AdditionalInfo getAdditionalInfo() {
+        return additionalInfo;
+    }
+
+    public void loadAdditionalInfo(DBRProgressMonitor monitor) {
         try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load sequence additional info")) {
             if (getDataSource().isServerVersionAtLeast(10, 0)) {
                 try (JDBCPreparedStatement dbSeqStat = session.prepareStatement(
@@ -223,6 +232,10 @@ public class PostgreSequence extends PostgreTableBase implements DBSSequence, DB
         return "SEQUENCE";
     }
 
+    public boolean supportsCacheAndCycle() {
+        return true;
+    }
+
     ///////////////////////////////////////////////////////////////////////
     // Entity
 
@@ -255,31 +268,11 @@ public class PostgreSequence extends PostgreTableBase implements DBSSequence, DB
 
     @Override
     public String getObjectDefinitionText(DBRProgressMonitor monitor, Map<String, Object> options) throws DBException {
-        AdditionalInfo info = getAdditionalInfo(monitor);
         StringBuilder sql = new StringBuilder()
             .append("-- DROP SEQUENCE ").append(getFullyQualifiedName(DBPEvaluationContext.DDL)).append(";\n\n")
             .append("CREATE SEQUENCE ").append(getFullyQualifiedName(DBPEvaluationContext.DDL));
 
-        if (info.getIncrementBy() > 0) {
-            sql.append("\n\tINCREMENT BY ").append(info.getIncrementBy());
-        }
-        if (info.getMinValue() > 0) {
-            sql.append("\n\tMINVALUE ").append(info.getMinValue());
-        } else {
-            sql.append("\n\tNO MINVALUE");
-        }
-        if (info.getMaxValue() > 0) {
-            sql.append("\n\tMAXVALUE ").append(info.getMaxValue());
-        } else {
-            sql.append("\n\tNO MAXVALUE");
-        }
-        if (info.getStartValue() > 0) {
-            sql.append("\n\tSTART ").append(info.getStartValue());
-        }
-        if (info.getCacheValue() > 0) {
-            sql.append("\n\tCACHE ").append(info.getCacheValue());
-            sql.append("\n\t").append(info.isCycled ? "" : "NO ").append("CYCLE");
-        }
+        getSequenceBody(monitor, sql, true);
         sql.append(';');
 
 		if (!CommonUtils.isEmpty(getDescription())) {
@@ -297,8 +290,62 @@ public class PostgreSequence extends PostgreTableBase implements DBSSequence, DB
         return sql.toString();
     }
 
+    /**
+     * Adds sequence body parts - only parameters - into the StringBuilder
+     *
+     * @param monitor to read additional info about sequence
+     * @param sql StringBuilder to append query parts
+     * @param hasIndentation add or not add tabulation and new line in the result
+     * @throws DBCException can happen during the additional info reading
+     */
+    public void getSequenceBody(@NotNull DBRProgressMonitor monitor, @NotNull StringBuilder sql, boolean hasIndentation)
+        throws DBCException {
+        AdditionalInfo info = getAdditionalInfo(monitor);
+        if (info.getIncrementBy() > 0) {
+            addIndentation(sql, hasIndentation);
+            sql.append("INCREMENT BY ").append(info.getIncrementBy());
+        }
+        if (info.getMinValue() >= 0) {
+            addIndentation(sql, hasIndentation);
+            sql.append("MINVALUE ").append(info.getMinValue());
+        } else {
+            addIndentation(sql, hasIndentation);
+            sql.append("NO MINVALUE");
+        }
+        if (info.getMaxValue() > 0) {
+            addIndentation(sql, hasIndentation);
+            sql.append("MAXVALUE ").append(info.getMaxValue());
+        } else {
+            addIndentation(sql, hasIndentation);
+            sql.append("NO MAXVALUE");
+        }
+        if (info.getStartValue() >= 0) {
+            addIndentation(sql, hasIndentation);
+            sql.append("START ").append(info.getStartValue());
+        }
+        if (info.getCacheValue() > 0) {
+            addIndentation(sql, hasIndentation);
+            sql.append("CACHE ").append(info.getCacheValue());
+        }
+        addIndentation(sql, hasIndentation);
+        sql.append(info.isCycled() ? "" : "NO ").append("CYCLE");
+    }
+
+    private void addIndentation(@NotNull StringBuilder sql, boolean hasIndentation) {
+        if (hasIndentation) {
+            sql.append("\n\t");
+        } else {
+            sql.append(" ");
+        }
+    }
+
     public String generateChangeOwnerQuery(String owner) {
         return "ALTER SEQUENCE " + DBUtils.getObjectFullName(this, DBPEvaluationContext.DDL) + " OWNER TO " + owner;
+    }
+
+    @Override
+    public boolean supportsObjectDefinitionOption(String option) {
+        return DBPScriptObject.OPTION_INCLUDE_PERMISSIONS.equals(option) || DBPScriptObject.OPTION_INCLUDE_COMMENTS.equals(option);
     }
 
     @Override
@@ -306,4 +353,17 @@ public class PostgreSequence extends PostgreTableBase implements DBSSequence, DB
         additionalInfo.loaded = false;
         return super.refreshObject(monitor);
     }
+
+    @Override
+    public DBSObjectType getObjectType() {
+        return RelationalObjectType.TYPE_SEQUENCE;
+    }
+
+    public static class CacheAndCycleValidator implements IPropertyValueValidator<PostgreSequence, Object> {
+        @Override
+        public boolean isValidValue(PostgreSequence object, Object value) throws IllegalArgumentException {
+            return object.supportsCacheAndCycle();
+        }
+    }
+
 }

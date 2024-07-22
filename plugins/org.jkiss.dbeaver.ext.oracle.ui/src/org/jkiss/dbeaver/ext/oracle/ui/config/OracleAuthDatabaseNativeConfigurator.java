@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,10 +21,12 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Label;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.ext.oracle.model.OracleConstants;
 import org.jkiss.dbeaver.ext.oracle.model.dict.OracleConnectionRole;
 import org.jkiss.dbeaver.ext.oracle.ui.internal.OracleUIMessages;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.access.DBAAuthModel;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.dialogs.connection.DatabaseNativeAuthModelConfigurator;
 import org.jkiss.dbeaver.ui.internal.UIConnectionMessages;
@@ -41,7 +43,7 @@ public class OracleAuthDatabaseNativeConfigurator extends DatabaseNativeAuthMode
     private Combo userRoleCombo;
 
     @Override
-    public void createControl(Composite parent, Runnable propertyChangeListener) {
+    public void createControl(@NotNull Composite parent, DBAAuthModel<?> object, @NotNull Runnable propertyChangeListener) {
         Label usernameLabel = UIUtils.createLabel(parent, UIConnectionMessages.dialog_connection_auth_label_username);
         usernameLabel.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING));
 
@@ -65,7 +67,7 @@ public class OracleAuthDatabaseNativeConfigurator extends DatabaseNativeAuthMode
     }
 
     @Override
-    public void loadSettings(DBPDataSourceContainer dataSource) {
+    public void loadSettings(@NotNull DBPDataSourceContainer dataSource) {
         super.loadSettings(dataSource);
 
         String roleName = dataSource.getConnectionConfiguration().getAuthProperty(OracleConstants.PROP_AUTH_LOGON_AS);
@@ -78,7 +80,7 @@ public class OracleAuthDatabaseNativeConfigurator extends DatabaseNativeAuthMode
     }
 
     @Override
-    public void saveSettings(DBPDataSourceContainer dataSource) {
+    public void saveSettings(@NotNull DBPDataSourceContainer dataSource) {
         super.saveSettings(dataSource);
 
         if (userRoleCombo.getSelectionIndex() > 0) {
@@ -95,7 +97,7 @@ public class OracleAuthDatabaseNativeConfigurator extends DatabaseNativeAuthMode
     }
 
     @Override
-    public void resetSettings(DBPDataSourceContainer dataSource) {
+    public void resetSettings(@NotNull DBPDataSourceContainer dataSource) {
         super.resetSettings(dataSource);
     }
 

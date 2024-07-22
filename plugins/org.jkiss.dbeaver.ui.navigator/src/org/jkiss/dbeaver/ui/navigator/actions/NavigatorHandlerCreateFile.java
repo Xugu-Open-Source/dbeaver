@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,9 @@ import org.eclipse.core.resources.IResource;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.ui.handlers.HandlerUtil;
+import org.jkiss.dbeaver.model.app.DBPPlatformDesktop;
 import org.jkiss.dbeaver.model.app.DBPResourceCreator;
-import org.jkiss.dbeaver.model.app.DBPWorkspace;
+import org.jkiss.dbeaver.model.app.DBPWorkspaceDesktop;
 import org.jkiss.dbeaver.model.navigator.DBNResource;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 
@@ -41,10 +42,10 @@ public class NavigatorHandlerCreateFile extends NavigatorHandlerObjectBase {
                 return null;
             }
 
-            DBPWorkspace workspace = DBWorkbench.getPlatform().getWorkspace();
+            DBPWorkspaceDesktop workspace = DBPPlatformDesktop.getInstance().getWorkspace();
             IResource resource = ((DBNResource) element).getResource();
             DBPResourceCreator handler = (DBPResourceCreator) workspace.getResourceHandler(resource);
-            if (resource instanceof IFolder) {
+            if (resource instanceof IFolder && handler != null) {
                 try {
                     handler.createResource((IFolder) resource);
                 } catch (Exception e) {

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,7 +36,6 @@ public class DTMessages extends NLS {
 	public static String data_transfer_wizard_output_checkbox_split_files;
 	public static String data_transfer_wizard_output_checkbox_split_files_tip;
 	public static String data_transfer_wizard_output_checkbox_new_connection;
-	public static String data_transfer_wizard_output_checkbox_open_folder;
 	public static String data_transfer_wizard_output_checkbox_select_row_count;
 	public static String data_transfer_wizard_output_checkbox_selected_columns_only;
 	public static String data_transfer_wizard_output_checkbox_selected_rows_only;
@@ -48,6 +47,7 @@ public class DTMessages extends NLS {
 	public static String data_transfer_wizard_output_group_general;
 	public static String data_transfer_wizard_output_group_progress;
 	public static String data_transfer_wizard_output_label_copy_to_clipboard;
+	public static String data_transfer_wizard_output_label_global_settings;
 	public static String data_transfer_wizard_output_label_use_single_file;
 	public static String data_transfer_wizard_output_label_use_single_file_tip;
 	public static String data_transfer_wizard_output_label_directory;
@@ -59,12 +59,17 @@ public class DTMessages extends NLS {
 	public static String data_transfer_wizard_output_label_insert_bom_tooltip;
 	public static String data_transfer_wizard_output_label_max_threads;
 	public static String data_transfer_wizard_output_label_segment_size;
+	public static String data_transfer_wizard_output_label_add_to_end_of_file;
+	public static String data_transfer_wizard_output_label_add_to_end_of_file_tip;
 	public static String data_transfer_wizard_output_error_empty_output_directory;
 	public static String data_transfer_wizard_output_error_empty_output_filename;
-	public static String data_transfer_wizard_output_error_empty_finish_command;
 	public static String data_transfer_wizard_output_error_invalid_charset;
+	public static String data_transfer_wizard_output_event_processor_configure;
+	public static String data_transfer_wizard_output_event_processor_configure_title;
+	public static String data_transfer_wizard_output_event_processor_error_incomplete_configuration;
 	public static String data_transfer_wizard_output_name;
 	public static String data_transfer_wizard_output_title;
+	public static String data_transfer_wizard_output_export_to_external_storage_link;
 	public static String data_transfer_wizard_settings_binaries_item_inline;
 	public static String data_transfer_wizard_settings_binaries_item_save_to_file;
 	public static String data_transfer_wizard_settings_binaries_item_set_to_null;
@@ -106,6 +111,8 @@ public class DTMessages extends NLS {
 	public static String data_transfer_db_consumer_existing_table_description;
 	public static String data_transfer_db_consumer_new_table;
 	public static String data_transfer_db_consumer_new_table_description;
+    public static String data_transfer_db_consumer_button_configure;
+    public static String data_transfer_db_consumer_button_configure_description;
 	public static String data_transfer_db_consumer_column_mappings;
 	public static String data_transfer_db_consumer_column_mappings_description;
 	public static String data_transfer_db_consumer_ddl;
@@ -129,6 +136,7 @@ public class DTMessages extends NLS {
 	public static String database_consumer_settings_option_multi_insert_batch;
 	public static String database_consumer_settings_option_skip_bind_values;
 	public static String database_consumer_settings_option_disable_batches;
+	public static String database_consumer_settings_option_ignore_duplicate_rows;
 	public static String database_consumer_settings_option_on_duplicate_key_method_label;
 	public static String database_consumer_settings_option_transfer_auto_generated_columns;
 	public static String database_consumer_settings_option_disable_referential_integrity;
@@ -156,6 +164,24 @@ public class DTMessages extends NLS {
 	public static String data_transfer_task_handler_unexpected_error_message;
 	public static String data_transfer_task_handler_resoring_referential_integrity_unexpected_error_title;
 	public static String data_transfer_task_handler_resoring_referential_integrity_unexpected_error_message;
+
+    public static String data_transfer_file_conflict_confirm_override_title;
+    public static String data_transfer_file_conflict_confirm_override_message;
+    public static String data_transfer_blob_file_conflict_title;
+    public static String data_transfer_file_conflict_ask_title;
+    public static String data_transfer_file_conflict_ask_message;
+    public static String data_transfer_file_conflict_ask;
+    public static String data_transfer_file_conflict_cancel;
+    public static String data_transfer_file_conflict_override;
+    public static String data_transfer_file_conflict_fix_name;
+    public static String data_transfer_file_conflict_append;
+    public static String data_transfer_file_name_conflict_behavior_setting_text;
+    public static String data_transfer_file_conflict_behavior_setting;
+    public static String data_transfer_blob_file_conflict_behavior_setting;
+    public static String data_transfer_file_conflict_behavior_apply_to_all;
+    public static String data_transfer_file_conflict_behavior_apply_to_all_for_current_object;
+
+	public static String data_transfer_summary_title;
 
 	static {
 		// initialize resource bundle

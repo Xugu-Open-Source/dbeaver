@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,15 +19,12 @@ package org.jkiss.dbeaver.erd.ui.action;
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
-import org.eclipse.gef3.commands.Command;
-import org.eclipse.gef3.commands.CompoundCommand;
-import org.eclipse.gef3.ui.actions.DeleteAction;
-import org.eclipse.jface.dialogs.IDialogConstants;
+import org.eclipse.gef.commands.Command;
+import org.eclipse.gef.commands.CompoundCommand;
+import org.eclipse.gef.ui.actions.DeleteAction;
 import org.eclipse.swt.widgets.Control;
-import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.ISources;
 import org.eclipse.ui.IWorkbenchPart;
-import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.commands.IElementUpdater;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.eclipse.ui.menus.UIElement;
@@ -38,10 +35,8 @@ import org.jkiss.dbeaver.model.navigator.DBNNode;
 import org.jkiss.dbeaver.model.navigator.DBNUtils;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
-import org.jkiss.dbeaver.ui.DBeaverIcons;
-import org.jkiss.dbeaver.ui.UIIcon;
-import org.jkiss.dbeaver.ui.navigator.dialogs.ConfirmNavigatorNodesDeleteDialog;
-import org.jkiss.dbeaver.utils.RuntimeUtils;
+import org.jkiss.dbeaver.ui.dialogs.Reply;
+import org.jkiss.dbeaver.ui.navigator.dialogs.NavigatorNodesDeletionConfirmations;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -80,11 +75,11 @@ public class ERDHandlerDelete extends AbstractHandler implements IElementUpdater
                             }
                         }
                     }
-                    if (!selectedNodes.isEmpty() && ConfirmNavigatorNodesDeleteDialog.of(
+                    if (!selectedNodes.isEmpty() && NavigatorNodesDeletionConfirmations.confirm(
                         HandlerUtil.getActiveShell(event),
                         selectedNodes,
                         null
-                    ).open() != IDialogConstants.YES_ID) {
+                    ) != Reply.YES) {
                         return null;
                     }
                     deleteAction.run();
@@ -96,7 +91,9 @@ public class ERDHandlerDelete extends AbstractHandler implements IElementUpdater
 
     @Override
     public void updateElement(UIElement element, Map parameters) {
-        IWorkbenchWindow workbenchWindow = element.getServiceLocator().getService(IWorkbenchWindow.class);
+        // We can add this custom text and image to the element, yes, but, unfortunately,
+        // we do not have a default deleteHandler for this element to return it back to the default state with the default name and icon
+        /*IWorkbenchWindow workbenchWindow = element.getServiceLocator().getService(IWorkbenchWindow.class);
         if (workbenchWindow == null || workbenchWindow.getActivePage() == null) {
             return;
         }
@@ -107,13 +104,13 @@ public class ERDHandlerDelete extends AbstractHandler implements IElementUpdater
         ERDEditorPart editor = RuntimeUtils.getObjectAdapter(activeEditor, ERDEditorPart.class);
         if (editor != null) {
             if (editor.getDiagram().isEditEnabled()) {
-                element.setText("Delete object(s)");
+                element.setText(ERDUIMessages.erd_action_delete_text);
                 element.setIcon(DBeaverIcons.getImageDescriptor(UIIcon.DELETE));
             } else {
-                element.setText("Remove from diagram");
+                element.setText(ERDUIMessages.erd_action_remove_text);
                 element.setIcon(DBeaverIcons.getImageDescriptor(UIIcon.OBJ_REMOVE));
             }
-        }
+        }*/
 
     }
 

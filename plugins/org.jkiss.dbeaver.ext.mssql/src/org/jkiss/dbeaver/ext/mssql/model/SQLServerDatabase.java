@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,9 +35,11 @@ import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.meta.PropertyLength;
 import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectFilter;
 import org.jkiss.dbeaver.model.struct.rdb.DBSCatalog;
+import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.LongKeyMap;
 
@@ -70,10 +72,15 @@ public class SQLServerDatabase
 
     private Long databaseTotalSize;
 
-    SQLServerDatabase(JDBCSession session, SQLServerDataSource dataSource, JDBCResultSet resultSet) {
+    SQLServerDatabase(
+        @NotNull JDBCSession session,
+        @NotNull SQLServerDataSource dataSource,
+        @NotNull JDBCResultSet resultSet,
+        @NotNull String name
+    ) {
         this.dataSource = dataSource;
         this.databaseId = JDBCUtils.safeGetLong(resultSet, "database_id");
-        this.name = JDBCUtils.safeGetString(resultSet, "name");
+        this.name = name;
         //this.description = JDBCUtils.safeGetString(resultSet, "description");
 
         this.persisted = true;
@@ -145,7 +152,9 @@ public class SQLServerDatabase
 
     @Override
     public boolean isSystem() {
-        return name.equals("msdb");
+        SQLServerDatabase defaultDatabase = dataSource.getDefaultDatabase(new VoidProgressMonitor());
+        return ArrayUtils.contains(SQLServerConstants.SYSTEM_DATABASES, name)
+            && !CommonUtils.equalObjects(this, defaultDatabase);
     }
 
     public DataTypeCache getDataTypesCache() {
@@ -233,11 +242,17 @@ public class SQLServerDatabase
         @NotNull
         @Override
         protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull SQLServerDatabase database) throws SQLException {
-            return session.prepareStatement(
-                    "SELECT ss.*, tt.type_table_object_id FROM " + SQLServerUtils.getSystemTableName(database, "types") +
-                            " ss\nLEFT JOIN " + SQLServerUtils.getSystemTableName(database, "table_types") + " tt ON\n" +
-                            "ss.name = tt.name" +
-                            " WHERE ss.is_user_defined = 1");
+            String statement;
+            if (database.getDataSource().isSynapseDatabase()) {
+                // sys.table_types is supported only for SQL Server and Azure SQL Database, not for Azure Synapse.
+                statement = "SELECT * FROM " + SQLServerUtils.getSystemTableName(database, "types") + " WHERE is_user_defined = 1";
+            } else {
+                statement = "SELECT ss.*, tt.type_table_object_id FROM " + SQLServerUtils.getSystemTableName(database, "types") +
+                    " ss\nLEFT JOIN " + SQLServerUtils.getSystemTableName(database, "table_types") + " tt ON\n" +
+                    "ss.name = tt.name AND ss.user_type_id = tt.user_type_id" +
+                    "\nWHERE ss.is_user_defined = 1";
+            }
+            return session.prepareStatement(statement);
         }
 
         @Override
@@ -355,7 +370,13 @@ public class SQLServerDatabase
             if (!showAllSchemas) {
                 sql.append("DISTINCT ");
             }
-            sql.append("s.*,ep.value as description FROM ").append(sysSchema).append(".schemas s");
+            sql.append("s.*,ep.value as description FROM ");
+            if (SQLServerUtils.isDriverBabelfish(dataSource.getContainer().getDriver())) {
+                sql.append("(SELECT CAST(ext.orig_name AS sysname) AS name, base.oid AS schema_id, base.nspowner AS principal_id FROM pg_namespace base JOIN babelfish_namespace_ext ext ON base.nspname = ext.nspname JOIN babelfish_sysdatabases dbs ON dbs.dbid = ext.dbid WHERE dbs.name = '" + DBUtils.getQuotedIdentifier(dataSource, owner.getName()) + "') AS s");
+            }
+            else {
+                sql.append(sysSchema).append(".schemas s");
+            }
             sql.append("\nLEFT OUTER JOIN ").append(SQLServerUtils.getExtendedPropsTableName(owner)).append(" ep ON ep.class=").append(SQLServerObjectClass.SCHEMA.getClassId())
                 .append(" AND ep.major_id=s.schema_id AND ep.minor_id=0 AND ep.name='").append(SQLServerConstants.PROP_MS_DESCRIPTION).append("'");
             if (!showAllSchemas) {
@@ -369,7 +390,7 @@ public class SQLServerDatabase
             final DBSObjectFilter schemaFilters = dataSource.getContainer().getObjectFilter(SQLServerSchema.class, owner, false);
             if (schemaFilters != null && schemaFilters.isEnabled()) {
                 sql.append("\n");
-                JDBCUtils.appendFilterClause(sql, schemaFilters, "s.name", true);
+                JDBCUtils.appendFilterClause(sql, schemaFilters, "s.name", true, owner.getDataSource());
             }
 
             JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());

@@ -29,6 +29,10 @@ import java.util.ResourceBundle;
  * 插件常量类
  */
 public class Constants {
+	
+	
+	public static final String PLUGIN_ID = "org.jkiss.dbeaver.ext.xugu";
+	
 	public static final String CMD_COMPILE = "org.jkiss.dbeaver.ext.xugu.code.compile";
 	/**
 	 * 连接类型枚举
@@ -45,6 +49,25 @@ public class Constants {
 		 */
 		CUSTOM
 	}
+	
+	/**
+	 * 驱动中的类
+	 * 驱动的 com.xugu.cloudjdbc.Connection#getObject
+	 */
+	public static final String XUGU_DBOBJECT_CLASS = "com.xugu.util.DBobject";
+	public static final String XUGU_PATH_CLASS=  "class com.xugu.geometric.DBpath";
+	public static final String XUGU_POLYGON_CLASS=  "class com.xugu.geometric.DBpolygon";
+	public static final String XUGU_LINE_CLASS=  "class com.xugu.geometric.DBline";
+	public static final String XUGU_LSEG_CLASS=  "class com.xugu.geometric.DBlseg";
+	public static final String XUGU_BOX_CLASS=  "class com.xugu.geometric.DBbox";
+	public static final String XUGU_BOX2D_CLASS=  "class com.xugugis.cloudjdbc.DBbox2d";
+	public static final String XUGU_BOX3D_CLASS=  "class com.xugugis.cloudjdbc.DBbox3d";
+	public static final String XUGU_POINT_CLASS=  "class com.xugu.geometric.DBpoint";
+	public static final String XUGU_GEOGRAPHY_CLASS=  "class com.xugugis.cloudjdbc.DBgeography";
+	public static final String XUGU_CIRCLE_CLASS=  "class com.xugu.geometric.DBcircle";
+	public static final String XUGU_GEOMETRY_CLASS=  "class com.xugugis.cloudjdbc.DBgeometry";
+
+	
 
 	public static final int DEFAULT_PORT = 5138;
 	public static final String DEFAULT_HOST = "localhost";
@@ -84,10 +107,15 @@ public class Constants {
 	public static final String OS_AUTH_PROP = null;
 	public static final String USER_PUBLIC = "GUEST";
 
-	public static final String TYPE_NAME_XML = "XMLTYPE";
-	public static final String TYPE_FQ_XML = "SYS.XMLTYPE";
+
+	public static final String TYPE_NAME_JSON = "JSON";
+	public static final String TYPE_NAME_XML = "XML";
+	public static final String TYPE_NAME_XMLTYPE = "XMLTYPE";
 	public static final String TYPE_NAME_BFILE = "BFILE";
 	public static final String TYPE_NAME_TIMESTAMP = "TIMESTAMP";
+	public static final String TYPE_NAME_GEOMETRY = "GEOMETRY";
+	public static final String TYPE_NAME_BIT = "BIT";
+	public static final String TYPE_NAME_VARBIT = "VARBIT";
 
 	public static final DBSIndexType INDEX_TYPE_BTREE = new DBSIndexType("0", "BTree");
 	public static final DBSIndexType INDEX_TYPE_RTREE = new DBSIndexType("1", "RTree");

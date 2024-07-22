@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,9 +23,7 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.postgresql.PostgreConstants;
 import org.jkiss.dbeaver.ext.postgresql.PostgreUtils;
 import org.jkiss.dbeaver.model.*;
-import org.jkiss.dbeaver.model.exec.DBCException;
-import org.jkiss.dbeaver.model.exec.DBCFeatureNotSupportedException;
-import org.jkiss.dbeaver.model.exec.DBCLogicalOperator;
+import org.jkiss.dbeaver.model.exec.*;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
@@ -50,8 +48,9 @@ import java.util.*;
 /**
  * PostgreTypeType
  */
-public class PostgreDataType extends JDBCDataType<PostgreSchema> implements PostgreClass, PostgreScriptObject, DBPQualifiedObject, DBPImageProvider
-{
+public class PostgreDataType extends JDBCDataType<PostgreSchema> 
+    implements PostgreClass, PostgreScriptObject, DBPQualifiedObject, DBPImageProvider, DBSBindableDataType {
+
     private static final Log log = Log.getLog(PostgreDataType.class);
 
     //private static final String CAT_MAIN = "Main";
@@ -71,6 +70,11 @@ public class PostgreDataType extends JDBCDataType<PostgreSchema> implements Post
         "regconfig",
         "regdictionary",
         "regrole",
+    };
+
+    private static final String[] VECTOR_TYPES = {
+        "int2vector",
+        "oidvector"
     };
 
     private final boolean alias;
@@ -104,7 +108,7 @@ public class PostgreDataType extends JDBCDataType<PostgreSchema> implements Post
     private long collationId;
     private String defaultValue;
     private String canonicalName;
-    private String constraintText;
+    private List<String> constraintsText;
     private String description;
     private boolean extraDataType;
 
@@ -244,7 +248,7 @@ public class PostgreDataType extends JDBCDataType<PostgreSchema> implements Post
     }
 
     @ForTest
-    PostgreDataType(PostgreSchema schema, int valueType, String name) {
+    public PostgreDataType(PostgreSchema schema, int valueType, String name) {
         super(schema, valueType, name, null, false, false, -1, -1, -1);
         alias = false;
         ownerId = 0;
@@ -263,6 +267,24 @@ public class PostgreDataType extends JDBCDataType<PostgreSchema> implements Post
                 }
             }
         }
+    }
+
+    @Nullable
+    String getConditionTypeCasting(boolean isInCondition, boolean castColumnName) {
+        final String typeName = getTypeName();
+        if (isInCondition && typeCategory == PostgreTypeCategory.E) {
+            return "::text";
+        }
+        if (isInCondition && (PostgreConstants.TYPE_JSON.equals(typeName) || PostgreConstants.TYPE_XML.equals(typeName))) {
+            // Convert value in text for json or xml columns in where condition
+            // This strange case only for tables without keys
+            return "::text";
+        }
+        if (!castColumnName && (ArrayUtils.contains(PostgreDataType.getOidTypes(), typeName) || getTypeID() == Types.OTHER)) {
+            // Cast special dataTypes and use full names for user defined types
+            return "::" + getFullyQualifiedName(DBPEvaluationContext.DDL);
+        }
+        return null;
     }
 
     public boolean isAlias() {
@@ -349,6 +371,11 @@ public class PostgreDataType extends JDBCDataType<PostgreSchema> implements Post
     @Override
     public Object geTypeExtension() {
         return typeCategory;
+    }
+    
+    @Override
+    public boolean isStructurallyConsistentTypeWith(@NotNull DBCAttributeMetaData metaData) {
+        return super.isStructurallyConsistentTypeWith(metaData) || typeCategory == PostgreTypeCategory.E;
     }
 
     @Override
@@ -464,24 +491,26 @@ public class PostgreDataType extends JDBCDataType<PostgreSchema> implements Post
         return null;
     }
 
-    @Property(category = CAT_MODIFIERS)
-    public String getConstraint(DBRProgressMonitor monitor) throws DBException {
+    @Property(name = "Constraints", length = PropertyLength.MULTILINE)
+    public List<String> getConstraintsDefinition(DBRProgressMonitor monitor) throws DBException {
         if (typeType != PostgreTypeType.d) {
             return null;
         }
-        if (constraintText != null) {
-            return constraintText;
+        if (constraintsText != null) {
+            return constraintsText;
         }
         try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Read domain constraint value")) {
             try {
-            this.constraintText = JDBCUtils.queryString(
-                session,
-                "SELECT pg_catalog.pg_get_constraintdef((SELECT oid FROM pg_catalog.pg_constraint WHERE contypid = " + getObjectId() + "), true)");
+                this.constraintsText = JDBCUtils.queryStrings(
+                    session, 
+                    "SELECT concat(c.conname, ' ', pg_catalog.pg_get_constraintdef(oid, true))\r\n"
+                    + "FROM pg_catalog.pg_constraint c\r\n"
+                    + "WHERE contypid = " + getObjectId());
             } catch (SQLException e) {
                 throw new DBCException("Error reading domain constraint value", e, session.getExecutionContext());
             }
         }
-        return this.constraintText;
+        return this.constraintsText;
     }
 
     @Property(category = CAT_ARRAY)
@@ -512,6 +541,25 @@ public class PostgreDataType extends JDBCDataType<PostgreSchema> implements Post
     @Override
     public DBSEntityType getEntityType() {
         return DBSEntityType.TYPE;
+    }
+
+    @Nullable
+    @Override
+    public List<? extends DBSContextBoundAttribute> bindAttributesToContext(
+        @NotNull DBRProgressMonitor monitor,
+        @NotNull DBSEntity dataContainer,
+        @NotNull DBSEntityAttribute memberContext
+    ) throws DBException {
+        List<PostgreDataTypeAttribute> attrs = this.getAttributes(monitor);
+        if (attrs == null) {
+            return null;
+        }
+    
+        List<PostgreDataBoundTypeAttribute> boundAttrs = new ArrayList<>(attrs.size());
+        for (PostgreDataTypeAttribute attr : attrs) {
+            boundAttrs.add(new PostgreDataBoundTypeAttribute(monitor, (PostgreTableBase) dataContainer, memberContext, attr));
+        }
+        return boundAttrs;
     }
 
     @Override
@@ -561,6 +609,14 @@ public class PostgreDataType extends JDBCDataType<PostgreSchema> implements Post
                     DBCLogicalOperator.IS_NOT_NULL
                 };
             }
+        } else if (dataKind == DBPDataKind.OBJECT && (typeCategory == PostgreTypeCategory.G || typeCategory == PostgreTypeCategory.U)) {
+            List<DBCLogicalOperator> operators = new ArrayList<DBCLogicalOperator>();
+            if (attribute instanceof DBSAttributeBase && !((DBSAttributeBase) attribute).isRequired()) {
+                operators.add(DBCLogicalOperator.IS_NULL);
+                operators.add(DBCLogicalOperator.IS_NOT_NULL);
+            }
+            operators.add(DBCLogicalOperator.EQUALS);
+            return operators.toArray(new DBCLogicalOperator[0]);
         }
         return super.getSupportedOperators(attribute);
     }
@@ -587,7 +643,7 @@ public class PostgreDataType extends JDBCDataType<PostgreSchema> implements Post
     @Override
     public String getFullyQualifiedName(DBPEvaluationContext context) {
         final PostgreSchema owner = getParentObject();
-        if (owner == null || owner.getName().equals(PostgreConstants.PUBLIC_SCHEMA_NAME) || owner.getName().equals(PostgreConstants.CATALOG_SCHEMA_NAME)) {
+        if (owner == null || owner.getName().equals(PostgreConstants.CATALOG_SCHEMA_NAME)) {
             return getName();
         } else {
             return DBUtils.getQuotedIdentifier(owner) + "." + DBUtils.getQuotedIdentifier(this);
@@ -632,9 +688,11 @@ public class PostgreDataType extends JDBCDataType<PostgreSchema> implements Post
                 if (!CommonUtils.isEmpty(defaultValue)) {
                     sql.append("\n\tDEFAULT ").append(defaultValue); //$NON-NLS-1$
                 }
-                String constraint = getConstraint(monitor);
-                if (!CommonUtils.isEmpty(constraint)) {
-                    sql.append("\n\tCONSTRAINT ").append(constraint); //$NON-NLS-1$
+                List<String> constraints = getConstraintsDefinition(monitor);
+                for (String constraint : constraints) {
+                    if (!CommonUtils.isEmpty(constraint)) {
+                        sql.append("\n\tCONSTRAINT ").append(constraint); //$NON-NLS-1$
+                    }
                 }
 
                 sql.append(";"); //$NON-NLS-1$
@@ -833,7 +891,7 @@ public class PostgreDataType extends JDBCDataType<PostgreSchema> implements Post
         }
 
         int valueType;
-        if (ArrayUtils.contains(OID_TYPES, name) || name.equals(PostgreConstants.TYPE_HSTORE)) {
+        if (ArrayUtils.contains(OID_TYPES, name) || ArrayUtils.contains(VECTOR_TYPES, name) || name.equals(PostgreConstants.TYPE_HSTORE)) {
             valueType = Types.VARCHAR;
         } else {
             if (typeCategory == null) {
@@ -982,7 +1040,7 @@ public class PostgreDataType extends JDBCDataType<PostgreSchema> implements Post
                             case "bytea":
                                 valueType = Types.BINARY;
                                 break;
-                            case "xml":
+                            case PostgreConstants.TYPE_XML:
                                 valueType = Types.SQLXML;
                                 break;
                             case "int1":

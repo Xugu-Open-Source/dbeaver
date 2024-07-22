@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,37 +17,38 @@
 package org.jkiss.dbeaver.ext.oracle.ui.config;
 
 import org.eclipse.swt.widgets.Composite;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.ui.IObjectPropertyConfigurator;
 
 /**
  * Oracle OS auth model config
  */
-public class OracleAuthOSConfigurator implements IObjectPropertyConfigurator<DBPDataSourceContainer> {
+public class OracleAuthOSConfigurator implements IObjectPropertyConfigurator<Object, DBPDataSourceContainer> {
 
     @Override
-    public void createControl(Composite authPanel, Runnable propertyChangeListener) {
+    public void createControl(@NotNull Composite authPanel, Object object, @NotNull Runnable propertyChangeListener) {
         //OracleAuthDatabaseNativeConfigurator.createRoleCombo(authPanel);
     }
 
     @Override
-    public void loadSettings(DBPDataSourceContainer configuration) {
+    public void loadSettings(@NotNull DBPDataSourceContainer configuration) {
 
     }
 
     @Override
-    public void saveSettings(DBPDataSourceContainer configuration) {
+    public void saveSettings(@NotNull DBPDataSourceContainer configuration) {
 
     }
 
     @Override
-    public void resetSettings(DBPDataSourceContainer configuration) {
+    public void resetSettings(@NotNull DBPDataSourceContainer configuration) {
 
     }
 
     @Override
     public boolean isComplete() {
-        return false;
+        return true;
     }
 
 }

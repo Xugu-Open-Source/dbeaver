@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,6 +116,8 @@ public class PostgreDependency implements PostgreObject, DBPOverloadedObject, DB
             return "Attribute";
         } else if (objectType.startsWith("T")) {
             return "Trigger";
+        } else if (objectType.startsWith("S")) {
+            return "Sequence";
         }
         return objectType;
     }
@@ -181,6 +183,12 @@ public class PostgreDependency implements PostgreObject, DBPOverloadedObject, DB
                 return ((PostgreTable)tableBase).getTrigger(monitor, name);
             }
             return null;
+        } else if (objectType.startsWith("S")) {
+            if (tableBase != null) {
+                return tableBase.getSchema().getSequence(monitor, name);
+            } else {
+                return schema.getSequence(monitor, name);
+            }
         }
         return null;
     }
@@ -210,6 +218,8 @@ public class PostgreDependency implements PostgreObject, DBPOverloadedObject, DB
             return DBIcon.TREE_COLUMN;
         } else if (objectType.startsWith("T")) {
             return DBIcon.TREE_TRIGGER;
+        } else if (objectType.startsWith("S")) {
+            return DBIcon.TREE_SEQUENCE;
         }
         return DBIcon.TREE_REFERENCE;
     }
@@ -231,14 +241,14 @@ public class PostgreDependency implements PostgreObject, DBPOverloadedObject, DB
             String condObjId = dependents ? "refobjid" : "objid";
             try (JDBCPreparedStatement dbStat = session.prepareStatement(
                 "SELECT DISTINCT dep.deptype, dep.classid, dep." + queryObjId + ", cl.relkind, attr.attname,pg_get_expr(ad.adbin, ad.adrelid) adefval,\n" +
-                    "    CASE WHEN cl.relkind IS NOT NULL THEN cl.relkind || COALESCE(dep.objsubid::text, '')\n" +
+                    "    CASE WHEN cl.relkind IS NOT NULL THEN cl.relkind::text || COALESCE(dep.objsubid::text, '')::text\n" +
                     "        WHEN tg.oid IS NOT NULL THEN 'T'::text\n" +
                     "        WHEN ty.oid IS NOT NULL THEN 'y'::text\n" +
                     "        WHEN ns.oid IS NOT NULL THEN 'n'::text\n" +
                     "        WHEN pr.oid IS NOT NULL THEN 'p'::text\n" +
                     "        WHEN la.oid IS NOT NULL THEN 'l'::text\n" +
                     "        WHEN rw.oid IS NOT NULL THEN 'R'::text\n" +
-                    "        WHEN co.oid IS NOT NULL THEN 'C'::text || contype\n" +
+                    "        WHEN co.oid IS NOT NULL THEN 'C'::text || contype::text\n" +
                     "        WHEN ad.oid IS NOT NULL THEN 'A'::text\n" +
                     "        ELSE ''\n" +
                     "    END AS type,\n" +

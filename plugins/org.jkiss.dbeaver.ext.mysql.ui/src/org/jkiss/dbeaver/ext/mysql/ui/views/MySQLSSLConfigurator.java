@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Text;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.ext.mysql.MySQLConstants;
 import org.jkiss.dbeaver.ext.mysql.ui.internal.MySQLUIMessages;
 import org.jkiss.dbeaver.model.impl.net.SSLHandlerTrustStoreImpl;
@@ -41,7 +42,7 @@ public class MySQLSSLConfigurator extends SSLConfiguratorTrustStoreUI {
     private Text cipherSuitesText;
 
     @Override
-    public void createControl(Composite parent, Runnable propertyChangeListener) {
+    public void createControl(@NotNull Composite parent, Object object, @NotNull Runnable propertyChangeListener) {
         final Composite composite = new Composite(parent, SWT.NONE);
         composite.setLayout(new GridLayout(1, false));
         GridData gd = new GridData(GridData.FILL_BOTH);
@@ -70,7 +71,7 @@ public class MySQLSSLConfigurator extends SSLConfiguratorTrustStoreUI {
     }
 
     @Override
-    public void loadSettings(DBWHandlerConfiguration configuration) {
+    public void loadSettings(@NotNull DBWHandlerConfiguration configuration) {
         super.loadSettings(configuration);
 
         if (CommonUtils.isEmpty(configuration.getStringProperty(SSLHandlerTrustStoreImpl.PROP_SSL_METHOD))) {
@@ -88,7 +89,7 @@ public class MySQLSSLConfigurator extends SSLConfiguratorTrustStoreUI {
     }
 
     @Override
-    public void saveSettings(DBWHandlerConfiguration configuration) {
+    public void saveSettings(@NotNull DBWHandlerConfiguration configuration) {
         super.saveSettings(configuration);
 
         configuration.setProperty(MySQLConstants.PROP_REQUIRE_SSL, String.valueOf(requireSSQL.getSelection()));

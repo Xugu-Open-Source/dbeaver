@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,6 @@ package org.jkiss.dbeaver.model.exec;
 
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPDataSource;
-
-import java.sql.SQLException;
 
 /**
  * DBCException
@@ -58,29 +56,7 @@ public class DBCException extends DBException
     /**
      * Deprecated. Use constructor with execution context
      */
-    @Deprecated
-    public DBCException(SQLException ex, DBPDataSource dataSource)
-    {
-        super(ex, dataSource);
-    }
-
-    /**
-     * Deprecated. Use constructor with execution context
-     */
-    @Deprecated
-    public DBCException(Throwable cause, DBPDataSource dataSource)
-    {
-        super(cause, dataSource);
-        if (cause instanceof DBCException) {
-            this.executionContext = ((DBCException) cause).executionContext;
-        }
-    }
-
-    /**
-     * Deprecated. Use constructor with execution context
-     */
-    @Deprecated
-    public DBCException(String message, Throwable cause, DBPDataSource dataSource) {
+    protected DBCException(String message, Throwable cause, DBPDataSource dataSource) {
         super(message, cause, dataSource);
         if (cause instanceof DBCException) {
             this.executionContext = ((DBCException) cause).executionContext;

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.jkiss.dbeaver.registry.task;
 
 import org.eclipse.core.runtime.IConfigurationElement;
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPImage;
 import org.jkiss.dbeaver.model.DBPNamedObjectLocalized;
@@ -114,6 +115,11 @@ public class TaskTypeDescriptor extends DataSourceBindingDescriptor implements D
         return CommonUtils.toBoolean(config.getAttribute("supportsVariables"));
     }
 
+    @Override
+    public boolean supportsDistributedMode() {
+        return CommonUtils.getBoolean(config.getAttribute("supportsDistributedMode"), true);
+    }
+
     @NotNull
     @Override
     public DBTTaskHandler createHandler() throws DBException {
@@ -128,6 +134,17 @@ public class TaskTypeDescriptor extends DataSourceBindingDescriptor implements D
     @Override
     public boolean isObjectApplicable(Object object) {
         return object instanceof DBPObject && appliesTo((DBPObject) object);
+    }
+
+    @Override
+    public boolean isStandalone() {
+        return CommonUtils.getBoolean(config.getAttribute(RegistryConstants.ATTR_STANDALONE));
+    }
+
+    @Nullable
+    @Override
+    public String confirmationMessageIfNeeded() {
+        return CommonUtils.nullIfEmpty(config.getAttribute(RegistryConstants.ATTR_CONFIRMATION_MESSAGE));
     }
 
     public synchronized boolean matchesEntityElements() {

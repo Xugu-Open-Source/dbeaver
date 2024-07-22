@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,21 +31,18 @@ import org.jkiss.dbeaver.ui.DBeaverIcons;
  *
  * @author Serge Rider
  */
-public class DiagramLayoutAction extends Action
-{
-	private ERDEditorPart editor;
+public class DiagramLayoutAction extends Action {
+    private ERDEditorPart editor;
 
-	public DiagramLayoutAction(ERDEditorPart editor)
-	{
-		super(ERDUIMessages.action_diagram_layout_name, DBeaverIcons.getImageDescriptor(ERDIcon.ARRANGE_ALL));
-		this.editor = editor;
-	}
+    public DiagramLayoutAction(ERDEditorPart editor) {
+        super(ERDUIMessages.action_diagram_layout_name, DBeaverIcons.getImageDescriptor(ERDIcon.ARRANGE_ALL));
+        this.editor = editor;
+    }
 
-	@Override
-    public void run()
-	{
-        //editor.get
+    @Override
+    public void run() {
         editor.getDiagramPart().rearrangeDiagram();
-	}
+        editor.setDirty(true);
+    }
 
 }

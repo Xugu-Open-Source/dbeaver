@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 
 package org.jkiss.dbeaver.model.sql;
 
+import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Database;
 import net.sf.jsqlparser.schema.Table;
@@ -40,12 +41,14 @@ import org.jkiss.dbeaver.model.exec.DBCAttributeMetaData;
 import org.jkiss.dbeaver.model.exec.DBCEntityMetaData;
 import org.jkiss.dbeaver.model.sql.parser.SQLSemanticProcessor;
 import org.jkiss.utils.CommonUtils;
+import org.jkiss.utils.StandardConstants;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * SQLQuery
@@ -73,9 +76,11 @@ public class SQLQuery implements SQLScriptElement {
     @NotNull
     private SQLQueryType type;
     private Statement statement;
-    private SingleTableMeta singleTableMeta;
+    private SingleTableMeta singleTableMeta, rawSingleTableMetadata;
     private List<SQLSelectItem> selectItems;
     private String queryTitle;
+    private String extraErrorMessage;
+    private List<String> allSelectEntitiesNames = new ArrayList<>();
 
     public SQLQuery(@Nullable DBPDataSource dataSource, @NotNull String text) {
         this(dataSource, text, 0, text.length());
@@ -161,13 +166,16 @@ public class SQLQuery implements SQLScriptElement {
                             fillSingleSource((Table) fromItem);
                         }
                     }
+                    if (!CommonUtils.isEmpty(plainSelect.getJoins()) && fromItem instanceof Table) {
+                        createTargetName(plainSelect, (Table) fromItem);
+                    }
                     // Extract select items info
-                    final List<SelectItem> items = plainSelect.getSelectItems();
-                    if (items != null && !items.isEmpty()) {
-                        selectItems = new ArrayList<>();
-                        for (SelectItem item : items) {
-                            selectItems.add(new SQLSelectItem(this, item));
-                        }
+                    final List<SQLSelectItem> items = CommonUtils.safeList(plainSelect.getSelectItems()).stream()
+                        .filter(this::isValidSelectItem)
+                        .map(item -> new SQLSelectItem(this, item))
+                        .collect(Collectors.toList());
+                    if (!items.isEmpty()) {
+                        selectItems = items;
                     }
                 }
             } else if (statement instanceof Insert) {
@@ -207,6 +215,25 @@ public class SQLQuery implements SQLScriptElement {
         }
     }
 
+    private boolean isValidSelectItem(@NotNull SelectItem item) {
+        // Workaround for JSQLParser not respecting the `#` comment in MySQL and treating them as valid values
+        if (item instanceof SelectExpressionItem && dataSource != null) {
+            final Expression expr = ((SelectExpressionItem) item).getExpression();
+            if (expr instanceof Column) {
+                final String name = CommonUtils.trim(((Column) expr).getColumnName());
+                if (CommonUtils.isNotEmpty(name)) {
+                    for (String comment : dataSource.getSQLDialect().getSingleLineComments()) {
+                        if (name.startsWith(comment)) {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
     private boolean isPotentiallySingleSourceSelect(PlainSelect plainSelect) {
         return CommonUtils.isEmpty(plainSelect.getJoins()) &&
             (plainSelect.getGroupBy() == null || CommonUtils.isEmpty(plainSelect.getGroupBy().getGroupByExpressionList().getExpressions())) &&
@@ -214,18 +241,27 @@ public class SQLQuery implements SQLScriptElement {
     }
 
     private void fillSingleSource(Table fromItem) {
-        singleTableMeta = createTableMetaData(fromItem);
+        rawSingleTableMetadata = createOriginalSourceTableMetaData(fromItem);
+        singleTableMeta = createUnquotedTableMetaData(rawSingleTableMetadata);
     }
 
     SingleTableMeta createTableMetaData(Table fromItem) {
+        return createUnquotedTableMetaData(createOriginalSourceTableMetaData(fromItem));
+    }
+
+    private SingleTableMeta createOriginalSourceTableMetaData(Table fromItem) {
         Database database = fromItem.getDatabase();
         String catalogName = database == null ? null : database.getDatabaseName();
         String schemaName = fromItem.getSchemaName();
         String tableName = fromItem.getName();
+        return new SingleTableMeta(catalogName, schemaName, tableName);
+    }
+
+    private SingleTableMeta createUnquotedTableMetaData(SingleTableMeta tableMeta) {
         return new SingleTableMeta(
-            unquoteIdentifier(catalogName),
-            unquoteIdentifier(schemaName),
-            unquoteIdentifier(tableName));
+            unquoteIdentifier(tableMeta.getCatalogName()),
+            unquoteIdentifier(tableMeta.getSchemaName()),
+            unquoteIdentifier(tableMeta.getEntityName()));
     }
 
     private String unquoteIdentifier(String name) {
@@ -272,6 +308,47 @@ public class SQLQuery implements SQLScriptElement {
 
     public SQLSelectItem getSelectItem(int index) {
         return selectItems == null || selectItems.size() <= index ? null : selectItems.get(index);
+    }
+
+    public int getSelectItemAsteriskIndex() {
+        if (selectItems != null) {
+            for (int i = 0; i < selectItems.size(); i++) {
+                SQLSelectItem item = selectItems.get(i);
+                if (item.getName().contains("*")) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Sometime we want to know all source containers names from the query if it is Select statement and it has JOINs.
+     * For the data transfer target file name, as example.
+     * Contains only entities names without schema/catalog identifiers.
+     *
+     * @param plainSelect plain Select class
+     */
+    private void createTargetName(@NotNull PlainSelect plainSelect, @NotNull Table fromItem) {
+        String fromItemName = fromItem.getName();
+        if (CommonUtils.isNotEmpty(fromItemName)) {
+            allSelectEntitiesNames.add(fromItemName);
+        }
+        List<Join> joins = plainSelect.getJoins();
+        for (Join join : joins) {
+            FromItem rightItem = join.getRightItem();
+            if (rightItem instanceof Table) {
+                String name = ((Table) rightItem).getName();
+                if (CommonUtils.isNotEmpty(name)) {
+                    allSelectEntitiesNames.add(name);
+                }
+            }
+        }
+    }
+
+    @NotNull
+    public List<String> getAllSelectEntitiesNames() {
+        return allSelectEntitiesNames;
     }
 
     @NotNull
@@ -345,9 +422,9 @@ public class SQLQuery implements SQLScriptElement {
         return type;
     }
 
-    public DBCEntityMetaData getSingleSource() {
+    public DBCEntityMetaData getEntityMetadata(boolean raw) {
         parseQuery();
-        return singleTableMeta;
+        return raw? rawSingleTableMetadata : singleTableMeta;
     }
 
     public void setParameters(List<SQLQueryParameter> parameters) {
@@ -364,6 +441,18 @@ public class SQLQuery implements SQLScriptElement {
     @Override
     public String toString() {
         return text;
+    }
+
+    public String getExtraErrorMessage() {
+        return extraErrorMessage;
+    }
+
+    public void addExtraErrorMessage(String extraErrorMessage) {
+        if (CommonUtils.isEmpty(this.extraErrorMessage)) {
+            this.extraErrorMessage = extraErrorMessage;
+        } else {
+            this.extraErrorMessage = this.extraErrorMessage + System.getProperty(StandardConstants.ENV_LINE_SEPARATOR) + extraErrorMessage;
+        }
     }
 
     /**
@@ -397,6 +486,12 @@ public class SQLQuery implements SQLScriptElement {
             }
         }
         return false;
+    }
+
+    public boolean isDropTableDangerous() {
+        parseQuery();
+        return statement != null && statement instanceof Drop &&
+            ((Drop) statement).getName() != null && ((Drop) statement).getType().equalsIgnoreCase("table");
     }
 
     private static class SingleTableMeta implements DBCEntityMetaData {
@@ -459,8 +554,28 @@ public class SQLQuery implements SQLScriptElement {
         }
     }
 
+    public boolean isModifiyng() {
+        if (getType() == SQLQueryType.UNKNOWN) {
+            return false;
+        }
+        if (statement instanceof Select) {
+            SelectBody selectBody = ((Select) statement).getSelectBody();
+            if (selectBody instanceof PlainSelect) {
+                if (((PlainSelect) selectBody).isForUpdate() ||
+                    ((PlainSelect) selectBody).getIntoTables() != null)
+                {
+                    return true;
+                }
+            }
+            return false;
+        } else {
+            return true;
+        }
+    }
+
     @Override
     public boolean equals(Object obj) {
         return obj instanceof SQLQuery && text.equals(((SQLQuery) obj).text);
     }
+
 }

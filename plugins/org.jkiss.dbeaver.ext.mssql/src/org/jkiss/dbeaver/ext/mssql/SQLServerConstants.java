@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,9 +26,15 @@ public class SQLServerConstants {
     public static final int DEFAULT_PORT = 1433;
     public static final String DEFAULT_HOST = "localhost";
     public static final String DEFAULT_HOST_AZURE = ".database.windows.net";
-    public static final String DEFAULT_DATABASE = "master";
-    public static final String DEFAULT_DATABASE_AZURE = "master";
+    public static final String MASTER_DATABASE = "master";
     public static final String TEMPDB_DATABASE = "tempdb";
+
+    public static final String[] SYSTEM_DATABASES = {
+        "msdb",
+        "model",
+        MASTER_DATABASE,
+        TEMPDB_DATABASE
+    };
 
     public static final String PROVIDER_SQL_SERVER = "sqlserver";
     public static final String PROVIDER_GENERIC = "mssql";
@@ -46,6 +52,7 @@ public class SQLServerConstants {
     public static final String PROP_SSL_KEYSTORE_PASSWORD = "sslKeyStorePassword";
     public static final String PROP_SSL_KEYSTORE_HOSTNAME = "sslKeyStoreHostname";
     public static final String PROP_SSL_TRUST_SERVER_CERTIFICATE = "sslTrustServerCertificate";
+    public static final String PROP_DRIVER_TRUST_SERVER_CERTIFICATE = "trustServerCertificate";
 
     public static final boolean USE_GSS = false;
 
@@ -89,6 +96,7 @@ public class SQLServerConstants {
     public static final int TABLE_TYPE_SYSTEM_ID = 243;
 
     public static final String PROP_AUTHENTICATION = DBConstants.INTERNAL_PROP_PREFIX + "authentication@";
+    public static final String PROP_SHOW_ALL_DATABASES = "show-all-databases-azure";
     public static final String PROP_SHOW_ALL_SCHEMAS = DBConstants.INTERNAL_PROP_PREFIX + "show-all-schemas@";
     public static final String PROP_ENCRYPT_PASSWORD = DBConstants.INTERNAL_PROP_PREFIX + "encrypt-password@";
 

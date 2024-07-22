@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ import org.eclipse.jface.layout.GridDataFactory;
 import org.eclipse.jface.layout.GridLayoutFactory;
 import org.eclipse.jface.layout.LayoutConstants;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
@@ -29,11 +31,13 @@ import org.eclipse.swt.widgets.*;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBPImage;
+import org.jkiss.dbeaver.ui.ShellUtils;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 final class MessageBoxModern extends Dialog {
     @Nullable
@@ -45,6 +49,8 @@ final class MessageBoxModern extends Dialog {
     private int defaultAnswerIdx;
     @Nullable
     private DBPImage primaryImage;
+    @Nullable
+    private Consumer<? super Composite> customArea;
 
     @Nullable
     private List<Button> buttons;
@@ -71,6 +77,10 @@ final class MessageBoxModern extends Dialog {
 
     void setDefaultAnswerIdx(int defaultAnswerIdx) {
         this.defaultAnswerIdx = defaultAnswerIdx;
+    }
+    
+    void setCustomArea(Consumer<? super Composite> customArea) {
+        this.customArea = customArea;
     }
 
     // ----- jface.Dialog methods
@@ -112,9 +122,10 @@ final class MessageBoxModern extends Dialog {
             imageLabel.setLayoutData(gd);
         }
 
+        Composite content = UIUtils.createComposite(parent, 1);
+        content.setLayoutData(new GridData(GridData.FILL_BOTH));
+
         if (message != null) {
-            Label messageLabel = new Label(parent, SWT.WRAP);
-            messageLabel.setText(message);
             GridData gd = new GridData();
             gd.minimumWidth = 1;
             gd.minimumHeight = 1;
@@ -122,24 +133,35 @@ final class MessageBoxModern extends Dialog {
             gd.verticalAlignment = SWT.BEGINNING;
             gd.grabExcessHorizontalSpace = true;
             gd.widthHint = convertHorizontalDLUsToPixels(IDialogConstants.MINIMUM_MESSAGE_AREA_WIDTH);
-            messageLabel.setLayoutData(gd);
+
+            if (message.contains("</a>")) {
+                Link messageLink = new Link(content, SWT.WRAP);
+                messageLink.setText(message);
+                messageLink.setLayoutData(gd);
+                messageLink.addSelectionListener(new SelectionAdapter() {
+                    @Override
+                    public void widgetSelected(SelectionEvent e) {
+                        ShellUtils.launchProgram(e.text);
+                    }
+                });
+            } else {
+                Label messageLabel = new Label(content, SWT.WRAP);
+                messageLabel.setText(message);
+                messageLabel.setLayoutData(gd);
+            }
+        }
+
+        UIUtils.createEmptyLabel(content, 1, 1);
+        if (customArea != null) {
+            customArea.accept(content);
+            UIUtils.createEmptyLabel(content, 1, 1);
         }
 
         // create the top level composite for the dialog area
-        Composite composite = UIUtils.createComposite(parent,1);
+        Composite composite = UIUtils.createComposite(parent, 1);
         GridData data = new GridData(GridData.FILL_BOTH);
         data.horizontalSpan = 2;
         composite.setLayoutData(data);
-
-        /* TODO
-            Here the users of this class can add a custom area below the message. I believe that passing a
-            Function<? super Composite, ? extends Composite> through the builder is a good option. This is not implemented (for now).
-
-            Composite customArea = null;
-            //If custom area is null create a dummy label for spacing purposes
-         */
-        UIUtils.createEmptyLabel(composite, 2, 1);
-
         return composite;
     }
 

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -41,6 +41,7 @@ import org.eclipse.ui.IWorkbenchPartSite;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.MultiPageEditorSite;
 import org.eclipse.ui.progress.UIJob;
+import org.eclipse.ui.texteditor.IWorkbenchActionDefinitionIds;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.ProxyProgressMonitor;
@@ -82,6 +83,7 @@ public class ProgressPageControl extends Composite implements ISearchContextProv
     private ToolBarManager searchToolbarManager;
     private ToolBarManager customToolbarManager;
     private Composite customControlsComposite;
+    private Color defaultBackgroundColor;
 
     public ProgressPageControl(
         Composite parent,
@@ -99,7 +101,7 @@ public class ProgressPageControl extends Composite implements ISearchContextProv
         //layout.verticalSpacing = 0;
         this.setLayout(layout);
         addDisposeListener(e -> disposeControl());
-        searchNotFoundColor = new Color(getDisplay(), 255, 128, 128);
+        searchNotFoundColor = UIStyles.getDefaultWidgetBackground();
     }
 
     @Override
@@ -272,7 +274,7 @@ public class ProgressPageControl extends Composite implements ISearchContextProv
         if (searchControlsComposite == null || searchControlsComposite.isDisposed()) {
             return;
         }
-        this.setRedraw(false);
+        searchControlsComposite.getParent().setRedraw(false);
         try {
             // Delete all controls created in searchControlsComposite
             UIUtils.disposeChildControls(searchControlsComposite);
@@ -310,7 +312,7 @@ public class ProgressPageControl extends Composite implements ISearchContextProv
             searchControlsComposite.getParent().layout();
             //customControlsComposite.layout();
         } finally {
-            this.setRedraw(true);
+            searchControlsComposite.getParent().setRedraw(true);
         }
     }
 
@@ -387,6 +389,8 @@ public class ProgressPageControl extends Composite implements ISearchContextProv
                             cancelSearch(true);
                             break;
                         case SWT.CR:
+                            performSearch(SearchType.NEXT);
+                            /* fall-through */
                         case SWT.ARROW_UP:
                         case SWT.ARROW_DOWN:
                             if (childPageControl != null) {
@@ -419,20 +423,16 @@ public class ProgressPageControl extends Composite implements ISearchContextProv
             //ToolBar searchTools = new ToolBar(searchControlsComposite, SWT.HORIZONTAL);
             if (searchToolbarManager == null) {
                 searchToolbarManager = new ToolBarManager(SWT.FLAT | SWT.HORIZONTAL);
-                // Do not add prev/next buttons - they doesn't make sense now.
-                // Keep code just in case
-    /*
-                searchToolbarManager.add(ActionUtils.makeCommandContribution(
-                        PlatformUI.getWorkbench(),
-                        IWorkbenchActionDefinitionIds.FIND_NEXT,
-                        null,
-                        UIIcon.ARROW_DOWN));
                 searchToolbarManager.add(ActionUtils.makeCommandContribution(
                         PlatformUI.getWorkbench(),
                         IWorkbenchActionDefinitionIds.FIND_PREVIOUS,
                         null,
                         UIIcon.ARROW_UP));
-    */
+                searchToolbarManager.add(ActionUtils.makeCommandContribution(
+                        PlatformUI.getWorkbench(),
+                        IWorkbenchActionDefinitionIds.FIND_NEXT,
+                        null,
+                        UIIcon.ARROW_DOWN));
                 searchToolbarManager.add(new Action(UIMessages.controls_progress_page_action_close, UIUtils.getShardImageDescriptor(ISharedImages.IMG_ELCL_REMOVE)) {
                     @Override
                     public void run() {
@@ -441,7 +441,7 @@ public class ProgressPageControl extends Composite implements ISearchContextProv
                 });
             }
             searchToolbarManager.createControl(searchControlsComposite);
-
+            defaultBackgroundColor = searchText.getBackground();
             searchControlsComposite.getParent().layout();
         } finally {
             searchControlsComposite.getParent().setRedraw(true);
@@ -462,7 +462,6 @@ public class ProgressPageControl extends Composite implements ISearchContextProv
             customToolbarManager.dispose();
             customToolbarManager = null;
         }
-        UIUtils.dispose(searchNotFoundColor);
     }
 
     protected boolean cancelProgress()
@@ -493,8 +492,19 @@ public class ProgressPageControl extends Composite implements ISearchContextProv
     @Override
     public boolean performSearch(SearchType searchType)
     {
+        return performSearch(searchType, true);
+    }
+
+    /**
+     * Create search controls and perform search according to the searchType
+     * @param searchType is a type of search
+     * @param isSetFocusToSearchText defines if focus should be set to the search text area if searchType is {@link SearchType.NONE}
+     * @return operation success indicator
+     */
+    public boolean performSearch(SearchType searchType, boolean isSetFocusToSearchText)
+    {
         getProgressControl().createSearchControls();
-        if (searchType == SearchType.NONE) {
+        if (searchType == SearchType.NONE && isSetFocusToSearchText) {
             getProgressControl().searchText.setFocus();
         }
         if (!CommonUtils.isEmpty(getProgressControl().curSearchText)) {
@@ -505,7 +515,7 @@ public class ProgressPageControl extends Composite implements ISearchContextProv
                 options |= ISearchExecutor.SEARCH_NEXT;
             }
             boolean success = getSearchRunner().performSearch(getProgressControl().curSearchText, options);
-            getProgressControl().searchText.setBackground(success ? null : searchNotFoundColor);
+            getProgressControl().searchText.setBackground(success ? getProgressControl().defaultBackgroundColor : searchNotFoundColor);
             return success;
         } else {
             cancelSearch(false);
@@ -513,6 +523,7 @@ public class ProgressPageControl extends Composite implements ISearchContextProv
         }
     }
 
+    
     private void cancelSearch(boolean hide)
     {
         if (curSearchJob != null) {
@@ -527,7 +538,7 @@ public class ProgressPageControl extends Composite implements ISearchContextProv
         if (hide) {
             hideControls(true);
         } else {
-            getProgressControl().searchText.setBackground(null);
+            getProgressControl().searchText.setBackground(getProgressControl().defaultBackgroundColor);
         }
     }
 

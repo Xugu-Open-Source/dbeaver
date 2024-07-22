@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ public class TableCache extends JDBCStructLookupCache<GenericStructContainer, Ge
         this.dataSource = dataSource;
         this.tableObject = dataSource.getMetaObject(GenericConstants.OBJECT_TABLE);
         this.columnObject = dataSource.getMetaObject(GenericConstants.OBJECT_TABLE_COLUMN);
-        setListOrderComparator(DBUtils.<GenericTableBase>nameComparator());
+        setListOrderComparator(DBUtils.<GenericTableBase>nameComparatorIgnoreCase());
     }
 
     public GenericDataSource getDataSource()
@@ -86,7 +86,10 @@ public class TableCache extends JDBCStructLookupCache<GenericStructContainer, Ge
     protected GenericTableColumn fetchChild(@NotNull JDBCSession session, @NotNull GenericStructContainer owner, @NotNull GenericTableBase table, @NotNull JDBCResultSet dbResult)
         throws SQLException, DBException
     {
-        String columnName = GenericUtils.safeGetStringTrimmed(columnObject, dbResult, JDBCConstants.COLUMN_NAME);
+        boolean trimName = dataSource.getMetaModel().isTrimObjectNames();
+        String columnName = trimName ?
+            GenericUtils.safeGetStringTrimmed(columnObject, dbResult, JDBCConstants.COLUMN_NAME)
+            : GenericUtils.safeGetString(columnObject, dbResult, JDBCConstants.COLUMN_NAME);
         int valueType = GenericUtils.safeGetInt(columnObject, dbResult, JDBCConstants.DATA_TYPE);
         int sourceType = GenericUtils.safeGetInt(columnObject, dbResult, JDBCConstants.SOURCE_DATA_TYPE);
         String typeName = GenericUtils.safeGetStringTrimmed(columnObject, dbResult, JDBCConstants.TYPE_NAME);

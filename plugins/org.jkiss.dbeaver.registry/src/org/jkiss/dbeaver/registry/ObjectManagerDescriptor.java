@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ public class ObjectManagerDescriptor extends AbstractDescriptor
         return objectType;
     }
 
-    public boolean appliesToType(Class clazz)
+    public boolean appliesToType(Class<?> clazz)
     {
         return objectType.matchesType(clazz);
     }
@@ -73,7 +73,7 @@ public class ObjectManagerDescriptor extends AbstractDescriptor
             throw new IllegalStateException("Can't instantiate object manager '" + managerType.getImplName() + "'");
         }
         try {
-            managerInstance = clazz.newInstance();
+            managerInstance = clazz.getConstructor().newInstance();
         } catch (Throwable ex) {
             throw new IllegalStateException("Error instantiating object manager '" + clazz.getName() + "'", ex);
         }

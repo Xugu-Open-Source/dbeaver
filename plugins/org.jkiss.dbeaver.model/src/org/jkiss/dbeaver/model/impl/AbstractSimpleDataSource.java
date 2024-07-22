@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package org.jkiss.dbeaver.model.impl;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBPExclusiveResource;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
@@ -37,50 +36,17 @@ import java.util.List;
  * AbstractSimpleDataSource.
  * Data source which contains of single instance
  */
-public abstract class AbstractSimpleDataSource<EXEC_CONTEXT extends DBCExecutionContext> implements DBPDataSource, DBSInstance, DBSObjectContainer, DBSObject {
+public abstract class AbstractSimpleDataSource<EXEC_CONTEXT extends DBCExecutionContext>
+    extends AbstractDataSource
+    implements DBSInstance, DBSObjectContainer, DBSObject {
 
-    @NotNull
-    private final DBPDataSourceContainer container;
     protected EXEC_CONTEXT executionContext;
     @NotNull
     protected List<EXEC_CONTEXT> allContexts = new ArrayList<>();
     private final DBPExclusiveResource exclusiveLock = new SimpleExclusiveLock();
 
     public AbstractSimpleDataSource(@NotNull DBPDataSourceContainer container) {
-        this.container = container;
-    }
-
-    @NotNull
-    @Override
-    public DBPDataSourceContainer getContainer() {
-        return container;
-    }
-
-    @Override
-    public String getDescription() {
-        return null;
-    }
-
-    @NotNull
-    @Override
-    public DBPDataSource getDataSource() {
-        return this;
-    }
-
-    @Override
-    public DBSObject getParentObject() {
-        return container;
-    }
-
-    @NotNull
-    @Override
-    public String getName() {
-        return container.getName();
-    }
-
-    @Override
-    public boolean isPersisted() {
-        return true;
+        super(container);
     }
 
     @NotNull

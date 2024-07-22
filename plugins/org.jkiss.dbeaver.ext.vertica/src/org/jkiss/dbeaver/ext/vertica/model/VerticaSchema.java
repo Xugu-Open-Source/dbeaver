@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,9 @@ import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.utils.ArrayUtils;
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 /**
  * VerticaSchema
@@ -167,6 +169,16 @@ public class VerticaSchema extends GenericSchema implements DBPSystemObject, DBP
     }
 
     @Override
+    public synchronized DBSObject refreshObject(@NotNull DBRProgressMonitor monitor) throws DBException {
+        hasStatistics = false;
+        return super.refreshObject(monitor);
+    }
+
+    void resetStatistics() {
+        hasStatistics = false;
+    }
+
+    @Override
     public void collectObjectStatistics(DBRProgressMonitor monitor, boolean totalSizeOnly, boolean forceRefresh) throws DBException {
         try (DBCSession session = DBUtils.openMetaSession(monitor, this, "Read relation statistics")) {
             try (JDBCPreparedStatement dbStat = ((JDBCSession)session).prepareStatement(
@@ -206,15 +218,17 @@ public class VerticaSchema extends GenericSchema implements DBPSystemObject, DBP
         ProjectionCache()
         {
             super("projection_name");
-            setListOrderComparator(DBUtils.nameComparator());
+            setListOrderComparator(DBUtils.nameComparatorIgnoreCase());
         }
 
         @NotNull
         @Override
         public JDBCStatement prepareLookupStatement(@NotNull JDBCSession session, @NotNull VerticaSchema schema, @Nullable VerticaProjection object, @Nullable String objectName) throws SQLException {
+            boolean avoidCommentsReading = ((VerticaDataSource) schema.getDataSource()).avoidCommentsReading();
             final JDBCPreparedStatement dbStat = session.prepareStatement(
-                "SELECT p.*,c.comment FROM v_catalog.projections p\n" +
-                    "LEFT OUTER JOIN v_catalog.comments c ON c.object_type = 'PROJECTION' AND c.object_schema = p.projection_schema AND c.object_name = p.projection_name\n" +
+                "SELECT p.*" + (avoidCommentsReading ? "" : ",c.comment") + " FROM v_catalog.projections p\n" +
+                    (avoidCommentsReading ? "" : "LEFT OUTER JOIN v_catalog.comments c ON c.object_type = 'PROJECTION'\n" +
+                        "AND c.object_schema = p.projection_schema AND c.object_name = p.projection_name\n") +
                     "WHERE p.projection_schema=?" +
                     (object == null && objectName == null ? "" : " AND projection_name=?")
             );
@@ -234,8 +248,9 @@ public class VerticaSchema extends GenericSchema implements DBPSystemObject, DBP
         protected JDBCStatement prepareChildrenStatement(@NotNull JDBCSession session, @NotNull VerticaSchema owner, @Nullable VerticaProjection forTable)
             throws SQLException
         {
-            String sql = ("SELECT pc.*,c.comment FROM v_catalog.projection_columns pc\n" +
-                "LEFT OUTER JOIN v_catalog.comments c ON c.object_id = pc.column_id\n" +
+            boolean avoidCommentsReading = ((VerticaDataSource) owner.getDataSource()).avoidCommentsReading();
+            String sql = ("SELECT pc.*" + (avoidCommentsReading ? "" : ",c.comment") + " FROM v_catalog.projection_columns pc\n" +
+                (avoidCommentsReading ? "" : "LEFT OUTER JOIN v_catalog.comments c ON c.object_id = pc.column_id\n") +
                 "WHERE pc.projection_id=?\n" +
                 "ORDER BY pc.column_position");
 
@@ -258,7 +273,7 @@ public class VerticaSchema extends GenericSchema implements DBPSystemObject, DBP
         UDFCache()
         {
             super();
-            setListOrderComparator(DBUtils.nameComparator());
+            setListOrderComparator(DBUtils.nameComparatorIgnoreCase());
         }
 
         @NotNull

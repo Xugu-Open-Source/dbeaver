@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.postgresql.PostgreConstants;
 import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.DPIContainer;
+import org.jkiss.dbeaver.model.DPIElement;
 import org.jkiss.dbeaver.model.connection.DBPConnectionBootstrap;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContextDefaults;
@@ -45,28 +47,32 @@ import java.util.List;
  * PostgreExecutionContext
  */
 public class PostgreExecutionContext extends JDBCExecutionContext implements DBCExecutionContextDefaults<PostgreDatabase, PostgreSchema> {
-    private PostgreSchema activeSchema;
+
     private final List<String> searchPath = new ArrayList<>();
     private List<String> defaultSearchPath = new ArrayList<>();
     private String activeUser;
+    private long activeSchemaId;
     private boolean isolatedContext;
 
     public PostgreExecutionContext(@NotNull PostgreDatabase database, String purpose) {
         super(database, purpose);
     }
 
+    @DPIContainer
     @NotNull
     @Override
     public PostgreDataSource getDataSource() {
         return (PostgreDataSource) super.getDataSource();
     }
 
+    @DPIElement
     @Nullable
     @Override
     public PostgreExecutionContext getContextDefaults() {
         return this;
     }
 
+    @NotNull
     @Override
     public PostgreDatabase getDefaultCatalog() {
         return (PostgreDatabase) getOwnerInstance();
@@ -74,7 +80,7 @@ public class PostgreExecutionContext extends JDBCExecutionContext implements DBC
 
     @Override
     public PostgreSchema getDefaultSchema() {
-        return activeSchema;
+        return getDefaultCatalog().getSchema(activeSchemaId);
     }
 
     @Override
@@ -135,8 +141,7 @@ public class PostgreExecutionContext extends JDBCExecutionContext implements DBC
     }
 
     boolean changeDefaultSchema(DBRProgressMonitor monitor, PostgreSchema schema, boolean reflect, boolean force) throws DBCException {
-        PostgreSchema oldActiveSchema = this.activeSchema;
-        if (oldActiveSchema == schema && !force) {
+        if (activeSchemaId == schema.getObjectId() && !force) {
             return false;
         }
         if (schema.isExternal()) {
@@ -144,11 +149,14 @@ public class PostgreExecutionContext extends JDBCExecutionContext implements DBC
         }
 
         setSearchPath(monitor, schema);
-        this.activeSchema = schema;
         setSearchPath(schema.getName());
 
+        final PostgreSchema oldActiveSchema = getDefaultSchema();
+
+        this.activeSchemaId = schema.getObjectId();
+
         if (reflect) {
-            DBUtils.fireObjectSelectionChange(oldActiveSchema, activeSchema);
+            DBUtils.fireObjectSelectionChange(oldActiveSchema, schema);
         }
 
         return true;
@@ -156,6 +164,8 @@ public class PostgreExecutionContext extends JDBCExecutionContext implements DBC
 
     @Override
     public boolean refreshDefaults(DBRProgressMonitor monitor, boolean useBootstrapSettings) throws DBException {
+        this.activeSchemaId = 0;
+
         // Check default active schema
         try (JDBCSession session = openSession(monitor, DBCExecutionPurpose.META, "Read context defaults")) {
             try (JDBCPreparedStatement stat = session.prepareStatement("SELECT current_schema(),session_user")) {
@@ -165,7 +175,10 @@ public class PostgreExecutionContext extends JDBCExecutionContext implements DBC
                         if (!CommonUtils.isEmpty(activeSchemaName)) {
                             // Pre-cache schemas, we need them anyway
                             getDefaultCatalog().getSchemas(monitor);
-                            activeSchema = getDefaultCatalog().getSchema(monitor, activeSchemaName);
+                            final PostgreSchema activeSchema = getDefaultCatalog().getSchema(monitor, activeSchemaName);
+                            if (activeSchema != null) {
+                                activeSchemaId = activeSchema.getObjectId();
+                            }
                         }
                         activeUser = JDBCUtils.safeGetString(rs, 2);
                     }
@@ -181,11 +194,12 @@ public class PostgreExecutionContext extends JDBCExecutionContext implements DBC
                         this.searchPath.add(spSchema);
                     }
                 }
-                if (activeSchema == null) {
+                if (activeSchemaId == 0) {
                     // This may happen
                     for (String schemaName : searchPath) {
-                        activeSchema = getDefaultCatalog().getSchema(monitor, schemaName);
+                        final PostgreSchema activeSchema = getDefaultCatalog().getSchema(monitor, schemaName);
                         if (activeSchema != null) {
+                            activeSchemaId = activeSchema.getObjectId();
                             break;
                         }
                     }
@@ -206,7 +220,7 @@ public class PostgreExecutionContext extends JDBCExecutionContext implements DBC
                     setSearchPath(monitor, bsSchemaName);
                     PostgreSchema bsSchema = getDefaultCatalog().getSchema(monitor, bsSchemaName);
                     if (bsSchema != null) {
-                        activeSchema = bsSchema;
+                        activeSchemaId = bsSchema.getObjectId();
                     }
                 }
             }

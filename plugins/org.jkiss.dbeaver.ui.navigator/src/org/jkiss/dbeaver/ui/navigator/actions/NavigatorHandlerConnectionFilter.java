@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.jkiss.dbeaver.ui.navigator.actions;
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchPartSite;
 import org.eclipse.ui.commands.IElementUpdater;
@@ -28,6 +29,7 @@ import org.jkiss.dbeaver.ui.ActionUtils;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.ui.UIIcon;
 import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.ui.internal.UINavigatorMessages;
 import org.jkiss.dbeaver.ui.navigator.NavigatorCommands;
 import org.jkiss.dbeaver.ui.navigator.database.DatabaseNavigatorTree;
 import org.jkiss.dbeaver.ui.navigator.database.DatabaseNavigatorView;
@@ -38,9 +40,14 @@ public class NavigatorHandlerConnectionFilter extends AbstractHandler implements
 
     @Override
     public Object execute(ExecutionEvent event) throws ExecutionException {
-        IWorkbenchPart activePart = HandlerUtil.getActivePart(event);
-        if (activePart instanceof DatabaseNavigatorView) {
-            DatabaseNavigatorTree navigatorTree = ((DatabaseNavigatorView) activePart).getNavigatorTree();
+        DatabaseNavigatorTree navigatorTree = DatabaseNavigatorTree.getFromShell(HandlerUtil.getActiveShell(event));
+        if (navigatorTree == null) {
+            IWorkbenchPart activePart = HandlerUtil.getActivePart(event);
+            if (activePart instanceof DatabaseNavigatorView) {
+                navigatorTree = ((DatabaseNavigatorView) activePart).getNavigatorTree();
+            }
+        }
+        if (navigatorTree != null) {
             navigatorTree.setFilterShowConnected(!navigatorTree.isFilterShowConnected());
             navigatorTree.getViewer().getControl().setRedraw(false);
             try {
@@ -55,13 +62,20 @@ public class NavigatorHandlerConnectionFilter extends AbstractHandler implements
 
     @Override
     public void updateElement(UIElement element, Map parameters) {
-        IWorkbenchPartSite partSite = UIUtils.getWorkbenchPartSite(element.getServiceLocator());
-        if (partSite != null && partSite.getPart() instanceof DatabaseNavigatorView) {
-            DatabaseNavigatorTree navigatorTree = ((DatabaseNavigatorView) partSite.getPart()).getNavigatorTree();
+        DatabaseNavigatorTree navigatorTree = DatabaseNavigatorTree.getFromShell(Display.getCurrent());
+        if (navigatorTree == null) {
+            IWorkbenchPartSite partSite = UIUtils.getWorkbenchPartSite(element.getServiceLocator());
+            if (partSite != null && partSite.getPart() instanceof DatabaseNavigatorView) {
+                navigatorTree = ((DatabaseNavigatorView) partSite.getPart()).getNavigatorTree();
+            }
+        }
+        if (navigatorTree != null) {
             element.setIcon(DBeaverIcons.getImageDescriptor(
                 navigatorTree.isFilterShowConnected() ? UIIcon.FILTER_RESET : UIIcon.FILTER_APPLY
             ));
-            String actionName = navigatorTree.isFilterShowConnected() ? "Show all" : "Show connected only";
+            String actionName = navigatorTree.isFilterShowConnected()
+                ? UINavigatorMessages.navigator_handler_connections_filter_show_all_text
+                : UINavigatorMessages.navigator_handler_connections_filter_show_connected_text;
             element.setText(actionName);
             element.setTooltip(actionName);
         }

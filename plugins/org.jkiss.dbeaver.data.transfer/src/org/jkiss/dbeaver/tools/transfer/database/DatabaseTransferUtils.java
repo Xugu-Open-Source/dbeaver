@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.jkiss.dbeaver.tools.transfer.database;
 
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.*;
@@ -26,11 +27,17 @@ import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.edit.AbstractCommandContext;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
+import org.jkiss.dbeaver.model.navigator.DBNModel;
+import org.jkiss.dbeaver.model.navigator.DBNUtils;
+import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.dbeaver.model.struct.rdb.DBSCatalog;
 import org.jkiss.dbeaver.model.struct.rdb.DBSSchema;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.dbeaver.runtime.properties.ObjectPropertyDescriptor;
+import org.jkiss.dbeaver.runtime.properties.PropertySourceEditable;
 import org.jkiss.utils.BeanUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.Pair;
@@ -53,51 +60,127 @@ public class DatabaseTransferUtils {
     private static final Pair<DBPDataKind, String> DATA_TYPE_STRING = new Pair<>(DBPDataKind.STRING, "VARCHAR");
 
     public static void refreshDatabaseModel(DBRProgressMonitor monitor, DatabaseConsumerSettings consumerSettings, DatabaseMappingContainer containerMapping) throws DBException {
+        monitor.subTask("Refresh database model");
+        DBSObjectContainer container = consumerSettings.getContainer();
+        DBNModel navigatorModel = DBNUtils.getNavigatorModel(container);
+        if (navigatorModel != null) {
+            var containerNode = navigatorModel.getNodeByObject(monitor, container, false);
+            if (containerNode != null) {
+                containerNode.refreshNode(monitor, containerMapping);
+            }
+        } else if (container instanceof DBPRefreshableObject) {
+            ((DBPRefreshableObject) container).refreshObject(monitor);
+        }
+        refreshDatabaseMappings(monitor, consumerSettings, containerMapping, false);
+    }
+
+    public static void refreshDatabaseMappings(@NotNull DBRProgressMonitor monitor, @NotNull DatabaseConsumerSettings consumerSettings, @Nullable DatabaseMappingContainer containerMapping, boolean force) throws DBException {
         DBSObjectContainer container = consumerSettings.getContainer();
         if (container == null) {
-            throw new DBException("Null target container");
+            log.debug("Null target container");
         }
-        {
-            monitor.subTask("Refresh navigator model");
-            consumerSettings.getContainerNode().refreshNode(monitor, containerMapping);
+        if (containerMapping == null) {
+            log.debug("Null container mapping");
+            return;
         }
 
         // Reflect database changes in mappings
         {
+            monitor.subTask("Refresh database mappings");
+
+            boolean updateMappingTarget = false;
+            boolean updateMappingAttributes = false;
+
             switch (containerMapping.getMappingType()) {
                 case create:
-                    DBSObject newTarget = container.getChild(monitor, DBUtils.getUnQuotedIdentifier(container.getDataSource(), containerMapping.getTargetName()));
-                    if (newTarget == null) {
-                        throw new DBCException("New table " + containerMapping.getTargetName() + " not found in container " + DBUtils.getObjectFullName(container, DBPEvaluationContext.UI));
-                    } else if (!(newTarget instanceof DBSDataManipulator)) {
-                        throw new DBCException("New table " + DBUtils.getObjectFullName(newTarget, DBPEvaluationContext.UI) + " doesn't support data manipulation");
-                    }
-                    containerMapping.setTarget((DBSDataManipulator) newTarget);
-                    containerMapping.setMappingType(DatabaseMappingType.existing);
-                    // ! Fall down is ok here
+                case recreate:
+                    updateMappingTarget = true;
+                    updateMappingAttributes = true;
+                    break;
                 case existing:
-                    for (DatabaseMappingAttribute attr : containerMapping.getAttributeMappings(monitor)) {
-                        if (attr.getMappingType() == DatabaseMappingType.create) {
-                            attr.updateMappingType(monitor, false);
-                            if (attr.getTarget() == null) {
-                                log.debug("Can't find target attribute '" + attr.getTargetName() + "' in '" + containerMapping.getTargetName() + "'");
-                            }
+                    updateMappingTarget = false;
+                    updateMappingAttributes = true;
+                    break;
+                default:
+                    break;
+            }
+
+            if (updateMappingTarget || force) {
+                DBSObject newTarget = container.getChild(monitor, DBUtils.getUnQuotedIdentifier(container.getDataSource(), containerMapping.getTargetName()));
+                if (newTarget == null) {
+                    throw new DBCException("New table " + containerMapping.getTargetName() + " not found in container " + DBUtils.getObjectFullName(container, DBPEvaluationContext.UI));
+                } else if (!(newTarget instanceof DBSDataManipulator)) {
+                    throw new DBCException("New table " + DBUtils.getObjectFullName(newTarget, DBPEvaluationContext.UI) + " doesn't support data manipulation");
+                }
+                containerMapping.setTarget((DBSDataManipulator) newTarget);
+                if (containerMapping.getMappingType() == DatabaseMappingType.create) {
+                    containerMapping.setMappingType(DatabaseMappingType.existing);
+                }
+            }
+
+            if (updateMappingAttributes || force) {
+                for (DatabaseMappingAttribute attr : containerMapping.getAttributeMappings(monitor)) {
+                    if (attr.getMappingType() == DatabaseMappingType.create || (attr.getMappingType().isValid() && force)) {
+                        attr.updateMappingType(monitor, false, false);
+                        if (attr.getTarget() == null) {
+                            log.debug("Can't find target attribute '" + attr.getTargetName() + "' in '" + containerMapping.getTargetName() + "'");
                         }
                     }
-                    break;
+                }
             }
         }
     }
 
-    public static DBEPersistAction[] generateTargetTableDDL(DBRProgressMonitor monitor, DBCExecutionContext executionContext, DBSObjectContainer schema, DatabaseMappingContainer containerMapping) throws DBException {
+    /**
+     * Method generates array of actions for table creation for containers with correct mapping type.
+     * Has old code inside with the simple table creations.
+     *
+     * @param monitor progress monitor
+     * @param executionContext execution context for DDL generation
+     * @param schema table container
+     * @param containerMapping mapping container can not be null
+     * @param changedProperties list of properties what feature table must have
+     * @return array of persist actions table creation
+     * @throws DBException on any DB error
+     */
+    public static DBEPersistAction[] generateTargetTableDDL(
+        @NotNull DBRProgressMonitor monitor,
+        @NotNull DBCExecutionContext executionContext,
+        @NotNull DBSObjectContainer schema,
+        @NotNull DatabaseMappingContainer containerMapping,
+        @Nullable Map<DBPPropertyDescriptor, Object> changedProperties) throws DBException
+    {
         if (containerMapping.getMappingType() == DatabaseMappingType.skip) {
             return new DBEPersistAction[0];
         }
-        monitor.subTask("Create table '" + containerMapping.getTargetName() + "'");
+        // Check whether we have any changes in mappings
+        if (containerMapping.getMappingType() == DatabaseMappingType.existing) {
+            boolean hasChanges = false;
+            for (DatabaseMappingAttribute attr : containerMapping.getAttributeMappings(monitor)) {
+                if (attr.getMappingType() != DatabaseMappingType.existing &&
+                    attr.getMappingType() != DatabaseMappingType.skip) {
+                    hasChanges = true;
+                    break;
+                }
+            }
+            if (!hasChanges) {
+                return new DBEPersistAction[0];
+            }
+        }
+        monitor.subTask("Validate table structure table '" + containerMapping.getTargetName() + "'");
         if (USE_STRUCT_DDL) {
-            DBEPersistAction[] ddl = generateStructTableDDL(monitor, executionContext, schema, containerMapping);
-            if (ddl != null) {
-                return ddl;
+            try {
+                final List<DBEPersistAction> actions = new ArrayList<>();
+                generateStructTableDDL(monitor, executionContext, schema, containerMapping, actions, changedProperties);
+                return actions.toArray(DBEPersistAction[]::new);
+            } catch (DBException e) {
+                DBWorkbench.getPlatformUI().showError("Can't create or update target table", null, e);
+                if (!DBWorkbench.getPlatformUI().confirmAction(
+                    "Generate DDL automatically",
+                    "Do you want to create or update target object with auto-generated SQL script?"))
+                {
+                    throw new DBException("Target table create or update was canceled");
+                }
             }
         }
 
@@ -110,15 +193,22 @@ public class DatabaseTransferUtils {
         String tableName = DBObjectNameCaseTransformer.transformName(dataSource, containerMapping.getTargetName());
         containerMapping.setTargetName(tableName);
 
+        if (CommonUtils.isEmpty(tableName)) {
+            return new DBEPersistAction[0];
+        }
+
         List<DBEPersistAction> actions = new ArrayList<>();
 
-        if (containerMapping.getMappingType() == DatabaseMappingType.create) {
+        if (containerMapping.getMappingType() == DatabaseMappingType.recreate && containerMapping.getTarget() != null) {
+            sql.append("DROP TABLE ");
+            getTableFullName(schema, dataSource, sql, tableName);
+            sql.append(dataSource.getSQLDialect().getScriptDelimiters()[0]);
+        }
+
+        if (containerMapping.hasNewTargetObject()) {
             sql.append("CREATE TABLE ");
-            if (schema instanceof DBSSchema || schema instanceof DBSCatalog) {
-                sql.append(DBUtils.getQuotedIdentifier(schema));
-                sql.append(dataSource.getSQLDialect().getCatalogSeparator());
-            }
-            sql.append(DBUtils.getQuotedIdentifier(dataSource, tableName)).append("(\n");
+            getTableFullName(schema, dataSource, sql, tableName);
+            sql.append("(\n");
             Map<DBSAttributeBase, DatabaseMappingAttribute> mappedAttrs = new HashMap<>();
             for (DatabaseMappingAttribute attr : containerMapping.getAttributeMappings(monitor)) {
                 if (attr.getMappingType() != DatabaseMappingType.create) {
@@ -165,17 +255,61 @@ public class DatabaseTransferUtils {
         return actions.toArray(new DBEPersistAction[0]);
     }
 
-    private static DBEPersistAction[] generateStructTableDDL(DBRProgressMonitor monitor, DBCExecutionContext executionContext, DBSObjectContainer schema, DatabaseMappingContainer containerMapping) {
-        final DBERegistry editorsRegistry = executionContext.getDataSource().getContainer().getPlatform().getEditorsRegistry();
+    private static void getTableFullName(@Nullable DBSObjectContainer schema, @NotNull DBPDataSource dataSource, @NotNull StringBuilder sql, @NotNull String tableName) {
+        if (schema instanceof DBSSchema || schema instanceof DBSCatalog) {
+            sql.append(DBUtils.getFullyQualifiedName(dataSource, schema.getName(), tableName));
+        } else {
+            sql.append(DBUtils.getQuotedIdentifier(dataSource, tableName));
+        }
+    }
+
+    @NotNull
+    private static SQLObjectEditor<DBSEntity, ?> getTableManager(DBERegistry editorsRegistry, Class<? extends DBSObject> tableClass)
+        throws DBException {
+        SQLObjectEditor<DBSEntity, ?> tableManager = editorsRegistry.getObjectManager(tableClass, SQLObjectEditor.class);
+        if (tableManager == null) {
+            throw new DBException("Table manager not found for '" + tableClass.getName() + "'");
+        }
+        return tableManager;
+    }
+
+    @NotNull
+    private static Class<? extends DBSObject> getTableClass(DBRProgressMonitor monitor, DBSObjectContainer schema) throws DBException {
+        Class<? extends DBSObject> tableClass = schema.getPrimaryChildType(monitor);
+        if (!DBSEntity.class.isAssignableFrom(tableClass)) {
+            throw new DBException("Wrong table container child type: " + tableClass.getName());
+        }
+        return tableClass;
+    }
+
+    /**
+     * This method returns object of the feature new created table and fill the table creating actions list
+     *
+     * @param monitor progress monitor
+     * @param executionContext not null execution context to get datasource etc.
+     * @param schema feature table container
+     * @param containerMapping mapping container
+     * @param actions will be filled by persist actions
+     * @param changedProperties list of properties what feature table must have
+     * @return DBSEntity table object that can be used as temporary to work with its properties, for example
+     * @throws DBException on any DB error
+     */
+    @NotNull
+    public static DBSEntity generateStructTableDDL(
+        @NotNull DBRProgressMonitor monitor,
+        @NotNull DBCExecutionContext executionContext,
+        @NotNull DBSObjectContainer schema,
+        @NotNull DatabaseMappingContainer containerMapping,
+        @NotNull List<DBEPersistAction> actions,
+        @Nullable Map<DBPPropertyDescriptor, Object> changedProperties
+    ) throws DBException {
+        final DBERegistry editorsRegistry = DBWorkbench.getPlatform().getEditorsRegistry();
 
         try {
-            Class<? extends DBSObject> tableClass = schema.getPrimaryChildType(monitor);
-            if (!DBSEntity.class.isAssignableFrom(tableClass)) {
-                throw new DBException("Wrong table container child type: " + tableClass.getName());
-            }
-            SQLObjectEditor<DBSEntity, ?> tableManager = editorsRegistry.getObjectManager(tableClass, SQLObjectEditor.class);
-            if (tableManager == null) {
-                throw new DBException("Table manager not found for '" + tableClass.getName() + "'");
+            Class<? extends DBSObject> tableClass = getTableClass(monitor, schema);
+            SQLObjectEditor<DBSEntity, ?> tableManager = getTableManager(editorsRegistry, tableClass);
+            if (!tableManager.canCreateObject(schema)) {
+                throw new DBException("Table create is not supported by driver " + schema.getDataSource().getContainer().getDriver().getName());
             }
             Class<? extends DBSEntityAttribute> attrClass;
             SQLObjectEditor<DBSEntityAttribute,?> attributeManager;
@@ -203,22 +337,33 @@ public class DatabaseTransferUtils {
 
             DBSEntity table;
             DBECommand createCommand = null;
-            if (containerMapping.getMappingType() == DatabaseMappingType.create) {
+            if (containerMapping.getMappingType() == DatabaseMappingType.create ||
+                (containerMapping.getMappingType() == DatabaseMappingType.recreate
+                    && containerMapping.getTarget() == null))
+            {
                 table = tableManager.createNewObject(monitor, commandContext, schema, null, options);
-                tableFinalName = DBObjectNameCaseTransformer.transformName(table.getDataSource(), containerMapping.getTargetName());
-                if (table instanceof DBPNamedObject2) {
-                    ((DBPNamedObject2) table).setName(tableFinalName);
-                } else {
-                    throw new DBException("Table name cannot be set for " + tableClass.getName());
-                }
-
+                applyPropertyChanges(monitor, changedProperties, commandContext, containerMapping, table);
+                tableFinalName = getTableFinalName(containerMapping.getTargetName(), tableClass, table);
                 createCommand = tableManager.makeCreateCommand(table, options);
             } else {
                 table = (DBSEntity) containerMapping.getTarget();
                 if (table == null) {
                     throw new DBException("Internal error - target table not set");
                 }
-                tableFinalName = table.getName();
+                if (containerMapping.getMappingType() == DatabaseMappingType.recreate) {
+                    tableManager.deleteObject(commandContext, table, options);
+                    table = tableManager.createNewObject(
+                        monitor,
+                        commandContext,
+                        table.getParentObject(),
+                        null,
+                        options);
+                    applyPropertyChanges(monitor, changedProperties, commandContext, containerMapping, table);
+                    tableFinalName = getTableFinalName(containerMapping.getTargetName(), tableClass, table);
+                    createCommand = tableManager.makeCreateCommand(table, options);
+                } else {
+                    tableFinalName = table.getName();
+                }
             }
 
             if (attributeManager != null) {
@@ -268,12 +413,60 @@ public class DatabaseTransferUtils {
 
             containerMapping.setTargetName(tableFinalName);
 
-            List<DBEPersistAction> actions = DBExecUtils.getActionsListFromCommandContext(monitor, commandContext, executionContext, options, null);
-            return actions.toArray(new DBEPersistAction[0]);
+            actions.addAll(
+                DBExecUtils.getActionsListFromCommandContext(
+                    monitor,
+                    commandContext,
+                    executionContext,
+                    options,
+                    null));
+            return table;
         } catch (DBException e) {
-            log.debug(e);
-            return null;
+            throw new DBException("Can't create or modify target table", e);
         }
+    }
+
+    public static void applyPropertyChanges(
+        @Nullable DBRProgressMonitor monitor,
+        @Nullable Map<DBPPropertyDescriptor, Object> changedProperties,
+        @Nullable DBECommandContext commandContext,
+        @Nullable DatabaseMappingContainer containerMapping,
+        @NotNull DBSEntity table)
+    {
+        PropertySourceEditable propertySource = new PropertySourceEditable(commandContext, table, table);
+        if (CommonUtils.isEmpty(changedProperties) && containerMapping != null
+            && !CommonUtils.isEmpty(containerMapping.getRawChangedPropertiesMap())) {
+            // Probably it is the task with saved properties map
+            // But this map has only the id of ObjectPropertyDescriptor
+            // So we should find the correct properties and bound them
+            propertySource.collectProperties();
+            Map<String, Object> rawChangedPropertiesMap = containerMapping.getRawChangedPropertiesMap();
+            for (Map.Entry<String, Object> entry : rawChangedPropertiesMap.entrySet()) {
+                DBPPropertyDescriptor property = propertySource.getProperty(entry.getKey());
+                if (property != null) {
+                    propertySource.addChangedProperties(property, entry.getValue());
+                }
+            }
+            changedProperties = propertySource.getChangedPropertiesValues();
+        }
+        if (!CommonUtils.isEmpty(changedProperties)) {
+            for (Map.Entry<DBPPropertyDescriptor, Object> entry : changedProperties.entrySet()) {
+                propertySource.setPropertyValue(monitor, table, (ObjectPropertyDescriptor) entry.getKey(), entry.getValue());
+            }
+        }
+    }
+
+    private static String getTableFinalName(String targetName, @NotNull Class<? extends DBSObject> tableClass, DBSEntity table) throws DBException {
+        if (table == null) {
+            throw new DBException("Internal error - target table not set");
+        }
+        String tableFinalName = DBObjectNameCaseTransformer.transformName(table.getDataSource(), targetName);
+        if (table instanceof DBPNamedObject2) {
+            ((DBPNamedObject2) table).setName(tableFinalName);
+        } else {
+            throw new DBException("Table name cannot be set for " + tableClass.getName());
+        }
+        return tableFinalName;
     }
 
     @NotNull
@@ -295,7 +488,7 @@ public class DatabaseTransferUtils {
 
     public static void executeDDL(DBCSession session, DBEPersistAction[] actions) throws DBCException {
         // Process actions
-        DBExecUtils.executeScript(session, actions);
+        DBExecUtils.executePersistActions(session, actions);
         // Commit DDL changes
         DBCTransactionManager txnManager = DBUtils.getTransactionManager(session.getExecutionContext());
         if (txnManager != null && txnManager.isSupportsTransactions() && !txnManager.isAutoCommit()) {
@@ -303,20 +496,18 @@ public class DatabaseTransferUtils {
         }
     }
 
-    public static void createTargetDynamicTable(DBRProgressMonitor monitor, DBCExecutionContext executionContext, DBSObjectContainer schema, DatabaseMappingContainer containerMapping) throws DBException {
-        final DBERegistry editorsRegistry = executionContext.getDataSource().getContainer().getPlatform().getEditorsRegistry();
+    static void createTargetDynamicTable(@NotNull DBRProgressMonitor monitor, @NotNull DBCExecutionContext executionContext, @NotNull DBSObjectContainer schema, @NotNull DatabaseMappingContainer containerMapping, boolean recreate) throws DBException {
+        final DBERegistry editorsRegistry = DBWorkbench.getPlatform().getEditorsRegistry();
 
-        Class<? extends DBSObject> tableClass = schema.getPrimaryChildType(monitor);
-        if (!DBSEntity.class.isAssignableFrom(tableClass)) {
-            throw new DBException("Wrong table container child type: " + tableClass.getName());
-        }
-        SQLObjectEditor tableManager = editorsRegistry.getObjectManager(tableClass, SQLObjectEditor.class);
-        if (tableManager == null) {
-            throw new DBException("Entity manager not found for '" + tableClass.getName() + "'");
-        }
+        Class<? extends DBSObject> tableClass = getTableClass(monitor, schema);
+        SQLObjectEditor tableManager = getTableManager(editorsRegistry, tableClass);
         DBECommandContext commandContext = new TargetCommandContext(executionContext);
         Map<String, Object> options = new HashMap<>();
         options.put(SQLObjectEditor.OPTION_SKIP_CONFIGURATION, true);
+        if (recreate && containerMapping.getTarget() != null) {
+            tableManager.deleteObject(commandContext, containerMapping.getTarget(), options);
+            commandContext.saveChanges(monitor, options);
+        }
         DBSObject targetEntity = tableManager.createNewObject(monitor, commandContext, schema, null, options);
         if (targetEntity == null) {
             throw new DBException("Null target entity returned");
@@ -333,15 +524,18 @@ public class DatabaseTransferUtils {
         if (CommonUtils.isEmpty(value)) {
             return DATA_TYPE_UNKNOWN;
         }
-        try {
-            Long.parseLong(value);
-            return DATA_TYPE_INTEGER;
-        } catch (NumberFormatException ignored) {
-        }
-        try {
-            Double.parseDouble(value);
-            return DATA_TYPE_REAL;
-        } catch (NumberFormatException ignored) {
+        char firstChar = value.charAt(0);
+        if (Character.isDigit(firstChar) || firstChar == '+' || firstChar == '-' || firstChar == '.') {
+            try {
+                Long.parseLong(value);
+                return DATA_TYPE_INTEGER;
+            } catch (NumberFormatException ignored) {
+            }
+            try {
+                Double.parseDouble(value);
+                return DATA_TYPE_REAL;
+            } catch (NumberFormatException ignored) {
+            }
         }
         if (value.equalsIgnoreCase("true") || value.equalsIgnoreCase("false")) {
             return DATA_TYPE_BOOLEAN;

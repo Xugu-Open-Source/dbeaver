@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,12 +25,16 @@ import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.data.DBDFormatSettings;
 import org.jkiss.dbeaver.model.data.DBDValueHandler;
 import org.jkiss.dbeaver.model.data.DBDValueHandlerProvider;
+import org.jkiss.dbeaver.model.exec.DBCQueryTransformProvider;
+import org.jkiss.dbeaver.model.exec.DBCQueryTransformType;
+import org.jkiss.dbeaver.model.exec.DBCQueryTransformer;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.data.handlers.JDBCContentValueHandler;
+import org.jkiss.dbeaver.model.impl.sql.QueryTransformerTop;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
@@ -45,7 +49,7 @@ import java.util.Map;
 /**
  * TeradataMetaModel
  */
-public class TeradataMetaModel extends GenericMetaModel implements DBDValueHandlerProvider
+public class TeradataMetaModel extends GenericMetaModel implements DBDValueHandlerProvider, DBCQueryTransformProvider
 {
     public TeradataMetaModel() {
         super();
@@ -57,7 +61,7 @@ public class TeradataMetaModel extends GenericMetaModel implements DBDValueHandl
     }
 
     @Override
-    public GenericTableBase createTableImpl(GenericStructContainer container, @Nullable String tableName, @Nullable String tableType, @Nullable JDBCResultSet dbResult) {
+    public GenericTableBase createTableOrViewImpl(GenericStructContainer container, @Nullable String tableName, @Nullable String tableType, @Nullable JDBCResultSet dbResult) {
         if (tableType != null && isView(tableType)) {
             return new GenericView(container, tableName, tableType, dbResult);
         } else {
@@ -223,5 +227,14 @@ public class TeradataMetaModel extends GenericMetaModel implements DBDValueHandl
         } catch (SQLException e) {
             throw new DBException(e, container.getDataSource());
         }
+    }
+
+    @Nullable
+    @Override
+    public DBCQueryTransformer createQueryTransformer(@NotNull DBCQueryTransformType type) {
+        if (type == DBCQueryTransformType.RESULT_SET_LIMIT) {
+            return new QueryTransformerTop();
+        }
+        return null;
     }
 }

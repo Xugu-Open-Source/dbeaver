@@ -24,16 +24,27 @@ import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
+import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTableConstraint;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTableForeignKey;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSEntity;
+import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
+import org.jkiss.dbeaver.model.struct.DBSEntityAttributeRef;
+import org.jkiss.dbeaver.model.struct.DBSEntityConstraint;
 import org.jkiss.dbeaver.model.struct.DBSEntityConstraintType;
+import org.jkiss.dbeaver.model.struct.DBSEntityReferrer;
+import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
 import org.jkiss.dbeaver.model.struct.rdb.DBSForeignKeyModifyRule;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableForeignKey;
+import org.jkiss.dbeaver.model.struct.rdb.DBSTableForeignKeyColumn;
 import org.jkiss.dbeaver.model.meta.IPropertyValueListProvider;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 外键信息类，包含外键相关的基本信息
@@ -125,6 +136,47 @@ public class TableForeignKey extends BaseTableConstraint implements DBSTableFore
 			this.deleteRule = DBSForeignKeyModifyRule.NO_ACTION;
 			break;
 		}
+	}
+	
+	public TableForeignKey(DBRProgressMonitor monitor, Table table, TableForeignKey source) throws DBException {
+		super(table, source);
+		this.enable = source.enable;
+		this.updateRule = source.getUpdateRule();
+		this.deleteRule = source.getDeleteRule();
+		TableConstraint srcRefConstraint = source.getReferencedConstraint();
+        if (srcRefConstraint != null) {
+            DBSEntity refEntity = srcRefConstraint.getParentObject();
+            if (refEntity != null) {
+                if (srcRefConstraint instanceof JDBCTableConstraint && refEntity.getParentObject() == table.getParentObject()) {
+                    this.referencedKey = srcRefConstraint;
+                } else {
+                    // Try to find table with the same name as referenced constraint owner
+                    DBSObject tableContainer = table.getContainer();
+                    if (tableContainer instanceof DBSObjectContainer) {
+                        DBSObject refTable = ((DBSObjectContainer)tableContainer).getChild(monitor, refEntity.getName());
+                        if (refTable instanceof DBSEntity && referencedKey instanceof DBSEntityReferrer) {
+                            List<DBSEntityAttribute> refAttrs = DBUtils.getEntityAttributes(monitor, (DBSEntityReferrer) referencedKey);
+                            this.referencedKey = (TableConstraint) DBUtils.findEntityConstraint(monitor, (DBSEntity) refTable, refAttrs);
+                        }
+                    }
+                }
+            }
+        }
+        if (source instanceof DBSEntityReferrer) {
+            List<? extends DBSEntityAttributeRef> columns = ((DBSEntityReferrer) source).getAttributeReferences(monitor);
+            if (columns != null) {
+                this.setColumns(new ArrayList<>());
+                for (DBSEntityAttributeRef srcCol : columns) {
+                    if (srcCol instanceof DBSTableForeignKeyColumn) {
+                        DBSTableForeignKeyColumn fkCol = (DBSTableForeignKeyColumn) srcCol;
+                        this.addColumn(new TableForeignKeyColumn(this,
+                            table.getAttribute(monitor, fkCol.getName()),
+                            this.getColumns().size(),
+                            table.getAttribute(monitor, fkCol.getReferencedColumn().getName())));
+                    }
+                }
+            }
+        }
 	}
 
 	@Property(viewable = true, order = 3)

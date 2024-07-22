@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 package org.jkiss.dbeaver.registry;
 
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.core.CoreFeatures;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceFolder;
 import org.jkiss.dbeaver.model.DBPObject;
@@ -26,6 +28,7 @@ import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
 import org.jkiss.dbeaver.model.edit.DBEObjectMaker;
 import org.jkiss.dbeaver.model.impl.edit.AbstractObjectManager;
+import org.jkiss.dbeaver.model.rm.RMConstants;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
@@ -41,35 +44,33 @@ import java.util.Map;
 public class DataSourceDescriptorManager extends AbstractObjectManager<DataSourceDescriptor> implements DBEObjectMaker<DataSourceDescriptor, DBPObject> {
 
     @Override
-    public long getMakerOptions(DBPDataSource dataSource)
-    {
+    public long getMakerOptions(DBPDataSource dataSource) {
         return 0;
     }
 
     @Nullable
     @Override
-    public DBSObjectCache<? extends DBSObject, DataSourceDescriptor> getObjectsCache(DataSourceDescriptor object)
-    {
+    public DBSObjectCache<? extends DBSObject, DataSourceDescriptor> getObjectsCache(DataSourceDescriptor object) {
         return null;
     }
 
     @Override
-    public boolean canCreateObject(Object container)
-    {
+    public boolean canCreateObject(Object container) {
+        if (container instanceof DBPProject) {
+            return ((DBPProject) container).hasRealmPermission(RMConstants.PERMISSION_PROJECT_DATASOURCES_EDIT);
+        }
         return true;
     }
 
     @Override
-    public boolean canDeleteObject(DataSourceDescriptor object)
-    {
-        return true;
+    public boolean canDeleteObject(DataSourceDescriptor object) {
+        return object.getProject().hasRealmPermission(RMConstants.PERMISSION_PROJECT_DATASOURCES_EDIT);
     }
 
     @Override
-    public DataSourceDescriptor createNewObject(DBRProgressMonitor monitor, DBECommandContext commandContext, Object container, Object copyFrom, Map<String, Object> options)
-    {
+    public DataSourceDescriptor createNewObject(DBRProgressMonitor monitor, DBECommandContext commandContext, Object container, Object copyFrom, Map<String, Object> options) throws DBException {
         if (copyFrom != null) {
-            DataSourceDescriptor dsTpl = (DataSourceDescriptor)copyFrom;
+            DataSourceDescriptor dsTpl = (DataSourceDescriptor) copyFrom;
             DBPDataSourceRegistry registry;
             DBPDataSourceFolder folder = null;
             if (container instanceof DataSourceRegistry) {
@@ -112,14 +113,14 @@ public class DataSourceDescriptorManager extends AbstractObjectManager<DataSourc
     }
 
     @Override
-    public void deleteObject(DBECommandContext commandContext, final DataSourceDescriptor object, Map<String, Object> options)
-    {
+    public void deleteObject(DBECommandContext commandContext, final DataSourceDescriptor object, Map<String, Object> options) {
         Runnable remover = () -> object.getRegistry().removeDataSource(object);
         if (object.isConnected()) {
             DataSourceHandler.disconnectDataSource(object, remover);
         } else {
             remover.run();
         }
+        CoreFeatures.CONNECTION_DELETE.use(Map.of("driver", object.getDriver().getPreconfiguredId()));
     }
 
 

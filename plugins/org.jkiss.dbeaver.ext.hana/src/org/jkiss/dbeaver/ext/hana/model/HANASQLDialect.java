@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,6 @@ import org.jkiss.dbeaver.model.text.parser.TPRuleProvider;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Locale;
 
 public class HANASQLDialect extends GenericSQLDialect implements TPRuleProvider {
@@ -53,6 +52,90 @@ public class HANASQLDialect extends GenericSQLDialect implements TPRuleProvider 
         {"WHILE", SQLConstants.BLOCK_END + " WHILE"}
     };
 
+    @Nullable
+    @Override
+    public String[] getBlockHeaderStrings() {
+        return new String[]{"DO"};
+    }
+
+    private static String[] HANA_FUNCTIONS = new String[]{
+        "ADD_DAYS",
+        "ADD_MONTH",
+        "ADD_MONTHS_LAST",
+        "ADD_SECONDS",
+        "ADD_WORKDAYS",
+        "ADD_YEARS",
+        "CONCAT_NAZ",
+        "CONVERT_CURRENCY",
+        "CONVERT_UNIT",
+        "CURRENT_CONNECTION",
+        "CURRENT_DATE",
+        "CURRENT_OBJECT_SCHEMA",
+        "CURRENT_SCHEMA",
+        "CURRENT_SITE_ID",
+        "CURRENT_TIME",
+        "CURRENT_TIMESTAMP",
+        "CURRENT_TRANSACTION_ISOLATION_LEVEL",
+        "CURRENT_USER",
+        "CURRENT_USER_ID",
+        "DAYS_BETWEEN",
+        "ESCAPE_DOUBLE_QUOTES",
+        "ESCAPE_SINGLE_QUOTES",
+        "FIRST_VALUE",
+        "GENERATE_PASSWORD",
+        "GREATEST",
+        "INITCAP",
+        "JSON_QUERY",
+        "JSON_TABLE",
+        "JSON_VALUE",
+        "LAST_DAY",
+        "LAST_VALUE",
+        "LEAD",
+        "LEAST",
+        "MONTHS_BETWEEN",
+        "NEXT_DAY",
+        "PLAINTEXT",
+        "REPLACE_REGEXPR",
+        "SECONDS_BETWEEN",
+        "SERIES_GENERATE",
+        "SERIES_ROUND",
+        "SESSION_CONTEXT",
+        "SUBARRAY",
+        "SUBSTR_AFTER",
+        "SUBSTR_BEFORE",
+        "SUBSTRING_REGEXPR",
+        "TO_BIGINT",
+        "TO_BINARY",
+        "TO_BLOB",
+        "TO_BOOLEAN",
+        "TO_CLOB",
+        "TO_DATE",
+        "TO_DECIMAL",
+        "TO_DOUBLE",
+        "TO_INT",
+        "TO_INTEGER",
+        "TO_JSON_BOOLEAN",
+        "TO_NCLOB",
+        "TO_NVARCHAR",
+        "TO_REAL",
+        "TO_SECONDDATE",
+        "TO_SMALLDECIMAL",
+        "TO_SMALLINT",
+        "TO_TIME",
+        "TO_TIMESTAMP",
+        "TO_TINYINT",
+        "TO_VARCHAR",
+        "TRIM",
+        "TRIM_ARRAY",
+        "UNICODE",
+        "WEEKDAY",
+        "WORKDAYS_BETWEEN",
+        "XMLEXTRACT",
+        "XMLEXTRACTVALUE",
+        "XMLTABLE",
+        "YEARS_BETWEEN"
+    };
+
     public HANASQLDialect() {
         super("HANA", "sap_hana");
     }
@@ -64,10 +147,7 @@ public class HANASQLDialect extends GenericSQLDialect implements TPRuleProvider 
 
     public void initDriverSettings(JDBCSession session, JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
         super.initDriverSettings(session, dataSource, metaData);
-        // TODO: check if obsolete
-        addSQLKeywords(
-                Arrays.asList(
-                        "REPLACE_REGEXPR"));
+        addFunctions(Arrays.asList(HANA_FUNCTIONS));
     }
 
     @Override
@@ -118,10 +198,17 @@ public class HANASQLDialect extends GenericSQLDialect implements TPRuleProvider 
         return "\\";
     }
 
+    @NotNull
     @Override
-    public void extendRules(@Nullable DBPDataSourceContainer dataSource, @NotNull List<TPRule> rules, @NotNull RulePosition position) {
+    public TPRule[] extendRules(@Nullable DBPDataSourceContainer dataSource, @NotNull RulePosition position) {
         if (position == RulePosition.FINAL) {
-            rules.add(new SQLVariableRule(this));
+            return new TPRule[] { new SQLVariableRule(this) };
         }
+        return new TPRule[0];
+    }
+
+    @Override
+    public boolean isStripCommentsBeforeBlocks() {
+        return true;
     }
 }

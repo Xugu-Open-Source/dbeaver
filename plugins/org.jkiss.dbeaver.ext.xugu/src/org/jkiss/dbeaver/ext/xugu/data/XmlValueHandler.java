@@ -18,6 +18,7 @@ package org.jkiss.dbeaver.ext.xugu.data;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.ext.xugu.Constants;
+import org.jkiss.dbeaver.ext.xugu.data.content.ContentXml;
 import org.jkiss.dbeaver.model.data.DBDContent;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCSession;

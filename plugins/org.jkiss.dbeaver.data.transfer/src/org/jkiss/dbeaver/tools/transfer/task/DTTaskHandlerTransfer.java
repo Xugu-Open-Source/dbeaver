@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,13 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.exec.DBCStatistics;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableContext;
 import org.jkiss.dbeaver.model.task.DBTTask;
 import org.jkiss.dbeaver.model.task.DBTTaskExecutionListener;
 import org.jkiss.dbeaver.model.task.DBTTaskHandler;
+import org.jkiss.dbeaver.model.task.DBTTaskRunStatus;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.tools.transfer.*;
 import org.jkiss.dbeaver.tools.transfer.database.DatabaseConsumerSettings;
@@ -43,8 +45,11 @@ import java.util.Locale;
 public class DTTaskHandlerTransfer implements DBTTaskHandler {
     private static final Log log = Log.getLog(DTTaskHandlerTransfer.class);
 
+    private final DBCStatistics totalStatistics = new DBCStatistics();
+
     @Override
-    public void executeTask(
+    @NotNull
+    public DBTTaskRunStatus executeTask(
         @NotNull DBRRunnableContext runnableContext,
         @NotNull DBTTask task,
         @NotNull Locale locale,
@@ -55,26 +60,34 @@ public class DTTaskHandlerTransfer implements DBTTaskHandler {
         DataTransferSettings[] settings = new DataTransferSettings[1];
         try {
             runnableContext.run(true, true, monitor -> {
-                settings[0] = new DataTransferSettings(monitor, task, log, Collections.emptyMap(), new DataTransferState());
+                settings[0] = new DataTransferSettings(
+                    monitor,
+                    task,
+                    log,
+                    Collections.emptyMap(),
+                    new DataTransferState(),
+                    true);
                 settings[0].loadNodeSettings(monitor);
             });
         } catch (InvocationTargetException e) {
             throw new DBException("Error loading task settings", e.getTargetException());
         } catch (InterruptedException e) {
-            return;
+            return new DBTTaskRunStatus();
         }
         executeWithSettings(runnableContext, task, locale, log, listener, settings[0]);
+
+        return DBTTaskRunStatus.makeStatisticsStatus(totalStatistics);
     }
 
-    public void executeWithSettings(@NotNull DBRRunnableContext runnableContext, DBTTask task, @NotNull Locale locale,
+    public void executeWithSettings(@NotNull DBRRunnableContext runnableContext, @Nullable DBTTask task, @NotNull Locale locale,
                                     @NotNull Log log, @NotNull DBTTaskExecutionListener listener,
                                     DataTransferSettings settings) throws DBException {
-        listener.taskStarted(settings);
+        listener.taskStarted(task);
         int indexOfLastPipeWithDisabledReferentialIntegrity = -1;
         try {
-            indexOfLastPipeWithDisabledReferentialIntegrity = initializePipes(runnableContext, settings);
+            indexOfLastPipeWithDisabledReferentialIntegrity = initializePipes(runnableContext, settings, task);
             Throwable error = runDataTransferJobs(runnableContext, task, locale, log, listener, settings);
-            listener.taskFinished(settings, null, error);
+            listener.taskFinished(task, null, error, settings);
         } catch (InvocationTargetException e) {
             DBWorkbench.getPlatformUI().showError(
                 DTMessages.data_transfer_task_handler_unexpected_error_title,
@@ -92,8 +105,11 @@ public class DTTaskHandlerTransfer implements DBTTaskHandler {
         }
     }
 
-    private int initializePipes(@NotNull DBRRunnableContext runnableContext, @NotNull DataTransferSettings settings)
-            throws InvocationTargetException, InterruptedException, DBException {
+    private int initializePipes(
+        @NotNull DBRRunnableContext runnableContext,
+        @NotNull DataTransferSettings settings,
+        @Nullable DBTTask task
+    ) throws InvocationTargetException, InterruptedException, DBException {
         int[] indexOfLastPipeWithDisabledReferentialIntegrity = new int[]{-1};
         DBException[] dbException = {null};
         List<DataTransferPipe> dataPipes = settings.getDataPipes();
@@ -101,11 +117,18 @@ public class DTTaskHandlerTransfer implements DBTTaskHandler {
         runnableContext.run(true, false, monitor -> {
             monitor.beginTask("Initialize pipes", dataPipes.size());
             try {
+                Object consumerRuntimeParameters = settings.getNodeSettings(settings.getConsumer()).prepareRuntimeParameters();
                 for (int i = 0; i < dataPipes.size(); i++) {
                     DataTransferPipe pipe = dataPipes.get(i);
                     pipe.initPipe(settings, i, dataPipes.size());
                     IDataTransferConsumer<?, ?> consumer = pipe.getConsumer();
-                    consumer.startTransfer(monitor);
+                    consumer.setRuntimeParameters(consumerRuntimeParameters);
+                    try {
+                        consumer.startTransfer(monitor);
+                    } catch (DBException e) {
+                        consumer.finishTransfer(monitor, e, task, true);
+                        throw e;
+                    }
                     if (enableReferentialIntegrity(consumer, monitor, false)) {
                         indexOfLastPipeWithDisabledReferentialIntegrity[0] = i;
                     }
@@ -137,12 +160,12 @@ public class DTTaskHandlerTransfer implements DBTTaskHandler {
             DataTransferJob job = new DataTransferJob(settings, task, locale, log, listener);
             try {
                 runnableContext.run(true, true, job);
+                totalStatistics.accumulate(job.getTotalStatistics());
             } catch (InvocationTargetException e) {
                 error = e.getTargetException();
             } catch (InterruptedException e) {
                 break;
             }
-            listener.subTaskFinished(error);
         }
         return error;
     }

@@ -24,6 +24,8 @@ import org.jkiss.dbeaver.ext.xugu.model.Schema;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 import org.jkiss.dbeaver.ext.xugu.model.BaseTable;
 import org.jkiss.dbeaver.ext.xugu.model.TableColumn;
+import org.jkiss.dbeaver.ext.xugu.model.TableConstraint;
+import org.jkiss.dbeaver.ext.xugu.model.TableConstraintColumn;
 import org.jkiss.dbeaver.model.DBPDataKind;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
@@ -41,6 +43,7 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.DBSDataType;
+import org.jkiss.dbeaver.model.struct.DBSEntityConstraintType;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.utils.CommonUtils;
 
@@ -52,12 +55,42 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * 表字段管理器，进行字段的创建，修改和删除（均相当于修改表结构）
  */
 public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseTable>
 		implements DBEObjectRenamer<TableColumn> {
+
+    private final ColumnModifier<TableColumn> IdentityModifier = (monitor, column, sql, command) -> {
+        if (column.getMinInteger() != null && column.getStepInteger() != null) {
+            sql.append(" IDENTITY(")
+            .append(column.getMinInteger())
+            .append(",")
+            .append(column.getStepInteger())
+            .append(")");
+        }
+    };
+
+    private final ColumnModifier<TableColumn> SinglePrimaryKeyModifier = (monitor, column, sql, command) -> {
+    	try {
+    		Collection<TableConstraint> consList = command.getObject().getTable().getConstraints(monitor);
+    		if (consList != null) {
+    			for(TableConstraint cons : consList) {
+        			if (cons.getConstraintType() == DBSEntityConstraintType.PRIMARY_KEY) {
+    					List<TableConstraintColumn> columns = cons.getAttributeReferences(monitor);
+    					if (columns.size() == 1 && Objects.equals(columns.get(0).getName(), column.getName())) {
+    						sql.append(" PRIMARY KEY");
+    					}
+    				}
+        		}
+    		}
+		} catch (DBException e) {
+			throw new IllegalStateException("获取约束信息以检测单列主键时发生异常", e);
+		}
+    };
+
 	String first = null;
 
 	@Nullable
@@ -68,7 +101,7 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 
 	@Override
 	protected ColumnModifier[] getSupportedModifiers(TableColumn column, Map<String, Object> options) {
-		return new ColumnModifier[] { DataTypeModifier, DefaultModifier, NullNotNullModifierConditional };
+		return new ColumnModifier[] { DataTypeModifier, IdentityModifier, SinglePrimaryKeyModifier, NotNullModifier, DefaultModifier };
 	}
 
 	@Override

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,22 +18,29 @@ package org.jkiss.dbeaver.registry.task;
 
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
-import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.runtime.*;
-import org.jkiss.dbeaver.model.task.DBTTaskExecutionListener;
-import org.jkiss.dbeaver.model.task.DBTTaskHandler;
+import org.jkiss.dbeaver.model.task.*;
+import org.jkiss.dbeaver.registry.timezone.TimezoneRegistry;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.StandardConstants;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -55,7 +62,7 @@ public class TaskRunJob extends AbstractJob implements DBRRunnableContext {
     private long elapsedTime;
     private Throwable taskError;
 
-    protected TaskRunJob(TaskImpl task, Locale locale, DBTTaskExecutionListener executionListener) {
+    public TaskRunJob(TaskImpl task, Locale locale, DBTTaskExecutionListener executionListener) {
         super("Task [" + task.getType().getName() + "] runner - " + task.getName());
         setUser(true);
         setSystem(false);
@@ -68,24 +75,27 @@ public class TaskRunJob extends AbstractJob implements DBRRunnableContext {
     @Override
     protected IStatus run(DBRProgressMonitor monitor) {
         Date startTime = new Date();
-
-        String taskId = TaskManagerImpl.systemDateFormat.format(startTime) + "_" + taskNumber.incrementAndGet();
+        SimpleDateFormat dateFormat = new SimpleDateFormat(GeneralUtils.DEFAULT_TIMESTAMP_PATTERN, Locale.getDefault()); //$NON-NLS-1$
+        dateFormat.setTimeZone(TimeZone.getTimeZone(TimezoneRegistry.getUserDefaultTimezone()));
+        String taskId = dateFormat.format(startTime) + "_" + taskNumber.incrementAndGet();
         TaskRunImpl taskRun = new TaskRunImpl(
             taskId,
             new Date(),
             System.getProperty(StandardConstants.ENV_USER_NAME),
             GeneralUtils.getProductTitle(),
-            0, null, null);
+            null, null);
         task.getTaskStatsFolder(true);
-        File logFile = task.getRunLog(taskRun);
+        Path logFile = Objects.requireNonNull(task.getRunLog(taskRun)); // must exist on local machine
         task.addNewRun(taskRun);
 
-        try (PrintStream logStream = new PrintStream(new FileOutputStream(logFile), true, StandardCharsets.UTF_8.name())) {
+        try (PrintStream logStream = new PrintStream(Files.newOutputStream(logFile), true, StandardCharsets.UTF_8.name())) {
+            log.debug(String.format("Task '%s' (%s) started", task.getName(), task.getId()));
             taskLog = Log.getLog(TaskRunJob.class);
             Log.setLogWriter(logStream);
             monitor.beginTask("Run task '" + task.getName() + " (" + task.getType().getName() + ")", 1);
             try {
-                executeTask(new LoggingProgressMonitor(monitor), logStream);
+                DBTTaskRunStatus runResultStatus = executeTask(new LoggingProgressMonitor(monitor), logStream);
+                taskRun.setExtraMessage(runResultStatus.getResultMessage());
             } catch (Throwable e) {
                 taskError = e;
                 taskLog.error("Task fatal error", e);
@@ -93,6 +103,7 @@ public class TaskRunJob extends AbstractJob implements DBRRunnableContext {
                 monitor.done();
                 taskLog.flush();
                 Log.setLogWriter(null);
+                log.debug(String.format("Task '%s' (%s) finished in %s ms", task.getName(), task.getId(), elapsedTime));
 
                 taskRun.setRunDuration(elapsedTime);
                 if (taskError != null) {
@@ -113,10 +124,11 @@ public class TaskRunJob extends AbstractJob implements DBRRunnableContext {
         return Status.OK_STATUS;
     }
 
-    private void executeTask(DBRProgressMonitor monitor, PrintStream logWriter) throws DBException {
+    private DBTTaskRunStatus executeTask(DBRProgressMonitor monitor, PrintStream logWriter) throws DBException, InterruptedException {
         activeMonitor = monitor;
+        DBTaskUtils.confirmTaskOrThrow(task, taskLog, logWriter);
         DBTTaskHandler taskHandler = task.getType().createHandler();
-        taskHandler.executeTask(this, task, locale, taskLog, logWriter, executionListener);
+        return taskHandler.executeTask(this, task, locale, taskLog, logWriter, executionListener);
     }
 
     @Override
@@ -151,21 +163,21 @@ public class TaskRunJob extends AbstractJob implements DBRRunnableContext {
         }
 
         @Override
-        public void taskStarted(@NotNull Object task) {
+        public void taskStarted(@Nullable DBTTask task) {
             startTime = System.currentTimeMillis();
             parent.taskStarted(task);
         }
 
         @Override
-        public void taskFinished(@NotNull Object task, @Nullable Object result, @Nullable Throwable error) {
-            parent.taskFinished(task, result, error);
+        public void taskFinished(@Nullable DBTTask task, @Nullable Object result, @Nullable Throwable error, @Nullable Object settings) {
+            parent.taskFinished(task, result, error, settings);
             elapsedTime = System.currentTimeMillis() - startTime;
             taskError = error;
         }
 
         @Override
-        public void subTaskFinished(@Nullable Throwable error) {
-            parent.subTaskFinished(error);
+        public void subTaskFinished(@Nullable DBTTask task, @Nullable Throwable error, @Nullable Object settings) {
+            parent.subTaskFinished(task, error, settings);
         }
     }
 

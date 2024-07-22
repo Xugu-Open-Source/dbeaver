@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,10 @@ package org.jkiss.dbeaver.ui.controls.resultset.panel.metadata;
 
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IContributionManager;
-import org.eclipse.jface.viewers.*;
+import org.eclipse.jface.viewers.ISelectionChangedListener;
+import org.eclipse.jface.viewers.ISelectionProvider;
+import org.eclipse.jface.viewers.StructuredSelection;
+import org.eclipse.jface.viewers.TreeViewer;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.dnd.TextTransfer;
 import org.eclipse.swt.graphics.Color;
@@ -34,11 +37,13 @@ import org.jkiss.dbeaver.model.data.DBDAttributeBindingMeta;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.load.DatabaseLoadService;
-import org.jkiss.dbeaver.ui.LoadingJob;
-import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
+import org.jkiss.dbeaver.ui.*;
 import org.jkiss.dbeaver.ui.controls.TreeContentProvider;
+import org.jkiss.dbeaver.ui.controls.ViewerColumnController;
 import org.jkiss.dbeaver.ui.controls.resultset.IResultSetPanel;
 import org.jkiss.dbeaver.ui.controls.resultset.IResultSetPresentation;
+import org.jkiss.dbeaver.ui.controls.resultset.internal.ResultSetMessages;
 import org.jkiss.dbeaver.ui.controls.resultset.panel.ResultSetPanelRefresher;
 import org.jkiss.dbeaver.ui.navigator.itemlist.DatabaseObjectListControl;
 import org.jkiss.utils.CommonUtils;
@@ -101,7 +106,11 @@ public class MetaDataPanel implements IResultSetPanel {
             attributeList.getControl().addDisposeListener(e ->
                 ((ISelectionProvider) presentation).removeSelectionChangedListener(listener));
         }
+
         ResultSetPanelRefresher.installOn(this, presentation);
+
+        DataEditorFeatures.RESULT_SET_PANEL_METADATA.use();
+
         return this.attributeList;
     }
 
@@ -110,12 +119,9 @@ public class MetaDataPanel implements IResultSetPanel {
         return false;
     }
 
+    @Nullable
     private DBDAttributeBinding getSelectedAttribute() {
-        IStructuredSelection selection = attributeList.getItemsViewer().getStructuredSelection();
-        if (!selection.isEmpty()) {
-            return (DBDAttributeBinding) selection.getFirstElement();
-        }
-        return null;
+        return attributeList.getSuitableSelectedElement(DBDAttributeBinding.class);
     }
 
     private boolean isAttributeVisible(DBDAttributeBinding attr) {
@@ -164,6 +170,16 @@ public class MetaDataPanel implements IResultSetPanel {
 
     @Override
     public void contributeActions(IContributionManager manager) {
+        manager.add(
+            ActionUtils.makeCommandContribution(
+                UIUtils.getActiveWorkbenchWindow(),
+                "org.jkiss.dbeaver.ui.editors.sql.generate.ddl.by.resultSet", //$NON-NLS-1$
+                ResultSetMessages.generate_ddl_by_result_set_name,
+                UIIcon.SQL_TEXT,
+                ResultSetMessages.generate_ddl_by_result_set_tip,
+                false
+            )
+        );
     }
 
     private class MetaDataTable extends DatabaseObjectListControl<DBDAttributeBinding> {
@@ -185,7 +201,7 @@ public class MetaDataPanel implements IResultSetPanel {
         @Override
         public void fillCustomActions(IContributionManager contributionManager) {
             UIUtils.fillDefaultTreeContextMenu(contributionManager, (Tree) getItemsViewer().getControl());
-            contributionManager.add(new Action("Copy column names") {
+            contributionManager.add(new Action(ResultSetMessages.meta_data_panel_action_copy_column_text) {
                 @Override
                 public void run() {
                     StringBuilder text = new StringBuilder();
@@ -236,6 +252,19 @@ public class MetaDataPanel implements IResultSetPanel {
                 return colorDisabled;
             }
             return super.getObjectForeground(item);
+        }
+
+        @Override
+        protected void addExtraColumns(ViewerColumnController<ObjectColumn, Object> columnController, Collection<DBDAttributeBinding> items) {
+            columnController.addColumn("Description", "Column description", SWT.LEFT, true, false, element -> {
+                if (element instanceof DBDAttributeBinding) {
+                    DBSEntityAttribute entityAttribute = ((DBDAttributeBinding) element).getEntityAttribute();
+                    if (entityAttribute != null) {
+                        return entityAttribute.getDescription();
+                    }
+                }
+                return "";
+            }, null);
         }
 
         @Override

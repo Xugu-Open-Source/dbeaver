@@ -121,7 +121,7 @@ public class Udt extends BaseSchemaObject
 			methodsMap.put("UDT existing parser does not support syntax objects", "UDT existing parser does not support syntax objects");
 			createTypeBean.setMethodMap(methodsMap);
 		    DBeaverNotifications.showNotification(
-                    DBeaverNotifications.NT_RECONNECT,
+                    DBeaverNotifications.NT_RECONNECT_FAILURE,
                     typeName,
                      e.getMessage(),
                     DBPMessageType.INFORMATION,new Runnable() {
@@ -431,7 +431,10 @@ public class Udt extends BaseSchemaObject
 	@Override
 	public DBSObject refreshObject(DBRProgressMonitor monitor) throws DBException {
 		this.udtCache.clearCache();
-		return this;
+		this.udtCache.refreshObject(monitor, parent, this);
+		Schema schema = this.getSchema();
+		schema.udtCache.clearCache();
+		return schema.udtCache.refreshObject(monitor, schema, this);
 	}
 
 	@Override

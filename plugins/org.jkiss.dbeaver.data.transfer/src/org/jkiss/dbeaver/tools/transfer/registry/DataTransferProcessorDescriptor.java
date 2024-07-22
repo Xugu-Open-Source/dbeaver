@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,8 @@ import org.jkiss.dbeaver.model.impl.AbstractDescriptor;
 import org.jkiss.dbeaver.model.impl.PropertyDescriptor;
 import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
 import org.jkiss.dbeaver.tools.transfer.IDataTransferProcessor;
+import org.jkiss.dbeaver.tools.transfer.stream.IAppendableDataExporter;
+import org.jkiss.dbeaver.tools.transfer.stream.IMultiStreamDataImporter;
 import org.jkiss.dbeaver.utils.MimeTypes;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
@@ -122,7 +124,7 @@ public class DataTransferProcessorDescriptor extends AbstractDescriptor implemen
         return null;
     }
 
-    boolean appliesToType(Class objectType) {
+    boolean appliesToType(Class<?> objectType) {
         if (sourceTypes.isEmpty()) {
             return true;
         }
@@ -150,7 +152,7 @@ public class DataTransferProcessorDescriptor extends AbstractDescriptor implemen
         try {
             processorType.checkObjectClass(IDataTransferProcessor.class);
             Class<? extends IDataTransferProcessor> clazz = processorType.getObjectClass(IDataTransferProcessor.class);
-            return clazz.newInstance();
+            return clazz.getConstructor().newInstance();
         } catch (Exception e) {
             throw new IllegalStateException("Can't instantiate data exporter", e);
         }
@@ -166,6 +168,14 @@ public class DataTransferProcessorDescriptor extends AbstractDescriptor implemen
 
     public boolean isHTMLFormat() {
         return isHTML;
+    }
+
+    public boolean isAppendable() {
+        return IAppendableDataExporter.class.isAssignableFrom(processorType.getObjectClass());
+    }
+
+    public boolean isMulti() {
+        return IMultiStreamDataImporter.class.isAssignableFrom(processorType.getObjectClass());
     }
 
     public String getFullId() {

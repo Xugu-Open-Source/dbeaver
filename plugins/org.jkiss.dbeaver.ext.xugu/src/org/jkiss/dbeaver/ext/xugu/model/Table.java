@@ -23,7 +23,14 @@ import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSEntity;
+import org.jkiss.dbeaver.model.struct.DBSEntityAssociation;
+import org.jkiss.dbeaver.model.struct.DBSEntityConstraint;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.rdb.DBSTable;
+import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
+import org.jkiss.utils.CommonUtils;
+
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -122,11 +129,59 @@ public class Table extends BaseTablePhysical implements DBPScriptObject {
 			this.enaTrans = JDBCUtils.safeGetBoolean(dbResult, "ENA_TRANS");
 			this.enaLogging = JDBCUtils.safeGetBoolean(dbResult, "ENA_LOGGING");
 			this.aclMask = JDBCUtils.safeGetInt(dbResult, "ACL_MASK");
-			
-			
-			
-			
 		}
+	}
+
+	// 复制构造函数
+	public Table(DBRProgressMonitor monitor, Schema schema, DBSEntity source) throws DBException {
+		super(monitor, schema, source);
+		if (source instanceof Table) {
+			this.partiNum = ((Table) source).partiNum;
+			this.subpartiNum = ((Table) source).subpartiNum;
+
+			// 复制触发器
+			for (Trigger srcTrigger : ((Table) source).getTriggers(monitor)) {
+				Trigger trigger = new Trigger(this, srcTrigger);
+				getContainer().triggerCache.cacheObject(trigger);
+			}
+
+			// 复制一级分区
+			for (TablePartition srcPartition : ((Table) source).getPartitions(monitor)) {
+				TablePartition partition = new TablePartition(this, false, srcPartition);
+				this.partitionCache.cacheObject(partition);
+			}
+			this.partitionCache.setFullCache(true);
+
+			// 复制二级分区
+			for (TableSubPartition srcSubPartition : ((Table) source).getSubPartitions(monitor)) {
+				TableSubPartition subPartition = new TableSubPartition(this, true, srcSubPartition);
+				this.subPartitionCache.cacheObject(subPartition);
+			}
+			this.subPartitionCache.setFullCache(true);
+		}
+        if (source instanceof DBSTable) {
+            // 复制索引
+            for (DBSTableIndex srcIndex : CommonUtils.safeCollection(((DBSTable)source).getIndexes(monitor))) {
+                if (srcIndex instanceof TableIndex && srcIndex.isPrimary()) {
+                    // Skip primary key index (it will be created implicitly)
+                    continue;
+                }
+                TableIndex index = new TableIndex(monitor, this, srcIndex);
+                this.getContainer().indexCache.cacheObject(index);
+            }
+        }
+        
+        // 复制约束
+        for (DBSEntityConstraint srcConstr : CommonUtils.safeCollection(source.getConstraints(monitor))) {
+            TableConstraint constr = new TableConstraint(monitor, this, (TableConstraint) srcConstr);
+            this.getContainer().constraintCache.cacheObject(constr);
+        }
+        
+        // 复制外键
+        for (DBSEntityAssociation srcFK : CommonUtils.safeCollection(source.getAssociations(monitor))) {
+            TableForeignKey fk = new TableForeignKey(monitor, this, (TableForeignKey) srcFK);
+            this.getContainer().foreignKeyCache.cacheObject(fk);
+        }
 	}
 
 	@Override
@@ -160,7 +215,7 @@ public class Table extends BaseTablePhysical implements DBPScriptObject {
 	}
 
 	public String getTableName() {
-		return tableName;
+		return super.getFullyQualifiedName(DBPEvaluationContext.DML);
 	}
 
 	public int getTempType() {

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,18 +19,21 @@ package org.jkiss.dbeaver.ui.editors.sql;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.MenuManager;
 import org.eclipse.jface.action.Separator;
-import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.graphics.Font;
+import org.eclipse.swt.widgets.Composite;
 import org.eclipse.ui.IWorkbenchPartSite;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.console.MessageConsole;
 import org.eclipse.ui.console.TextConsoleViewer;
 import org.eclipse.ui.themes.ITheme;
-import org.jkiss.dbeaver.model.sql.SQLConstants;
+import org.jkiss.code.NotNull;
+import org.jkiss.dbeaver.ui.UIFonts;
 import org.jkiss.dbeaver.ui.UIStyles;
+import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.StyledTextUtils;
 import org.jkiss.dbeaver.ui.editors.TextEditorUtils;
+import org.jkiss.dbeaver.ui.editors.sql.internal.SQLEditorMessages;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -42,12 +45,12 @@ public class SQLEditorOutputConsoleViewer extends TextConsoleViewer {
     private boolean hasNewOutput;
     private PrintWriter writer;
 
-    public SQLEditorOutputConsoleViewer(IWorkbenchPartSite site, CTabFolder resultTabs, int styles) {
-        this(site, resultTabs, new MessageConsole("sql-output", null));
+    public SQLEditorOutputConsoleViewer(IWorkbenchPartSite site, Composite parent, int styles) {
+        this(site, parent, new MessageConsole("sql-output", null));
     }
 
-    private SQLEditorOutputConsoleViewer(IWorkbenchPartSite site, CTabFolder resultTabs, MessageConsole console) {
-        super(resultTabs, console);
+    protected SQLEditorOutputConsoleViewer(IWorkbenchPartSite site, Composite parent, MessageConsole console) {
+        super(parent, console);
         this.console = console;
         this.getText().setMargins(5, 5, 5, 5);
         this.console.setWaterMarks(1024*1024*10, 1024*1024*20);
@@ -94,6 +97,11 @@ public class SQLEditorOutputConsoleViewer extends TextConsoleViewer {
         return writer;
     }
 
+    @NotNull
+    public MessageConsole getConsole() {
+        return console;
+    }
+
     public void scrollToEnd() {
         revealEndOfDocument();
     }
@@ -112,12 +120,17 @@ public class SQLEditorOutputConsoleViewer extends TextConsoleViewer {
 
     public void refreshStyles() {
         ITheme currentTheme = PlatformUI.getWorkbench().getThemeManager().getCurrentTheme();
-        Font outputFont = currentTheme.getFontRegistry().get(SQLConstants.CONFIG_FONT_OUTPUT);
+        Font outputFont = currentTheme.getFontRegistry().get(UIFonts.DBEAVER_FONTS_MONOSPACE);
         if (outputFont != null) {
             getTextWidget().setFont(outputFont);
         }
-        getTextWidget().setForeground(UIStyles.getDefaultTextForeground());
-        getTextWidget().setBackground(UIStyles.getDefaultTextBackground());
+        if (UIStyles.isDarkHighContrastTheme()) {
+            getTextWidget().setForeground(UIUtils.COLOR_WHITE);
+            getTextWidget().setBackground(UIStyles.getDefaultWidgetBackground());
+        } else {
+            getTextWidget().setForeground(UIStyles.getDefaultTextForeground());
+            getTextWidget().setBackground(UIStyles.getDefaultTextBackground());
+        }
     }
 
     public StyledText getText() {
@@ -133,7 +146,7 @@ public class SQLEditorOutputConsoleViewer extends TextConsoleViewer {
         menuMgr.addMenuListener(manager -> {
             StyledTextUtils.fillDefaultStyledTextContextMenu(manager, getTextWidget());
             manager.add(new Separator());
-            manager.add(new Action("Clear") {
+            manager.add(new Action(SQLEditorMessages.sql_editor_action_clear) {
                 @Override
                 public void run() {
                     clearOutput();

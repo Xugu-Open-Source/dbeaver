@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import java.util.Collection;
 public interface DBEStructEditor<OBJECT_TYPE extends DBPObject> extends DBEObjectEditor<OBJECT_TYPE> {
 
     @NotNull
-    Class<?>[] getChildTypes();
+    Class<? extends DBSObject>[] getChildTypes();
 
     @Nullable
     Collection<? extends DBSObject> getChildObjects(DBRProgressMonitor monitor, OBJECT_TYPE object, Class<? extends DBSObject> childType)

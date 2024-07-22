@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -109,7 +109,7 @@ public class OracleStructureAssistant implements DBSStructureAssistant<OracleExe
         try (JDBCSession session = executionContext.openSession(monitor, DBCExecutionPurpose.META, "Find objects by name")) {
             List<DBSObjectReference> objects = new ArrayList<>();
 
-            if (ArrayUtils.contains(params.getObjectTypes(), OracleObjectType.CONSTRAINT, OracleObjectType.FOREIGN_KEY)) {
+            if (ArrayUtils.containsAny(params.getObjectTypes(), OracleObjectType.CONSTRAINT, OracleObjectType.FOREIGN_KEY)) {
                 // Search constraints
                 findConstraintsByMask(session, schema, params, objects);
                 if (!containsOnlyConstraintOrFK(params.getObjectTypes())) {
@@ -170,7 +170,7 @@ public class OracleStructureAssistant implements DBSStructureAssistant<OracleExe
                     final String constrName = JDBCUtils.safeGetString(dbResult, OracleConstants.COL_CONSTRAINT_NAME);
                     final String constrType = JDBCUtils.safeGetString(dbResult, OracleConstants.COL_CONSTRAINT_TYPE);
                     final DBSEntityConstraintType type = OracleTableConstraint.getConstraintType(constrType);
-                    objects.add(new AbstractObjectReference(
+                    objects.add(new AbstractObjectReference<>(
                         constrName,
                         dataSource.getSchema(session.getProgressMonitor(), schemaName),
                         null,
@@ -305,9 +305,9 @@ public class OracleStructureAssistant implements DBSStructureAssistant<OracleExe
             dbStat.setFetchSize(DBConstants.METADATA_FETCH_SIZE);
             try (JDBCResultSet dbResult = dbStat.executeQuery()) {
                 while (!session.getProgressMonitor().isCanceled() && objects.size() < params.getMaxResults() && dbResult.next()) {
-                    final String schemaName = JDBCUtils.safeGetString(dbResult, "OWNER");
-                    final String objectName = JDBCUtils.safeGetString(dbResult, "OBJECT_NAME");
-                    final String objectTypeName = JDBCUtils.safeGetString(dbResult, "OBJECT_TYPE");
+                    final String schemaName = JDBCUtils.safeGetString(dbResult, OracleConstants.COL_OWNER);
+                    final String objectName = JDBCUtils.safeGetString(dbResult, OracleConstants.COLUMN_OBJECT_NAME);
+                    final String objectTypeName = JDBCUtils.safeGetString(dbResult, OracleConstants.COLUMN_OBJECT_TYPE);
                     final OracleObjectType objectType = OracleObjectType.getByType(objectTypeName);
                     if (objectType != null && objectType.isBrowsable() && oracleObjectTypes.contains(objectType)) {
                         OracleSchema objectSchema = this.dataSource.getSchema(session.getProgressMonitor(), schemaName);
@@ -322,29 +322,29 @@ public class OracleStructureAssistant implements DBSStructureAssistant<OracleExe
         }
     }
 
-    private void addObjectReference(@NotNull Collection<DBSObjectReference> references, String objectName, @NotNull DBSObject objectSchema,
+    private void addObjectReference(@NotNull Collection<DBSObjectReference> references, String objectName, @NotNull OracleSchema objectSchema,
                                     @NotNull OracleObjectType objectType, String objectTypeName, String schemaName, @NotNull JDBCSession session) {
         references.add(
-                new AbstractObjectReference(objectName, objectSchema, null, objectType.getTypeClass(), objectType) {
-                    @Override
-                    public DBSObject resolveObject(DBRProgressMonitor monitor) throws DBException {
-                        OracleSchema tableSchema = (OracleSchema) getContainer();
-                        DBSObject object = objectType.findObject(session.getProgressMonitor(), tableSchema, objectName);
-                        if (object == null) {
-                            throw new DBException(objectTypeName + " '" + objectName + "' not found in schema '" + tableSchema.getName() + "'");
-                        }
-                        return object;
+            new AbstractObjectReference<>(objectName, objectSchema, null, objectType.getTypeClass(), objectType) {
+                @Override
+                public DBSObject resolveObject(DBRProgressMonitor monitor) throws DBException {
+                    OracleSchema tableSchema = getContainer();
+                    DBSObject object = objectType.findObject(session.getProgressMonitor(), tableSchema, objectName);
+                    if (object == null) {
+                        throw new DBException(objectTypeName + " '" + objectName + "' not found in schema '" + tableSchema.getName() + "'");
                     }
-
-                    @NotNull
-                    @Override
-                    public String getFullyQualifiedName(DBPEvaluationContext context) {
-                        if (objectType == OracleObjectType.SYNONYM && OracleConstants.USER_PUBLIC.equals(schemaName)) {
-                            return DBUtils.getQuotedIdentifier(dataSource, objectName);
-                        }
-                        return super.getFullyQualifiedName(context);
-                    }
+                    return object;
                 }
+
+                @NotNull
+                @Override
+                public String getFullyQualifiedName(DBPEvaluationContext context) {
+                    if (objectType == OracleObjectType.SYNONYM && OracleConstants.USER_PUBLIC.equals(schemaName)) {
+                        return DBUtils.getQuotedIdentifier(dataSource, objectName);
+                    }
+                    return super.getFullyQualifiedName(context);
+                }
+            }
         );
     }
 

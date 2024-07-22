@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.ui.IMemento;
 import org.eclipse.ui.IViewSite;
 import org.eclipse.ui.PartInitException;
+import org.jkiss.dbeaver.model.app.DBPPlatformDesktop;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.app.DBPProjectListener;
 import org.jkiss.dbeaver.model.navigator.DBNEmptyNode;
@@ -42,7 +43,7 @@ public class DatabaseNavigatorView extends NavigatorViewBase implements DBPProje
     public DatabaseNavigatorView()
     {
         super();
-        DBWorkbench.getPlatform().getWorkspace().addProjectListener(this);
+        DBPPlatformDesktop.getInstance().getWorkspace().addProjectListener(this);
     }
 
     @Override
@@ -89,7 +90,7 @@ public class DatabaseNavigatorView extends NavigatorViewBase implements DBPProje
     @Override
     public void dispose()
     {
-        DBWorkbench.getPlatform().getWorkspace().removeProjectListener(this);
+        DBPPlatformDesktop.getInstance().getWorkspace().removeProjectListener(this);
         super.dispose();
     }
 

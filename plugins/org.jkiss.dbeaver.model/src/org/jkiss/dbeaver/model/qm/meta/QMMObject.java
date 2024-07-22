@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,91 +27,92 @@ public abstract class QMMObject {
     static final Log log = Log.getLog(QMMObject.class);
 
     private static int globalObjectId = 0;
+    private final QMMetaObjectType type;
 
     private final long objectId;
 
-    private final long openTime;
+    private long openTime;
     private long closeTime;
 
-    private boolean synced;
-    private boolean updated;
+    private transient boolean updated;
 
-    public QMMObject()
-    {
+    public QMMObject(QMMetaObjectType type) {
+        this.type = type;
         this.objectId = generateObjectId();
         this.openTime = getTimeStamp();
     }
 
-    protected QMMObject(long openTime, long closeTime) {
+    protected QMMObject(QMMetaObjectType type, long openTime, long closeTime) {
+        this.type = type;
         this.objectId = generateObjectId();
         this.openTime = openTime;
         this.closeTime = closeTime;
     }
 
-    protected void close()
-    {
+    protected void close() {
         this.closeTime = getTimeStamp();
         this.update();
     }
 
-    protected void reopen()
-    {
+    protected void reopen() {
         this.closeTime = 0;
         this.update();
     }
 
-    public long getObjectId()
-    {
+    public long getObjectId() {
         return objectId;
     }
 
-    public boolean isSynced()
-    {
-        return synced;
-    }
-
-    public boolean isUpdated()
-    {
+    public boolean isUpdated() {
         return updated;
     }
 
-    public long getOpenTime()
-    {
+    public long getOpenTime() {
         return openTime;
     }
 
-    public long getCloseTime()
-    {
+    public long getCloseTime() {
         return closeTime;
     }
 
-    public boolean isClosed()
-    {
+    public boolean isClosed() {
         return closeTime > 0;
     }
 
     public abstract String getText();
 
-    protected synchronized void update()
-    {
+    // for serialization
+    public QMMetaObjectType getObjectType() {
+        return type;
+    }
+
+    protected synchronized void update() {
         this.updated = true;
     }
 
-    protected synchronized void sync()
-    {
-        this.synced = true;
-        this.updated = false;
-    }
-
-    private static synchronized long generateObjectId()
-    {
+    private static synchronized long generateObjectId() {
         globalObjectId++;
         return globalObjectId;
     }
 
-    protected static long getTimeStamp()
-    {
+    protected static long getTimeStamp() {
         return System.currentTimeMillis();
     }
 
+    public long getDuration() {
+        if (!isClosed()) {
+            return -1L;
+        }
+        return getCloseTime() - getOpenTime();
+    }
+
+    public abstract QMMConnectionInfo getConnection();
+
+    public void setOpenTime(long openTime) {
+        this.openTime = openTime;
+    }
+
+    public void setCloseTime(long closeTime) {
+        this.closeTime = closeTime;
+    }
 }

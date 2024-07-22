@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -194,7 +194,12 @@ class TaskConfigurationWizardPageTask extends ActiveWizardPage<TaskConfiguration
                     UIUtils.createLabelText(infoPanel, TaskUIMessages.task_config_wizard_page_task_text_label_task_id, task.getId(), SWT.BORDER | SWT.READ_ONLY);
                 }
 
-                UIUtils.asyncExec(() -> (taskSaved ? taskDescriptionText : taskLabelText).setFocus());
+                UIUtils.asyncExec(() -> {
+                    Text widgetToFocus = taskSaved ? taskDescriptionText : taskLabelText;
+                    if (widgetToFocus != null && !widgetToFocus.isDisposed()) {
+                        widgetToFocus.setFocus();
+                    }
+                });
 
                 if (task != null) {
                     UIUtils.createControlLabel(infoPanel, TaskUIMessages.task_config_wizard_page_task_control_label_category);
@@ -256,8 +261,13 @@ class TaskConfigurationWizardPageTask extends ActiveWizardPage<TaskConfiguration
                 taskCategoryTree.addControlListener(new ControlAdapter() {
                     @Override
                     public void controlResized(ControlEvent e) {
-                        UIUtils.packColumns(taskCategoryTree, true, new float[] { 0.3f, 0.7f});
                         taskCategoryTree.removeControlListener(this);
+                        UIUtils.packColumns(taskCategoryTree, true, new float[] { 0.3f, 0.7f});
+                    }
+                });
+                taskCategoryTree.addPaintListener(e -> {
+                    if (taskCategoryTree.getItemCount() == 0) {
+                        UIUtils.drawMessageOverControl(taskCategoryTree, e, TaskUIMessages.task_config_wizard_page_task_no_task_types_available, 0);
                     }
                 });
 
@@ -337,6 +347,9 @@ class TaskConfigurationWizardPageTask extends ActiveWizardPage<TaskConfiguration
 
     private boolean isTaskTypeApplicable(DBTTaskType type) {
         if (!filterTaskTypes || selectedProject == null || !selectedProject.isRegistryLoaded()) {
+            return true;
+        }
+        if (type.isStandalone()) {
             return true;
         }
         for (DBPDataSourceContainer ds : selectedProject.getDataSourceRegistry().getDataSources()) {

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
  */
 package org.jkiss.dbeaver.ext.generic.model;
 
-import org.eclipse.core.runtime.IAdaptable;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
@@ -45,6 +44,7 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLDialect;
 import org.jkiss.dbeaver.model.struct.*;
+import org.jkiss.dbeaver.model.struct.cache.SimpleObjectCache;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.time.ExtendedDateFormat;
 
@@ -58,13 +58,13 @@ import java.util.Properties;
 /**
  * GenericDataSource
  */
-public class GenericDataSource extends JDBCDataSource implements DBPTermProvider, IAdaptable, GenericStructContainer {
+public class GenericDataSource extends JDBCDataSource implements DBPTermProvider, DBPAdaptable, GenericStructContainer {
     private static final Log log = Log.getLog(GenericDataSource.class);
 
     private final TableTypeCache tableTypeCache;
     private final JDBCBasicDataTypeCache<GenericStructContainer, ? extends JDBCDataType> dataTypeCache;
     private List<GenericCatalog> catalogs;
-    private List<GenericSchema> schemas;
+    private SimpleObjectCache<GenericStructContainer, GenericSchema> schemas;
     private final GenericMetaModel metaModel;
     private GenericObjectContainer structureContainer;
     boolean catalogsFiltered;
@@ -105,6 +105,18 @@ public class GenericDataSource extends JDBCDataSource implements DBPTermProvider
         nativeFormatTime = makeNativeFormat(GenericConstants.PARAM_NATIVE_FORMAT_TIME);
         nativeFormatDate = makeNativeFormat(GenericConstants.PARAM_NATIVE_FORMAT_DATE);
 
+        final Object supportsStructCacheParam = getContainer().getDriver().getDriverParameter(GenericConstants.PARAM_SUPPORTS_STRUCT_CACHE);
+        if (supportsStructCacheParam != null) {
+            this.supportsStructCache = CommonUtils.toBoolean(supportsStructCacheParam);
+        }
+
+        if (dialect instanceof JDBCSQLDialect) {
+            final Object supportsSubqueries = getContainer().getDriver().getDriverParameter(GenericConstants.PARAM_SUPPORTS_SUBQUERIES);
+            if (supportsSubqueries != null) {
+                ((JDBCSQLDialect) dialect).setSupportsSubqueries(CommonUtils.toBoolean(supportsSubqueries));
+            }
+        }
+
         initializeRemoteInstance(monitor);
     }
 
@@ -118,12 +130,19 @@ public class GenericDataSource extends JDBCDataSource implements DBPTermProvider
         this.tableTypeCache = new TableTypeCache();
     }
 
+    @DPIContainer
+    @NotNull
+    @Override
+    public GenericDataSource getDataSource() {
+        return this;
+    }
+
     @Override
     protected String getConnectionURL(DBPConnectionConfiguration connectionInfo) {
         // Recreate URL from parameters
         // Driver settings and URL template may have change since connection creation
-        String connectionURL = getContainer().getDriver().getDataSourceProvider().getConnectionURL(getContainer().getDriver(), connectionInfo);
-        if (connectionInfo.getUrl() != null && !CommonUtils.equalObjects(connectionURL, connectionInfo.getUrl())) {
+        String connectionURL = getContainer().getDriver().getConnectionURL(connectionInfo);
+        if (!getContainer().getDriver().isSampleURLApplicable() && connectionInfo.getUrl() != null && !CommonUtils.equalObjects(connectionURL, connectionInfo.getUrl())) {
             log.warn("Actual connection URL (" + connectionURL + ") differs from previously saved (" + connectionInfo.getUrl() + "). " +
                 "Probably driver properties were changed. Please go to the connection '" + getContainer().getName() + "' editor.");
             connectionInfo.setUrl(connectionURL);
@@ -219,39 +238,7 @@ public class GenericDataSource extends JDBCDataSource implements DBPTermProvider
 
     @Override
     protected DBPDataSourceInfo createDataSourceInfo(DBRProgressMonitor monitor, @NotNull JDBCDatabaseMetaData metaData) {
-        final GenericDataSourceInfo info = new GenericDataSourceInfo(getContainer().getDriver(), metaData);
-        final JDBCSQLDialect dialect = (JDBCSQLDialect) getSQLDialect();
-
-        final Object supportsReferences = getContainer().getDriver().getDriverParameter(GenericConstants.PARAM_SUPPORTS_REFERENCES);
-        if (supportsReferences != null) {
-            info.setSupportsReferences(CommonUtils.toBoolean(supportsReferences));
-        }
-
-        final Object supportsIndexes = getContainer().getDriver().getDriverParameter(GenericConstants.PARAM_SUPPORTS_INDEXES);
-        if (supportsIndexes != null) {
-            info.setSupportsIndexes(CommonUtils.toBoolean(supportsIndexes));
-        }
-
-        final Object supportsViews = getContainer().getDriver().getDriverParameter(GenericConstants.PARAM_SUPPORTS_VIEWS);
-        if (supportsViews != null) {
-            info.setSupportsViews(CommonUtils.toBoolean(supportsViews));
-        }
-
-        final Object supportsStoredCode = getContainer().getDriver().getDriverParameter(GenericConstants.PARAM_SUPPORTS_STORED_CODE);
-        if (supportsStoredCode != null) {
-            info.setSupportsStoredCode(CommonUtils.toBoolean(supportsStoredCode));
-        }
-
-        final Object supportsSubqueries = getContainer().getDriver().getDriverParameter(GenericConstants.PARAM_SUPPORTS_SUBQUERIES);
-        if (supportsSubqueries != null) {
-            dialect.setSupportsSubqueries(CommonUtils.toBoolean(supportsSubqueries));
-        }
-
-        final Object supportsStructCacheParam = getContainer().getDriver().getDriverParameter(GenericConstants.PARAM_SUPPORTS_STRUCT_CACHE);
-        if (supportsStructCacheParam != null) {
-            this.supportsStructCache = CommonUtils.toBoolean(supportsStructCacheParam);
-        }
-        return info;
+        return new GenericDataSourceInfo(container.getDriver(), metaData);
     }
 
     @Override
@@ -330,20 +317,15 @@ public class GenericDataSource extends JDBCDataSource implements DBPTermProvider
 
     @Association
     public List<GenericSchema> getSchemas() {
-        return schemas;
+        return schemas == null ? null : schemas.getCachedObjects();
     }
 
     public GenericSchema getSchema(String name) {
-        return DBUtils.findObject(
-            getSchemas(),
-            name,
-            getSQLDialect().storesUnquotedCase() == DBPIdentifierCase.MIXED);
+        return schemas == null ? null : schemas.getCachedObject(name);
     }
 
-    @NotNull
-    @Override
-    public GenericDataSource getDataSource() {
-        return this;
+    public SimpleObjectCache getSchemaCache() {
+        return schemas;
     }
 
     @Override
@@ -384,6 +366,16 @@ public class GenericDataSource extends JDBCDataSource implements DBPTermProvider
     @Override
     public TableTriggerCache getTableTriggerCache() {
         return structureContainer.getTableTriggerCache();
+    }
+
+    @Override
+    public GenericObjectContainer.GenericSequenceCache getSequenceCache() {
+        return structureContainer.getSequenceCache();
+    }
+
+    @Override
+    public GenericObjectContainer.GenericSynonymCache getSynonymCache() {
+        return structureContainer.getSynonymCache();
     }
 
     @Override
@@ -510,7 +502,9 @@ public class GenericDataSource extends JDBCDataSource implements DBPTermProvider
                 try {
                     List<GenericSchema> tmpSchemas = metaModel.loadSchemas(session, this, null);
                     if (tmpSchemas != null) {
-                        this.schemas = tmpSchemas;
+                        this.schemas = new SimpleObjectCache<>();
+                        this.schemas.setCaseSensitive(getSQLDialect().storesUnquotedCase() != DBPIdentifierCase.MIXED);
+                        this.schemas.setCache(tmpSchemas);
                     }
                 } catch (Throwable e) {
                     if (metaModel.isSchemasOptional()) {
@@ -523,7 +517,7 @@ public class GenericDataSource extends JDBCDataSource implements DBPTermProvider
                     }
                 }
 
-                if (isMergeEntities() || (CommonUtils.isEmpty(schemas))) {
+                if (isMergeEntities() || (schemas == null || schemas.isEmpty())) {
                     this.structureContainer = new DataSourceObjectContainer();
                 }
             }
@@ -637,7 +631,7 @@ public class GenericDataSource extends JDBCDataSource implements DBPTermProvider
         if (!CommonUtils.isEmpty(schemaName)) {
             if (container != null) {
                 container = ((GenericCatalog) container).getSchema(monitor, schemaName);
-            } else if (!CommonUtils.isEmpty(schemas)) {
+            } else if (schemas != null && !schemas.isEmpty()) {
                 container = this.getSchema(schemaName);
             } else {
                 container = structureContainer;
@@ -686,7 +680,7 @@ public class GenericDataSource extends JDBCDataSource implements DBPTermProvider
     public Class<? extends DBSObject> getPrimaryChildType(@Nullable DBRProgressMonitor monitor) throws DBException {
         if (!CommonUtils.isEmpty(catalogs)) {
             return GenericCatalog.class;
-        } else if (!CommonUtils.isEmpty(schemas)) {
+        } else if (schemas != null && !schemas.isEmpty()) {
             return GenericSchema.class;
         } else {
             return GenericTable.class;
@@ -697,8 +691,8 @@ public class GenericDataSource extends JDBCDataSource implements DBPTermProvider
     public void cacheStructure(@NotNull DBRProgressMonitor monitor, int scope) throws DBException {
         if (!CommonUtils.isEmpty(catalogs)) {
             for (GenericCatalog catalog : catalogs) catalog.cacheStructure(monitor, scope);
-        } else if (!CommonUtils.isEmpty(schemas)) {
-            for (GenericSchema schema : schemas) schema.cacheStructure(monitor, scope);
+        } else if (schemas != null && !schemas.isEmpty()) {
+            for (GenericSchema schema : schemas.getCachedObjects()) schema.cacheStructure(monitor, scope);
         } else if (structureContainer != null) {
             structureContainer.cacheStructure(monitor, scope);
         }
@@ -706,9 +700,9 @@ public class GenericDataSource extends JDBCDataSource implements DBPTermProvider
 
     private boolean isChild(DBSObject object) throws DBException {
         if (object instanceof GenericCatalog) {
-            return !CommonUtils.isEmpty(catalogs) && catalogs.contains(GenericCatalog.class.cast(object));
+            return !CommonUtils.isEmpty(catalogs) && catalogs.contains(object);
         } else if (object instanceof GenericSchema) {
-            return !CommonUtils.isEmpty(schemas) && schemas.contains(GenericSchema.class.cast(object));
+            return schemas != null && !schemas.isEmpty() && schemas.getCachedObjects().contains(object);
         }
         return false;
     }
@@ -718,7 +712,7 @@ public class GenericDataSource extends JDBCDataSource implements DBPTermProvider
     }
 
     boolean hasSchemas() {
-        return !CommonUtils.isEmpty(schemas);
+        return schemas != null && !schemas.isEmpty();
     }
 
     String getQueryGetActiveDB() {
@@ -860,7 +854,7 @@ public class GenericDataSource extends JDBCDataSource implements DBPTermProvider
 
     GenericSchema getDefaultSchema() {
         if (schemas != null) {
-            for (GenericSchema schema : schemas) {
+            for (GenericSchema schema : schemas.getCachedObjects()) {
                 if (schema.isVirtual()) {
                     return schema;
                 }

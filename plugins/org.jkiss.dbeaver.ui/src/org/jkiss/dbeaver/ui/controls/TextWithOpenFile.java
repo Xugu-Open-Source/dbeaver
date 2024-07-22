@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,13 +20,16 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.DirectoryDialog;
 import org.eclipse.swt.widgets.FileDialog;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.dialogs.DialogUtils;
 import org.jkiss.utils.CommonUtils;
+import org.jkiss.utils.IOUtils;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.Base64;
 
 /**
  * TextWithOpen
@@ -36,21 +39,40 @@ public class TextWithOpenFile extends TextWithOpen
     private final String title;
     private final String[] filterExt;
     private final int style;
+    private final boolean binary;
     private boolean openFolder = false;
 
-    public TextWithOpenFile(Composite parent, String title, String[] filterExt, int style) {
-        super(parent);
+    public TextWithOpenFile(Composite parent, String title, String[] filterExt, int style, boolean binary) {
+        this(parent, title, filterExt, style, binary, false);
+    }
+    
+    public TextWithOpenFile(Composite parent, String title, String[] filterExt, int style, boolean binary, boolean secured) {
+        super(parent, secured);
         this.title = title;
         this.filterExt = filterExt;
         this.style = style;
+        this.binary = binary;
     }
 
     public TextWithOpenFile(Composite parent, String title, String[] filterExt) {
-        this(parent, title, filterExt, SWT.SINGLE | SWT.OPEN);
+        this(parent, title, filterExt, SWT.SINGLE | SWT.OPEN, false);
+    }
+
+    public TextWithOpenFile(Composite parent, String title, String[] filterExt, boolean binary) {
+        this(parent, title, filterExt, SWT.SINGLE | SWT.OPEN, binary);
+    }
+
+    public TextWithOpenFile(Composite parent, String title, String[] filterExt, boolean binary, boolean secured) {
+        this(parent, title, filterExt, SWT.SINGLE | SWT.OPEN, binary, secured);
     }
 
     public void setOpenFolder(boolean openFolder) {
         this.openFolder = openFolder;
+    }
+
+    @Override
+    protected boolean isBinaryContents() {
+        return binary;
     }
 
     protected void openBrowser() {
@@ -73,25 +95,35 @@ public class TextWithOpenFile extends TextWithOpen
                 DialogUtils.setCurDialogFolder(directory);
             }
             selected = DialogUtils.openFileDialog(fd);
+
+            if (selected != null && isShowFileContentEditor()) {
+                Path filePath = Path.of(selected);
+                try {
+                    if (binary) {
+                        byte[] bytes = Files.readAllBytes(filePath);
+                        selected = Base64.getEncoder().encodeToString(bytes);
+                    } else {
+                        selected = Files.readString(filePath);
+                    }
+                } catch (IOException e) {
+                    DBWorkbench.getPlatformUI().showError("File read error", "Can't read file '" + filePath + "' contents", e);
+                }
+            }
         }
         if (selected != null) {
             setText(selected);
         }
     }
 
-    protected String getDialogDirectory() {
+    private String getDialogDirectory() {
         final String text = getText();
         if (CommonUtils.isEmptyTrimmed(text)) {
             return null;
         }
         try {
-            final Path path = Paths.get(text);
-            if (Files.isDirectory(path)) {
-                return path.toString();
-            }
-            final Path parent = path.getParent();
-            if (parent != null) {
-                return parent.toString();
+            String dirPath = IOUtils.getDirectoryPath(text);
+            if (CommonUtils.isNotEmpty(dirPath)) {
+                return dirPath;
             }
         } catch (InvalidPathException ignored) {
         }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.IWorkbenchSite;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.postgresql.PostgreMessages;
 import org.jkiss.dbeaver.ext.postgresql.edit.PostgreCommandGrantPrivilege;
@@ -104,7 +105,7 @@ public class PostgresRolePrivilegesEditor extends AbstractDatabaseObjectEditor<P
             isRoleEditor() ? new DatabaseObjectFilter() : null);
         roleOrObjectTable.setLayoutData(new GridData(GridData.FILL_BOTH));
         final TreeViewer treeViewer = roleOrObjectTable.getViewer();
-        treeViewer.setLabelProvider(new DatabaseNavigatorLabelProvider(treeViewer) {
+        treeViewer.setLabelProvider(new DatabaseNavigatorLabelProvider(roleOrObjectTable) {
             @Override
             public Font getFont(Object element) {
                 if (element instanceof DBNDatabaseNode) {
@@ -159,7 +160,7 @@ public class PostgresRolePrivilegesEditor extends AbstractDatabaseObjectEditor<P
                 @Override
                 public void widgetSelected(SelectionEvent e) {
                     if (e.detail == SWT.CHECK) {
-                        updateCurrentPrivileges(((TableItem) e.item).getChecked(), (PostgrePrivilegeType) e.item.getData());
+                        updateCurrentPrivileges(((TableItem) e.item).getChecked(), (PostgrePrivilegeType) e.item.getData(), null);
                     }
                 }
             });
@@ -188,25 +189,13 @@ public class PostgresRolePrivilegesEditor extends AbstractDatabaseObjectEditor<P
             UIUtils.createPushButton(buttonPanel, PostgreMessages.dialog_create_push_button_grant_all, null, new SelectionAdapter() {
                 @Override
                 public void widgetSelected(SelectionEvent e) {
-                    boolean hadNonChecked = false;
-                    for (TableItem item : permissionTable.getItems()) {
-                        if (!item.getChecked()) hadNonChecked = true;
-                        item.setChecked(true);
-                    }
-                    if (hadNonChecked) updateCurrentPrivileges(true, null);
+                    updateAllCurrentPrivileges(true);
                 }
             });
             UIUtils.createPushButton(buttonPanel, PostgreMessages.dialog_create_push_button_revoke_all, null, new SelectionAdapter() {
                 @Override
                 public void widgetSelected(SelectionEvent e) {
-                    boolean hadChecked = false;
-                    for (TableItem item : permissionTable.getItems()) {
-                        if (item.getChecked()) hadChecked = true;
-                        item.setChecked(false);
-                    }
-                    if (hadChecked) {
-                        updateCurrentPrivileges(false, null);
-                    }
+                    updateAllCurrentPrivileges(false);
                 }
             });
 
@@ -230,14 +219,26 @@ public class PostgresRolePrivilegesEditor extends AbstractDatabaseObjectEditor<P
 
     private PostgrePrivilege getObjectPermissions(DBSObject object) {
         if (object instanceof PostgreProcedure) {
-            String fqProcName = DBUtils.getQuotedIdentifier(((PostgreProcedure) object).getSchema()) + "." + ((PostgreProcedure) object).getSpecificName();
+            String fqProcName = DBUtils.getQuotedIdentifier(((PostgreProcedure) object).getSchema()) + "." + ((PostgreProcedure) object).getOverloadedName();
             return permissionMap.get(fqProcName);
         } else {
             return permissionMap.get(DBUtils.getObjectFullName(object, DBPEvaluationContext.DDL));
         }
     }
 
-    private void updateCurrentPrivileges(boolean grant, PostgrePrivilegeType privilegeType) {
+    private void updateAllCurrentPrivileges(boolean grant) {
+        final PostgrePrivilegeType[] previousPrivilegeTypes = Arrays.stream(permissionTable.getItems())
+            .filter(x -> grant != x.getChecked())
+            .peek(x -> x.setChecked(grant))
+            .map(x -> (PostgrePrivilegeType) x.getData())
+            .toArray(PostgrePrivilegeType[]::new);
+
+        if (previousPrivilegeTypes.length > 0) {
+            updateCurrentPrivileges(grant, null, previousPrivilegeTypes);
+        }
+    }
+
+    private void updateCurrentPrivileges(boolean grant, @Nullable PostgrePrivilegeType privilegeType, @Nullable PostgrePrivilegeType[] previousPrivilegeTypes) {
 
         if (ArrayUtils.isEmpty(currentObjects)) {
             DBWorkbench.getPlatformUI().showError("Update privilege", "Can't update privilege - no current object");
@@ -315,7 +316,7 @@ public class PostgresRolePrivilegesEditor extends AbstractDatabaseObjectEditor<P
                     grant,
                     currentObject,
                     permission,
-                    privilegeType == null ? null : new PostgrePrivilegeType[] { privilegeType }),
+                    privilegeType == null ? previousPrivilegeTypes : new PostgrePrivilegeType[] { privilegeType }),
                 new DBECommandReflector<PostgrePrivilegeOwner, PostgreCommandGrantPrivilege>() {
                     @Override
                     public void redoCommand(PostgreCommandGrantPrivilege cmd)
@@ -519,7 +520,7 @@ public class PostgresRolePrivilegesEditor extends AbstractDatabaseObjectEditor<P
         }
 
         ProgressVisualizer<Collection<PostgrePrivilege>> createLoadVisualizer() {
-            return new ProgressVisualizer<Collection<PostgrePrivilege>>() {
+            return new ProgressVisualizer<>() {
                 @Override
                 public void completeLoading(Collection<PostgrePrivilege> privs) {
                     super.completeLoading(privs);
@@ -532,8 +533,8 @@ public class PostgresRolePrivilegesEditor extends AbstractDatabaseObjectEditor<P
                     }
                     // Load navigator tree
                     DBRProgressMonitor monitor = new VoidProgressMonitor();
-                    DBNDatabaseNode dbNode = DBNUtils.getNodeByObject(getDatabaseObject().getDatabase());
                     DBNDatabaseNode rootNode;
+                    DBNDatabaseNode dbNode = DBNUtils.getNodeByObject(monitor, getDatabaseObject().getDatabase(), true);
                     if (isRoleEditor()) {
                         rootNode = DBNUtils.getChildFolder(monitor, dbNode, PostgreSchema.class);
                     } else {

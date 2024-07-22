@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.app.DBPProject;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.Map;
 
 /**
@@ -55,7 +55,10 @@ public interface DBTTaskManager {
     DBTTaskFolder[] getTasksFolders();
 
     @NotNull
-    DBTTaskFolder createTaskFolder(@NotNull DBPProject project, @NotNull String folderName, @Nullable DBTTask[] folderTasks) throws DBException;
+    DBTTaskFolder createTaskFolder(@NotNull DBPProject project,
+                                   @NotNull String folderName,
+                                   @Nullable DBTTaskFolder parentFolder,
+                                   @Nullable DBTTask[] folderTasks) throws DBException;
 
     @NotNull
     DBTTask createTask(
@@ -79,8 +82,17 @@ public interface DBTTaskManager {
 
     void removeTaskFolder(@NotNull DBTTaskFolder taskFolder) throws DBException;
 
+    void updateConfiguration();
+
+    boolean hasRunningTasks();
+
+    void cancelRunningTasks();
+
     @NotNull
-    File getStatisticsFolder();
+    Path getStatisticsFolder();
+
+    @NotNull
+    Path getStatisticsFolder(@NotNull DBTTask task);
 
     Job runTask(@NotNull DBTTask task, @NotNull DBTTaskExecutionListener listener, @NotNull Map<String, Object> options) throws DBException;
 

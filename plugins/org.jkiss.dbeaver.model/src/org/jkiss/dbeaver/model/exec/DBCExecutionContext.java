@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,7 @@ package org.jkiss.dbeaver.model.exec;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.model.DBPCloseableObject;
-import org.jkiss.dbeaver.model.DBPDataSource;
-import org.jkiss.dbeaver.model.DBPObject;
+import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSInstance;
 
@@ -30,7 +28,8 @@ import org.jkiss.dbeaver.model.struct.DBSInstance;
  * Provides access to execution sessions.
  * Usually contains some kind of physical database connection inside
  */
-public interface DBCExecutionContext extends DBPObject,DBPCloseableObject
+@DPIObject
+public interface DBCExecutionContext extends DBPObject, DBPCloseableObject, DBPContextWithAttributes
 {
     enum InvalidateResult {
         DISCONNECTED,
@@ -43,20 +42,24 @@ public interface DBCExecutionContext extends DBPObject,DBPCloseableObject
     /**
      * Unique context ID. Generated in the moment of context creation and never changes during context lifetime.
      */
+    @DPIElement
     long getContextId();
 
     /**
      * Context name. Like MAin, Metadata, Script X, etc.
      */
+    @DPIElement
     @NotNull
     String getContextName();
 
     /**
      * Owner datasource
      */
+    @DPIContainer
     @NotNull
     DBPDataSource getDataSource();
 
+    @DPIContainer
     DBSInstance getOwnerInstance();
 
     /**
@@ -64,6 +67,7 @@ public interface DBCExecutionContext extends DBPObject,DBPCloseableObject
      * Usually DBPDataSourceContainer.getDataSource() returns datasource only if datasource is connected.
      * But in some cases (e.g. connection invalidation) datasource remains disconnected for some period of time.
      */
+    @DPIElement
     boolean isConnected();
 
     /**
@@ -101,6 +105,7 @@ public interface DBCExecutionContext extends DBPObject,DBPCloseableObject
      * Defaults reader/writer.
      * @return null if defaults are not supported
      */
+    @DPIElement
     @Nullable
     DBCExecutionContextDefaults getContextDefaults();
 }

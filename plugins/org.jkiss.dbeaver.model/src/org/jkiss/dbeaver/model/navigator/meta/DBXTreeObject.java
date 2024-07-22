@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import org.eclipse.core.runtime.IConfigurationElement;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.impl.AbstractDescriptor;
+
+import java.util.Objects;
 
 /**
  * DBXTreeObject
@@ -75,5 +77,18 @@ public class DBXTreeObject extends DBXTreeNode
     public String getEditorId()
     {
         return editorId;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        DBXTreeObject that = (DBXTreeObject) o;
+        return Objects.equals(editorId, that.editorId) && Objects.equals(getId(), that.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(editorId);
     }
 }

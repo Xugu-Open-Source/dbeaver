@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,16 +26,17 @@ import java.util.NoSuchElementException;
  */
 public class QMMTransactionSavepointInfo extends QMMObject {
 
-    private final QMMTransactionInfo transaction;
+    private final transient QMMTransactionInfo transaction;
     private final String name;
     private boolean committed;
-    private final QMMTransactionSavepointInfo previous;
-    private QMMStatementExecuteInfo lastExecute;
+    private final transient QMMTransactionSavepointInfo previous;
+    private transient QMMStatementExecuteInfo lastExecute;
 
     private transient DBCSavepoint reference;
 
     QMMTransactionSavepointInfo(QMMTransactionInfo transaction, DBCSavepoint reference, String name, QMMTransactionSavepointInfo previous)
     {
+        super(QMMetaObjectType.TRANSACTION_SAVEPOINT_INFO);
         this.transaction = transaction;
         this.reference = reference;
         this.name = name;
@@ -86,16 +87,16 @@ public class QMMTransactionSavepointInfo extends QMMObject {
 
     public Iterator<QMMStatementExecuteInfo> getExecutions()
     {
-        return new Iterator<QMMStatementExecuteInfo>() {
+        return new Iterator<>() {
             private QMMStatementExecuteInfo curExec = lastExecute;
+
             @Override
-            public boolean hasNext()
-            {
+            public boolean hasNext() {
                 return curExec != null && curExec.getSavepoint() == QMMTransactionSavepointInfo.this;
             }
+
             @Override
-            public QMMStatementExecuteInfo next()
-            {
+            public QMMStatementExecuteInfo next() {
                 if (curExec == null || curExec.getSavepoint() != QMMTransactionSavepointInfo.this) {
                     throw new NoSuchElementException();
                 }
@@ -103,9 +104,9 @@ public class QMMTransactionSavepointInfo extends QMMObject {
                 curExec = curExec.getPrevious();
                 return n;
             }
+
             @Override
-            public void remove()
-            {
+            public void remove() {
                 throw new UnsupportedOperationException();
             }
         };
@@ -138,4 +139,10 @@ public class QMMTransactionSavepointInfo extends QMMObject {
     public String getText() {
         return transaction.getText();
     }
+
+    @Override
+    public QMMConnectionInfo getConnection() {
+        return getTransaction().getConnection();
+    }
+
 }

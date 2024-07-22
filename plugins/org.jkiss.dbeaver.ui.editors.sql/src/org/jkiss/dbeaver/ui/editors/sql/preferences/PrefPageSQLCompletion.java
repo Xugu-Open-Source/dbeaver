@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,6 +21,7 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.*;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
@@ -46,6 +47,7 @@ public class PrefPageSQLCompletion extends TargetPrefPage
     private Spinner csAutoActivationDelaySpinner;
     private Button csAutoActivateOnKeystroke;
     private Button csAutoInsertCheck;
+    private Button csTabChoice;
     private Combo csInsertCase;
     private Button csReplaceWordAfter;
     private Button csHideDuplicates;
@@ -54,11 +56,14 @@ public class PrefPageSQLCompletion extends TargetPrefPage
     private Button csInsertSpace;
     private Button csSortAlphabetically;
     private Button csShowServerHelpTopics;
+    private Button csShowValues;
     private Combo csInsertTableAlias;
 
     private Button csMatchContains;
     private Button csUseGlobalSearch;
     private Button csShowColumnProcedures;
+    private Button csHippieActivation;
+    private Button csEnableExperimentalFeatures;
 
     public PrefPageSQLCompletion()
     {
@@ -71,9 +76,11 @@ public class PrefPageSQLCompletion extends TargetPrefPage
         DBPPreferenceStore store = dataSourceDescriptor.getPreferenceStore();
         return
             store.contains(SQLPreferenceConstants.ENABLE_AUTO_ACTIVATION) ||
+            store.contains(SQLPreferenceConstants.ENABLE_EXPERIMENTAL_FEATURES) ||
             store.contains(SQLPreferenceConstants.AUTO_ACTIVATION_DELAY) ||
             store.contains(SQLPreferenceConstants.ENABLE_KEYSTROKE_ACTIVATION) ||
             store.contains(SQLPreferenceConstants.INSERT_SINGLE_PROPOSALS_AUTO) ||
+            store.contains(SQLPreferenceConstants.TAB_AUTOCOMPLETION) ||
             store.contains(SQLPreferenceConstants.PROPOSAL_INSERT_CASE) ||
             store.contains(SQLPreferenceConstants.PROPOSAL_REPLACE_WORD) ||
             store.contains(SQLPreferenceConstants.HIDE_DUPLICATE_PROPOSALS) ||
@@ -86,7 +93,8 @@ public class PrefPageSQLCompletion extends TargetPrefPage
             store.contains(SQLPreferenceConstants.PROPOSALS_MATCH_CONTAINS) ||
             store.contains(SQLPreferenceConstants.USE_GLOBAL_ASSISTANT) ||
             store.contains(SQLPreferenceConstants.SHOW_COLUMN_PROCEDURES) ||
-            store.contains(SQLPreferenceConstants.SHOW_SERVER_HELP_TOPICS)
+            store.contains(SQLPreferenceConstants.SHOW_SERVER_HELP_TOPICS) ||
+            store.contains(SQLPreferenceConstants.SHOW_VALUES)
         ;
     }
 
@@ -96,16 +104,36 @@ public class PrefPageSQLCompletion extends TargetPrefPage
         return true;
     }
 
+    @NotNull
     @Override
-    protected Control createPreferenceContent(Composite parent)
-    {
+    protected Control createPreferenceContent(@NotNull Composite parent) {
         Composite composite = UIUtils.createPlaceholder(parent, 2, 5);
 
         // Content assistant
         {
             Composite assistGroup = UIUtils.createControlGroup(composite, SQLEditorMessages.pref_page_sql_completion_group_sql_assistant, 2, GridData.VERTICAL_ALIGN_BEGINNING, 0);
 
-            csAutoActivationCheck = UIUtils.createCheckbox(assistGroup, SQLEditorMessages.pref_page_sql_completion_label_enable_auto_activation, SQLEditorMessages.pref_page_sql_completion_label_enable_auto_activation_tip, false, 2);
+            csAutoActivationCheck = UIUtils.createCheckbox(
+                assistGroup,
+                SQLEditorMessages.pref_page_sql_completion_label_enable_auto_activation,
+                SQLEditorMessages.pref_page_sql_completion_label_enable_auto_activation_tip,
+                false,
+                2
+            );
+            csHippieActivation = UIUtils.createCheckbox(
+                assistGroup,
+                SQLEditorMessages.pref_page_sql_completion_label_activate_hippie,
+                SQLEditorMessages.pref_page_sql_completion_label_activate_hippie_tip,
+                true,
+                2
+            );
+            csEnableExperimentalFeatures = UIUtils.createCheckbox(
+                assistGroup,
+                SQLEditorMessages.pref_page_sql_completion_label_enable_experimental_features,
+                SQLEditorMessages.pref_page_sql_completion_label_enable_experimental_features_tip,
+                true,
+                2
+            );
 
             UIUtils.createControlLabel(assistGroup, SQLEditorMessages.pref_page_sql_completion_label_auto_activation_delay + UIMessages.label_ms);
             csAutoActivationDelaySpinner = new Spinner(assistGroup, SWT.BORDER);
@@ -120,13 +148,24 @@ public class PrefPageSQLCompletion extends TargetPrefPage
                 assistGroup,
                 SQLEditorMessages.pref_page_sql_completion_label_activate_on_typing,
                 SQLEditorMessages.pref_page_sql_completion_label_activate_on_typing_tip,
-                false, 2);
+                false,
+                2
+            );
             csAutoInsertCheck = UIUtils.createCheckbox(
                 assistGroup,
                 SQLEditorMessages.pref_page_sql_completion_label_auto_insert_proposal,
                 SQLEditorMessages.pref_page_sql_completion_label_auto_insert_proposal_tip,
-                false, 2);
-
+                false,
+                2
+            );
+            csTabChoice = UIUtils.createCheckbox(
+                assistGroup,
+                SQLEditorMessages.pref_page_sql_completion_label_autocomplete_by_tab,
+                SQLEditorMessages.pref_page_sql_completion_label_autocomplete_by_tab_tip,
+                false,
+                2
+            );
+            
             UIUtils.createControlLabel(assistGroup, SQLEditorMessages.pref_page_sql_completion_label_insert_case);
             csInsertCase = new Combo(assistGroup, SWT.BORDER | SWT.DROP_DOWN | SWT.READ_ONLY);
             csInsertCase.add(SQLEditorMessages.pref_page_sql_insert_case_default);
@@ -140,6 +179,7 @@ public class PrefPageSQLCompletion extends TargetPrefPage
             csInsertSpace = UIUtils.createCheckbox(assistGroup, SQLEditorMessages.pref_page_sql_completion_label_insert_space, null, false, 2);
             csSortAlphabetically = UIUtils.createCheckbox(assistGroup, SQLEditorMessages.pref_page_sql_completion_label_sort_alphabetically, null, false, 2);
             csShowServerHelpTopics = UIUtils.createCheckbox(assistGroup, SQLEditorMessages.pref_page_sql_completion_label_show_server_help_topics, SQLEditorMessages.pref_page_sql_completion_label_show_server_help_topics_tip, false, 2);
+            csShowValues = UIUtils.createCheckbox(assistGroup, SQLEditorMessages.pref_page_sql_completion_label_show_values, SQLEditorMessages.pref_page_sql_completion_label_show_values_tip, false, 2);
             csInsertTableAlias = UIUtils.createLabelCombo(assistGroup, SQLEditorMessages.pref_page_sql_completion_label_insert_table_alias, SWT.READ_ONLY | SWT.DROP_DOWN);
             for (SQLTableAliasInsertMode mode : SQLTableAliasInsertMode.values()) {
                 csInsertTableAlias.add(mode.getText());
@@ -166,9 +206,12 @@ public class PrefPageSQLCompletion extends TargetPrefPage
     {
         try {
             csAutoActivationCheck.setSelection(store.getBoolean(SQLPreferenceConstants.ENABLE_AUTO_ACTIVATION));
+            csEnableExperimentalFeatures.setSelection(store.getBoolean(SQLPreferenceConstants.ENABLE_EXPERIMENTAL_FEATURES));
+            csHippieActivation.setSelection(store.getBoolean(SQLPreferenceConstants.ENABLE_HIPPIE));
             csAutoActivationDelaySpinner.setSelection(store.getInt(SQLPreferenceConstants.AUTO_ACTIVATION_DELAY));
             csAutoActivateOnKeystroke.setSelection(store.getBoolean(SQLPreferenceConstants.ENABLE_KEYSTROKE_ACTIVATION));
             csAutoInsertCheck.setSelection(store.getBoolean(SQLPreferenceConstants.INSERT_SINGLE_PROPOSALS_AUTO));
+            csTabChoice.setSelection(store.getBoolean(SQLPreferenceConstants.TAB_AUTOCOMPLETION));
             csInsertCase.select(store.getInt(SQLPreferenceConstants.PROPOSAL_INSERT_CASE));
 
             csReplaceWordAfter.setSelection(store.getBoolean(SQLPreferenceConstants.PROPOSAL_REPLACE_WORD));
@@ -178,6 +221,7 @@ public class PrefPageSQLCompletion extends TargetPrefPage
             csInsertSpace.setSelection(store.getBoolean(SQLPreferenceConstants.INSERT_SPACE_AFTER_PROPOSALS));
             csSortAlphabetically.setSelection(store.getBoolean(SQLPreferenceConstants.PROPOSAL_SORT_ALPHABETICALLY));
             csShowServerHelpTopics.setSelection(store.getBoolean(SQLPreferenceConstants.SHOW_SERVER_HELP_TOPICS));
+            csShowValues.setSelection(store.getBoolean(SQLPreferenceConstants.SHOW_VALUES));
             csInsertTableAlias.select(SQLTableAliasInsertMode.fromPreferences(store).ordinal());
 
             csMatchContains.setSelection(store.getBoolean(SQLPreferenceConstants.PROPOSALS_MATCH_CONTAINS));
@@ -194,9 +238,12 @@ public class PrefPageSQLCompletion extends TargetPrefPage
     {
         try {
             store.setValue(SQLPreferenceConstants.ENABLE_AUTO_ACTIVATION, csAutoActivationCheck.getSelection());
+            store.setValue(SQLPreferenceConstants.ENABLE_EXPERIMENTAL_FEATURES, csEnableExperimentalFeatures.getSelection());
+            store.setValue(SQLPreferenceConstants.ENABLE_HIPPIE, csHippieActivation.getSelection());
             store.setValue(SQLPreferenceConstants.AUTO_ACTIVATION_DELAY, csAutoActivationDelaySpinner.getSelection());
             store.setValue(SQLPreferenceConstants.ENABLE_KEYSTROKE_ACTIVATION, csAutoActivateOnKeystroke.getSelection());
             store.setValue(SQLPreferenceConstants.INSERT_SINGLE_PROPOSALS_AUTO, csAutoInsertCheck.getSelection());
+            store.setValue(SQLPreferenceConstants.TAB_AUTOCOMPLETION, csTabChoice.getSelection());
             store.setValue(SQLPreferenceConstants.PROPOSAL_INSERT_CASE, csInsertCase.getSelectionIndex());
             store.setValue(SQLPreferenceConstants.PROPOSAL_REPLACE_WORD, csReplaceWordAfter.getSelection());
             store.setValue(SQLPreferenceConstants.HIDE_DUPLICATE_PROPOSALS, csHideDuplicates.getSelection());
@@ -205,6 +252,7 @@ public class PrefPageSQLCompletion extends TargetPrefPage
             store.setValue(SQLPreferenceConstants.INSERT_SPACE_AFTER_PROPOSALS, csInsertSpace.getSelection());
             store.setValue(SQLPreferenceConstants.PROPOSAL_SORT_ALPHABETICALLY, csSortAlphabetically.getSelection());
             store.setValue(SQLPreferenceConstants.SHOW_SERVER_HELP_TOPICS, csShowServerHelpTopics.getSelection());
+            store.setValue(SQLPreferenceConstants.SHOW_VALUES, csShowValues.getSelection());
             store.setValue(SQLModelPreferences.SQL_PROPOSAL_INSERT_TABLE_ALIAS, SQLTableAliasInsertMode.values()[csInsertTableAlias.getSelectionIndex()].name());
 
             store.setValue(SQLPreferenceConstants.PROPOSALS_MATCH_CONTAINS, csMatchContains.getSelection());
@@ -223,7 +271,9 @@ public class PrefPageSQLCompletion extends TargetPrefPage
         store.setToDefault(SQLPreferenceConstants.AUTO_ACTIVATION_DELAY);
         store.setToDefault(SQLPreferenceConstants.ENABLE_KEYSTROKE_ACTIVATION);
         store.setToDefault(SQLPreferenceConstants.INSERT_SINGLE_PROPOSALS_AUTO);
+        store.setToDefault(SQLPreferenceConstants.TAB_AUTOCOMPLETION);
         store.setToDefault(SQLPreferenceConstants.PROPOSAL_INSERT_CASE);
+        store.setToDefault(SQLPreferenceConstants.ENABLE_HIPPIE);
 
         store.setToDefault(SQLPreferenceConstants.PROPOSAL_REPLACE_WORD);
         store.setToDefault(SQLPreferenceConstants.HIDE_DUPLICATE_PROPOSALS);
@@ -232,6 +282,7 @@ public class PrefPageSQLCompletion extends TargetPrefPage
         store.setToDefault(SQLPreferenceConstants.INSERT_SPACE_AFTER_PROPOSALS);
         store.setToDefault(SQLPreferenceConstants.PROPOSAL_SORT_ALPHABETICALLY);
         store.setToDefault(SQLPreferenceConstants.SHOW_SERVER_HELP_TOPICS);
+        store.setToDefault(SQLPreferenceConstants.SHOW_VALUES);
         store.setToDefault(SQLModelPreferences.SQL_PROPOSAL_INSERT_TABLE_ALIAS);
 
         store.setToDefault(SQLPreferenceConstants.PROPOSALS_MATCH_CONTAINS);

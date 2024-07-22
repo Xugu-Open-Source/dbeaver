@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -65,6 +65,7 @@ public class PrefPageDatabaseEditors extends AbstractPrefPage implements IWorkbe
     public static final String PAGE_ID = "org.jkiss.dbeaver.preferences.editors"; //$NON-NLS-1$
 
     private Button keepEditorsOnRestart;
+    private Button keepEditorsOnDisconnect;
     private Button refreshEditorOnOpen;
     private Button editorFullName;
     private Button showTableGrid;
@@ -89,9 +90,9 @@ public class PrefPageDatabaseEditors extends AbstractPrefPage implements IWorkbe
 
     }
 
+    @NotNull
     @Override
-    protected Control createContents(Composite parent)
-    {
+    protected Control createPreferenceContent(@NotNull Composite parent) {
         Composite composite = UIUtils.createPlaceholder(parent, 1, 5);
 
         {
@@ -99,6 +100,14 @@ public class PrefPageDatabaseEditors extends AbstractPrefPage implements IWorkbe
 
             keepEditorsOnRestart = UIUtils.createCheckbox(groupEditors, CoreMessages.pref_page_ui_general_keep_database_editors, false);
             keepEditorsOnRestart.setToolTipText(CoreMessages.pref_page_ui_general_keep_database_editors_tip);
+
+            keepEditorsOnDisconnect = UIUtils.createCheckbox(
+                groupEditors,
+                CoreMessages.pref_page_ui_general_keep_database_editors_on_disconnect,
+                CoreMessages.pref_page_ui_general_keep_database_editors_on_disconnect_tip,
+                false,
+                1
+            );
 
             refreshEditorOnOpen = UIUtils.createCheckbox(groupEditors, CoreMessages.pref_page_ui_general_refresh_editor_on_open, false);
             refreshEditorOnOpen.setToolTipText(CoreMessages.pref_page_ui_general_refresh_editor_on_open_tip);
@@ -167,6 +176,7 @@ public class PrefPageDatabaseEditors extends AbstractPrefPage implements IWorkbe
         DBPPreferenceStore store = DBWorkbench.getPlatform().getPreferenceStore();
 
         keepEditorsOnRestart.setSelection(store.getBoolean(DBeaverPreferences.UI_KEEP_DATABASE_EDITORS));
+        keepEditorsOnDisconnect.setSelection(store.getBoolean(DBeaverPreferences.UI_KEEP_DATABASE_EDITORS_ON_DISCONNECT));
         refreshEditorOnOpen.setSelection(store.getBoolean(NavigatorPreferences.NAVIGATOR_REFRESH_EDITORS_ON_OPEN));
         editorFullName.setSelection(store.getBoolean(DBeaverPreferences.NAVIGATOR_EDITOR_FULL_NAME));
         showTableGrid.setSelection(store.getBoolean(NavigatorPreferences.NAVIGATOR_EDITOR_SHOW_TABLE_GRID));
@@ -181,7 +191,8 @@ public class PrefPageDatabaseEditors extends AbstractPrefPage implements IWorkbe
     {
         DBPPreferenceStore store = DBWorkbench.getPlatform().getPreferenceStore();
 
-       store.setValue(DBeaverPreferences.UI_KEEP_DATABASE_EDITORS, keepEditorsOnRestart.getSelection());
+        store.setValue(DBeaverPreferences.UI_KEEP_DATABASE_EDITORS, keepEditorsOnRestart.getSelection());
+        store.setValue(DBeaverPreferences.UI_KEEP_DATABASE_EDITORS_ON_DISCONNECT, keepEditorsOnDisconnect.getSelection());
         store.setValue(NavigatorPreferences.NAVIGATOR_REFRESH_EDITORS_ON_OPEN, refreshEditorOnOpen.getSelection());
         store.setValue(DBeaverPreferences.NAVIGATOR_EDITOR_FULL_NAME, editorFullName.getSelection());
         store.setValue(NavigatorPreferences.NAVIGATOR_EDITOR_SHOW_TABLE_GRID, showTableGrid.getSelection());

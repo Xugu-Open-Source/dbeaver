@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,12 @@
 package org.jkiss.dbeaver.erd.ui.model;
 
 import org.eclipse.core.runtime.IAdapterFactory;
-import org.eclipse.gef3.EditPart;
+import org.eclipse.gef.EditPart;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.erd.model.ERDObject;
 import org.jkiss.dbeaver.erd.ui.part.DiagramPart;
+import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBPNamedObject;
 import org.jkiss.dbeaver.model.DBPObject;
 import org.jkiss.dbeaver.model.DBPQualifiedObject;
@@ -34,8 +36,10 @@ import org.jkiss.dbeaver.model.navigator.meta.DBXTreeNode;
 import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
 import org.jkiss.dbeaver.model.struct.DBSStructContainer;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -49,23 +53,35 @@ public class ERDObjectAdapter implements IAdapterFactory {
     @Override
     public <T> T getAdapter(Object adaptableObject, Class<T> adapterType) {
         if (DBNNode.class == adapterType) {
-            Object model = ((EditPart) adaptableObject).getModel();
-            if (model instanceof ERDObject) {
-                Object object = ((ERDObject<?>) model).getObject();
-                if (object instanceof DBSObject) {
-
-                    if (adaptableObject instanceof DiagramPart && ((DBSObject) object).getParentObject() instanceof DBSStructContainer) {
-                        object = ((DBSObject) object).getParentObject();
+            boolean unwrapParentNode = false;
+            Object object = ((EditPart) adaptableObject).getModel();
+            if (object instanceof EntityDiagram) {
+                final EntityDiagram diagram = (EntityDiagram) object;
+                if (isEntityContainerUnique(diagram)) {
+                    if (!diagram.getEntities().isEmpty()) {
+                        object = diagram.getEntities().get(0);
+                    } else if (diagram.getRootObjectContainer() != null) {
+                        object = diagram.getRootObjectContainer();
                     }
+                }
+                unwrapParentNode = true;
+            }
+            if (object instanceof ERDObject) {
+                object = ((ERDObject<?>) object).getObject();
+                if (object instanceof DBSObject && adaptableObject instanceof DiagramPart && ((DBSObject) object).getParentObject() instanceof DBSStructContainer) {
+                    object = ((DBSObject) object).getParentObject();
+                }
+            }
+            if (object instanceof DBSObject) {
+                DBNDatabaseNode node = DBNUtils.getNodeByObject((DBSObject) object);
+                if (node instanceof DBNDatabaseItem && node.getObject() instanceof DBSStructContainer) {
+                    node = getItemsFolderNode(node);
+                } else if (node != null && node.getParentNode() instanceof DBNDatabaseNode && unwrapParentNode) {
+                    node = (DBNDatabaseNode) node.getParentNode();
+                }
 
-                    DBNDatabaseNode node = DBNUtils.getNodeByObject((DBSObject) object);
-                    if (node instanceof DBNDatabaseItem && node.getObject() instanceof DBSStructContainer) {
-                        node = getTablesFolderNode(node);
-                    }
-
-                    if (node != null) {
-                        return adapterType.cast(node);
-                    }
+                if (node != null) {
+                    return adapterType.cast(node);
                 }
             }
         } else if (DBPObject.class.isAssignableFrom(adapterType)) {
@@ -92,27 +108,39 @@ public class ERDObjectAdapter implements IAdapterFactory {
         return null;
     }
 
+    private static boolean isEntityContainerUnique(@NotNull EntityDiagram diagram) {
+        if (diagram.getDataSources().size() == 1) {
+            final DBPDataSourceContainer dataSourceContainer = diagram.getDataSources().iterator().next();
+            final Collection<DBSObjectContainer> objectContainers = diagram.getObjectContainers(dataSourceContainer);
+            return objectContainers != null && objectContainers.size() == 1;
+        }
+        return diagram.getRootObjectContainer() != null;
+    }
+
     // That's tricky
     // Try to get Table folder. It is handy for Create New command
-    private DBNDatabaseNode getTablesFolderNode(DBNDatabaseNode node) {
+    private DBNDatabaseNode getItemsFolderNode(DBNDatabaseNode node) {
         for (DBXTreeNode childFolderMeta : node.getMeta().getChildren(node)) {
             if (childFolderMeta instanceof DBXTreeFolder) {
                 List<DBXTreeNode> childItems = childFolderMeta.getChildren(node);
                 if (!childItems.isEmpty()) {
                     DBXTreeNode itemMeta = childItems.get(0);
-                    if (itemMeta instanceof DBXTreeItem && ((DBXTreeItem) itemMeta).getPropertyName().contains("table")) {
-                        try {
-                            // Safe to use fake monitor because we read local folders
-                            for (DBNDatabaseNode navFolder : node.getChildren(new VoidProgressMonitor())) {
-                                if (navFolder.getMeta() == childFolderMeta) {
-                                    node = navFolder;
-                                    break;
+                    if (itemMeta instanceof DBXTreeItem) {
+                        String itemPropName = ((DBXTreeItem) itemMeta).getPropertyName();
+                        if (itemPropName.contains("table") || itemPropName.contains("collection")) {
+                            try {
+                                // Safe to use fake monitor because we read local folders
+                                for (DBNDatabaseNode navFolder : node.getChildren(new VoidProgressMonitor())) {
+                                    if (navFolder.getMeta() == childFolderMeta) {
+                                        node = navFolder;
+                                        break;
+                                    }
                                 }
+                            } catch (DBException ignored) {
+                                // Shouldn't be here
                             }
-                        } catch (DBException ignored) {
-                            // Shouldn't be here
+                            break;
                         }
-                        break;
                     }
                 }
             }
@@ -121,7 +149,7 @@ public class ERDObjectAdapter implements IAdapterFactory {
     }
 
     @Override
-    public Class[] getAdapterList() {
-        return new Class[] { ERDObject.class, DBPNamedObject.class, DBPQualifiedObject.class, DBSObject.class, DBNNode.class };
+    public Class<?>[] getAdapterList() {
+        return new Class<?>[] { ERDObject.class, DBPNamedObject.class, DBPQualifiedObject.class, DBSObject.class, DBNNode.class };
     }
 }

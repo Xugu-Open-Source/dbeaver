@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,6 +97,8 @@ public final class OracleUIMessages extends NLS {
     public static String edit_label_text_length_format;
     public static String edit_label_text_currency_format;
     public static String dialog_controlgroup_content;
+    public static String connection_extra_page_checkbox_show_only_one_schema;
+    public static String connection_extra_page_checkbox_show_only_one_schema_tip;
     public static String edit_create_checkbox_hide_empty_schemas;
     public static String edit_create_checkbox_hide_empty_schemas_tool_tip_text;
     public static String edit_create_checkbox_content_group_show;
@@ -127,6 +129,9 @@ public final class OracleUIMessages extends NLS {
     public static String pref_page_oracle_legend_execution_plan;
     public static String pref_page_oracle_legend_misc;
     public static String pref_page_oracle_legend_performance;
+    public static String pref_page_oracle_group_data;
+    public static String pref_page_oracle_checkbox_show_date_as_date;
+    public static String pref_page_oracle_checkbox_show_date_as_date_tip;
 
     public static String dialog_schema_edit_title;
     public static String dialog_schema_edit_user_name;

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -88,7 +88,8 @@ public class PropertyDescriptor implements DBPPropertyDescriptor, IPropertyValue
     private String name;
     private final String description;
     private final String category;
-    private Class<?> type;
+    private transient Class<?> type;
+    private PropertyType propertyType;
     private final boolean required;
     private Object defaultValue;
     private Object[] validValues;
@@ -107,13 +108,7 @@ public class PropertyDescriptor implements DBPPropertyDescriptor, IPropertyValue
     }
 
     public static List<DBPPropertyDescriptor> extractProperties(IConfigurationElement config) {
-        String category = NAME_UNDEFINED;
-        if (TAG_PROPERTY_GROUP.equals(config.getName())) {
-            category = config.getAttribute(ATTR_LABEL);
-            if (CommonUtils.isEmpty(category)) {
-                category = NAME_UNDEFINED;
-            }
-        }
+        String category = getPropertyCategory(config);
         List<DBPPropertyDescriptor> properties = new ArrayList<>();
         IConfigurationElement[] propElements = config.getChildren(PropertyDescriptor.TAG_PROPERTY);
         for (IConfigurationElement prop : propElements) {
@@ -122,8 +117,28 @@ public class PropertyDescriptor implements DBPPropertyDescriptor, IPropertyValue
         return properties;
     }
 
-    public PropertyDescriptor(String category, @NotNull String id, String name, String description,
-                              boolean required, Class<?> type, Object defaultValue, Object[] validValues) {
+    @NotNull
+    protected static String getPropertyCategory(IConfigurationElement config) {
+        String category = NAME_UNDEFINED;
+        if (TAG_PROPERTY_GROUP.equals(config.getName())) {
+            category = config.getAttribute(ATTR_LABEL);
+            if (CommonUtils.isEmpty(category)) {
+                category = NAME_UNDEFINED;
+            }
+        }
+        return category;
+    }
+
+    public PropertyDescriptor(
+        String category,
+        @NotNull String id,
+        String name,
+        String description,
+        boolean required,
+        Class<?> type,
+        Object defaultValue,
+        Object[] validValues)
+    {
         this.category = category;
         this.id = id;
         this.name = name;
@@ -147,10 +162,12 @@ public class PropertyDescriptor implements DBPPropertyDescriptor, IPropertyValue
         this.required = CommonUtils.getBoolean(config.getAttribute(ATTR_REQUIRED));
         String typeString = config.getAttribute(ATTR_TYPE);
         if (typeString == null) {
+            propertyType = PropertyType.t_string;
             type = String.class;
         } else {
             try {
-                type = PropertyType.valueOf("t_" + typeString).getValueType();
+                propertyType = PropertyType.valueOf("t_" + typeString);
+                type = propertyType.getValueType();
             } catch (IllegalArgumentException ex) {
                 log.warn(ex);
                 type = String.class;
@@ -250,6 +267,10 @@ public class PropertyDescriptor implements DBPPropertyDescriptor, IPropertyValue
     @Override
     public PropertyLength getLength() {
         return length;
+    }
+
+    public PropertyType getPropertyType() {
+        return propertyType;
     }
 
     @Override

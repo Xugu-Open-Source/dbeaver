@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import org.jkiss.dbeaver.model.meta.PropertyGroup;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.utils.BeanUtils;
+import org.jkiss.utils.CommonUtils;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -75,7 +76,7 @@ public abstract class AbstractObjectCache<OWNER extends DBSObject, OBJECT extend
     public List<OBJECT> getCachedObjects()
     {
         synchronized (cacheSync) {
-            return objectList == null ? Collections.<OBJECT>emptyList() : objectList;
+            return objectList == null ? Collections.emptyList() : objectList;
         }
     }
 
@@ -117,8 +118,9 @@ public abstract class AbstractObjectCache<OWNER extends DBSObject, OBJECT extend
             this.objectList.add(object);
             if (this.objectMap != null) {
                 String name = getObjectName(object);
-                checkDuplicateName(name, object);
-                this.objectMap.put(name, object);
+                if (checkDuplicateName(name, object)) {
+                    this.objectMap.put(name, object);
+                }
             }
         }
     }
@@ -163,8 +165,11 @@ public abstract class AbstractObjectCache<OWNER extends DBSObject, OBJECT extend
         return type.isInstance(object) ? type.cast(object) : null;
     }
 
-    public boolean isFullyCached()
-    {
+    public boolean isEmpty() {
+        return CommonUtils.isEmpty(objectList);
+    }
+
+    public boolean isFullyCached() {
         return this.fullCache;
     }
 
@@ -213,10 +218,10 @@ public abstract class AbstractObjectCache<OWNER extends DBSObject, OBJECT extend
                 objects = new ArrayList<>(objects);
                 for (int i = 0; i < objects.size(); i++) {
                     OBJECT newObject = objects.get(i);
-                    String newObjectName = getObjectName(newObject);
+                    String newObjectName = newObject.getName();
                     for (int k = 0; k < objectList.size(); k++) {
                         OBJECT oldObject = objectList.get(k);
-                        String oldObjectName = getObjectName(oldObject);
+                        String oldObjectName = oldObject.getName();
                         if (newObjectName.equals(oldObjectName)) {
                             objects.set(i, oldObject);
                             break;
@@ -239,18 +244,25 @@ public abstract class AbstractObjectCache<OWNER extends DBSObject, OBJECT extend
 
                 for (OBJECT object : objectList) {
                     String name = getObjectName(object);
-                    checkDuplicateName(name, object);
-                    this.objectMap.put(name, object);
+                    if (checkDuplicateName(name, object)) {
+                        this.objectMap.put(name, object);
+                    }
                 }
             }
             return this.objectMap;
         }
     }
 
-    private void checkDuplicateName(String name, OBJECT object) {
+    private boolean checkDuplicateName(String name, OBJECT object) {
         if (this.objectMap.containsKey(name)) {
             log.debug("Duplicate object name '" + name + "' in cache " + this.getClass().getSimpleName() + ". Last value: " + DBUtils.getObjectFullName(object, DBPEvaluationContext.DDL));
+            return isValidDuplicateObject(object);
         }
+        return true;
+    }
+
+    protected boolean isValidDuplicateObject(OBJECT object) {
+        return false;
     }
 
     protected void detectCaseSensitivity(DBSObject object) {
@@ -331,11 +343,11 @@ public abstract class AbstractObjectCache<OWNER extends DBSObject, OBJECT extend
                     final Object dstValue = field.get(dstObject);
                     if (DBSObjectCache.class.isAssignableFrom(field.getType())) {
                         if (dstValue != null) {
-                            ((DBSObjectCache) dstValue).clearCache();
+                            ((DBSObjectCache<?,?>) dstValue).clearCache();
                         }
                     } else if (Collection.class.isAssignableFrom(field.getType())) {
                         if (Modifier.isTransient(modifiers) && dstValue != null) {
-                            ((Collection) dstValue).clear();
+                            ((Collection<?>) dstValue).clear();
                         }
                     } else {
                         if (isPropertyGroupField(field)) {
@@ -346,6 +358,7 @@ public abstract class AbstractObjectCache<OWNER extends DBSObject, OBJECT extend
                             }
                         } else if (Modifier.isFinal(modifiers)) {
                             // Ignore final fields
+                            continue;
                         } else {
                             // Just copy value
                             field.set(dstObject, srcValue);
@@ -359,7 +372,7 @@ public abstract class AbstractObjectCache<OWNER extends DBSObject, OBJECT extend
     }
 
     protected class CacheIterator implements Iterator<OBJECT> {
-        private Iterator<OBJECT> listIterator = objectList.iterator();
+        private final Iterator<OBJECT> listIterator = objectList.iterator();
         private OBJECT curObject;
         public CacheIterator()
         {

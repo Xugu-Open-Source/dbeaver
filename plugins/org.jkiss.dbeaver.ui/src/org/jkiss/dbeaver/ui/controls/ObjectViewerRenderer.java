@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,6 +83,10 @@ public abstract class ObjectViewerRenderer {
         this.arrowCursor = display.getSystemCursor(SWT.CURSOR_ARROW);
 
         itemsViewer.getControl().setCursor(arrowCursor);
+
+        itemsViewer.getControl().addDisposeListener(e -> {
+            linkLayout.dispose();
+        });
 
         if (trackInput) {
             final CellTrackListener actionsListener = new CellTrackListener();
@@ -242,7 +246,7 @@ public abstract class ObjectViewerRenderer {
                         String strValue = booleanStyle.getText();
                         Point textExtent = gc.textExtent(strValue);
                         booleanValueWith = textExtent.x;
-                        Rectangle columnBounds = isTree ? ((TreeItem) item).getBounds(columnIndex) : ((TableItem) item).getBounds(columnIndex);
+                        Rectangle columnBounds = getColumnBounds((Item) item, columnIndex);
                         //gc.setBackground(getControl().getBackground());
                         gc.setForeground(UIUtils.getSharedColor(booleanStyle.getColor()));
                         switch (getBooleanAlignment(value)) {
@@ -261,11 +265,15 @@ public abstract class ObjectViewerRenderer {
 //                    Image image = editable ?
 //                        (boolValue ? ImageUtils.getImageCheckboxEnabledOn() : ImageUtils.getImageCheckboxEnabledOff()) :
 //                        (boolValue ? ImageUtils.getImageCheckboxDisabledOn() : ImageUtils.getImageCheckboxDisabledOff());
+                    final boolean disabled = event.widget instanceof Control && !((Control) event.widget).isEnabled();
                     Image image = DBeaverIcons.getImage(booleanStyle.getIcon());
+                    if (disabled) {
+                        image = new Image(image.getDevice(), image, SWT.IMAGE_GRAY);
+                    }
                     final Rectangle imageBounds = image.getBounds();
                     booleanValueWith = imageBounds.width;
 
-                    Rectangle columnBounds = isTree ? ((TreeItem)item).getBounds(columnIndex) : ((TableItem)item).getBounds(columnIndex);
+                    Rectangle columnBounds = getColumnBounds((Item) item, columnIndex);
 
                     gc.setBackground(getControl().getBackground());
                     switch (getBooleanAlignment(value)) {
@@ -279,11 +287,15 @@ public abstract class ObjectViewerRenderer {
                             gc.drawImage(image, event.x + columnBounds.width - imageBounds.width - 4, event.y + (columnBounds.height - imageBounds.height) / 2);
                             break;
                     }
+
+                    if (disabled) {
+                        image.dispose();
+                    }
                 }
 
                 event.doit = false;
 
-            } else if (cellValue != null && isHyperlink(cellValue)) {
+            } else if (cellValue != null && isHyperlink(element, cellValue)) {
                 // Print link
                 prepareLinkStyle(cellValue, selected ? gc.getForeground() : JFaceColors.getHyperlinkText(event.item.getDisplay()));
                 Rectangle textBounds;
@@ -295,6 +307,21 @@ public abstract class ObjectViewerRenderer {
                 linkLayout.draw(gc, textBounds.x, textBounds.y);
             }
         }
+    }
+
+    public void paintInvalidCell(@NotNull Event e, @NotNull Widget item, int columnIndex) {
+        final Rectangle bounds = getColumnBounds((Item) item, columnIndex);
+        final int w = bounds.width / 2;
+        final int h = bounds.height;
+
+        final GC gc = e.gc;
+        gc.setForeground(item.getDisplay().getSystemColor(SWT.COLOR_WIDGET_DARK_SHADOW));
+        gc.drawLine(e.x + w - 5, e.y + h / 2, e.x + w + 5, e.y + h / 2);
+    }
+
+    @NotNull
+    private Rectangle getColumnBounds(@NotNull Item item, int columnIndex) {
+        return isTree ? ((TreeItem) item).getBounds(columnIndex) : ((TableItem) item).getBounds(columnIndex);
     }
 
     @NotNull
@@ -356,7 +383,7 @@ public abstract class ObjectViewerRenderer {
                 } else {
                     //tip = getCellString(cellValue);
                     boolean ctrlPressed = (stateMask & SWT.CTRL) != 0 || (stateMask & SWT.ALT) != 0;
-                    boolean isHyperlink = cellValue instanceof Boolean || (ctrlPressed && isHyperlink(cellValue));
+                    boolean isHyperlink = cellValue instanceof Boolean || (ctrlPressed && isHyperlink(element, cellValue));
                     if (isHyperlink && getCellLinkBounds(hoverItem, checkColumn, cellValue).contains(x, y)) {
                         getItemsViewer().getControl().setCursor(linkCursor);
                     } else {
@@ -443,7 +470,7 @@ public abstract class ObjectViewerRenderer {
                 Object element = hoverItem.getData();
                 int checkColumn = selectedColumn;
                 Object cellValue = getCellValue(element, checkColumn);
-                if (isHyperlink(cellValue) && getCellLinkBounds(hoverItem, checkColumn, cellValue).contains(e.x, e.y)) {
+                if (isHyperlink(element, cellValue) && getCellLinkBounds(hoverItem, checkColumn, cellValue).contains(e.x, e.y)) {
                     navigateHyperlink(cellValue);
                 }
             }
@@ -451,7 +478,7 @@ public abstract class ObjectViewerRenderer {
 
     }
 
-    public boolean isHyperlink(@Nullable Object cellValue)
+    public boolean isHyperlink(Object element, @Nullable Object cellValue)
     {
         return false;
     }

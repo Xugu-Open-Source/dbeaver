@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPContextProvider;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableContext;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableWithResult;
@@ -69,6 +70,7 @@ public class DataTransferWizard extends TaskConfigurationWizard<DataTransferSett
 
     private static final String RS_EXPORT_WIZARD_DIALOG_SETTINGS = "DataTransfer";//$NON-NLS-1$
     private static final Log log = Log.getLog(DataTransferWizard.class);
+    private static final String CLI_ARG_DEBUG_DISABLE_DT_SETTINGS_SAVE = "dbeaver.debug.disable-data-transfer-settings-save";
 
     private DataTransferSettings settings;
     private final Map<Class<?>, NodePageSettings> nodeSettings = new LinkedHashMap<>();
@@ -90,8 +92,14 @@ public class DataTransferWizard extends TaskConfigurationWizard<DataTransferSett
                 if (producer instanceof DatabaseTransferProducer) {
                     DBSObject databaseObject = producer.getDatabaseObject();
 
+                    SQLQueryContainer queryContainer = null;
                     if (databaseObject instanceof SQLQueryContainer) {
-                        Map<String, Object> queryParameters = ((SQLQueryContainer) databaseObject).getQueryParameters();
+                        queryContainer = (SQLQueryContainer) databaseObject;
+                    } else {
+                        queryContainer = DBUtils.getAdapter(SQLQueryContainer.class, databaseObject);
+                    }
+                    if (queryContainer != null) {
+                        Map<String, Object> queryParameters = queryContainer.getQueryParameters();
                         if (!CommonUtils.isEmpty(queryParameters)) {
                             getTaskVariables().putAll(queryParameters);
                         }
@@ -201,11 +209,15 @@ public class DataTransferWizard extends TaskConfigurationWizard<DataTransferSett
     @Override
     public void addPages() {
         super.addPages();
-        if ((!isTaskEditor() || isNewTaskEditor()) && (settings.isConsumerOptional() || settings.isProducerOptional())) {
+        if (includePipesConfigurationPage()) {
             addPage(new DataTransferPagePipes());
         }
         addWizardPages(this);
         addPage(new DataTransferPageFinal());
+    }
+
+    protected boolean includePipesConfigurationPage() {
+        return (!isTaskEditor() || isNewTaskEditor()) && (settings.isConsumerOptional() || settings.isProducerOptional());
     }
 
     @Override
@@ -421,19 +433,24 @@ public class DataTransferWizard extends TaskConfigurationWizard<DataTransferSett
         return false;
     }
 
+    public void loadNodeSettings() {
+        if (getSettings().isNodeSettingsLoaded()) {
+            return;
+        }
+        try {
+            getRunnableContext().run(true, true, monitor -> {
+                getSettings().loadNodeSettings(monitor);
+            });
+        } catch (InvocationTargetException e) {
+            DBWorkbench.getPlatformUI().showError("Error loading settings", "Error loading data transfer settings", e.getTargetException());
+        } catch (InterruptedException e) {
+            // ignore
+        }
+    }
+
     @Override
     public void onWizardActivation() {
-        UIUtils.asyncExec(() -> {
-            try {
-                getRunnableContext().run(true, true, monitor -> {
-                    getSettings().loadNodeSettings(monitor);
-                });
-            } catch (InvocationTargetException e) {
-                DBWorkbench.getPlatformUI().showError("Error loading settings", "Error loading data transfer settings", e.getTargetException());
-            } catch (InterruptedException e) {
-                // ignore
-            }
-        });
+        //UIUtils.asyncExec(this::loadNodeSettings);
     }
 
     NodePageSettings getNodeInfo(IDataTransferNode<?> node) {
@@ -515,34 +532,37 @@ public class DataTransferWizard extends TaskConfigurationWizard<DataTransferSett
             config.put("processor", settings.getProcessor().getId());
         }
 
-        // Save processors' properties
-        Map<String, Object> processorsSection = new LinkedHashMap<>();
+        String property = System.getProperty(CLI_ARG_DEBUG_DISABLE_DT_SETTINGS_SAVE); // Turn off processor settings save. For Testing only. Use it after vmargs -Ddbeaver.debug.disable-data-transfer-settings-save=true
+        if (CommonUtils.isEmpty(property)) {
+            // Save processors' properties
+            Map<String, Object> processorsSection = new LinkedHashMap<>();
 
-        for (DataTransferProcessorDescriptor procDescriptor : settings.getProcessorPropsHistory().keySet()) {
+            for (DataTransferProcessorDescriptor procDescriptor : settings.getProcessorPropsHistory().keySet()) {
 
-            if (isTask) {
-                // Do not save settings for nodes not involved in this task
-                if (settings.getProcessor() == null || !settings.getProcessor().getId().equals(procDescriptor.getId())) {
-                    continue;
+                if (isTask) {
+                    // Do not save settings for nodes not involved in this task
+                    if (settings.getProcessor() == null || !settings.getProcessor().getId().equals(procDescriptor.getId())) {
+                        continue;
+                    }
                 }
+
+                Map<String, Object> procSettings = new LinkedHashMap<>();
+
+                Map<String, Object> props = settings.getProcessorPropsHistory().get(procDescriptor);
+                if (!CommonUtils.isEmpty(props)) {
+                    StringBuilder propNames = new StringBuilder();
+                    for (Map.Entry<String, Object> prop : props.entrySet()) {
+                        propNames.append(prop.getKey()).append(',');
+                    }
+                    procSettings.put("@propNames", propNames.toString());
+                    for (Map.Entry<String, Object> prop : props.entrySet()) {
+                        procSettings.put(CommonUtils.toString(prop.getKey()), CommonUtils.toString(prop.getValue()));
+                    }
+                }
+                processorsSection.put(procDescriptor.getFullId(), procSettings);
             }
-
-            Map<String, Object> procSettings = new LinkedHashMap<>();
-
-            Map<String, Object> props = settings.getProcessorPropsHistory().get(procDescriptor);
-            if (!CommonUtils.isEmpty(props)) {
-                StringBuilder propNames = new StringBuilder();
-                for (Map.Entry<String, Object> prop : props.entrySet()) {
-                    propNames.append(prop.getKey()).append(',');
-                }
-                procSettings.put("@propNames", propNames.toString());
-                for (Map.Entry<String, Object> prop : props.entrySet()) {
-                    procSettings.put(CommonUtils.toString(prop.getKey()), CommonUtils.toString(prop.getValue()));
-                }
-            }
-            processorsSection.put(procDescriptor.getFullId(), procSettings);
+            config.put("processors", processorsSection);
         }
-        config.put("processors", processorsSection);
 
         return config;
     }
@@ -613,6 +633,7 @@ public class DataTransferWizard extends TaskConfigurationWizard<DataTransferSett
             new DataTransferState(),
             true,
             CommonUtils.isEmpty(consumers),
+            false,
             false);
 
         DataTransferWizard wizard = new DataTransferWizard(null, settings, true);
@@ -623,7 +644,7 @@ public class DataTransferWizard extends TaskConfigurationWizard<DataTransferSett
     public static DataTransferWizard openWizard(@NotNull DBTTask task)
     {
         try {
-            DataTransferSettings settings = DataTransferSettings.loadSettings(new DBRRunnableWithResult<DataTransferSettings>() {
+            DataTransferSettings settings = DataTransferSettings.loadSettings(new DBRRunnableWithResult<>() {
                 @Override
                 public void run(DBRProgressMonitor monitor) {
                     result = new DataTransferSettings(
@@ -631,7 +652,8 @@ public class DataTransferWizard extends TaskConfigurationWizard<DataTransferSett
                         task,
                         log,
                         new DialogSettingsMap(getWizardDialogSettings()),
-                        new DataTransferState());
+                        new DataTransferState(),
+                        false);
                 }
             });
 

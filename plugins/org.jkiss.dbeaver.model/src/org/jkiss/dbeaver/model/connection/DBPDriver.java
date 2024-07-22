@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,9 +27,11 @@ import org.jkiss.dbeaver.model.navigator.meta.DBXTreeNode;
 import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLDialectMetadata;
+import org.jkiss.utils.Pair;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * DBPDriver
@@ -74,7 +76,13 @@ public interface DBPDriver extends DBPNamedObject
     DBPImage getIconBig();
 
     @Nullable
+    DBPImage getLogoImage();
+
+    @Nullable
     String getDriverClassName();
+
+    @Nullable
+    String getDefaultHost();
 
     @Nullable
     String getDefaultPort();
@@ -109,9 +117,11 @@ public interface DBPDriver extends DBPNamedObject
     boolean isAllowsEmptyPassword();
     boolean isLicenseRequired();
     boolean isCustomDriverLoader();
-    boolean isUseURL();
+    boolean isSampleURLApplicable();
     boolean isCustomEndpointInformation();
 
+    boolean isSingleConnection();
+    
     // Can be created
     boolean isInstantiable();
     // Driver shipped along with JDK/DBeaver, doesn't need any additional libraries. Basically it is ODBC driver.
@@ -123,6 +133,16 @@ public interface DBPDriver extends DBPNamedObject
 
     boolean isDisabled();
     DBPDriver getReplacedBy();
+
+    boolean isDeprecated();
+
+    @NotNull
+    String getDeprecationReason();
+
+    /**
+     * @return a pair of providerId and driverId for each of driver replacement
+     */
+    List<Pair<String,String>> getDriverReplacementsInfo();
 
     int getPromotedScore();
 
@@ -165,13 +185,33 @@ public interface DBPDriver extends DBPNamedObject
 
     List<? extends DBPDriverFileSource> getDriverFileSources();
 
+    boolean needsExternalDependencies();
+
     @NotNull
     <T> T getDriverInstance(@NotNull DBRProgressMonitor monitor) throws DBException;
 
     void loadDriver(DBRProgressMonitor monitor) throws DBException;
 
+    String getConnectionURL(DBPConnectionConfiguration configuration);
+
+    /**
+     * Create copy of
+     * @return
+     */
+    DBPDriver createOriginalCopy();
+
+    /**
+     * Show supported configuration types
+     */
+    Set<DBPDriverConfigurationType> getSupportedConfigurationTypes();
+
     default String getFullId() {
         return getProviderId() + ":" + getId();
+    }
+
+    // Anonymized driver ID for statistics
+    default String getPreconfiguredId() {
+        return isCustom() ? getProviderId() + ":custom-driver" : getFullId();
     }
 
 }

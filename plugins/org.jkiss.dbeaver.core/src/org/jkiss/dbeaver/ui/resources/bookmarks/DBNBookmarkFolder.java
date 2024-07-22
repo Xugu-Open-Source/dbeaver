@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@
 package org.jkiss.dbeaver.ui.resources.bookmarks;
 
 import org.eclipse.core.resources.IFolder;
-import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPImage;
 import org.jkiss.dbeaver.model.app.DBPResourceHandler;
@@ -34,26 +34,23 @@ import java.util.Collections;
 /**
  * DBNBookmarkFolder
  */
-public class DBNBookmarkFolder extends DBNResource
-{
-    public DBNBookmarkFolder(DBNNode parentNode, IResource resource, DBPResourceHandler handler) throws DBException, CoreException
-    {
+public class DBNBookmarkFolder extends DBNResource {
+    public DBNBookmarkFolder(DBNNode parentNode, IResource resource, DBPResourceHandler handler) throws DBException, CoreException {
         super(parentNode, resource, handler);
     }
 
+    @NotNull
     @Override
-    public DBPImage getNodeIcon()
-    {
+    public DBPImage getResourceNodeIcon() {
         IResource resource = getResource();
-        if (resource != null && resource.getParent() instanceof IProject) {
+        if (resource != null && isRootResource(resource)) {
             return UIIcon.BOOKMARK_FOLDER;
         }
-        return super.getNodeIcon();
+        return super.getResourceNodeIcon();
     }
 
     @Override
-    public boolean supportsDrop(DBNNode otherNode)
-    {
+    public boolean supportsDrop(DBNNode otherNode) {
         if (otherNode instanceof DBNDatabaseNode || otherNode instanceof DBNBookmark) {
             return true;
         } else {
@@ -62,13 +59,26 @@ public class DBNBookmarkFolder extends DBNResource
     }
 
     @Override
-    public void dropNodes(Collection<DBNNode> nodes) throws DBException
-    {
+    public void dropNodes(Collection<DBNNode> nodes) throws DBException {
         for (DBNNode node : nodes) {
             if (node instanceof DBNDatabaseNode) {
                 BookmarksHandlerImpl.createBookmark((DBNDatabaseNode) node, node.getNodeName(), (IFolder) getResource());
             } else if (node instanceof DBNBookmark) {
                 super.dropNodes(Collections.singleton(node));
+            }
+        }
+    }
+
+    @Override
+    public boolean supportsPaste(@NotNull DBNNode other) {
+        return other instanceof DBNDatabaseNode;
+    }
+
+    @Override
+    public void pasteNodes(@NotNull Collection<DBNNode> nodes) throws DBException {
+        for (DBNNode node : nodes) {
+            if (node instanceof DBNDatabaseNode) {
+                BookmarksHandlerImpl.createBookmark((DBNDatabaseNode) node, node.getNodeName(), (IFolder) getResource());
             }
         }
     }

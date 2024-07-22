@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,14 +21,14 @@ package org.jkiss.dbeaver.model.data.aggregate;
  */
 public class FunctionMax implements IAggregateFunction {
 
-    Comparable result = null;
+    Comparable<?> result = null;
 
     @Override
     public boolean accumulate(Object value, boolean aggregateAsStrings) {
         value = FunctionNumeric.getComparable(value, aggregateAsStrings);
         if (value != null) {
-            if (result == null || AggregateUtils.compareValues((Comparable) value, result) > 0) {
-                result = (Comparable) value;
+            if (result == null || AggregateUtils.compareValues((Comparable<?>) value, result) > 0) {
+                result = (Comparable<?>) value;
             }
             return true;
         }

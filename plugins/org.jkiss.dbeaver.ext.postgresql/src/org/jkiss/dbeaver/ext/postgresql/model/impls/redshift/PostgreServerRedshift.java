@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,7 +83,72 @@ public class PostgreServerRedshift extends PostgreServerExtensionBase implements
         "TEMP",
         "UNLOAD",
         "VACUUM",
-        "YES"
+        "YES",
+        "AES128",
+        "AES256",
+        "ALLOWOVERWRITE",
+        "BLANKSASNULL",
+        "BYTEDICT",
+        "BZIP2",
+        "CREDENTIALS",
+        "DEFLATE",
+        "DEFRAG",
+        "DELTA",
+        "DELTA32K",
+        "EMPTYASNULL",
+        "ENCRYPT",
+        "ENCRYPTION",
+        "EXPLICIT",
+        "GLOBALDICT256",
+        "GLOBALDICT64K",
+        "GZIP",
+        "LUN",
+        "LUNS",
+        "LZO",
+        "LZOP",
+        "MINUS",
+        "MOSTLY16",
+        "MOSTLY32",
+        "MOSTLY8",
+        "OFFLINE",
+        "OID",
+        "PERMISSIONS",
+        "PIVOT",
+        "RAW",
+        "READRATIO",
+        "RECOVER",
+        "REJECTLOG",
+        "RESORT",
+        "SNAPSHOT",
+        "TAG",
+        "TDES",
+        "TEXT255",
+        "TEXT32K",
+        "TOP",
+        "TRUNCATECOLUMNS",
+        "UNPIVOT",
+        "WALLET",
+        "ACCEPTANYDATE",
+        "ACCEPTINVCHARS",
+        "BLANKSASNULL",
+        "DATEFORMAT",
+        "EMPTYASNULL",
+        "EXPLICIT_IDS",
+        "FILLRECORD",
+        "IGNOREBLANKLINES",
+        "IGNOREHEADER",
+        "NULLAS",
+        "REMOVEQUOTES",
+        "ROUNDEC",
+        "TIMEFORMAT",
+        "TRIMBLANKS",
+        "TRUNCATECOLUMNS",
+        "COMPROWS",
+        "COMPUPDATE",
+        "IGNOREALLERRORS",
+        "MAXERROR",
+        "NOLOAD",
+        "STATUPDATE"        
     };
    
     public static String[] REDSHIFT_FUNCTIONS_CONDITIONAL = new String[]{
@@ -191,6 +256,11 @@ public class PostgreServerRedshift extends PostgreServerExtensionBase implements
     }
 
     @Override
+    public boolean supportsCommentsOnRole() {
+        return false;
+    }
+
+    @Override
     public boolean supportsLocks() {
         return false;
     }
@@ -198,11 +268,6 @@ public class PostgreServerRedshift extends PostgreServerExtensionBase implements
     @Override
     public boolean supportsForeignServers() {
         return false;
-    }
-
-    @Override
-    public boolean supportsResultSetLimits() {
-        return true;
     }
 
     @Override
@@ -408,5 +473,15 @@ public class PostgreServerRedshift extends PostgreServerExtensionBase implements
     @Override
     public int getTruncateToolModes() {
         return 0;
+    }
+
+    @Override
+    public boolean supportsAlterTableColumnWithUSING() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsAlterTableForViewRename() {
+        return true;
     }
 }

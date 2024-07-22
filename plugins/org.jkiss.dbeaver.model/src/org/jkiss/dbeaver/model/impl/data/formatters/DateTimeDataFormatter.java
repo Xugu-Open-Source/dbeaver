@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
  */
 package org.jkiss.dbeaver.model.impl.data.formatters;
 
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.data.DBDDataFormatter;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import org.jkiss.utils.CommonUtils;
@@ -66,6 +68,16 @@ public class DateTimeDataFormatter implements DBDDataFormatter {
         dateTimeFormatter = DateTimeFormatter.ofPattern(java8DatePattern);
     }
 
+    @Nullable
+    public ZoneId getZone() {
+        return zone;
+    }
+
+    @NotNull
+    public DateFormat getDateFormat() {
+        return dateFormat;
+    }
+
     @Override
     public String getPattern()
     {
@@ -101,11 +113,20 @@ public class DateTimeDataFormatter implements DBDDataFormatter {
     @Override
     public Object parseValue(String value, Class<?> typeHint) throws ParseException
     {
-        if (typeHint != null && TemporalAccessor.class.isAssignableFrom(typeHint)) {
-            try {
-                return LocalDateTime.parse(value, dateTimeFormatter);
-            } catch (DateTimeParseException e) {
-                throw new ParseException(e.getParsedString(), e.getErrorIndex());
+        if (typeHint != null) {
+            if (LocalDateTime.class.isAssignableFrom(typeHint)) {
+                try {
+                    return LocalDateTime.parse(value, dateTimeFormatter);
+                } catch (DateTimeParseException e) {
+                    throw new ParseException(e.getParsedString(), e.getErrorIndex());
+                }
+            }
+            if (OffsetDateTime.class.isAssignableFrom(typeHint)) {
+                try {
+                    return OffsetDateTime.parse(value, dateTimeFormatter);
+                } catch (DateTimeParseException e) {
+                    throw new ParseException(e.getParsedString(), e.getErrorIndex());
+                }
             }
         }
         return dateFormat.parse(value);

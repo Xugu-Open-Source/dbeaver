@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,14 +29,14 @@ import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableContext;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.tasks.nativetool.ExportSettingsExtension;
-import org.jkiss.dbeaver.tasks.nativetool.NativeToolUtils;
-import org.jkiss.dbeaver.utils.GeneralUtils;
-import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 public class PostgreDatabaseBackupSettings extends PostgreBackupRestoreSettings implements ExportSettingsExtension<PostgreDatabaseBackupInfo> {
 
@@ -50,6 +50,10 @@ public class PostgreDatabaseBackupSettings extends PostgreBackupRestoreSettings 
     private boolean useInserts;
     private boolean noPrivileges;
     private boolean noOwner;
+    private boolean dropObjects;
+    private boolean outputFolderNeedsToBeRecreated;
+    private boolean createDatabase;
+    private File outputFolder;
 
     @NotNull
     public List<PostgreDatabaseBackupInfo> getExportObjects() {
@@ -108,6 +112,22 @@ public class PostgreDatabaseBackupSettings extends PostgreBackupRestoreSettings 
         this.noOwner = noOwner;
     }
 
+    public boolean isDropObjects() {
+        return dropObjects;
+    }
+
+    public void setDropObjects(boolean dropObjects) {
+        this.dropObjects = dropObjects;
+    }
+
+    public boolean isCreateDatabase() {
+        return createDatabase;
+    }
+
+    public void setCreateDatabase(boolean createDatabase) {
+        this.createDatabase = createDatabase;
+    }
+
     public void fillExportObjectsFromInput() {
         Map<PostgreDatabase, PostgreDatabaseBackupInfo> objMap = new LinkedHashMap<>();
         for (DBSObject object : getDatabaseObjects()) {
@@ -153,13 +173,14 @@ public class PostgreDatabaseBackupSettings extends PostgreBackupRestoreSettings 
     @Override
     public void loadSettings(DBRRunnableContext runnableContext, DBPPreferenceStore store) throws DBException {
         super.loadSettings(runnableContext, store);
-
         compression = store.getString("pg.export.compression");
         encoding = store.getString("pg.export.encoding");
         showViews = store.getBoolean("pg.export.showViews");
         useInserts = store.getBoolean("pg.export.useInserts");
         noPrivileges = store.getBoolean("pg.export.noPrivileges");
         noOwner = store.getBoolean("pg.export.noOwner");
+        dropObjects = store.getBoolean("pg.export.dropObjects");
+        createDatabase = store.getBoolean("pg.export.createDatabase");
 
         if (store instanceof DBPPreferenceMap) {
             // Save input objects to task properties
@@ -230,13 +251,14 @@ public class PostgreDatabaseBackupSettings extends PostgreBackupRestoreSettings 
     @Override
     public void saveSettings(DBRRunnableContext runnableContext, DBPPreferenceStore store) {
         super.saveSettings(runnableContext, store);
-
         store.setValue("pg.export.compression", compression);
         store.setValue("pg.export.encoding", encoding);
         store.setValue("pg.export.showViews", showViews);
         store.setValue("pg.export.useInserts", useInserts);
         store.setValue("pg.export.noPrivileges", noPrivileges);
         store.setValue("pg.export.noOwner", noOwner);
+        store.setValue("pg.export.dropObjects", dropObjects);
+        store.setValue("pg.export.createDatabase", createDatabase);
 
         if (store instanceof DBPPreferenceMap && !CommonUtils.isEmpty(exportObjects)) {
             // Save input objects to task properties
@@ -267,29 +289,16 @@ public class PostgreDatabaseBackupSettings extends PostgreBackupRestoreSettings 
 
     @NotNull
     public File getOutputFile(@NotNull PostgreDatabaseBackupInfo info) {
-        String outputFileName = GeneralUtils.replaceVariables(getOutputFilePattern(), name -> {
-            switch (name) {
-                case NativeToolUtils.VARIABLE_DATABASE:
-                    return info.getDatabase().getName();
-                case NativeToolUtils.VARIABLE_HOST:
-                    return info.getDatabase().getDataSource().getContainer().getConnectionConfiguration().getHostName();
-                case NativeToolUtils.VARIABLE_CONN_TYPE:
-                    return info.getDatabase().getDataSource().getContainer().getConnectionConfiguration().getConnectionType().getId();
-                case NativeToolUtils.VARIABLE_TABLE:
-                    final Iterator<PostgreTableBase> iterator = info.getTables() == null ? null : info.getTables().iterator();
-                    if (iterator != null && iterator.hasNext()) {
-                        return iterator.next().getName();
-                    } else {
-                        return "null";
-                    }
-                case NativeToolUtils.VARIABLE_TIMESTAMP:
-                    return RuntimeUtils.getCurrentTimeStamp();
-                case NativeToolUtils.VARIABLE_DATE:
-                    return RuntimeUtils.getCurrentDate();
-                default:
-                    return NativeToolUtils.replaceVariables(name);
-            }
-        });
-        return new File(getOutputFolder(), outputFileName);
+        String outputFileName = resolveVars(info.getDatabase(), info.getSchemas(), info.getTables(), getOutputFilePattern());
+        return new File(getOutputFolder(info), outputFileName);
+    }
+
+    @NotNull
+    @Override
+    public File getOutputFolder(@NotNull PostgreDatabaseBackupInfo info) {
+        if (outputFolder == null || outputFolderNeedsToBeRecreated ) {
+            outputFolder = new File(resolveVars(info.getDatabase(), info.getSchemas(), info.getTables(), getOutputFolderPattern()));
+        }
+        return outputFolder;
     }
 }

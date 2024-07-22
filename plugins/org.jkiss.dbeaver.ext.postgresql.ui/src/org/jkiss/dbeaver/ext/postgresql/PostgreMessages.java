@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2017 Liu, Yuanyuan (liuyuanyuan@highgo.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,12 +39,16 @@ public class PostgreMessages extends NLS {
     public static String wizard_backup_page_setting_label_compression;
     public static String wizard_backup_page_setting_label_encoding;
     public static String wizard_backup_page_setting_checkbox_use_insert;
+    public static String wizard_backup_page_setting_checkbox_use_insert_tip;
     public static String wizard_backup_page_setting_checkbox_no_privileges;
+    public static String wizard_backup_page_setting_checkbox_no_privileges_tip;
     public static String wizard_backup_page_setting_checkbox_no_owner;
+    public static String wizard_backup_page_setting_checkbox_no_owner_tip;
+    public static String wizard_backup_page_setting_checkbox_drop_objects;
+    public static String wizard_backup_page_setting_checkbox_drop_objects_tip;
+    public static String wizard_backup_page_setting_checkbox_create_database;
+    public static String wizard_backup_page_setting_checkbox_create_database_tip;
     public static String wizard_backup_page_setting_group_output;
-    public static String wizard_backup_page_setting_label_output_folder;
-    public static String wizard_backup_page_setting_label_file_name_pattern;
-    public static String wizard_backup_page_setting_label_file_name_pattern_output;
     public static String wizard_backup_page_setting_group_security;
     public static String wizard_backup_page_setting_group_security_label_info;
     public static String wizard_backup_page_setting_group_security_btn_authentication;
@@ -52,9 +56,36 @@ public class PostgreMessages extends NLS {
     public static String wizard_backup_page_setting_authentication_save_password_tip;
     public static String wizard_backup_page_setting_group_security_btn_reset_default;
 
+    public static String wizard_backup_all_page_global_backup_name;
+    public static String wizard_backup_all_page_global_backup_tip;
+
+    public static String wizard_backup_all_page_setting_title;
+    public static String wizard_backup_all_page_setting_title_setting;
+    public static String wizard_backup_all_page_setting_label_encoding;
+    public static String wizard_backup_all_page_setting_checkbox_only_metadata;
+    public static String wizard_backup_all_page_setting_checkbox_only_metadata_tip;
+    public static String wizard_backup_all_page_setting_checkbox_only_global;
+    public static String wizard_backup_all_page_setting_checkbox_only_global_tip;
+    public static String wizard_backup_all_page_setting_checkbox_only_roles;
+    public static String wizard_backup_all_page_setting_checkbox_only_roles_tip;
+    public static String wizard_backup_all_page_setting_checkbox_only_tablespaces;
+    public static String wizard_backup_all_page_setting_checkbox_only_tablespaces_tip;
+    public static String wizard_backup_all_page_setting_checkbox_no_privileges;
+    public static String wizard_backup_all_page_setting_checkbox_no_privileges_tip;
+    public static String wizard_backup_all_page_setting_checkbox_no_owner;
+    public static String wizard_backup_all_page_setting_checkbox_no_owner_tip;
+    public static String wizard_backup_all_page_setting_checkbox_add_passwords;
+    public static String wizard_backup_all_page_setting_checkbox_add_passwords_tip;
+
     /* wizard restore*/
     public static String wizard_restore_title;
     public static String wizard_restore_page_setting_btn_clean_first;
+    public static String wizard_restore_page_setting_btn_clean_first_tip;
+    public static String wizard_backup_page_setting_checkbox_restore_no_owner_tip;
+    public static String wizard_backup_page_setting_checkbox_restore_create_database;
+    public static String wizard_backup_page_setting_checkbox_restore_create_database_tip;
+    public static String wizard_restore_page_setting_confirm_dialog_title;
+    public static String wizard_restore_page_setting_confirm_dialog_message;
     public static String wizard_restore_page_setting_description;
     public static String wizard_restore_page_setting_label_backup_file;
     public static String wizard_restore_page_setting_label_choose_backup_file;
@@ -125,6 +156,8 @@ public class PostgreMessages extends NLS {
     public static String dialog_setting_connection_database_statistics_tip;
     public static String dialog_setting_connection_read_all_data_types;
     public static String dialog_setting_connection_read_all_data_types_tip;
+    public static String dialog_setting_connection_read_keys_with_columns;
+    public static String dialog_setting_connection_read_keys_with_columns_tip;
     public static String dialog_setting_group_sql;
     public static String dialog_setting_sql_dd_plain_label;
     public static String dialog_setting_sql_dd_plain_tip;
@@ -144,6 +177,7 @@ public class PostgreMessages extends NLS {
     public static String dialog_create_role_label_role_name;
     public static String dialog_create_role_label_user_password;
     public static String dialog_create_role_label_user_role;
+    public static String dialog_database_name_hint;
 
     /* Permissions */
     public static String edit_command_grant_privilege_action_grant_privilege;
@@ -167,6 +201,49 @@ public class PostgreMessages extends NLS {
     public static String dialog_create_tablespace_owner;
     public static String dialog_create_tablespace_loc;
     public static String dialog_create_tablespace_options;
+
+    /* Postgre create event trigger dialog */
+    public static String dialog_trigger_label_combo_event_type;
+    public static String dialog_trigger_label_combo_event_type_tip;
+    public static String dialog_trigger_label_title;
+
+    public static String dialog_trigger_edit_page_label_trigger_function;
+    public static String dialog_trigger_edit_page_select_function_title;
+    
+    /* Procedure check, etc */
+    
+    public static String procedure_check_label;
+    public static String procedure_check_label2;
+    public static String procedure_check_label_ext;
+    public static String procedure_check_description;
+    public static String source_view_show_header_label;
+    public static String source_view_show_header_description;
+    public static String message_open_console;
+    public static String error_cant_open_sql_editor;
+    
+    /* Query planner dialog */
+
+    public static String dialog_query_planner_settings_title;
+    public static String dialog_query_planner_settings_control_label;
+    public static String dialog_query_planner_settings_analyze;
+    public static String dialog_query_planner_settings_analyze_tip;
+    public static String dialog_query_planner_settings_verbose;
+    public static String dialog_query_planner_settings_verbose_tip;
+    public static String dialog_query_planner_settings_costs;
+    public static String dialog_query_planner_settings_costs_tip;
+    public static String dialog_query_planner_settings;
+    public static String dialog_query_planner_settings_tip;
+    public static String dialog_query_planner_settings_buffers;
+    public static String dialog_query_planner_settings_buffers_tip;
+    public static String dialog_query_planner_settings_wal;
+    public static String dialog_query_planner_settings_wal_tip;
+    public static String dialog_query_planner_settings_timing;
+    public static String dialog_query_planner_settings_timing_tip;
+    public static String dialog_query_planner_settings_summary;
+    public static String dialog_query_planner_settings_summary_tip;
+
+    public static String dialog_connection_pgpass_hostname_override;
+    public static String dialog_connection_pgpass_hostname_override_tip;
 
     static {
         // initialize resource bundle

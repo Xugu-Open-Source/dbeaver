@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,23 +26,28 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCSQLDialect;
 import org.jkiss.dbeaver.model.impl.sql.BasicSQLDialect;
 import org.jkiss.dbeaver.model.sql.SQLConstants;
 import org.jkiss.dbeaver.model.sql.SQLDialect;
+import org.jkiss.dbeaver.model.sql.SQLDialectSchemaController;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
+import org.jkiss.dbeaver.model.struct.rdb.DBSProcedure;
+import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureType;
 import org.jkiss.utils.ArrayUtils;
 
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
-* MySQL dialect
-*/
-class MySQLDialect extends JDBCSQLDialect {
+ * MySQL dialect
+ */
+public class MySQLDialect extends JDBCSQLDialect implements SQLDialectSchemaController {
 
     public static final String[] MYSQL_NON_TRANSACTIONAL_KEYWORDS = ArrayUtils.concatArrays(
         BasicSQLDialect.NON_TRANSACTIONAL_KEYWORDS,
         new String[]{
             "USE", "SHOW",
             "CREATE", "ALTER", "DROP",
-            SQLConstants.KEYWORD_EXPLAIN, "DESCRIBE", "DESC" }
+            SQLConstants.KEYWORD_EXPLAIN, "DESCRIBE", "DESC"}
     );
 
     private static final String[] ADVANCED_KEYWORDS = {
@@ -50,7 +55,8 @@ class MySQLDialect extends JDBCSQLDialect {
         "DATABASES",
         "COLUMNS",
         "ALGORITHM",
-        "REPAIR"
+        "REPAIR",
+        "ENGINE"
     };
 
     public static final String[][] MYSQL_QUOTE_STRINGS = {
@@ -91,6 +97,7 @@ class MySQLDialect extends JDBCSQLDialect {
             "MONTH",
             "NULLIF",
             "RANDOM_BYTES",
+            "REPLACE",
             "REGEXP_LIKE",
             "REGEXP_INSTR",
             "REGEXP_REPLACE",
@@ -108,32 +115,56 @@ class MySQLDialect extends JDBCSQLDialect {
             "YEAR"
     };
 
-    private static String[] EXEC_KEYWORDS =  { "CALL" };
+    private static final String[] MYSQL_GEOMETRY_FUNCTIONS = {
+        "ST_ASWKT",
+        "ST_GEOMCOLLFROMTEXT",
+        "ST_GEOMETRYCOLLECTIONFROMTEXT",
+        "ST_GEOMFROMTEXT",
+        "ST_LINEFROMTEXT",
+        "ST_MLINEFROMTEXT",
+        "ST_MPOINTFROMTEXT",
+        "ST_MPOLYFROMTEXT",
+        "ST_POINTFROMTEXT",
+        "ST_POLYFROMTEXT"
+    };
+    
+    private static final Pattern ONE_OR_MORE_DIGITS_PATTERN = Pattern.compile("[0-9]+");
+
+    private static final String[] EXEC_KEYWORDS =  { "CALL" };
     private int lowerCaseTableNames;
 
     public MySQLDialect() {
         super("MySQL", "mysql");
     }
+    
+    public MySQLDialect(String name, String id) {
+        super(name, id);
+    }
 
-    public void initDriverSettings(JDBCSession session, JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
+    public void initBaseDriverSettings(JDBCSession session, JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
         super.initDriverSettings(session, dataSource, metaData);
         this.lowerCaseTableNames = ((MySQLDataSource)dataSource).getLowerCaseTableNames();
         this.setSupportsUnquotedMixedCase(lowerCaseTableNames != 2);
 
-        //addSQLKeyword("STATISTICS");
-        Collections.addAll(tableQueryWords, SQLConstants.KEYWORD_EXPLAIN, "DESCRIBE", "DESC");
-        addFunctions(Arrays.asList("SLEEP"));
+        addTableQueryKeywords(SQLConstants.KEYWORD_EXPLAIN, "DESCRIBE", "DESC");
+        addFunctions(List.of("SLEEP"));
 
-        for (String kw : ADVANCED_KEYWORDS) {
-            addSQLKeyword(kw);
-        }
+        addSQLKeywords(Arrays.asList(ADVANCED_KEYWORDS));
         removeSQLKeyword("SOURCE");
 
         // CHAR is data type, not function
         removeSQLKeyword("CHAR");
 
-        addDataTypes(Arrays.asList("GEOMETRY", "POINT", "CHAR"));
+        addDataTypes(List.of("CHAR"));
         addFunctions(Arrays.asList(MYSQL_EXTRA_FUNCTIONS));
+    }
+    
+    @Override
+    public void initDriverSettings(JDBCSession session, JDBCDataSource dataSource, JDBCDatabaseMetaData metaData) {
+        initBaseDriverSettings(session, dataSource, metaData);
+
+        addDataTypes(Arrays.asList("GEOMETRY", "POINT"));
+        addFunctions(Arrays.asList(MYSQL_GEOMETRY_FUNCTIONS));
     }
 
     @Nullable
@@ -175,16 +206,43 @@ class MySQLDialect extends JDBCSQLDialect {
         return lowerCaseTableNames != 0;
     }
 
+    @Override
+    public boolean mustBeQuoted(String str, boolean forceCaseSensitive) {
+        Matcher matcher = ONE_OR_MORE_DIGITS_PATTERN.matcher(str);
+        if (matcher.lookingAt()) { // we should quote numeric names and names starts with number
+            return true;
+        }
+        return super.mustBeQuoted(str, forceCaseSensitive);
+    }
+    
+    @NotNull
+    @Override
+    protected String quoteIdentifier(@NotNull String str, @NotNull String[][] quoteStrings) {
+        // Escape with first (default) quote string
+        return quoteStrings[0][0] + escapeString(str, quoteStrings[0]) + quoteStrings[0][1];
+    }
+
     @NotNull
     @Override
     public String escapeString(String string) {
-        return string.replace("'", "''").replaceAll("\\\\(?![_%?])", "\\\\\\\\");
+        return escapeString(string, null);
+    }
+
+    @NotNull
+    protected String escapeString(@NotNull String string, @Nullable String[] quotes) {
+        if (quotes != null) {
+            string = string.replace(quotes[0], quotes[0] + quotes[0]);
+        } else {
+            string = string.replace("'", "''").replace("`", "``");
+        }
+
+        return string.replaceAll("\\\\(?![_%?])", "\\\\\\\\");
     }
 
     @NotNull
     @Override
     public String unEscapeString(String string) {
-        return string.replace("''", "'").replace("\\\\", "\\");
+        return string.replace("''", "'").replace("``", "`").replace("\\\\", "\\");
     }
 
     @NotNull
@@ -210,7 +268,7 @@ class MySQLDialect extends JDBCSQLDialect {
 
     @Override
     public String[] getSingleLineComments() {
-        return new String[] { "-- ", "#" };
+        return new String[] { "-- ", "--\t", "#" };
     }
 
     @Override
@@ -229,8 +287,9 @@ class MySQLDialect extends JDBCSQLDialect {
     }
 
     @Override
-    protected boolean useBracketsForExec() {
-        return true;
+    protected boolean useBracketsForExec(DBSProcedure procedure) {
+        // Use brackets for CallableStatement. Support for procedures only
+        return procedure.getProcedureType() == DBSProcedureType.PROCEDURE;
     }
 
     @NotNull
@@ -240,5 +299,32 @@ class MySQLDialect extends JDBCSQLDialect {
             return '\'' + escapeString(strValue) + '\'';
         }
         return super.escapeScriptValue(attribute, value, strValue);
+    }
+
+    @Override
+    public boolean validIdentifierStart(char c) {
+        return Character.isLetterOrDigit(c);
+    }
+
+    @NotNull
+    @Override
+    public String getTypeCastClause(@NotNull DBSTypedObject attribute, @NotNull String expression, boolean isInCondition) {
+        if (isInCondition && attribute.getTypeName().equalsIgnoreCase(MySQLConstants.TYPE_JSON)) {
+            return "CAST(" + expression + " AS JSON)";
+        } else {
+            return super.getTypeCastClause(attribute, expression, isInCondition);
+        }
+    }
+
+    @NotNull
+    @Override
+    public String getSchemaExistQuery(@NotNull String schemaName) {
+        return "SHOW DATABASES LIKE " + getQuotedString(schemaName);
+    }
+
+    @NotNull
+    @Override
+    public String getCreateSchemaQuery(@NotNull String schemaName) {
+        return "CREATE DATABASE " + schemaName;
     }
 }

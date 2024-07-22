@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,18 +22,20 @@ import org.jkiss.dbeaver.ext.mssql.model.*;
 import org.jkiss.dbeaver.model.DBPScriptObject;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.utils.CommonUtils;
 
 import java.util.Map;
 
 public class SQLServerTableTypeManager extends SQLServerBaseTableManager<SQLServerTableType> {
 
-    private static final Class<?>[] CHILD_TYPES = {
+    private static final Class<? extends DBSObject>[] CHILD_TYPES = CommonUtils.array(
             SQLServerTableColumn.class,
             SQLServerTableUniqueKey.class,
             SQLServerTableForeignKey.class,
             SQLServerTableIndex.class,
-            SQLServerTableCheckConstraint.class,
-    };
+            SQLServerTableCheckConstraint.class
+        );
 
     @Override
     public void renameObject(@NotNull DBECommandContext commandContext, @NotNull SQLServerTableType object, @NotNull Map<String, Object> options, @NotNull String newName) throws DBException {
@@ -42,7 +44,7 @@ public class SQLServerTableTypeManager extends SQLServerBaseTableManager<SQLServ
 
     @NotNull
     @Override
-    public Class<?>[] getChildTypes() {
+    public Class<? extends DBSObject>[] getChildTypes() {
         return CHILD_TYPES;
     }
 
@@ -60,7 +62,7 @@ public class SQLServerTableTypeManager extends SQLServerBaseTableManager<SQLServ
     }
 
     @Override
-    protected boolean isIncludeDropInDDL() {
+    protected boolean isIncludeDropInDDL(@NotNull SQLServerTableType tableType) {
         return false;
     }
 }

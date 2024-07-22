@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.*;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.access.DBAAuthModel;
+import org.jkiss.dbeaver.model.impl.auth.AuthModelDatabaseNative;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.ui.UIServiceSecurity;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
@@ -35,7 +37,7 @@ import org.jkiss.utils.CommonUtils;
 /**
  * Database native auth model config
  */
-public class DatabaseNativeAuthModelConfigurator implements IObjectPropertyConfigurator<DBPDataSourceContainer> {
+public class DatabaseNativeAuthModelConfigurator implements IObjectPropertyConfigurator<DBAAuthModel<?>, DBPDataSourceContainer> {
 
     protected Label usernameLabel;
     protected Text usernameText;
@@ -49,14 +51,24 @@ public class DatabaseNativeAuthModelConfigurator implements IObjectPropertyConfi
 
     protected DBPDataSourceContainer dataSource;
 
-    @Override
-    public void createControl(Composite authPanel, Runnable propertyChangeListener) {
+    public void createControl(@NotNull Composite authPanel, DBAAuthModel<?> object, @NotNull Runnable propertyChangeListener) {
+        boolean userNameApplicable = true;
+        boolean userPasswordApplicable = true;
+        if (object instanceof AuthModelDatabaseNative) {
+            userNameApplicable = ((AuthModelDatabaseNative<?>) object).isUserNameApplicable();
+            userPasswordApplicable = ((AuthModelDatabaseNative<?>) object).isUserPasswordApplicable();
+        }
+        if (!userNameApplicable) {
+            return;
+        }
+
         usernameLabel = UIUtils.createLabel(authPanel, UIConnectionMessages.dialog_connection_auth_label_username);
         usernameLabel.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING));
 
         createUserNameControls(authPanel, propertyChangeListener);
-
-        createPasswordControls(authPanel, propertyChangeListener);
+        if (userPasswordApplicable) {
+            createPasswordControls(authPanel, propertyChangeListener);
+        }
     }
 
     protected void createUserNameControls(Composite authPanel, Runnable propertyChangeListener) {
@@ -76,7 +88,7 @@ public class DatabaseNativeAuthModelConfigurator implements IObjectPropertyConfi
     }
 
     @Override
-    public void loadSettings(DBPDataSourceContainer dataSource) {
+    public void loadSettings(@NotNull DBPDataSourceContainer dataSource) {
         this.dataSource = dataSource;
 
         if (this.usernameText != null) {
@@ -90,7 +102,7 @@ public class DatabaseNativeAuthModelConfigurator implements IObjectPropertyConfi
     }
 
     @Override
-    public void saveSettings(DBPDataSourceContainer dataSource) {
+    public void saveSettings(@NotNull DBPDataSourceContainer dataSource) {
         if (this.usernameText != null) {
             dataSource.getConnectionConfiguration().setUserName(this.usernameText.getText());
         }
@@ -99,11 +111,13 @@ public class DatabaseNativeAuthModelConfigurator implements IObjectPropertyConfi
         } else {
             dataSource.getConnectionConfiguration().setUserPassword(null);
         }
-        dataSource.setSavePassword(this.savePasswordCheck.getSelection());
+        if (this.savePasswordCheck != null) {
+            dataSource.setSavePassword(this.savePasswordCheck.getSelection());
+        }
     }
 
     @Override
-    public void resetSettings(DBPDataSourceContainer dataSource) {
+    public void resetSettings(@NotNull DBPDataSourceContainer dataSource) {
         loadSettings(dataSource);
     }
 
@@ -128,7 +142,7 @@ public class DatabaseNativeAuthModelConfigurator implements IObjectPropertyConfi
     }
 
     protected void createPasswordControls(Composite parent, Runnable propertyChangeListener) {
-        passwordLabel = UIUtils.createLabel(parent, UIConnectionMessages.dialog_connection_auth_label_password);
+        passwordLabel = UIUtils.createLabel(parent, getPasswordFieldLabel());
         passwordLabel.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING));
 
         passPlaceholder = UIUtils.createComposite(parent, 2);
@@ -141,14 +155,16 @@ public class DatabaseNativeAuthModelConfigurator implements IObjectPropertyConfi
         UIServiceSecurity serviceSecurity = DBWorkbench.getService(UIServiceSecurity.class);
         boolean supportsPasswordView = serviceSecurity != null;
 
-        Composite panel = UIUtils.createComposite(passPlaceholder, supportsPasswordView ? 2 : 1);
+        int colCount = 1;
+        if (supportsPasswordView) colCount++;
+        Composite panel = UIUtils.createComposite(passPlaceholder, colCount);
         GridData gd = new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING);
         panel.setLayoutData(gd);
 
         savePasswordCheck = UIUtils.createCheckbox(panel,
-            UIConnectionMessages.dialog_connection_wizard_final_checkbox_save_password_locally,
+            UIConnectionMessages.dialog_connection_wizard_final_checkbox_save_password,
             dataSource == null || dataSource.isSavePassword());
-        savePasswordCheck.setToolTipText(UIConnectionMessages.dialog_connection_wizard_final_checkbox_save_password_locally);
+        savePasswordCheck.setToolTipText(UIConnectionMessages.dialog_connection_wizard_final_checkbox_save_password);
         savePasswordCheck.addSelectionListener(new SelectionAdapter() {
             @Override
             public void widgetSelected(SelectionEvent e) {
@@ -168,35 +184,29 @@ public class DatabaseNativeAuthModelConfigurator implements IObjectPropertyConfi
                 }
             });
         }
+    }
 
+    protected String getPasswordFieldLabel() {
+        return UIConnectionMessages.dialog_connection_auth_label_password;
     }
 
     private void showPasswordText(UIServiceSecurity serviceSecurity) {
-        Composite passContainer = passwordText.getParent();
         boolean passHidden = (passwordText.getStyle() & SWT.PASSWORD) == SWT.PASSWORD;
         if (passHidden) {
             if (!serviceSecurity.validatePassword(
-                dataSource.getProject().getSecureStorage(),
+                dataSource.getProject(),
                 "Enter project password",
-                "Enter project master password to unlock connection password view",
+                "Enter project password to unlock connection password view",
                 true))
             {
                 return;
             }
         }
 
-        Object layoutData = passwordText.getLayoutData();
-        String curValue = passwordText.getText();
-        passwordText.dispose();
-
-        if (passHidden) {
-            passwordText = new Text(passContainer, SWT.BORDER);
-        } else {
-            passwordText = new Text(passContainer, SWT.PASSWORD | SWT.BORDER);
-        }
-        passwordText.setLayoutData(layoutData);
-        passwordText.setText(curValue);
-        passContainer.layout(true, true);
+        passwordText = UIUtils.recreateTextControl(
+            passwordText,
+            passHidden ? SWT.BORDER : SWT.BORDER | SWT.PASSWORD
+        );
     }
 
 }

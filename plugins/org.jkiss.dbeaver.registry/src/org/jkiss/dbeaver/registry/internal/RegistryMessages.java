@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,16 +20,34 @@ package org.jkiss.dbeaver.registry.internal;
 import org.eclipse.osgi.util.NLS;
 
 public class RegistryMessages extends NLS {
-	public static final String BUNDLE_NAME = "org.jkiss.dbeaver.registry.internal.RegistryMessages"; //$NON-NLS-1$
+    public static final String BUNDLE_NAME = "org.jkiss.dbeaver.registry.internal.RegistryMessages"; //$NON-NLS-1$
 
-	public static String dialog_connection_auth_title;
-	public static String dialog_connection_auth_title_for_handler;
+    public static String dialog_connection_auth_title;
+    public static String dialog_connection_auth_title_for_handler;
+
+    public static String dialog_connection_auth_username;
+    public static String dialog_connection_auth_password;
+    public static String dialog_connection_auth_passphrase;
+
+    public static String dialog_data_source_synchronization_fail_title;
+    public static String dialog_data_source_synchronization_fail_local_message;
+    public static String dialog_data_source_synchronization_fail_remote_message;
+
+    public static String navigator_settings_preset_simple_view_name;
+    public static String navigator_settings_preset_simple_view_description;
+    public static String navigator_settings_preset_advanced_view_name;
+    public static String navigator_settings_preset_advanced_view_description;
+    public static String navigator_settings_preset_custom_view_name;
+    public static String navigator_settings_preset_custom_view_description;
+    public static String project_description_comment;
+
 
     static {
-		// initialize resource bundle
-		NLS.initializeMessages(BUNDLE_NAME, RegistryMessages.class);
-	}
+        // initialize resource bundle
+        NLS.initializeMessages(BUNDLE_NAME, RegistryMessages.class);
+    }
 
-	private RegistryMessages() {
-	}
+    private RegistryMessages() {
+        // prevents instantiation
+    }
 }

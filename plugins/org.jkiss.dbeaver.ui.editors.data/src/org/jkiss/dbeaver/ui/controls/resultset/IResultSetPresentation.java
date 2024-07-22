@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,6 +93,11 @@ public interface IResultSetPresentation {
     void applyChanges();
 
     /**
+     *  Changes in the presentation will be canceled, the presentation will return in the initial state.
+     */
+    void rejectChanges();
+
+    /**
      * Called by controller to fill context menu.
      * Note: context menu invocation must be initiated by presentation, then it should call controller's
      * {@link org.jkiss.dbeaver.ui.controls.resultset.IResultSetController#fillContextMenu} which then will
@@ -109,9 +114,15 @@ public interface IResultSetPresentation {
     @Nullable
     DBDAttributeBinding getCurrentAttribute();
 
+    @Nullable
+    DBDAttributeBinding getFocusAttribute();
+
     void setCurrentAttribute(@NotNull DBDAttributeBinding attribute);
 
     void showAttribute(@NotNull DBDAttributeBinding attribute);
+
+    @Nullable
+    int[] getCurrentRowIndexes();
 
     @Nullable
     Point getCursorLocation();
@@ -123,6 +134,15 @@ public interface IResultSetPresentation {
     Map<Transfer, Object> copySelection(ResultSetCopySettings settings);
 
     void printResultSet();
+
+    /**
+     * Retrieves font identifier to increase or decrease its size as the user zooms in/out on the presentation.
+     *
+     * @return identifier of the font
+     * @see org.eclipse.jface.resource.FontRegistry
+     */
+    @NotNull
+    String getFontId();
 
     void dispose();
 

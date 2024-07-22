@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,9 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.erd.ui.model.DiagramLoader;
 import org.jkiss.dbeaver.erd.ui.model.EntityDiagram;
 import org.jkiss.dbeaver.erd.ui.part.DiagramPart;
+import org.jkiss.dbeaver.model.app.DBPPlatformDesktop;
 import org.jkiss.dbeaver.model.app.DBPProject;
+import org.jkiss.dbeaver.model.rm.RMConstants;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.load.AbstractLoadService;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
@@ -40,13 +42,15 @@ import org.jkiss.dbeaver.ui.LoadingJob;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.dialogs.ConfirmationDialog;
 import org.jkiss.dbeaver.ui.editors.EditorUtils;
-import org.jkiss.dbeaver.ui.internal.UINavigatorMessages;
 import org.jkiss.dbeaver.ui.navigator.NavigatorPreferences;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
+import org.jkiss.utils.CommonUtils;
 
-import java.io.*;
-import java.util.ResourceBundle;
+import java.io.ByteArrayInputStream;
+import java.io.InputStreamReader;
+import java.lang.reflect.InvocationTargetException;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Standalone ERD editor
@@ -77,16 +81,24 @@ public class ERDEditorStandalone extends ERDEditorPart implements IResourceChang
     }
 
     @Override
-    public boolean isReadOnly()
-    {
-        return false;
+    public boolean isReadOnly() {
+        return !this.isProjectResourceEditable();
+    }
+    
+    @Override
+    public boolean isModelEditEnabled() {
+        return super.isModelEditEnabled() && this.isProjectResourceEditable();
+    }
+    
+    private boolean isProjectResourceEditable() {
+        DBPProject project = this.getDiagramProject();
+        return project == null || project.hasRealmPermission(RMConstants.PERMISSION_DATABASE_DEVELOPER);
     }
 
     @Override
     public void refreshDiagram(boolean force, boolean refreshMetadata) {
         if (isDirty()) {
-            if (ConfirmationDialog.showConfirmDialog(
-                ResourceBundle.getBundle(UINavigatorMessages.BUNDLE_NAME),
+            if (ConfirmationDialog.confirmAction(
                 null,
                 NavigatorPreferences.CONFIRM_ENTITY_REVERT,
                 ConfirmationDialog.QUESTION,
@@ -113,10 +125,15 @@ public class ERDEditorStandalone extends ERDEditorPart implements IResourceChang
         try {
             String diagramState = DiagramLoader.serializeDiagram(RuntimeUtils.makeMonitor(monitor), getDiagramPart(), getDiagram(), false, false);
 
-            final File localFile = EditorUtils.getLocalFileFromInput(getEditorInput());
-            try (final OutputStreamWriter osw = new OutputStreamWriter(new FileOutputStream(localFile), GeneralUtils.UTF8_CHARSET)) {
-                osw.write(diagramState);
+            final IFile file = EditorUtils.getFileFromInput(getEditorInput());
+            if (file == null) {
+                throw new DBException("Can't determine diagram file");
             }
+            file.setContents(
+                new ByteArrayInputStream(diagramState.getBytes(StandardCharsets.UTF_8)),
+                true,
+                true,
+                monitor);
             getCommandStack().markSaveLocation();
         } catch (Exception e) {
             DBWorkbench.getPlatformUI().showError("Save diagram", null, e);
@@ -140,16 +157,14 @@ public class ERDEditorStandalone extends ERDEditorPart implements IResourceChang
             return;
         }
         diagramLoadingJob = LoadingJob.createService(
-            new AbstractLoadService<EntityDiagram>("Load diagram '" + getEditorInput().getName() + "'") {
+            new AbstractLoadService<>("Load diagram '" + getEditorInput().getName() + "'") {
                 @Override
-                public EntityDiagram evaluate(DBRProgressMonitor monitor) {
+                public EntityDiagram evaluate(DBRProgressMonitor monitor) throws InvocationTargetException {
                     try {
                         return loadContentFromFile(monitor);
                     } catch (DBException e) {
-                        log.error(e);
+                        throw new InvocationTargetException(e);
                     }
-
-                    return null;
                 }
 
                 @Override
@@ -175,7 +190,7 @@ public class ERDEditorStandalone extends ERDEditorPart implements IResourceChang
     public DBPProject getDiagramProject() {
         final IFile resource = getEditorFile();
         if (resource != null) {
-            return DBWorkbench.getPlatform().getWorkspace().getProject(resource.getProject());
+            return DBPPlatformDesktop.getInstance().getWorkspace().getProject(resource.getProject());
         }
         return DBWorkbench.getPlatform().getWorkspace().getActiveProject();
     }
@@ -183,20 +198,26 @@ public class ERDEditorStandalone extends ERDEditorPart implements IResourceChang
     private EntityDiagram loadContentFromFile(DBRProgressMonitor progressMonitor)
         throws DBException
     {
-        final IProject project = getDiagramProject().getEclipseProject();
-        final File localFile = EditorUtils.getLocalFileFromInput(getEditorInput());
+        IStorage storage = EditorUtils.getStorageFromInput(getEditorInput());
 
         final DiagramPart diagramPart = getDiagramPart();
-        EntityDiagram entityDiagram = new EntityDiagram(null, localFile.getName(), getContentProvider(), getDecorator());
+
+        EntityDiagram entityDiagram = new EntityDiagram(
+            null,
+            storage == null ? CommonUtils.toString(getEditorInput()) : storage.getName(),
+            getContentProvider(),
+            getDecorator());
         entityDiagram.clear();
         entityDiagram.setLayoutManualAllowed(true);
         entityDiagram.setLayoutManualDesired(true);
         diagramPart.setModel(entityDiagram);
 
-        try (final InputStreamReader isr = new InputStreamReader(new FileInputStream(localFile), GeneralUtils.UTF8_CHARSET)) {
-            DiagramLoader.load(progressMonitor, project, diagramPart, isr);
-        } catch (Exception e) {
-            log.error("Error loading ER diagram from '" + localFile.getName() + "'", e);
+        if (storage != null) {
+            try (final InputStreamReader isr = new InputStreamReader(storage.getContents(), GeneralUtils.UTF8_CHARSET)) {
+                DiagramLoader.load(progressMonitor, getDiagramProject(), diagramPart, isr);
+            } catch (Exception e) {
+                throw new DBException("Error loading ER diagram from '" + storage.getName() + "'", e);
+            }
         }
 
         return entityDiagram;

@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2016 Karl Griesser (fullref@gmail.com)
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,23 +29,23 @@ import org.jkiss.dbeaver.ext.exasol.ExasolSQLDialect;
 import org.jkiss.dbeaver.ext.exasol.ExasolSysTablePrefix;
 import org.jkiss.dbeaver.ext.exasol.model.app.ExasolServerSessionManager;
 import org.jkiss.dbeaver.ext.exasol.model.cache.ExasolDataTypeCache;
-import org.jkiss.dbeaver.ext.exasol.model.plan.ExasolPlanAnalyser;
+import org.jkiss.dbeaver.ext.exasol.model.plan.ExasolQueryPlanner;
 import org.jkiss.dbeaver.ext.exasol.model.security.*;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBPDataSourceInfo;
 import org.jkiss.dbeaver.model.DBPErrorAssistant;
 import org.jkiss.dbeaver.model.DBUtils;
-import org.jkiss.dbeaver.model.access.DBAUserChangePassword;
+import org.jkiss.dbeaver.model.access.DBAUserPasswordManager;
 import org.jkiss.dbeaver.model.admin.sessions.DBAServerSessionManager;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
-import org.jkiss.dbeaver.model.exec.*;
+import org.jkiss.dbeaver.model.exec.DBCException;
+import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
+import org.jkiss.dbeaver.model.exec.DBCQueryTransformType;
+import org.jkiss.dbeaver.model.exec.DBCQueryTransformer;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCDatabaseMetaData;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
-import org.jkiss.dbeaver.model.exec.plan.DBCPlan;
-import org.jkiss.dbeaver.model.exec.plan.DBCPlanStyle;
 import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlanner;
-import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlannerConfiguration;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSource;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCExecutionContext;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCRemoteInstance;
@@ -66,7 +66,7 @@ import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class ExasolDataSource extends JDBCDataSource implements DBCQueryPlanner, IAdaptable {
+public class ExasolDataSource extends JDBCDataSource implements IAdaptable {
 
     private static final Log LOG = Log.getLog(ExasolDataSource.class);
 
@@ -125,11 +125,13 @@ public class ExasolDataSource extends JDBCDataSource implements DBCQueryPlanner,
 		}
 		String schemaSQL = "/*snapshot execution*/ select schema_name as object_name,schema_owner as OWNER,CAST(NULL AS TIMESTAMP) AS created, schema_comment as OBJECT_COMMENT, SCHEMA_OBJECT_ID from SYS.EXA_SCHEMAS s  ";
 		
-		if (exasolCurrentUserPrivileges.getatLeastV6()) {
+		if (exasolCurrentUserPrivileges.getAtLeastV6()) {
 			
 			//additional where clause to filter virtual schemas
 			schemaSQL += " where not  schema_is_virtual ";
 			
+			String vsAdapterExpressionV8 = "'\"' || ADAPTER_SCRIPT_SCHEMA || '\".\"' || ADAPTER_SCRIPT_NAME || '\"' AS ADAPTER_SCRIPT";
+
 			//build virtual schema cache for >V6 databases
 			virtualSchemaCache = new JDBCObjectSimpleCache<>(
 					ExasolVirtualSchema.class,
@@ -137,7 +139,7 @@ public class ExasolDataSource extends JDBCDataSource implements DBCQueryPlanner,
 					"	s.SCHEMA_NAME as OBJECT_NAME," + 
 					"	s.SCHEMA_OWNER AS OWNER," + 
 					"CAST(NULL AS TIMESTAMP) AS created, " +
-					"	ADAPTER_SCRIPT," + 
+					"	" + (this.exasolCurrentUserPrivileges.getAtLeastV8() ? vsAdapterExpressionV8 : "ADAPTER_SCRIPT") + "," +
 					"	LAST_REFRESH," + 
 					"	LAST_REFRESH_BY," + 
 					"	ADAPTER_NOTES," + 
@@ -177,8 +179,8 @@ public class ExasolDataSource extends JDBCDataSource implements DBCQueryPlanner,
 				+ "	USER_NAME,\n"
 				+ "	CREATED,\n"
 				+ (this.exasolCurrentUserPrivileges.getUserHasDictionaryAccess() ? "	DISTINGUISHED_NAME,\n" : "")
-				+ "	KERBEROS_PRINCIPAL,\n"
-				+ "	PASSWORD,\n"
+				+ (this.exasolCurrentUserPrivileges.getUserHasDictionaryAccess() ? "	KERBEROS_PRINCIPAL,\n" : "")
+				+ (this.exasolCurrentUserPrivileges.getUserHasDictionaryAccess() ? "	PASSWORD,\n" : "")
 				+ priorityColUser
 				+ "	PASSWORD_STATE,\n"
 				+ "	PASSWORD_STATE_CHANGED,\n"
@@ -417,8 +419,10 @@ public class ExasolDataSource extends JDBCDataSource implements DBCQueryPlanner,
 			return adapter.cast(new ExasolStructureAssistant(this));
 		} else if (adapter == DBAServerSessionManager.class) {
 			return adapter.cast(new ExasolServerSessionManager(this));
-		} else if (adapter == DBAUserChangePassword.class) {
-			return adapter.cast(new ExasolChangeUserPassword(this));
+		} else if (adapter == DBAUserPasswordManager.class) {
+			return adapter.cast(new ExasolChangeUserPasswordManager(this));
+		} else if (adapter == DBCQueryPlanner.class) {
+			return adapter.cast(new ExasolQueryPlanner(this));
 		}
 		return super.getAdapter(adapter);
 	}
@@ -433,13 +437,6 @@ public class ExasolDataSource extends JDBCDataSource implements DBCQueryPlanner,
 	// -----------------------
 	// Connection related Info
 	// -----------------------
-
-	@NotNull
-	@Override
-	public ExasolDataSource getDataSource()
-	{
-		return this;
-	}
 
 	@Override
 	protected DBPDataSourceInfo createDataSourceInfo(
@@ -456,8 +453,10 @@ public class ExasolDataSource extends JDBCDataSource implements DBCQueryPlanner,
 	protected Map<String, String> getInternalConnectionProperties(
 		DBRProgressMonitor monitor, DBPDriver driver, JDBCExecutionContext context, String purpose, DBPConnectionConfiguration connectionInfo) throws DBCException
 	{
-		Map<String, String> props = new HashMap<>();
-		props.putAll(ExasolDataSourceProvider.getConnectionsProps());
+		Map<String, String> props = new HashMap<>(ExasolDataSourceProvider.getConnectionsProps());
+		if (CommonUtils.getBoolean(connectionInfo.getProviderProperty(ExasolConstants.DRV_USE_LEGACY_ENCRYPTION), false)) {
+			props.put(ExasolConstants.DRV_LEGACY_ENCRYPTION, "1");
+		}
 		return props;
 	}
 
@@ -507,7 +506,7 @@ public class ExasolDataSource extends JDBCDataSource implements DBCQueryPlanner,
 	public ExasolSchema getChild(@NotNull DBRProgressMonitor monitor,
 			@NotNull String childName) throws DBException
 	{
-		if (exasolCurrentUserPrivileges.getatLeastV6())
+		if (exasolCurrentUserPrivileges.getAtLeastV6())
 			return getSchema(monitor, childName) != null ? getSchema(monitor,childName) : getVirtualSchema(monitor, childName);
 		return getSchema(monitor, childName);
 	}
@@ -771,12 +770,12 @@ public class ExasolDataSource extends JDBCDataSource implements DBCQueryPlanner,
 	
 	public boolean isatLeastV6()
 	{
-		return this.exasolCurrentUserPrivileges.getatLeastV6();
+		return this.exasolCurrentUserPrivileges.getAtLeastV6();
 	}
 
 	public boolean isatLeastV5()
 	{
-		return this.exasolCurrentUserPrivileges.getatLeastV5();
+		return this.exasolCurrentUserPrivileges.getAtLeastV5();
 	}
 	
 	public boolean ishasPartitionColumns()
@@ -889,10 +888,6 @@ public class ExasolDataSource extends JDBCDataSource implements DBCQueryPlanner,
         if (querytimeout != null)
             url.append(";").append(ExasolConstants.DRV_QUERYTIMEOUT).append("=").append(querytimeout);
 
-        Object connecttimeout = properties.get(ExasolConstants.DRV_CONNECT_TIMEOUT);
-        if (connecttimeout != null)
-            url.append(";").append(ExasolConstants.DRV_CONNECT_TIMEOUT).append("=").append(connecttimeout);
-
         // append properties if exists -> meta connection using different type
         if (! addMetaProps.isEmpty()) {
         	Set<Entry<Object, Object>> entries = addMetaProps.entrySet();
@@ -917,22 +912,6 @@ public class ExasolDataSource extends JDBCDataSource implements DBCQueryPlanner,
 			return null;
 		}
 	}
-
-	@NotNull
-	@Override
-	public DBCPlan planQueryExecution(@NotNull DBCSession session, @NotNull String query, @NotNull DBCQueryPlannerConfiguration configuration)
-			throws DBCException
-	{
-		ExasolPlanAnalyser plan = new ExasolPlanAnalyser(this, query);
-		plan.explain(session);
-		return plan;
-	}
-
-    @NotNull
-	@Override
-    public DBCPlanStyle getPlanStyle() {
-        return DBCPlanStyle.PLAN;
-    }
 
     DBSObjectCache<ExasolDataSource, ExasolDataType> getDataTypeCache()
 	{
@@ -966,7 +945,15 @@ public class ExasolDataSource extends JDBCDataSource implements DBCQueryPlanner,
 			return ErrorType.FEATURE_UNSUPPORTED;
 		} else if (errorMessage.contains("insufficient privileges")) {
 			return ErrorType.PERMISSION_DENIED;
-		} else if (errorMessage.contains("Connection lost") | errorMessage.contains("Connection was killed") | errorMessage.contains("Process does not exist") | errorMessage.contains("Successfully reconnected") | errorMessage.contains("Statement handle not found")  )
+		} else if (
+				errorMessage.contains("Connection lost") | 
+				errorMessage.contains("Connection was killed") | 
+				errorMessage.contains("Process does not exist") | 
+				errorMessage.contains("Successfully reconnected") | 
+				errorMessage.contains("Statement handle not found") | 
+				errorMessage.contains("No operations allowed on this connection because it was already closed") |
+				errorMessage.contains("Connection was lost and could not be reestablished")
+				)
     	{
     		return ErrorType.CONNECTION_LOST;
     	}

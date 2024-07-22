@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,23 +19,29 @@
  */
 package org.jkiss.dbeaver.erd.ui.part;
 
-import org.eclipse.draw2dl.*;
-import org.eclipse.draw2dl.geometry.Dimension;
-import org.eclipse.draw2dl.geometry.Point;
-import org.eclipse.draw2dl.geometry.PointList;
-import org.eclipse.draw2dl.geometry.Rectangle;
-import org.eclipse.gef3.*;
-import org.eclipse.gef3.editpolicies.ConnectionEndpointEditPolicy;
+import org.eclipse.draw2d.*;
+import org.eclipse.draw2d.geometry.Dimension;
+import org.eclipse.draw2d.geometry.Point;
+import org.eclipse.draw2d.geometry.PointList;
+import org.eclipse.draw2d.geometry.Rectangle;
+import org.eclipse.gef.*;
+import org.eclipse.gef.editpolicies.ConnectionEndpointEditPolicy;
+import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
-import org.jkiss.dbeaver.erd.model.ERDAssociation;
-import org.jkiss.dbeaver.erd.model.ERDEntityAttribute;
-import org.jkiss.dbeaver.erd.model.ERDUtils;
+import org.eclipse.swt.accessibility.AccessibleEvent;
+import org.eclipse.swt.graphics.Color;
+import org.jkiss.dbeaver.erd.model.*;
 import org.jkiss.dbeaver.erd.ui.ERDUIConstants;
 import org.jkiss.dbeaver.erd.ui.ERDUIUtils;
+import org.jkiss.dbeaver.erd.ui.editor.ERDGraphicalViewer;
+import org.jkiss.dbeaver.erd.ui.editor.ERDHighlightingHandle;
 import org.jkiss.dbeaver.erd.ui.editor.ERDViewStyle;
+import org.jkiss.dbeaver.erd.ui.internal.ERDUIActivator;
+import org.jkiss.dbeaver.erd.ui.internal.ERDUIMessages;
 import org.jkiss.dbeaver.erd.ui.policy.AssociationBendEditPolicy;
 import org.jkiss.dbeaver.erd.ui.policy.AssociationEditPolicy;
 import org.jkiss.dbeaver.model.DBIcon;
+import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.struct.DBSEntityConstraintType;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.ui.UIUtils;
@@ -54,6 +60,9 @@ public class AssociationPart extends PropertyAwareConnectionPart {
 
     // Keep original line width to visualize selection
     private Integer oldLineWidth;
+
+    private ERDHighlightingHandle associatedAttributesHighlighing = null;
+    private AccessibleGraphicalEditPart accPart;
 
     public AssociationPart() {
     }
@@ -76,12 +85,12 @@ public class AssociationPart extends PropertyAwareConnectionPart {
     protected void createEditPolicies() {
         installEditPolicy(EditPolicy.CONNECTION_ENDPOINTS_ROLE, new ConnectionEndpointEditPolicy());
         installEditPolicy(EditPolicy.CONNECTION_BENDPOINTS_ROLE, new AssociationBendEditPolicy());
-
-        if (isEditEnabled()) {
-            installEditPolicy(EditPolicy.COMPONENT_ROLE, new AssociationEditPolicy());
+        if (!getDiagramPart().getEditor().isReadOnly()) {
+            if (isEditEnabled()) {
+                installEditPolicy(EditPolicy.COMPONENT_ROLE, new AssociationEditPolicy());
+            }
+            getDiagramPart().getDiagram().getModelAdapter().installPartEditPolicies(this);
         }
-
-        getDiagramPart().getDiagram().getModelAdapter().installPartEditPolicies(this);
     }
 
     @Override
@@ -128,7 +137,8 @@ public class AssociationPart extends PropertyAwareConnectionPart {
             if (entityPart == null) {
                 entityPart = getTarget();
             }
-            if (entityPart instanceof GraphicalEditPart) {
+            final DBPPreferenceStore store = ERDUIActivator.getDefault().getPreferences();
+            if (entityPart instanceof GraphicalEditPart && (!store.getString(ERDUIConstants.PREF_ROUTING_TYPE).equals(ERDUIConstants.ROUTING_MIKAMI) || ERDAttributeVisibility.isHideAttributeAssociations(store))) {
                 // Self link
                 final IFigure entityFigure = ((GraphicalEditPart) entityPart).getFigure();
                 //EntityPart entity = (EntityPart) connEdge.source.getParent().data;
@@ -166,14 +176,17 @@ public class AssociationPart extends PropertyAwareConnectionPart {
             srcDec.setBackgroundColor(getParent().getViewer().getControl().getBackground());
             srcDec.setScale(10, 6);
             conn.setTargetDecoration(srcDec);
-        } else if (constraintType.isAssociation()) {
+        } else if (constraintType.isAssociation() &&
+            association.getSourceEntity() instanceof ERDEntity &&
+            association.getTargetEntity() instanceof ERDEntity)
+        {
             final CircleDecoration sourceDecor = new CircleDecoration();
             sourceDecor.setRadius(3);
             sourceDecor.setFill(true);
             sourceDecor.setBackgroundColor(getParent().getViewer().getControl().getForeground());
             //dec.setBackgroundColor(getParent().getViewer().getControl().getBackground());
             conn.setSourceDecoration(sourceDecor);
-            if (!identifying) {
+            if (ERDUtils.isOptionalAssociation(association)) {
                 final RhombusDecoration targetDecor = new RhombusDecoration();
                 targetDecor.setBackgroundColor(getParent().getViewer().getControl().getBackground());
                 //dec.setBackgroundColor(getParent().getViewer().getControl().getBackground());
@@ -183,7 +196,12 @@ public class AssociationPart extends PropertyAwareConnectionPart {
 
         conn.setLineWidth(2);
         if (!identifying || constraintType.isLogical()) {
-            conn.setLineStyle(SWT.LINE_CUSTOM);
+            final DBPPreferenceStore store = ERDUIActivator.getDefault().getPreferences();
+            if (store.getString(ERDUIConstants.PREF_ROUTING_TYPE).equals(ERDUIConstants.ROUTING_MIKAMI)) {
+                conn.setLineStyle(SWT.LINE_DOT);
+            } else {
+                conn.setLineStyle(SWT.LINE_CUSTOM);
+            }
             conn.setLineDash(
                 constraintType.isLogical() ? new float[]{ 4  } : new float[]{ 5 });
         }
@@ -222,34 +240,16 @@ public class AssociationPart extends PropertyAwareConnectionPart {
             return;
         }
 
-        markAssociatedAttributes(value);
-    }
 
-    public void markAssociatedAttributes(int value) {
-        //Color columnColor = value != EditPart.SELECTED_NONE ? Display.getDefault().getSystemColor(SWT.COLOR_RED) : getViewer().getControl().getForeground();
-        //boolean isSelected = value != EditPart.SELECTED_NONE;
-        if (getSource() instanceof EntityPart) {
-            for (AttributePart attrPart : getEntityAttributes((EntityPart) getSource(), getAssociation().getSourceAttributes())) {
-                //attrPart.getFigure().setForegroundColor(columnColor);
-                attrPart.setSelected(value);
+        if (value != EditPart.SELECTED_NONE) {
+            if (this.getViewer() instanceof ERDGraphicalViewer && associatedAttributesHighlighing == null) {
+                Color color = UIUtils.getColorRegistry().get(ERDUIConstants.COLOR_ERD_FK_HIGHLIGHTING);
+                associatedAttributesHighlighing = ((ERDGraphicalViewer)this.getViewer()).getEditor().getHighlightingManager().highlightAssociationAndRelatedAttributes(this, color);
             }
+        } else if (associatedAttributesHighlighing != null) {
+            associatedAttributesHighlighing.release();
+            associatedAttributesHighlighing  = null;
         }
-        if (getTarget() instanceof EntityPart) {
-            for (AttributePart attrPart : getEntityAttributes((EntityPart) getTarget(), getAssociation().getTargetAttributes())) {
-                //attrPart.getFigure().setForegroundColor(columnColor);
-                attrPart.setSelected(value);
-            }
-        }
-    }
-
-    private List<AttributePart> getEntityAttributes(EntityPart source, List<ERDEntityAttribute> columns) {
-        List<AttributePart> result = new ArrayList<>();
-        for (AttributePart attrPart : (List<AttributePart>) source.getChildren()) {
-            if (columns.contains(attrPart.getAttribute())) {
-                result.add(attrPart);
-            }
-        }
-        return result;
     }
 
     @Override
@@ -415,4 +415,39 @@ public class AssociationPart extends PropertyAwareConnectionPart {
         }
     }
 
+    @Override
+    protected AccessibleEditPart getAccessibleEditPart() {
+        if (this.accPart == null) {
+            this.accPart = new AccessibleGraphicalEditPart() {
+                public void getName(AccessibleEvent e) {
+                    ERDAssociation association = AssociationPart.this.getAssociation();
+                    String result = "";
+                    if (association.isLogical()) {
+                        result += ERDUIMessages.erd_accessibility_association_part_logical;
+                    }
+                    StringBuilder sourceString = new StringBuilder();
+                    for (ERDEntityAttribute sourceAttribute : association.getSourceAttributes()) {
+                        sourceString.append(NLS.bind(ERDUIMessages.erd_accessibility_association_part_attribute,
+                            sourceAttribute.getName()));
+                    }
+                    StringBuilder targetString = new StringBuilder();
+                    for (ERDEntityAttribute targetAttribute : association.getTargetAttributes()) {
+                        targetString.append(NLS.bind(
+                            ERDUIMessages.erd_accessibility_association_part_attribute,
+                            targetAttribute.getName()));
+                    }
+                    result += NLS.bind(ERDUIMessages.erd_accessibility_association_part, new Object[]{
+                        association.getName(),
+                        association.getSourceEntity().getName(),
+                        sourceString.toString(),
+                        association.getTargetEntity().getName(),
+                        targetString.toString()
+                    });
+                    e.result = result;
+                }
+            };
+        }
+
+        return this.accPart;
+    }
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@ import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.events.*;
-import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.FillLayout;
@@ -36,6 +35,7 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.*;
 import org.eclipse.ui.*;
 import org.eclipse.ui.views.properties.IPropertySheetPage;
+import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
@@ -86,7 +86,8 @@ import java.util.*;
  * EntityEditor
  */
 public class EntityEditor extends MultiPageDatabaseEditor
-    implements IPropertyChangeReflector, IProgressControlProvider, ISaveablePart2, IRevertableEditor, ITabbedFolderContainer, IDataSourceContainerProvider, IEntityEditorContext
+    implements IPropertyChangeReflector, IProgressControlProvider, ISaveablePart2, IRevertableEditor, ILazyEditor,
+    ITabbedFolderContainer, DBPDataSourceContainerProvider, IEntityEditorContext
 {
     public static final String ID = "org.jkiss.dbeaver.ui.editors.entity.EntityEditor"; //$NON-NLS-1$
 
@@ -240,10 +241,10 @@ public class EntityEditor extends MultiPageDatabaseEditor
         }
 
         if (DBUtils.isReadOnly(getDatabaseObject())) {
-            DBWorkbench.getPlatformUI().showMessageBox(
+            DBWorkbench.getPlatformUI().showNotification(
                 "Read-only",
                 "Object [" + DBUtils.getObjectFullName(getDatabaseObject(), DBPEvaluationContext.UI) + "] is read-only",
-                true);
+                true, null);
             return;
         }
 
@@ -289,7 +290,7 @@ public class EntityEditor extends MultiPageDatabaseEditor
                 saveJob.schedule();
 
                 // Wait until job finished
-                UIUtils.waitJobCompletion(saveJob);
+                UIUtils.waitJobCompletion(saveJob, monitor);
                 if (!saveJob.success) {
                     monitor.setCanceled(true);
                     return;
@@ -328,6 +329,29 @@ public class EntityEditor extends MultiPageDatabaseEditor
         DBECommandContext commandContext = getCommandContext();
         if (commandContext != null) {
             commandContext.resetChanges(true);
+        }
+    }
+
+    @Override
+    public boolean loadEditorInput() {
+        final IDatabaseEditorInput input = getEditorInput();
+        if (input instanceof DatabaseLazyEditorInput && !((DatabaseLazyEditorInput) input).canLoadImmediately()) {
+            return ((ProgressEditorPart) getActiveEditor()).scheduleEditorLoad();
+        } else {
+            return false;
+        }
+    }
+
+    @Override
+    public boolean unloadEditorInput() {
+        if (getEditorInput() instanceof IUnloadableEditorInput) {
+            final IEditorInput input = ((IUnloadableEditorInput) getEditorInput()).unloadInput();
+            deactivateEditor();
+            setInput(input);
+            recreateEditorControl();
+            return true;
+        } else {
+            return false;
         }
     }
 
@@ -417,8 +441,7 @@ public class EntityEditor extends MultiPageDatabaseEditor
     public void revertChanges()
     {
         if (isDirty()) {
-            if (ConfirmationDialog.showConfirmDialog(
-                ResourceBundle.getBundle(UINavigatorMessages.BUNDLE_NAME),
+            if (ConfirmationDialog.confirmAction(
                 null,
                 NavigatorPreferences.CONFIRM_ENTITY_REVERT,
                 ConfirmationDialog.QUESTION,
@@ -448,8 +471,7 @@ public class EntityEditor extends MultiPageDatabaseEditor
                     //return;
                     // Undo of last command in command context will close editor
                     // Let's ask user about it
-                    if (ConfirmationDialog.showConfirmDialog(
-                        ResourceBundle.getBundle(UINavigatorMessages.BUNDLE_NAME),
+                    if (ConfirmationDialog.confirmAction(
                             null,
                             NavigatorPreferences.CONFIRM_ENTITY_REJECT,
                             ConfirmationDialog.QUESTION,
@@ -542,28 +564,7 @@ public class EntityEditor extends MultiPageDatabaseEditor
         super.createPages();
 
         final IDatabaseEditorInput editorInput = getEditorInput();
-        if (editorInput instanceof DatabaseLazyEditorInput) {
-            try {
-                addPage(new ProgressEditorPart(this), editorInput);
-                setPageText(0, "Initializing ...");
-                Image tabImage = DBeaverIcons.getImage(UIIcon.REFRESH);
-                setPageImage(0, tabImage);
-                setActivePage(0);
-                ((CTabFolder)getContainer()).setTabHeight(tabImage.getBounds().height + 2);
-            } catch (PartInitException e) {
-                log.error(e);
-            }
-            return;
-        } else if (editorInput instanceof ErrorEditorInput) {
-            ErrorEditorInput errorInput = (ErrorEditorInput) editorInput;
-            try {
-                addPage(new ErrorEditorPartEx(errorInput.getError()), errorInput);
-                setPageImage(0, UIUtils.getShardImage(ISharedImages.IMG_OBJS_ERROR_TSK));
-                setPageText(0, "Error");
-                setActivePage(0);
-            } catch (PartInitException e) {
-                log.error(e);
-            }
+        if (createPageForInput(editorInput)) {
             return;
         }
 
@@ -624,6 +625,14 @@ public class EntityEditor extends MultiPageDatabaseEditor
         // Add contributed pages
         addContributions(EntityEditorDescriptor.POSITION_END);
 
+        if (databaseObject != null) {
+            EntityEditorFeatures.ENTITY_EDITOR_OPEN.use(Map.of(
+                "className", databaseObject.getClass().getSimpleName(),
+                "driver", databaseObject.getDataSource() == null ? "" :
+                    databaseObject.getDataSource().getContainer().getDriver().getPreconfiguredId()
+            ));
+        }
+
         String defPageId = editorInput.getDefaultPageId();
         String defFolderId = editorInput.getDefaultFolderId();
         if (defPageId == null && editorDefaults != null) {
@@ -651,6 +660,40 @@ public class EntityEditor extends MultiPageDatabaseEditor
         }
 
         UIUtils.setHelp(getContainer(), IHelpContextIds.CTX_ENTITY_EDITOR);
+    }
+
+    private boolean createPageForInput(@NotNull IEditorInput editorInput) {
+        if (editorInput instanceof DatabaseLazyEditorInput) {
+            final DatabaseLazyEditorInput input = (DatabaseLazyEditorInput) editorInput;
+
+            try {
+                addPage(new ProgressEditorPart(this), input);
+                setPageText(0, input.canLoadImmediately()
+                    ? UINavigatorMessages.editors_entity_title_initializing
+                    : UINavigatorMessages.editors_entity_title_uninitialized);
+                setPageImage(0, DBeaverIcons.getImage(UIIcon.REFRESH));
+                setActivePage(0);
+            } catch (PartInitException e) {
+                log.error(e);
+            }
+
+            return true;
+        } else if (editorInput instanceof ErrorEditorInput) {
+            final ErrorEditorInput input = (ErrorEditorInput) editorInput;
+
+            try {
+                addPage(new ErrorEditorPartEx(input.getError()), input);
+                setPageText(0, "Error");
+                setPageImage(0, UIUtils.getShardImage(ISharedImages.IMG_OBJS_ERROR_TSK));
+                setActivePage(0);
+            } catch (PartInitException e) {
+                log.error(e);
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     public IEditorPart getPageEditor(String pageId) {
@@ -742,8 +785,7 @@ public class EntityEditor extends MultiPageDatabaseEditor
         }
 
         String subEditorsString = changedSubEditors.isEmpty() ? "" : "(" + String.join(", ", changedSubEditors) + ")";
-        final int result = ConfirmationDialog.showConfirmDialog(
-            ResourceBundle.getBundle(UINavigatorMessages.BUNDLE_NAME),
+        final int result = ConfirmationDialog.confirmAction(
             getSite().getShell(),
             NavigatorPreferences.CONFIRM_ENTITY_EDIT_CLOSE,
             ConfirmationDialog.QUESTION_WITH_CANCEL,
@@ -886,8 +928,7 @@ public class EntityEditor extends MultiPageDatabaseEditor
         boolean isPersistedObject = databaseObject != null && databaseObject.isPersisted();
 
         if (force && isPersistedObject && isDirty() && showConfirmation) {
-            if (ConfirmationDialog.showConfirmDialog(
-                ResourceBundle.getBundle(UINavigatorMessages.BUNDLE_NAME),
+            if (ConfirmationDialog.confirmAction(
                 null,
                 NavigatorPreferences.CONFIRM_ENTITY_REVERT,
                 ConfirmationDialog.QUESTION,
@@ -946,7 +987,10 @@ public class EntityEditor extends MultiPageDatabaseEditor
 
         if (hasPropertiesEditor) {
             // Update main editor image
-            setPageImage(0, DBeaverIcons.getImage(getEditorInput().getNavigatorNode().getNodeIconDefault()));
+            DBNDatabaseNode navigatorNode = getEditorInput().getNavigatorNode();
+            if (navigatorNode != null) {
+                setPageImage(0, DBeaverIcons.getImage(navigatorNode.getNodeIconDefault()));
+            }
         }
 
         firePropertyChange(IWorkbenchPartConstants.PROP_DIRTY);
@@ -998,7 +1042,8 @@ public class EntityEditor extends MultiPageDatabaseEditor
         DBNDatabaseNode[] selNode = new DBNDatabaseNode[1];
         ToolBar breadcrumbsPanel = new ToolBar(bcComposite, SWT.HORIZONTAL | SWT.RIGHT);
         //breadcrumbsPanel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-        breadcrumbsPanel.setForeground(UIStyles.getDefaultTextForeground());
+        breadcrumbsPanel.setForeground(
+            UIUtils.isDark(breadcrumbsPanel.getBackground().getRGB()) ? UIUtils.COLOR_WHITE : UIStyles.getDefaultTextForeground());
         breadcrumbsPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseDown(MouseEvent e) {
@@ -1068,6 +1113,16 @@ public class EntityEditor extends MultiPageDatabaseEditor
 
     @Override
     public void recreateEditorControl() {
+        if (getContainer() == null || getContainer().isDisposed()) {
+            // Disposed during editor opening
+            return;
+        }
+        if (getContainer() instanceof CTabFolder) {
+            final Control control = ((CTabFolder) getContainer()).getTopRight();
+            if (control != null) {
+                control.dispose();
+            }
+        }
         recreatePages();
         firePropertyChange(PROP_OBJECT_INIT);
         DataSourceToolbarUtils.refreshSelectorToolbar(getSite().getWorkbenchWindow());

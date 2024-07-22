@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
  */
 package org.jkiss.dbeaver.model.sql.format;
 
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.sql.SQLSyntaxManager;
 import org.jkiss.dbeaver.model.sql.registry.SQLFormatterConfigurationRegistry;
@@ -25,11 +27,30 @@ import org.jkiss.dbeaver.model.sql.registry.SQLFormatterConfigurationRegistry;
  */
 public class SQLFormatUtils {
 
-    public static String formatSQL(DBPDataSource dataSource, String query)
-    {
+    public static String formatSQL(DBPDataSource dataSource, String query) {
+        return formatSQL(dataSource, query, null);
+    }
+
+    public static String formatSQL(@Nullable DBPDataSource dataSource, @NotNull SQLSyntaxManager syntaxManager, String query) {
+        return formatSQL(dataSource, syntaxManager, query, null);
+    }
+
+    public static String formatSQL(DBPDataSource dataSource, String query, @Nullable String indent) {
         SQLSyntaxManager syntaxManager = new SQLSyntaxManager();
         syntaxManager.init(dataSource.getSQLDialect(), dataSource.getContainer().getPreferenceStore());
+        return formatSQL(dataSource, syntaxManager, query, indent);
+    }
+
+    public static String formatSQL(
+        @Nullable DBPDataSource dataSource,
+        @NotNull SQLSyntaxManager syntaxManager,
+        @NotNull String query,
+        @Nullable String indent
+    ) {
         SQLFormatterConfiguration configuration = new SQLFormatterConfiguration(dataSource, syntaxManager);
+        if (indent != null) {
+            configuration.setIndentString(indent);
+        }
         SQLFormatter formatter = SQLFormatterConfigurationRegistry.getInstance().createFormatter(configuration);
         if (formatter == null) {
             return query;

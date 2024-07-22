@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -145,7 +145,7 @@ public abstract class DBDAttributeBinding implements DBSObject, DBSAttributeBase
     public abstract List<DBSEntityReferrer> getReferrers();
 
     @Nullable
-    public abstract Object extractNestedValue(@NotNull Object ownerValue)
+    public abstract Object extractNestedValue(@NotNull Object ownerValue, int itemIndex)
         throws DBCException;
 
     /**
@@ -221,6 +221,22 @@ public abstract class DBDAttributeBinding implements DBSObject, DBSAttributeBase
     @NotNull
     @Override
     public String getFullyQualifiedName(DBPEvaluationContext context) {
+        return getFullyQualifiedName(context, DBPAttributeReferencePurpose.UNSPECIFIED);
+    }
+
+    /**
+     * Entity full qualified name.
+     * Should include all parent objects' names and thus uniquely identify this entity within database.
+
+     * @param context evaluation context
+     * @param purpose of name usage
+     * @return full qualified name, never returns null.
+     */
+    @NotNull
+    public String getFullyQualifiedName(DBPEvaluationContext context, @NotNull DBPAttributeReferencePurpose purpose) {
+        if (this.getEntityAttribute() instanceof DBSContextBoundAttribute) {
+            return DBUtils.getQuotedIdentifier(this.getEntityAttribute(), purpose);
+        }
         final DBPDataSource dataSource = getDataSource();
         if (getParentObject() == null) {
             return DBUtils.getQuotedIdentifier(dataSource, getName());
@@ -243,6 +259,7 @@ public abstract class DBDAttributeBinding implements DBSObject, DBSAttributeBase
 
         return query.toString();
     }
+
 
     @Override
     public boolean isPersisted() {
@@ -307,10 +324,8 @@ public abstract class DBDAttributeBinding implements DBSObject, DBSAttributeBase
         if (disableTransformers) {
             return;
         }
-        DBSAttributeBase attribute = getAttribute();
         final DBDAttributeTransformer[] transformers = DBVUtils.findAttributeTransformers(this, null);
         if (transformers != null) {
-            session.getProgressMonitor().subTask("Transform attribute '" + attribute.getName() + "'");
             final Map<String, Object> transformerOptions = DBVUtils.getAttributeTransformersOptions(this);
             for (DBDAttributeTransformer transformer : transformers) {
                 transformer.transformAttribute(session, this, rows, transformerOptions);

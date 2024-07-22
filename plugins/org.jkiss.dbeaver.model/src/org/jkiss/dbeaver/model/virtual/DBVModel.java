@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,11 +23,11 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.edit.DBEObjectRenamer;
 import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
+import org.jkiss.dbeaver.model.navigator.DBNUtils;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
-import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.utils.xml.SAXListener;
 import org.jkiss.utils.xml.XMLBuilder;
 
@@ -41,7 +41,7 @@ import java.util.Map;
  * Virtual database model
  */
 public class DBVModel extends DBVContainer {
-
+    @Nullable
     private DBPDataSourceContainer dataSourceContainer;
     @NotNull
     private String id;
@@ -76,26 +76,30 @@ public class DBVModel extends DBVContainer {
         this.id = id;
     }
 
+    @Nullable
     @Override
     public DBPDataSourceContainer getDataSourceContainer() {
         return dataSourceContainer;
     }
 
-    public void setDataSourceContainer(DBPDataSourceContainer dataSourceContainer) {
+    public void setDataSourceContainer(@Nullable DBPDataSourceContainer dataSourceContainer) {
         this.dataSourceContainer = dataSourceContainer;
     }
 
+    @Nullable
     @Override
     public DBSObjectContainer getRealContainer(DBRProgressMonitor monitor) throws DBException {
-        DBPDataSource dataSource = dataSourceContainer.getDataSource();
-        if (dataSource == null) {
-            dataSourceContainer.connect(monitor, true, true);
-            dataSource = dataSourceContainer.getDataSource();
+        if (dataSourceContainer != null) {
+            DBPDataSource dataSource = dataSourceContainer.getDataSource();
+            if (dataSource == null) {
+                dataSourceContainer.connect(monitor, true, true);
+                dataSource = dataSourceContainer.getDataSource();
+            }
+            if (dataSource instanceof DBSObjectContainer) {
+                return (DBSObjectContainer) dataSource;
+            }
+            log.warn("Datasource '" + dataSource + "' is not an object container");
         }
-        if (dataSource instanceof DBSObjectContainer) {
-            return (DBSObjectContainer) dataSource;
-        }
-        log.warn("Datasource '" + dataSource + "' is not an object container");
         return null;
     }
 
@@ -124,7 +128,8 @@ public class DBVModel extends DBVContainer {
             return null;
         }
         if (path[0] != dataSourceContainer) {
-            log.warn("Entity's root must be datasource container '" + dataSourceContainer.getName() + "'");
+            String dataSourceName = dataSourceContainer != null ? dataSourceContainer.getName() : null;
+            log.warn("Entity's root must be datasource container '" + dataSourceName + "'");
             return null;
         }
         DBVContainer container = this;
@@ -145,7 +150,8 @@ public class DBVModel extends DBVContainer {
             return null;
         }
         if (path[0] != dataSourceContainer) {
-            log.warn("Entity's root must be datasource container '" + dataSourceContainer.getName() + "'");
+            String dataSourceName = dataSourceContainer != null ? dataSourceContainer.getName() : null;
+            log.warn("Entity's root must be datasource container '" + dataSourceName + "'");
             return null;
         }
         DBVContainer container = this;
@@ -240,6 +246,12 @@ public class DBVModel extends DBVContainer {
         }
     }
 
+    public void resetData() {
+        this.clearProperties();
+        this.clearEntities();
+        this.clearContainers();
+    }
+
     public static class ModelChangeListener implements DBPEventListener {
         @Override
         public void handleDataSourceEvent(DBPEvent event) {
@@ -258,7 +270,7 @@ public class DBVModel extends DBVContainer {
     }
 
     private static void handleEntityRename(DBSEntity object, String oldName, String newName) {
-        DBNDatabaseNode objectNode = DBWorkbench.getPlatform().getNavigatorModel().getNodeByObject(object);
+        DBNDatabaseNode objectNode = DBNUtils.getNavigatorModel(object).getNodeByObject(object);
         if (objectNode != null) {
             String objectNodePath = objectNode.getNodeItemPath();
             renameEntityInGlobalCache(objectNodePath, oldName, newName);

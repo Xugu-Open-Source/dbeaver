@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.wmi.service.WMIService;
 
-import java.io.File;
+import java.nio.file.Path;
 
 public class WMIDataSourceProvider implements DBPDataSourceProvider {
 
@@ -79,17 +79,19 @@ public class WMIDataSourceProvider implements DBPDataSourceProvider {
         return new WMIDataSource(container);
     }
 
-    private void loadNativeLib(DBPDriver driver) throws DBException
-    {
+    private void loadNativeLib(DBPDriver driver) throws DBException {
         for (DBPDriverLibrary libFile : driver.getDriverLibraries()) {
             if (libFile.matchesCurrentPlatform() && libFile.getType() == DBPDriverLibrary.FileType.lib) {
-                File localFile = libFile.getLocalFile();
-                if (localFile != null) {
-                    try {
-                        WMIService.linkNative(localFile.getAbsolutePath());
-                    } catch (UnsatisfiedLinkError e) {
-                        throw new DBException("Can't load native library '" + localFile.getAbsolutePath() + "'", e);
+                Path localFile = libFile.getLocalFile();
+                try {
+                    if (localFile != null) {
+                        WMIService.linkNative(localFile.toAbsolutePath().toString());
+                    } else {
+                        // Load dll from any accessible location
+                        WMIService.linkNative();
                     }
+                } catch (UnsatisfiedLinkError e) {
+                    throw new DBException("Can't load native library '" + libFile.getDisplayName() + "'", e);
                 }
             }
         }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,10 +28,7 @@ import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.Pair;
 
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 
 class IndentFormatter {
     private static final Log log = Log.getLog(SQLFormatterTokenized.class);
@@ -49,13 +46,17 @@ class IndentFormatter {
     private final String[] blockHeaderStrings;
     private boolean isFirstConditionInBrackets;
 
-    private static final String[] JOIN_BEGIN = {"LEFT", "RIGHT", "INNER", "OUTER", "FULL", "CROSS", "JOIN"};
+    private static final String[] JOIN_BEGIN = {"LEFT", "RIGHT", "INNER", "OUTER", "FULL", "CROSS", "NATURAL", "JOIN"};
+    private static final String[] NO_SPACE_IN_COMPACT_KEYWORDS = { "SELECT", "UPDATE", "INSERT", "DELETE", "FROM", "WHERE" };
     private static final String[] DML_KEYWORD = { "SELECT", "UPDATE", "INSERT", "DELETE" };
     private static final String[] CONDITION_KEYWORDS = {"WHERE", "ON", "HAVING"};
 
     IndentFormatter(SQLFormatterConfiguration formatterCfg, boolean isCompact) {
         this.formatterCfg = formatterCfg;
         delimiterRedefiner = formatterCfg.getSyntaxManager().getDialect().getScriptDelimiterRedefiner();
+        if (statementDelimiters.contains(delimiterRedefiner)) {
+            delimiterRedefiner = null;
+        }
         if (delimiterRedefiner != null) {
             delimiterRedefiner = delimiterRedefiner.toUpperCase(Locale.ENGLISH);
         }
@@ -130,7 +131,7 @@ class IndentFormatter {
             result += insertReturnAndIndent(argList, index + 1, indent);
         } else {
             if (blockHeaderStrings != null && ArrayUtils.contains(blockHeaderStrings, tokenString) || (SQLUtils.isBlockStartKeyword(dialect, tokenString) &&
-                            !SQLConstants.KEYWORD_SELECT.equalsIgnoreCase(getPrevSpecialKeyword(argList, index, false)))) { // If SELECT is previous keyword, then we are already inside the block
+                !SQLConstants.KEYWORD_SELECT.equalsIgnoreCase(getPrevSpecialKeyword(argList, index, false)))) { // If SELECT is previous keyword, then we are already inside the block
                 if (index > 0) {
                     result += insertReturnAndIndent(argList, index, indent - 1);
                 }
@@ -153,6 +154,7 @@ class IndentFormatter {
                     }
                 case "DROP": //$NON-NLS-1$
                 case "ALTER": //$NON-NLS-1$
+                case "TABLE": //$NON-NLS-1$
                     break;
                 case "DELETE": //$NON-NLS-1$
                 case "SELECT": //$NON-NLS-1$
@@ -160,28 +162,22 @@ class IndentFormatter {
                 case "INSERT": //$NON-NLS-1$
                 case "INTO": //$NON-NLS-1$
                 case "TRUNCATE": //$NON-NLS-1$
-                case "TABLE": //$NON-NLS-1$
                     if (!isCompact) {
-                        if (!"TABLE".equals(tokenString)) {
-                            if (bracketsDepth > 0) {
-                                result += insertReturnAndIndent(argList, index, indent);
-                            } else if (index > 0) {
-                                // just add lf before keyword
-                                indent = 0;
-                                result += insertReturnAndIndent(argList, index - 1, indent);
-                            }
-                            indent++;
-                            result += insertReturnAndIndent(argList, result + 1, indent);
+                        if (bracketsDepth > 0) {
+                            result += insertReturnAndIndent(argList, index, indent);
+                        } else if (index > 0) {
+                            // just add lf before keyword
+                            indent = 0;
+                            result += insertReturnAndIndent(argList, index - 1, indent);
                         }
+                        indent++;
+                        result += insertReturnAndIndent(argList, result + 1, indent);
                     }
                     break;
                 case "CASE":  //$NON-NLS-1$
                     if (!isCompact) {
-                        result += insertReturnAndIndent(argList, index - 1, indent);
-                        if ("WHEN".equalsIgnoreCase(getNextKeyword(argList, index))) {
-                            indent++;
-                            result += insertReturnAndIndent(argList, index + 1, indent);
-                        }
+                        indent++;
+                        result += insertReturnAndIndent(argList, index + 1, indent);
                     }
                     break;
                 case "END": // CASE ... END
@@ -209,6 +205,7 @@ class IndentFormatter {
                 case "OUTER":
                 case "FULL":
                 case "CROSS":
+                case "NATURAL":
                 case "JOIN":
                     if (isJoinStart(argList, index)) {
                         result += insertReturnAndIndent(argList, index, indent - 1);
@@ -325,6 +322,13 @@ class IndentFormatter {
         if (token.getType() != TokenType.SPACE || !CommonUtils.isValidIndex(index, argList.size() - 1) || index == 0) {
             return index;
         }
+        if (isCompact) {
+            String prevToken = argList.get(index - 1).getString();
+            if (prevToken.equals(",") || Arrays.stream(NO_SPACE_IN_COMPACT_KEYWORDS).anyMatch(t -> t.equalsIgnoreCase(prevToken))) {
+                argList.remove(index);
+                return index - 1;
+            }
+        }
         if (argList.get(index - 1).getType() != TokenType.COMMENT || argList.get(index + 1).getType() != TokenType.NAME) {
             return index;
         }
@@ -405,6 +409,9 @@ class IndentFormatter {
                     SQLUtils.isCommentLine(formatterCfg.getSyntaxManager().getDialect(), prevToken.getString())) {
                     s = ""; //$NON-NLS-1$
                 }
+            } else if (argList.get(argIndex).getType() == TokenType.COMMENT) {
+                // Do not add line separator before comment
+                s = "";
             }
             for (int index = 0; index < argIndent; index++) {
                 s += formatterCfg.getIndentString();

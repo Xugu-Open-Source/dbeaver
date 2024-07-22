@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.ext.generic.GenericConstants;
 import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.model.DBPIdentifierCase;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCDatabaseMetaData;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
@@ -28,6 +29,9 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSource;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCSQLDialect;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
+
+import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * Generic data source info
@@ -45,12 +49,16 @@ public class GenericSQLDialect extends JDBCSQLDialect {
     private boolean supportsUpsert;
     private boolean quoteReservedWords;
     private boolean useSearchStringEscape;
+    private DBPIdentifierCase unquotedCase;
+    private DBPIdentifierCase quotedCase;
     private String dualTable;
     private String testSQL;
     private boolean hasDelimiterAfterQuery;
     private boolean hasDelimiterAfterBlock;
     private boolean callableQueryInBrackets;
     private boolean omitCatalogName;
+    private boolean supportsMultiInsert;
+    private boolean supportDelimiterInViews;
 
     public GenericSQLDialect() {
         super("Generic", "generic");
@@ -73,7 +81,8 @@ public class GenericSQLDialect extends JDBCSQLDialect {
         if (!CommonUtils.isEmpty(escapeStr)) {
             this.stringEscapeCharacter = escapeStr.charAt(0);
         }
-        this.scriptDelimiterRedefiner = CommonUtils.toString(driver.getDriverParameter(GenericConstants.PARAM_SCRIPT_DELIMITER_REDEFINER));
+        this.scriptDelimiterRedefiner =
+            CommonUtils.toString(driver.getDriverParameter(GenericConstants.PARAM_SCRIPT_DELIMITER_REDEFINER), null);
         this.hasDelimiterAfterQuery = CommonUtils.toBoolean(driver.getDriverParameter(GenericConstants.PARAM_SQL_DELIMITER_AFTER_QUERY));
         this.hasDelimiterAfterBlock = CommonUtils.toBoolean(driver.getDriverParameter(GenericConstants.PARAM_SQL_DELIMITER_AFTER_BLOCK));
         this.legacySQLDialect = CommonUtils.toBoolean(driver.getDriverParameter(GenericConstants.PARAM_LEGACY_DIALECT));
@@ -81,7 +90,26 @@ public class GenericSQLDialect extends JDBCSQLDialect {
         if (this.supportsUpsert) {
             addSQLKeyword("UPSERT");
         }
+
+        this.supportDelimiterInViews =
+            CommonUtils.toBoolean(driver.getDriverParameter(GenericConstants.PARAM_SUPPORTS_DELIMITER_IN_VIEWS));
+
+        String driverUnquotedCase = CommonUtils.toString(
+            driver.getDriverParameter(GenericConstants.PARAM_STORED_UNQUOTED_CASE),
+            null);
+        if (!CommonUtils.isEmpty(driverUnquotedCase)) {
+            unquotedCase = CommonUtils.valueOf(DBPIdentifierCase.class, driverUnquotedCase.toUpperCase());
+        }
+
+        String driverQuotedCase = CommonUtils.toString(
+            driver.getDriverParameter(GenericConstants.PARAM_STORED_QUOTED_CASE),
+            null);
+        if (!CommonUtils.isEmpty(driverQuotedCase)) {
+            quotedCase = CommonUtils.valueOf(DBPIdentifierCase.class, driverQuotedCase.toUpperCase());
+        }
+
         this.useSearchStringEscape = CommonUtils.getBoolean(driver.getDriverParameter(GenericConstants.PARAM_USE_SEARCH_STRING_ESCAPE), false);
+
         this.quoteReservedWords = CommonUtils.getBoolean(driver.getDriverParameter(GenericConstants.PARAM_QUOTE_RESERVED_WORDS), true);
         this.testSQL = CommonUtils.toString(driver.getDriverParameter(GenericConstants.PARAM_QUERY_PING));
         if (CommonUtils.isEmpty(this.testSQL)) {
@@ -92,6 +120,16 @@ public class GenericSQLDialect extends JDBCSQLDialect {
             this.dualTable = null;
         }
         this.omitCatalogName = CommonUtils.toBoolean(driver.getDriverParameter(GenericConstants.PARAM_OMIT_CATALOG_NAME));
+        this.supportsMultiInsert = CommonUtils.toBoolean(driver.getDriverParameter(GenericConstants.PARAM_SUPPORTS_MULTI_INSERT));
+
+        final String identifierQuotes = CommonUtils.toString(driver.getDriverParameter(GenericConstants.PARAM_IDENTIFIER_QUOTES));
+        if (CommonUtils.isNotEmpty(identifierQuotes)) {
+            setIdentifierQuoteString(
+                Arrays.stream(identifierQuotes.split(","))
+                    .map(pair -> pair.split(":"))
+                    .toArray(String[][]::new)
+            );
+        }
     }
 
     @NotNull
@@ -123,6 +161,22 @@ public class GenericSQLDialect extends JDBCSQLDialect {
     @Override
     public boolean isDelimiterAfterBlock() {
         return hasDelimiterAfterBlock;
+    }
+
+    public boolean supportsDelimiterAfterViews() {
+        return supportDelimiterInViews;
+    }
+
+    @NotNull
+    @Override
+    public DBPIdentifierCase storesUnquotedCase() {
+        return Objects.requireNonNullElseGet(unquotedCase, super::storesUnquotedCase);
+    }
+
+    @NotNull
+    @Override
+    public DBPIdentifierCase storesQuotedCase() {
+        return Objects.requireNonNullElseGet(quotedCase, super::storesQuotedCase);
     }
 
     @NotNull
@@ -182,5 +236,14 @@ public class GenericSQLDialect extends JDBCSQLDialect {
             return USAGE_NONE;
         }
         return super.getCatalogUsage();
+    }
+
+    @NotNull
+    @Override
+    public MultiValueInsertMode getDefaultMultiValueInsertMode() {
+        if (supportsMultiInsert) {
+            return MultiValueInsertMode.GROUP_ROWS;
+        }
+        return super.getDefaultMultiValueInsertMode();
     }
 }

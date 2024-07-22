@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,17 @@
 
 package org.jkiss.dbeaver.tools.transfer.stream.model;
 
-import org.eclipse.equinox.security.storage.ISecurePreferences;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.app.DBPDataSourceRegistry;
-import org.jkiss.dbeaver.model.app.DBPPlatform;
+import org.jkiss.dbeaver.model.app.DBPPlatformDesktop;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
+import org.jkiss.dbeaver.model.connection.DBPDriverSubstitutionDescriptor;
 import org.jkiss.dbeaver.model.connection.DBPNativeClientLocation;
 import org.jkiss.dbeaver.model.data.DBDDataFormatterProfile;
 import org.jkiss.dbeaver.model.data.DBDValueHandler;
@@ -39,6 +39,7 @@ import org.jkiss.dbeaver.model.navigator.DBNBrowseSettings;
 import org.jkiss.dbeaver.model.net.DBWNetworkHandler;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.secret.DBSSecretController;
 import org.jkiss.dbeaver.model.sql.SQLDialectMetadata;
 import org.jkiss.dbeaver.model.sql.registry.SQLDialectRegistry;
 import org.jkiss.dbeaver.model.struct.DBSObject;
@@ -93,12 +94,6 @@ class StreamDataSourceContainer implements DBPDataSourceContainer {
 
     @NotNull
     @Override
-    public DBPPlatform getPlatform() {
-        return DBWorkbench.getPlatform();
-    }
-
-    @NotNull
-    @Override
     public DBPConnectionConfiguration getConnectionConfiguration() {
         return new DBPConnectionConfiguration();
     }
@@ -123,6 +118,11 @@ class StreamDataSourceContainer implements DBPDataSourceContainer {
     @Override
     public boolean isManageable() {
         return false;
+    }
+
+    @Override
+    public boolean isAccessCheckRequired() {
+        return isManageable();
     }
 
     @Override
@@ -153,6 +153,11 @@ class StreamDataSourceContainer implements DBPDataSourceContainer {
     @Override
     public void setSavePassword(boolean savePassword) {
 
+    }
+
+    @Override
+    public boolean isCredentialsSaved() {
+        return false;
     }
 
     @Override
@@ -223,6 +228,12 @@ class StreamDataSourceContainer implements DBPDataSourceContainer {
         return false;
     }
 
+    @Nullable
+    @Override
+    public String getConnectionError() {
+        return null;
+    }
+
     @Override
     public boolean connect(DBRProgressMonitor monitor, boolean initialize, boolean reflect) throws DBException {
         throw new DBCFeatureNotSupportedException();
@@ -281,6 +292,17 @@ class StreamDataSourceContainer implements DBPDataSourceContainer {
 
     }
 
+    @Nullable
+    @Override
+    public String getProperty(@NotNull String name) {
+        return null;
+    }
+
+    @Override
+    public void setProperty(@NotNull String name, @Nullable String value) {
+
+    }
+
     @NotNull
     @Override
     public DBPPreferenceStore getPreferenceStore() {
@@ -300,14 +322,8 @@ class StreamDataSourceContainer implements DBPDataSourceContainer {
     }
 
     @Override
-    public void persistConfiguration() {
-
-    }
-
-    @NotNull
-    @Override
-    public ISecurePreferences getSecurePreferences() {
-        return DBWorkbench.getPlatform().getApplication().getSecureStorage().getSecurePreferences();
+    public boolean persistConfiguration() {
+        return true;
     }
 
     @Override
@@ -319,6 +335,11 @@ class StreamDataSourceContainer implements DBPDataSourceContainer {
     @Override
     public SQLDialectMetadata getScriptDialect() {
         return SQLDialectRegistry.getInstance().getDialect(BasicSQLDialect.ID);
+    }
+
+    @Override
+    public void resetPassword() {
+
     }
 
     @Override
@@ -375,7 +396,7 @@ class StreamDataSourceContainer implements DBPDataSourceContainer {
 
     @Override
     public DBDDataFormatterProfile getDataFormatterProfile() {
-        return DBWorkbench.getPlatform().getDataFormatterRegistry().getGlobalProfile();
+        return DBPPlatformDesktop.getInstance().getDataFormatterRegistry().getGlobalProfile();
     }
 
     @Override
@@ -402,5 +423,57 @@ class StreamDataSourceContainer implements DBPDataSourceContainer {
     @Override
     public boolean isHidden() {
         return true;
+    }
+
+    @Override
+    public boolean isSharedCredentials() {
+        return false;
+    }
+
+    @Override
+    public void setSharedCredentials(boolean sharedCredentials) {
+
+    }
+
+    @Override
+    public boolean isForceUseSingleConnection() {
+        return false;
+    }
+
+    @Override
+    public void setForceUseSingleConnection(boolean value) {
+        throw new IllegalStateException("Not supported");
+    }
+
+    @Override
+    public void persistSecrets(DBSSecretController secretController) throws DBException {
+
+    }
+
+    @Override
+    public void resolveSecrets(DBSSecretController secretController) throws DBException {
+
+    }
+
+    @Nullable
+    @Override
+    public String getRequiredExternalAuth() {
+        return null;
+    }
+
+    @Nullable
+    @Override
+    public DBPDriverSubstitutionDescriptor getDriverSubstitution() {
+        return null;
+    }
+
+    @Override
+    public void setDriverSubstitution(@Nullable DBPDriverSubstitutionDescriptor driverSubstitution) {
+        // do nothing
+    }
+
+    @Override
+    public void dispose() {
+        virtualModel.dispose();
     }
 }

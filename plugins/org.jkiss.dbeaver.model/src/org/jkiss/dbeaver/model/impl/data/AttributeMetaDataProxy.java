@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +39,11 @@ public class AttributeMetaDataProxy implements DBCAttributeMetaData, DBPImagePro
         @NotNull DBSAttributeBase attribute)
     {
         this.attribute = attribute;
+    }
+
+    @NotNull
+    public DBSAttributeBase getProxyAttribute() {
+        return attribute;
     }
 
     /**
@@ -97,6 +102,10 @@ public class AttributeMetaDataProxy implements DBCAttributeMetaData, DBPImagePro
     @Nullable
     @Override
     public DBCEntityMetaData getEntityMetaData() {
+        DBSAttributeBase proxyAttribute = getProxyAttribute();
+        if (proxyAttribute instanceof DBCAttributeMetaData) {
+            return ((DBCAttributeMetaData) proxyAttribute).getEntityMetaData();
+        }
         return null;
     }
 

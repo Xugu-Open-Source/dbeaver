@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,12 @@ package org.jkiss.dbeaver.ui.editors.internal;
 import org.eclipse.osgi.util.NLS;
 
 public class EditorsMessages extends NLS {
-	static final String BUNDLE_NAME = "org.jkiss.dbeaver.ui.editors.internal.EditorsResources"; //$NON-NLS-1$
+	private static final String BUNDLE_NAME = "org.jkiss.dbeaver.ui.editors.internal.EditorsResources"; //$NON-NLS-1$
 
 	public static String dialog_struct_attribute_edit_page_header_edit_attribute;
-	public static String dialog_struct_attribute_edit_page_label_text_name;
-	public static String dialog_struct_attribute_edit_page_label_text_properties;
+	public static String dialog_struct_label_text_name;
+	public static String dialog_struct_label_text_properties;
+    public static String dialog_struct_unique;
 	public static String dialog_struct_columns_select_error_load_columns_message;
 	public static String dialog_struct_columns_select_error_load_columns_title;
 	public static String dialog_struct_columns_select_group_columns;
@@ -31,6 +32,8 @@ public class EditorsMessages extends NLS {
 	public static String dialog_struct_columns_select_title;
 	public static String dialog_struct_create_entity_group_name;
 	public static String dialog_struct_create_entity_title;
+    public static String dialog_struct_create_column_order;
+    public static String dialog_struct_create_column_order_tooltip;
 	public static String dialog_struct_create_procedure_combo_type;
 	public static String dialog_struct_create_procedure_label_name;
 	public static String dialog_struct_create_procedure_title;
@@ -58,6 +61,12 @@ public class EditorsMessages extends NLS {
 	public static String dialog_struct_edit_fk_title;
 	public static String dialog_struct_edit_index_label_type;
 
+	public static String dialog_struct_edit_dictionary_tip;
+	public static String dialog_struct_edit_dictionary_custom_criteria;
+	public static String dialog_struct_edit_dictionary_custom_criteria_tip;
+	public static String dialog_struct_edit_dictionary_column_delimiter;
+	public static String dialog_struct_edit_dictionary_column_delimiter_tip;
+
 	public static String dialog_struct_columns_select_column;
 	public static String dialog_struct_columns_type;
 
@@ -71,6 +80,40 @@ public class EditorsMessages extends NLS {
 	public static String dialog_morph_delimited_target_group_spinner_wrap_line_tip;
 	public static String dialog_morph_delimited_target_group_leading_text;
 	public static String dialog_morph_delimited_target_group_trailing_text;
+
+	public static String database_editor_command_save_name;
+	public static String database_editor_command_save_tip;
+	public static String database_editor_command_revert_name;
+	public static String database_editor_command_revert_tip;
+	public static String database_editor_command_refresh_name;
+	public static String database_editor_command_refresh_tip;
+
+	public static String database_editor_project;
+
+	public static String  file_dialog_select_files;
+	public static String file_dialog_save_failed;
+	public static String file_dialog_save_as_file;
+	public static String file_dialog_cannot_load_file;
+
+	public static String edit_constraints_error_title;
+	public static String edit_constraints_error_message;
+	public static String edit_constraints_enable_constraint_text;
+	public static String edit_constraints_enable_constraint_tip;
+	public static String edit_constraints_use_all_columns_text;
+	public static String edit_constraints_use_all_columns_tip;
+	public static String edit_constraints_expression_text;
+    public static String edit_foreign_key_page_create_schema_container;
+    public static String edit_foreign_key_page_create_container_reference_table_container;
+    public static String edit_foreign_key_page_create_container_select_reference_table_container;
+    public static String edit_foreign_key_page_error_loading_table_title;
+    public static String edit_foreign_key_page_error_loading_table_message;
+	public static String selector_select_all_text;
+	public static String selector_clear_all_text;
+
+    public static String progress_editor_initializing_text;
+    public static String progress_editor_uninitialized_text;
+
+    public static String lazy_editor_input_cant_find_node;
 
 	static {
 		// initialize resource bundle

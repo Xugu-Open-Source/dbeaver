@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  */
 package org.jkiss.utils;
 
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -78,7 +79,7 @@ public class SecurityUtils {
         byte[] array;
         try {
             MessageDigest md5 = MessageDigest.getInstance(ECRYPTION_ALGORYTHM);
-            md5.update(sb.toString().getBytes());
+            md5.update(sb.toString().getBytes(StandardCharsets.UTF_8));
             array = md5.digest();
         } catch (NoSuchAlgorithmException e) {
             // Too bad. Lets get simple random numbers
@@ -130,9 +131,9 @@ public class SecurityUtils {
             }
             MessageDigest md5 =
                 MessageDigest.getInstance(ECRYPTION_ALGORYTHM);
-            md5.update(userAlias.getBytes());
+            md5.update(userAlias.getBytes(StandardCharsets.UTF_8));
 
-            return CommonUtils.toHexString(md5.digest(userPassword.getBytes()));
+            return CommonUtils.toHexString(md5.digest(userPassword.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException toCatch) {
             return "*";
         }
@@ -144,7 +145,7 @@ public class SecurityUtils {
             MessageDigest md5 =
                 MessageDigest.getInstance(ECRYPTION_ALGORYTHM);
 
-            return CommonUtils.toHexString(md5.digest(userPassword.getBytes()));
+            return CommonUtils.toHexString(md5.digest(userPassword.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException toCatch) {
             return "*";
         }

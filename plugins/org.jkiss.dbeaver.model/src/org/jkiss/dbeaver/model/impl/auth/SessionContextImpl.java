@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,10 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.model.access.DBASession;
-import org.jkiss.dbeaver.model.auth.DBAAuthSpace;
-import org.jkiss.dbeaver.model.auth.DBAAuthToken;
-import org.jkiss.dbeaver.model.auth.DBASessionContext;
-import org.jkiss.dbeaver.model.auth.DBASessionProviderService;
+import org.jkiss.dbeaver.model.auth.SMAuthSpace;
+import org.jkiss.dbeaver.model.auth.SMSession;
+import org.jkiss.dbeaver.model.auth.SMSessionContext;
+import org.jkiss.dbeaver.model.auth.SMSessionProviderService;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.utils.CommonUtils;
@@ -36,31 +35,35 @@ import java.util.List;
 /**
  * Session context implementation
  */
-public class SessionContextImpl implements DBASessionContext {
+public class SessionContextImpl implements SMSessionContext {
     private static final Log log = Log.getLog(SessionContextImpl.class);
 
-    private final DBASessionContext parentContext;
-    private final List<DBASession> sessions = new ArrayList<>();
+    private final SMSessionContext parentContext;
+    private final List<SMSession> sessions = new ArrayList<>();
 
-    public SessionContextImpl(DBASessionContext parentContext) {
+    public SessionContextImpl(SMSessionContext parentContext) {
         this.parentContext = parentContext;
     }
 
     @Nullable
     @Override
-    public DBASession getSpaceSession(@NotNull DBRProgressMonitor monitor, @NotNull DBAAuthSpace space, boolean open) throws DBException {
-        for (DBASession session : sessions) {
-            if (CommonUtils.equalObjects(session.getSessionSpace(), space)) {
-                return session;
-            }
+    public SMSession getSpaceSession(@NotNull DBRProgressMonitor monitor, @NotNull SMAuthSpace space, boolean open) throws DBException {
+        SMSession session = findSpaceSession(space);
+        if (session != null) {
+            return session;
         }
-        DBASession session = parentContext == null ? null : parentContext.getSpaceSession(monitor, space, false);
+
+        //log.debug(">> Session not found in context " + this + " for space " + space);
+        session = parentContext == null ? null : parentContext.getSpaceSession(monitor, space, false);
         if (session == null && open) {
-            DBASessionProviderService sessionProviderService = DBWorkbench.getService(DBASessionProviderService.class);
+            SMSessionProviderService sessionProviderService = DBWorkbench.getService(SMSessionProviderService.class);
             if (sessionProviderService != null) {
                 try {
                     // Session will be added in this context by itself (if needed)
                     session = sessionProviderService.acquireSession(monitor, this, space);
+                    if (session != null) {
+                        addSession(session);
+                    }
                 } catch (Exception e) {
                     throw new DBException("Error acquiring session", e);
                 }
@@ -69,22 +72,39 @@ public class SessionContextImpl implements DBASessionContext {
         return session;
     }
 
+    @Nullable
     @Override
-    public DBAAuthToken[] getSavedTokens() {
-        return new DBAAuthToken[0];
+    public SMAuthSpace getPrimaryAuthSpace() {
+        if (CommonUtils.isEmpty(sessions)) {
+            return null;
+        }
+        return sessions.get(0).getSessionSpace();
     }
 
-    public void addSession(@NotNull DBASession session) {
+    @Nullable
+    @Override
+    public SMSession findSpaceSession(@NotNull SMAuthSpace space) {
+        for (SMSession session : sessions) {
+            if (CommonUtils.equalObjects(session.getSessionSpace(), space)) {
+                return session;
+            }
+        }
+        return null;
+    }
+
+    public void addSession(@NotNull SMSession session) {
         if (!sessions.contains(session)) {
             sessions.add(session);
+            //log.debug(">> Session added to context " + this + ", space=" + session.getSessionSpace() + ": " + session, new Exception());
         } else {
             log.debug("Session '" + session + "' was added twice");
         }
     }
 
     @Override
-    public boolean removeSession(@NotNull DBASession session) {
+    public boolean removeSession(@NotNull SMSession session) {
         if (sessions.remove(session)) {
+            //log.debug(">> Session removed from context " + this + ", space=" + session.getSessionSpace()  + ": " + session, new Exception());
             return true;
         } else {
             log.debug("Session '" + session + "' was removed twice");

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,12 +23,14 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.ui.UITask;
 import org.jkiss.dbeaver.ui.editors.object.struct.CreateSequencePage;
 
+import java.util.Map;
+
 /**
  * Postgre sequence configurator
  */
 public class PostgreSequenceConfigurator implements DBEObjectConfigurator<PostgreSequence> {
     @Override
-    public PostgreSequence configureObject(DBRProgressMonitor monitor, Object parent, PostgreSequence sequence) {
+    public PostgreSequence configureObject(DBRProgressMonitor monitor, Object parent, PostgreSequence sequence, Map<String, Object> options) {
         return new UITask<PostgreSequence>() {
             @Override
             protected PostgreSequence runTask() {

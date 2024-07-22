@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ public class EditConstraintPage extends AttributesSelectorPage {
         try {
             this.attributes = constraint.getAttributeReferences(new VoidProgressMonitor());
         } catch (DBException e) {
-            DBWorkbench.getPlatformUI().showError("Can't get attributes", "Error obtaining entity attributes", e);
+            DBWorkbench.getPlatformUI().showError(EditorsMessages.edit_constraints_error_title, EditorsMessages.edit_constraints_error_message, e);
         }
         this.constraintName = this.constraint.getName();
         if (constraint instanceof DBVEntityConstraint) {
@@ -151,6 +151,8 @@ public class EditConstraintPage extends AttributesSelectorPage {
 
         final Text nameText = entity != null ? UIUtils.createLabelText(panel, EditorsMessages.dialog_struct_edit_constrain_label_name, constraintName) : null;
         if (nameText != null) {
+            nameText.selectAll();
+            nameText.setFocus();
             nameText.addModifyListener(e -> constraintName = nameText.getText().trim());
         }
 
@@ -189,7 +191,7 @@ public class EditConstraintPage extends AttributesSelectorPage {
         });
 
         if (showEnable) {
-            final Button enableConstraintButton = UIUtils.createCheckbox(panel, "Enable Constraint", "Enable constraint after creation", true, 2);
+            final Button enableConstraintButton = UIUtils.createCheckbox(panel, EditorsMessages.edit_constraints_enable_constraint_text, EditorsMessages.edit_constraints_enable_constraint_tip, true, 2);
             enableConstraintButton.setVisible(showEnable);
             enableConstraintButton.addSelectionListener(new SelectionAdapter() {
                 @Override
@@ -200,7 +202,7 @@ public class EditConstraintPage extends AttributesSelectorPage {
         }
 
         if (isUniqueVirtualKeyEdit()) {
-            final Button useAllColumnsCheck = UIUtils.createCheckbox(panel, "Use All columns", "Include all table columns in unique key", useAllColumns, 2);
+            final Button useAllColumnsCheck = UIUtils.createCheckbox(panel, EditorsMessages.edit_constraints_use_all_columns_text, EditorsMessages.edit_constraints_use_all_columns_tip, useAllColumns, 2);
             useAllColumnsCheck.addSelectionListener(new SelectionAdapter() {
                 @Override
                 public void widgetSelected(SelectionEvent e) {
@@ -214,7 +216,7 @@ public class EditConstraintPage extends AttributesSelectorPage {
 
     @Override
     protected void createContentsAfterColumns(Composite panel) {
-        expressionGroup = UIUtils.createControlGroup(panel, "Expression", 1, GridData.FILL_BOTH, 0);
+        expressionGroup = UIUtils.createControlGroup(panel, EditorsMessages.edit_constraints_expression_text, 1, GridData.FILL_BOTH, 0);
         expressionText = new Text(expressionGroup, SWT.BORDER | SWT.MULTI);
         GridData gd = new GridData(GridData.FILL_BOTH);
         gd.heightHint = expressionText.getLineHeight() * 3;

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,15 +32,17 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBPContextProvider;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.DBPDataSourceContainerProvider;
 import org.jkiss.dbeaver.model.DBUtils;
-import org.jkiss.dbeaver.model.IDataSourceContainerProvider;
 import org.jkiss.dbeaver.model.app.DBPDataSourceRegistry;
+import org.jkiss.dbeaver.model.app.DBPPlatformDesktop;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.app.DBPResourceHandler;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.navigator.DBNDataSource;
 import org.jkiss.dbeaver.model.navigator.DBNLocalFolder;
 import org.jkiss.dbeaver.model.navigator.DBNResource;
+import org.jkiss.dbeaver.model.rm.RMConstants;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.ActionUtils;
@@ -68,11 +70,11 @@ public class SQLEditorHandlerOpenEditor extends AbstractDataSourceHandler {
         openResource(resource, new SQLNavigatorContext());
     }
 
-    public static void openResource(IResource resource, @NotNull SQLNavigatorContext navigatorContext) {
+    public static void openResource(IResource resource, @Nullable SQLNavigatorContext navigatorContext) {
         try {
-            DBPResourceHandler handler = DBWorkbench.getPlatform().getWorkspace().getResourceHandler(resource);
+            DBPResourceHandler handler = DBPPlatformDesktop.getInstance().getWorkspace().getResourceHandler(resource);
             if (handler != null) {
-                if (resource instanceof IFile && navigatorContext.getDataSourceContainer() != null) {
+                if (navigatorContext != null && resource instanceof IFile && navigatorContext.getDataSourceContainer() != null) {
                     EditorUtils.setFileDataSource((IFile) resource, navigatorContext);
                 }
                 handler.openResource(resource);
@@ -86,7 +88,9 @@ public class SQLEditorHandlerOpenEditor extends AbstractDataSourceHandler {
         if (resourceInfo.getResource() != null) {
             openResource(resourceInfo.getResource(), context);
         } else if (resourceInfo.getLocalFile() != null) {
-            EditorUtils.setFileDataSource(resourceInfo.getLocalFile(), context);
+            if (context != null) {
+                EditorUtils.setFileDataSource(resourceInfo.getLocalFile(), context);
+            }
             EditorUtils.openExternalFileEditor(resourceInfo.getLocalFile(), workbenchWindow);
         }
     }
@@ -108,21 +112,28 @@ public class SQLEditorHandlerOpenEditor extends AbstractDataSourceHandler {
             }
         }
         try {
+            DBPProject activeProject = DBWorkbench.getPlatform().getWorkspace().getActiveProject();
             switch (actionId) {
                 case SQLEditorCommands.CMD_SQL_EDITOR_OPEN:
-                    openEditor(event);
+                    if (activeProject == null || activeProject.hasRealmPermission(RMConstants.PERMISSION_PROJECT_RESOURCE_VIEW)) {
+                        openEditor(event);
+                    }
                     break;
                 case SQLEditorCommands.CMD_SQL_EDITOR_NEW:
-                    openNewEditor(event);
+                    if (activeProject == null || activeProject.hasRealmPermission(RMConstants.PERMISSION_PROJECT_RESOURCE_EDIT)) {
+                        openNewEditor(event);
+                    }
                     break;
                 case SQLEditorCommands.CMD_SQL_EDITOR_RECENT:
-                    openRecentEditor(event);
+                    if (activeProject == null || activeProject.hasRealmPermission(RMConstants.PERMISSION_PROJECT_RESOURCE_VIEW)) {
+                        openRecentEditor(event);
+                    }
                     break;
             }
         } catch (InterruptedException e) {
             return null;
         } catch (Throwable e) {
-            DBWorkbench.getPlatformUI().showError("Open editor", "Can execute command '" + actionId + "'", e);
+            DBWorkbench.getPlatformUI().showError("Open editor", null, e);
         }
         return null;
     }
@@ -243,8 +254,8 @@ public class SQLEditorHandlerOpenEditor extends AbstractDataSourceHandler {
     }
 
     private static DBPDataSourceContainer getDataSourceContainers(IWorkbenchPart activePart) {
-        if (activePart instanceof IDataSourceContainerProvider) {
-            return ((IDataSourceContainerProvider) activePart).getDataSourceContainer();
+        if (activePart instanceof DBPDataSourceContainerProvider) {
+            return ((DBPDataSourceContainerProvider) activePart).getDataSourceContainer();
         }
         if (activePart instanceof DBPContextProvider) {
             DBCExecutionContext context = ((DBPContextProvider) activePart).getExecutionContext();
@@ -263,14 +274,18 @@ public class SQLEditorHandlerOpenEditor extends AbstractDataSourceHandler {
                 activeEditor != null &&
                 CommonUtils.equalObjects(res.getResource(), EditorUtils.getFileFromInput(activeEditor.getEditorInput())))
             {
-                // It is already open and active. LEt's open script selector panel
+                // It is already open and active. Let's open script selector panel
                 openEditor(workbenchWindow, editorContext);
             } else {
                 openResourceEditor(workbenchWindow, res, editorContext);
             }
         } else {
-            IFile scriptFile = SQLEditorUtils.createNewScript(project, scriptFolder, editorContext);
-            openResource(scriptFile, editorContext);
+            if (project.hasRealmPermission(RMConstants.PERMISSION_PROJECT_RESOURCE_EDIT)) {
+                IFile scriptFile = SQLEditorUtils.createNewScript(project, scriptFolder, editorContext);
+                openResource(scriptFile, editorContext);
+            } else {
+                openSQLConsole(workbenchWindow, editorContext, editorContext.getDataSourceContainer().getName(), "");
+            }
         }
     }
 

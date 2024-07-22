@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
  */
 package org.jkiss.dbeaver.ext.postgresql.model;
 
-import org.eclipse.core.runtime.IAdaptable;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
@@ -31,14 +30,16 @@ import org.jkiss.dbeaver.ext.postgresql.model.jdbc.PostgreJdbcFactory;
 import org.jkiss.dbeaver.ext.postgresql.model.plan.PostgreQueryPlaner;
 import org.jkiss.dbeaver.ext.postgresql.model.session.PostgreSessionManager;
 import org.jkiss.dbeaver.model.*;
-import org.jkiss.dbeaver.model.access.DBAUserChangePassword;
+import org.jkiss.dbeaver.model.access.DBAUserPasswordManager;
 import org.jkiss.dbeaver.model.admin.sessions.DBAServerSessionManager;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
+import org.jkiss.dbeaver.model.connection.DBPDriverConfigurationType;
 import org.jkiss.dbeaver.model.exec.*;
 import org.jkiss.dbeaver.model.exec.jdbc.*;
+import org.jkiss.dbeaver.model.exec.output.DBCServerOutputReader;
 import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlanner;
-import org.jkiss.dbeaver.model.impl.AsyncServerOutputReader;
+import org.jkiss.dbeaver.model.impl.app.DefaultCertificateStorage;
 import org.jkiss.dbeaver.model.impl.jdbc.*;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectLookupCache;
 import org.jkiss.dbeaver.model.impl.net.SSLHandlerTrustStoreImpl;
@@ -49,11 +50,16 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLState;
 import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.dbeaver.model.struct.cache.SimpleObjectCache;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.net.DefaultCallbackHandler;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.BeanUtils;
 import org.jkiss.utils.CommonUtils;
 
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -65,7 +71,7 @@ import java.util.regex.Pattern;
 /**
  * PostgreDataSource
  */
-public class PostgreDataSource extends JDBCDataSource implements DBPDataTypeMapper, DBSInstanceContainer, IAdaptable, DBPObjectStatisticsCollector {
+public class PostgreDataSource extends JDBCDataSource implements DBSInstanceContainer, DBPAdaptable, DBPObjectStatisticsCollector {
 
     private static final Log log = Log.getLog(PostgreDataSource.class);
     private static final PostgrePrivilegeType[] SUPPORTED_PRIVILEGE_TYPES = new PostgrePrivilegeType[]{
@@ -130,16 +136,34 @@ public class PostgreDataSource extends JDBCDataSource implements DBPDataTypeMapp
 
     @Override
     protected void initializeRemoteInstance(@NotNull DBRProgressMonitor monitor) throws DBException {
-        activeDatabaseName = getContainer().getConnectionConfiguration().getBootstrap().getDefaultCatalogName();
-        if (CommonUtils.isEmpty(activeDatabaseName)) {
-            activeDatabaseName = getContainer().getConnectionConfiguration().getDatabaseName();
+        DBPConnectionConfiguration configuration = getContainer().getActualConnectionConfiguration();
+        if (configuration.getConfigurationType() == DBPDriverConfigurationType.MANUAL) {
+            activeDatabaseName = configuration.getBootstrap().getDefaultCatalogName();
+            if (CommonUtils.isEmpty(activeDatabaseName)) {
+                activeDatabaseName = configuration.getDatabaseName();
+            }
+        } else {
+            String url = configuration.getUrl();
+            int divPos = url.lastIndexOf('/');
+            if (divPos > 0) {
+                int lastPos = -1;
+                for (int i = divPos + 1; i < url.length(); i++) {
+                    char c = url.charAt(i);
+                    if (!Character.isLetterOrDigit(c) && c != '_' && c != '$' && c != '.') {
+                        lastPos = i;
+                    }
+                }
+                if (lastPos < 0) lastPos = url.length();
+                activeDatabaseName = url.substring(divPos + 1, lastPos);
+            }
         }
         if (CommonUtils.isEmpty(activeDatabaseName)) {
             activeDatabaseName = PostgreConstants.DEFAULT_DATABASE;
         }
+
         databaseCache = new DatabaseCache();
         settingCache = new SettingCache();
-        DBPConnectionConfiguration configuration = getContainer().getActualConnectionConfiguration();
+
         final boolean showNDD = isReadDatabaseList(configuration);
         List<PostgreDatabase> dbList = new ArrayList<>();
         if (!showNDD) {
@@ -153,7 +177,7 @@ public class PostgreDataSource extends JDBCDataSource implements DBPDataTypeMapp
         getDefaultInstance().checkInstanceConnection(monitor, false);
         try {
             // Preload some settings, if available
-            settingCache.getObject(monitor, this, PostgreConstants.OPTION_STANDARD_CONFORMING_STRINGS);
+            settingCache.getAllObjects(monitor, this);
         } catch (DBException e) {
             // ignore
         }
@@ -163,7 +187,7 @@ public class PostgreDataSource extends JDBCDataSource implements DBPDataTypeMapp
         DBExecUtils.startContextInitiation(getContainer());
         try (Connection bootstrapConnection = openConnection(monitor, null, "Read PostgreSQL database list")) {
             // Read server version info here - it is needed during database metadata fetch (#8061)
-            getDataSource().readDatabaseServerVersion(bootstrapConnection.getMetaData());
+            readDatabaseServerVersion(bootstrapConnection.getMetaData());
 
             // Get all databases
             try (PreparedStatement dbStat = prepareReadDatabaseListStatement(monitor, bootstrapConnection, configuration)) {
@@ -193,7 +217,8 @@ public class PostgreDataSource extends JDBCDataSource implements DBPDataTypeMapp
     // True if we need multiple databases
     protected boolean isReadDatabaseList(DBPConnectionConfiguration configuration) {
         // It is configurable by default
-        return CommonUtils.getBoolean(configuration.getProviderProperty(PostgreConstants.PROP_SHOW_NON_DEFAULT_DB), false);
+        return configuration.getConfigurationType() != DBPDriverConfigurationType.URL &&
+            CommonUtils.getBoolean(configuration.getProviderProperty(PostgreConstants.PROP_SHOW_NON_DEFAULT_DB), false);
     }
 
     protected PreparedStatement prepareReadDatabaseListStatement(
@@ -204,6 +229,8 @@ public class PostgreDataSource extends JDBCDataSource implements DBPDataTypeMapp
         // Make initial connection to read database list
         DBSObjectFilter catalogFilters = getContainer().getObjectFilter(PostgreDatabase.class, null, false);
         StringBuilder catalogQuery = new StringBuilder("SELECT db.oid,db.* FROM pg_catalog.pg_database db WHERE 1 = 1");
+        boolean addExclusionName = false;
+        String connectionDBName = getContainer().getConnectionConfiguration().getDatabaseName();
         {
             final boolean showTemplates = CommonUtils.toBoolean(configuration.getProviderProperty(PostgreConstants.PROP_SHOW_TEMPLATES_DB));
             final boolean showUnavailable = CommonUtils.toBoolean(configuration.getProviderProperty(PostgreConstants.PROP_SHOW_UNAVAILABLE_DB));
@@ -213,9 +240,14 @@ public class PostgreDataSource extends JDBCDataSource implements DBPDataTypeMapp
             }
             if (!showTemplates) {
                 catalogQuery.append(" AND NOT datistemplate ");
+                if (!CommonUtils.isEmpty(connectionDBName)) {
+                    // User can add the name of template database in the Database field of connection settings. We must take it into account
+                    catalogQuery.append("OR db.datname =?");
+                    addExclusionName = true;
+                }
             }
             if (catalogFilters != null) {
-                JDBCUtils.appendFilterClause(catalogQuery, catalogFilters, "datname", false);
+                JDBCUtils.appendFilterClause(catalogQuery, catalogFilters, "datname", false, this);
             }
             catalogQuery.append("\nORDER BY db.datname");
         }
@@ -223,8 +255,11 @@ public class PostgreDataSource extends JDBCDataSource implements DBPDataTypeMapp
         // Get all databases
         PreparedStatement dbStat = bootstrapConnection.prepareStatement(catalogQuery.toString());
 
+        if (addExclusionName) {
+            dbStat.setString(1, connectionDBName);
+        }
         if (catalogFilters != null) {
-            JDBCUtils.setFilterParameters(dbStat, 1, catalogFilters);
+            JDBCUtils.setFilterParameters(dbStat, addExclusionName ? 2 : 1, catalogFilters);
         }
 
         return dbStat;
@@ -245,9 +280,14 @@ public class PostgreDataSource extends JDBCDataSource implements DBPDataTypeMapp
         return new PostgreDatabase(monitor, this, name, owner, templateName, tablespace, encoding);
     }
 
-        @Override
-    protected Map<String, String> getInternalConnectionProperties(DBRProgressMonitor monitor, DBPDriver driver, JDBCExecutionContext context, String purpose, DBPConnectionConfiguration connectionInfo) throws DBCException
-    {
+    @Override
+    protected Map<String, String> getInternalConnectionProperties(
+        DBRProgressMonitor monitor,
+        DBPDriver driver,
+        JDBCExecutionContext context,
+        String purpose,
+        DBPConnectionConfiguration connectionInfo
+    ) throws DBCException {
         Map<String, String> props = new LinkedHashMap<>(PostgreDataSourceProvider.getConnectionsProps());
         final DBWHandlerConfiguration sslConfig = getContainer().getActualConnectionConfiguration().getHandler(PostgreConstants.HANDLER_SSL);
         if (sslConfig != null && sslConfig.isEnabled()) {
@@ -265,42 +305,67 @@ public class PostgreDataSource extends JDBCDataSource implements DBPDataTypeMapp
             getServerType().initDefaultSSLConfig(connectionInfo, props);
         }
         PostgreServerType serverType = PostgreUtils.getServerType(getContainer().getDriver());
-        if (serverType != null && serverType.turnOffPreparedStatements()
+        if (serverType.turnOffPreparedStatements()
             && !CommonUtils.toBoolean(getContainer().getActualConnectionConfiguration().getProviderProperty(PostgreConstants.PROP_USE_PREPARED_STATEMENTS))) {
             // Turn off prepared statements using, to avoid error: "ERROR: prepared statement "S_1" already exists" from PGBouncer #10742
             props.put("prepareThreshold", "0");
         }
+
+        if (getContainer().isConnectionReadOnly()) {
+            props.put("readOnly", "true");
+            props.put("readOnlyMode", "always");
+        }
+
         return props;
     }
 
-    private void initServerSSL(Map<String, String> props, DBWHandlerConfiguration sslConfig) {
+    private void initServerSSL(Map<String, String> props, DBWHandlerConfiguration sslConfig) throws DBException {
         props.put(PostgreConstants.PROP_SSL, "true");
 
-        final String rootCertProp;
-        final String clientCertProp;
-        final String keyCertProp;
+        if (!DBWorkbench.isDistributed() && !DBWorkbench.getPlatform().getApplication().isMultiuser()) {
+            // Local FS mode
+            final String rootCertProp;
+            final String clientCertProp;
+            final String keyCertProp;
 
-        if (CommonUtils.isEmpty(sslConfig.getStringProperty(SSLHandlerTrustStoreImpl.PROP_SSL_METHOD))) {
-            // Backward compatibility
-            rootCertProp = sslConfig.getStringProperty(PostgreConstants.PROP_SSL_ROOT_CERT);
-            clientCertProp = sslConfig.getStringProperty(PostgreConstants.PROP_SSL_CLIENT_CERT);
-            keyCertProp = sslConfig.getStringProperty(PostgreConstants.PROP_SSL_CLIENT_KEY);
+            if (CommonUtils.isEmpty(sslConfig.getStringProperty(SSLHandlerTrustStoreImpl.PROP_SSL_METHOD))) {
+                // Backward compatibility
+                rootCertProp = sslConfig.getStringProperty(PostgreConstants.PROP_SSL_ROOT_CERT);
+                clientCertProp = sslConfig.getStringProperty(PostgreConstants.PROP_SSL_CLIENT_CERT);
+                keyCertProp = sslConfig.getStringProperty(PostgreConstants.PROP_SSL_CLIENT_KEY);
+            } else {
+                rootCertProp = sslConfig.getStringProperty(SSLHandlerTrustStoreImpl.PROP_SSL_CA_CERT);
+                clientCertProp = sslConfig.getStringProperty(SSLHandlerTrustStoreImpl.PROP_SSL_CLIENT_CERT);
+                keyCertProp = sslConfig.getStringProperty(SSLHandlerTrustStoreImpl.PROP_SSL_CLIENT_KEY);
+            }
+
+            if (!CommonUtils.isEmpty(rootCertProp)) {
+                props.put("sslrootcert", rootCertProp);
+            }
+            if (!CommonUtils.isEmpty(clientCertProp)) {
+                props.put("sslcert", clientCertProp);
+            }
+            if (!CommonUtils.isEmpty(keyCertProp)) {
+                props.put("sslkey", keyCertProp);
+            }
         } else {
-            rootCertProp = sslConfig.getStringProperty(SSLHandlerTrustStoreImpl.PROP_SSL_CA_CERT);
-            clientCertProp = sslConfig.getStringProperty(SSLHandlerTrustStoreImpl.PROP_SSL_CLIENT_CERT);
-            keyCertProp = sslConfig.getStringProperty(SSLHandlerTrustStoreImpl.PROP_SSL_CLIENT_KEY);
-        }
+            try {
+                String rootCertProp = sslConfig.getSecureProperty(SSLHandlerTrustStoreImpl.PROP_SSL_CA_CERT_VALUE);
+                if (!CommonUtils.isEmpty(rootCertProp)) {
+                    props.put("sslrootcert", saveCertificateToFile(rootCertProp));
+                }
+                String clientCertProp = sslConfig.getSecureProperty(SSLHandlerTrustStoreImpl.PROP_SSL_CLIENT_CERT_VALUE);
+                if (!CommonUtils.isEmpty(clientCertProp)) {
+                    props.put("sslcert", saveCertificateToFile(clientCertProp));
+                }
+                String keyCertProp = sslConfig.getSecureProperty(SSLHandlerTrustStoreImpl.PROP_SSL_CLIENT_KEY_VALUE);
+                if (!CommonUtils.isEmpty(keyCertProp)) {
+                    props.put("sslkey", saveCertificateToFile(keyCertProp));
+                }
+            } catch (IOException e) {
+                throw new DBException("Can not configure SSL", e);
+            }
 
-        if (!CommonUtils.isEmpty(rootCertProp)) {
-            props.put("sslrootcert", rootCertProp);
-        }
-
-        if (!CommonUtils.isEmpty(clientCertProp)) {
-            props.put("sslcert", clientCertProp);
-        }
-
-        if (!CommonUtils.isEmpty(keyCertProp)) {
-            props.put("sslkey", keyCertProp);
         }
 
         final String modeProp = sslConfig.getStringProperty(PostgreConstants.PROP_SSL_MODE);
@@ -432,29 +497,66 @@ public class PostgreDataSource extends JDBCDataSource implements DBPDataTypeMapp
         if (instance != null) {
             log.debug("Initiate connection to " + getServerType().getServerTypeName() + " database [" + instance.getName() + "@" + conConfig.getHostName() + "] for " + purpose);
         }
-        if (instance instanceof PostgreDatabase &&
-            instance.getName() != null &&
-            !CommonUtils.equalObjects(instance.getName(), conConfig.getDatabaseName()))
-        {
-            // If database was changed then use new name for connection
-            final DBPConnectionConfiguration originalConfig = new DBPConnectionConfiguration(conConfig);
-            try {
-                // Patch URL with new database name
-                if (CommonUtils.isEmpty(conConfig.getUrl()) || !CommonUtils.isEmpty(conConfig.getHostName())) {
-                    conConfig.setDatabaseName(instance.getName());
-                    conConfig.setUrl(getContainer().getDriver().getDataSourceProvider().getConnectionURL(getContainer().getDriver(), conConfig));
-                } //else {
-                    //String url = conConfig.getUrl();
-                //}
+        try {
+            if (conConfig.getConfigurationType() != DBPDriverConfigurationType.URL &&
+                instance instanceof PostgreDatabase &&
+                !CommonUtils.equalObjects(instance.getName(), conConfig.getDatabaseName())
+            ) {
+                // If database was changed then use new name for connection
+                final DBPConnectionConfiguration originalConfig = new DBPConnectionConfiguration(conConfig);
+                try {
+                    // Patch URL with new database name
+                    if (CommonUtils.isEmpty(conConfig.getUrl()) || !CommonUtils.isEmpty(conConfig.getHostName())) {
+                        conConfig.setDatabaseName(instance.getName());
+                        final DBPDriver driver = getContainer().getDriver();
+                        String newURL = DatabaseURL.generateUrlByTemplate(driver, conConfig);
+                        if (CommonUtils.isEmpty(newURL)) {
+                            newURL = driver.getDataSourceProvider().getConnectionURL(driver, conConfig);
+                        }
+                        conConfig.setUrl(newURL);
+                    }
 
+                    pgConnection = super.openConnection(monitor, context, purpose);
+                }
+                finally {
+                    conConfig.setDatabaseName(originalConfig.getDatabaseName());
+                    conConfig.setUrl(originalConfig.getUrl());
+                }
+            } else {
                 pgConnection = super.openConnection(monitor, context, purpose);
             }
-            finally {
-                conConfig.setDatabaseName(originalConfig.getDatabaseName());
-                conConfig.setUrl(originalConfig.getUrl());
+        } catch (DBCException e) {
+            final Throwable cause = GeneralUtils.getRootCause(e);
+            final StackTraceElement element = cause.getStackTrace()[0];
+
+            if ("sun.security.util.DerValue".equals(element.getClassName())) { //$NON-NLS-1$
+                final DBWHandlerConfiguration handler = Objects.requireNonNull(conConfig.getHandler(PostgreConstants.HANDLER_SSL));
+                final String key = handler.getStringProperty(SSLHandlerTrustStoreImpl.PROP_SSL_CLIENT_KEY);
+                final Path dst;
+
+                try {
+                    dst = DBWorkbench.getPlatform().getTempFolder(monitor, "ssl").resolve(container.getId() + ".pk8");
+                } catch (IOException ex) {
+                    log.error("Error creating temporary SSL key", ex);
+                    throw e;
+                }
+
+                try (Reader reader = Files.newBufferedReader(Path.of(key))) {
+                    Files.write(dst, DefaultCertificateStorage.loadDerFromPem(reader));
+                    handler.setProperty(SSLHandlerTrustStoreImpl.PROP_SSL_CLIENT_KEY, dst.toAbsolutePath().toString());
+                } catch (IOException ex) {
+                    log.error("Error converting SSL key", ex);
+                    throw e;
+                }
+
+                // Unfortunately, we can't delete the temp file here.
+                // The chain is built asynchronously by the driver, and we don't know at which moment in time it will happen.
+                // It will still be deleted during shutdown.
+
+                return openConnection(monitor, context, purpose);
             }
-        } else {
-            pgConnection = super.openConnection(monitor, context, purpose);
+
+            throw e;
         }
 
         if (getServerType().supportsClientInfo() && !getContainer().getPreferenceStore().getBoolean(ModelPreferences.META_CLIENT_NAME_DISABLE)) {
@@ -476,29 +578,33 @@ public class PostgreDataSource extends JDBCDataSource implements DBPDataTypeMapp
         if (adapter == DBSStructureAssistant.class) {
             return adapter.cast(new PostgreStructureAssistant(this));
         } else if (adapter == DBCServerOutputReader.class) {
-            return adapter.cast(new AsyncServerOutputReader());
+            return adapter.cast(new PostgreServerOutputReader());
         } else if (adapter == DBAServerSessionManager.class) {
             return adapter.cast(new PostgreSessionManager(this));
         } else if (adapter == DBCQueryPlanner.class) {
             return adapter.cast(new PostgreQueryPlaner(this));
         } else if (adapter == DBSDataBulkLoader.class) {
-            if (getDataSource().getServerType().supportsCopyFromStdIn()) {
+            if (getServerType().supportsCopyFromStdIn()) {
                 return adapter.cast(new PostgreCopyLoader(this));
             }
-        } else if (adapter == DBAUserChangePassword.class) {
+        } else if (adapter == DBAUserPasswordManager.class) {
             if (getServerType().supportsAlterUserChangePassword()) {
-                return adapter.cast(new PostgresUserChangePassword(this));
+                return adapter.cast(new PostgresUserPasswordManager(this));
             }
         }
         return super.getAdapter(adapter);
     }
 
-    @NotNull
+    @Nullable
     @Override
-    public PostgreDataSource getDataSource() {
-        return this;
+    public DBSDataType resolveDataType(@NotNull DBRProgressMonitor monitor, @NotNull String typeFullName) throws DBException {
+        DBSDataType dataType = super.resolveDataType(monitor, typeFullName);
+        if (dataType != null) {
+            return dataType;
+        }
+        return PostgreUtils.resolveTypeFullName(monitor, this, typeFullName);
     }
-
+    
     @Override
     public Collection<PostgreDataType> getLocalDataTypes()
     {
@@ -519,57 +625,6 @@ public class PostgreDataSource extends JDBCDataSource implements DBPDataTypeMapp
     @Override
     public String getDefaultDataTypeName(@NotNull DBPDataKind dataKind) {
         return getDefaultInstance().getDefaultDataTypeName(dataKind);
-    }
-
-    @Override
-    public String mapExternalDataType(@NotNull DBPDataSource externalDataSource, @NotNull DBSTypedObject typedObject) {
-        String externalTypeName = typedObject.getTypeName().toLowerCase(Locale.ENGLISH);
-        String localDataType = null, dataTypeModifies = null;
-
-        switch (externalTypeName) {
-            case "xml":
-            case "xmltype":
-            case "sys.xmltype":
-                localDataType = "xml";
-                break;
-            case "varchar2":
-            case "nchar":
-            case "nvarchar":
-                localDataType = "varchar";
-                dataTypeModifies = String.valueOf(typedObject.getMaxLength());
-                break;
-            case "json":
-            case "jsonb":
-                localDataType = "jsonb";
-                break;
-            case "geometry":
-            case "sdo_geometry":
-            case "mdsys.sdo_geometry":
-                localDataType = "geometry";
-                break;
-            case "number":
-                localDataType = "numeric";
-                if (typedObject.getPrecision() != null) {
-                    dataTypeModifies = typedObject.getPrecision().toString();
-                    if (typedObject.getScale() != null) {
-                        dataTypeModifies += "," + typedObject.getScale();
-                    }
-                }
-                break;
-        }
-        if (localDataType == null) {
-            return null;
-        }
-        PostgreDataType dataType = getLocalDataType(localDataType);
-        if (dataType == null) {
-            return null;
-
-        }
-        String targetTypeName = dataType.getFullyQualifiedName(DBPEvaluationContext.DDL);
-        if (dataTypeModifies != null) {
-            targetTypeName += "(" + dataTypeModifies + ")";
-        }
-        return targetTypeName;
     }
 
     @NotNull
@@ -759,7 +814,7 @@ public class PostgreDataSource extends JDBCDataSource implements DBPDataTypeMapp
     @Override
     public ErrorPosition[] getErrorPosition(@NotNull DBRProgressMonitor monitor, @NotNull DBCExecutionContext context, @NotNull String query, @NotNull Throwable error) {
         Throwable rootCause = GeneralUtils.getRootCause(error);
-        if (rootCause != null && PostgreConstants.PSQL_EXCEPTION_CLASS_NAME.equals(rootCause.getClass().getName())) {
+        if (PostgreConstants.PSQL_EXCEPTION_CLASS_NAME.equals(rootCause.getClass().getName())) {
             try {
                 Object serverErrorMessage = BeanUtils.readObjectProperty(rootCause, "serverErrorMessage");
                 if (serverErrorMessage != null) {
@@ -831,5 +886,10 @@ public class PostgreDataSource extends JDBCDataSource implements DBPDataTypeMapp
 
     public boolean supportReadingAllDataTypes() {
         return CommonUtils.toBoolean(getContainer().getActualConnectionConfiguration().getProviderProperty(PostgreConstants.PROP_READ_ALL_DATA_TYPES));
+    }
+
+    public boolean supportsReadingKeysWithColumns() {
+        return CommonUtils.toBoolean(
+            getContainer().getActualConnectionConfiguration().getProviderProperty(PostgreConstants.PROP_READ_KEYS_WITH_COLUMNS));
     }
 }

@@ -32,7 +32,7 @@
         </editor>
         <editor
             name="%editor.lock_manager.name"
-            icon="platform:/plugin/org.jkiss.dbeaver.model/icons/tree/locks.png"
+            icon="#locked"
             class="org.jkiss.dbeaver.ext.postgresql.ui.editors.PostgreLockEditor"
             id="org.jkiss.dbeaver.ext.postgresql.ui.editors.PostgreLockEditor">
         </editor>
@@ -41,9 +41,14 @@
     <extension point="org.jkiss.dbeaver.dataSourceProvider">
         <editorContribution editorId="org.jkiss.dbeaver.ext.postgresql.ui.editors.PostgreSessionEditor" category="connectionEditor" label="%editor.session_manager.name" icon="platform:/plugin/org.jkiss.dbeaver.model/icons/tree/sessions.png">
             <supports dataSource="postgresql"/>
+            <supports dataSource="greenplum"/>
+            <supports dataSource="redshift"/>
+            <supports dataSource="enterprisedb"/>
         </editorContribution>
-        <editorContribution editorId="org.jkiss.dbeaver.ext.postgresql.ui.editors.PostgreLockEditor" category="connectionEditor" label="%editor.lock_manager.name" icon="platform:/plugin/org.jkiss.dbeaver.model/icons/tree/locks.png">
+        <editorContribution editorId="org.jkiss.dbeaver.ext.postgresql.ui.editors.PostgreLockEditor" category="connectionEditor" label="%editor.lock_manager.name" icon="#locked" visibleIf="connected &amp;&amp; dataSource.serverType.supportsLocks()">
             <supports dataSource="postgresql"/>
+            <supports dataSource="greenplum"/>
+            <supports dataSource="enterprisedb"/>
         </editorContribution>
     </extension>
 
@@ -67,6 +72,7 @@
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreMaterializedView"/>
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreRule"/>
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreTrigger"/>
+            <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreEventTrigger"/>
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreProcedure"/>
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreTableColumn"/>
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreIndex"/>
@@ -79,12 +85,25 @@
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreDataType"/>
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreTablespace"/>
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreRole"/>
+            <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreJobStep"/>
         </editor>
         <editor id="postgresql.source.ddl" class="org.jkiss.dbeaver.ext.postgresql.ui.editors.PostgreSourceViewEditor"
                 label="%db.editor.ddl.name" description="%db.editor.ddl.description" icon="#sql_text" position="additions_middle"
                 contributor="org.jkiss.dbeaver.ui.editors.sql.SQLEditorContributorNested" type="folder">
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreTable"/>
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreSequence"/>
+            <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreScriptObjectExt"/>
+        </editor>
+
+        <editor id="org.jkiss.dbeaver.ext.postgresql.ui.editors.PostgreScheduleEditor"
+                class="org.jkiss.dbeaver.ext.postgresql.ui.editors.PostgreScheduleEditor"
+                objectType="org.jkiss.dbeaver.ext.postgresql.model.PostgreJobSchedule"
+                label="Scheduler"
+                description="Schedule editor"
+                icon="#job_schedule"
+                position="additions_middle"
+                type="folder">
+            <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreJobSchedule"/>
         </editor>
 
         <configurator class="org.jkiss.dbeaver.ext.postgresql.ui.config.PostgreConstraintConfigurator">
@@ -108,6 +127,9 @@
         <configurator class="org.jkiss.dbeaver.ext.postgresql.ui.config.PostgreTriggerConfigurator">
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreTrigger"/>
         </configurator>
+        <configurator class="org.jkiss.dbeaver.ext.postgresql.ui.config.PostgreEventTriggerConfigurator">
+            <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreEventTrigger"/>
+        </configurator>
         <configurator class="org.jkiss.dbeaver.ext.postgresql.ui.config.PostgreSchemaConfigurator">
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreSchema"/>
         </configurator>
@@ -120,14 +142,18 @@
         <configurator class="org.jkiss.dbeaver.ext.postgresql.ui.config.PostgreTablespaceConfigurator">
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreTablespace"/>
         </configurator>
-
+        <configurator class="org.jkiss.dbeaver.ui.editors.object.config.PropertyObjectConfigurator">
+            <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreTablePolicy"/>
+        </configurator>
         <configurator class="org.jkiss.dbeaver.ext.postgresql.ui.config.PostgreExplainPlanConfigurator">
             <objectType name="org.jkiss.dbeaver.ext.postgresql.model.plan.PostgreQueryPlaner"/>
         </configurator>
 
 
     </extension>
-
+    <extension point="org.jkiss.dbeaver.sql.executors">
+        <executor class="org.jkiss.dbeaver.ext.postgresql.tools.PostgreScriptExecutor" datasource="postgresql"/>
+    </extension>
     <extension point="org.jkiss.dbeaver.dataManager">
         <!--
                 <manager class="org.jkiss.dbeaver.ui.data.managers.StringValueManager" id="org.jkiss.dbeaver.ext.postgresql.edit.PostgreMoneyValueManager">
@@ -172,6 +198,15 @@
                 <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreObject"/>
                 <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreSchema"/>
                 <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreTableBase"/>
+            </tool>
+            <tool
+                    class="org.jkiss.dbeaver.ext.postgresql.tools.PostgreToolBackupAll"
+                    description="%tools.backup.all.db.description"
+                    id="org.jkiss.dbeaver.ext.postgresql.tools.PostgreToolBackupAll"
+                    label="%tools.backup.all.db.name"
+                    icon="#export"
+                    singleton="false">
+                <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreDatabase"/>
             </tool>
             <tool
                     class="org.jkiss.dbeaver.ext.postgresql.tools.PostgreToolRestore"
@@ -228,7 +263,7 @@
                     group="org.jkiss.dbeaver.ext.postgresql.tools.maintenance"
                     label="Disable trigger(s)"
                     singleton="false">
-                <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreTrigger" if="object.enabledState != 'D'"/>
+                <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreTriggerBase" if="object.enabledState != 'D'"/>
             </tool>            
             <!--<tool
                     class="org.jkiss.dbeaver.ext.postgresql.tools.maintenance.PostgreToolExtensionUninstall"
@@ -246,7 +281,7 @@
                     group="org.jkiss.dbeaver.ext.postgresql.tools.maintenance"
                     label="Enable trigger"
                     singleton="false">
-                <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreTrigger" if="object.enabledState == 'D'"/>
+                <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreTriggerBase" if="object.enabledState == 'D'"/>
             </tool>
             <tool
                     class="org.jkiss.dbeaver.ext.postgresql.tools.maintenance.PostgreToolRefreshMView"
@@ -278,6 +313,7 @@
     <extension point="org.jkiss.dbeaver.task.ui">
         <configurator type="pgDatabaseBackup" class="org.jkiss.dbeaver.ext.postgresql.tools.PostgreTaskConfigurator"/>
         <configurator type="pgDatabaseRestore" class="org.jkiss.dbeaver.ext.postgresql.tools.PostgreTaskConfigurator"/>
+        <configurator type="pgDatabaseBackupAll" class="org.jkiss.dbeaver.ext.postgresql.tools.PostgreTaskConfigurator"/>
         <configurator type="pgScriptExecute" class="org.jkiss.dbeaver.ext.postgresql.tools.PostgreTaskConfigurator"/>
     </extension>
 
@@ -286,7 +322,12 @@
             <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
         </page>
     </extension>
-
-    org.jkiss.dbeaver.ext.postgresql.model.plan
+    
+    <!-- SQL Generators -->
+    <extension point="org.jkiss.dbeaver.sqlGenerator">
+        <generator id="procedureCheck" class="org.jkiss.dbeaver.ext.postgresql.model.sql.generator.SQLGeneratorProcedureCheck" label="CHECK (via plpgsql_check)" description="Check (via plpgsql_check)" order="2000">
+            <objectType name="org.jkiss.dbeaver.ext.postgresql.model.PostgreProcedure"/>
+        </generator>
+    </extension>
 
 </plugin>

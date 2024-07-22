@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,8 +31,8 @@ public class ByteNumberFormatTest {
     public void testFormatPlain() {
         final ByteNumberFormat format = new ByteNumberFormat();
         Assert.assertEquals("0", format.format(0));
-        Assert.assertEquals("512B", format.format(KB / 2));
-        Assert.assertEquals("1023B", format.format(KB - 1));
+        Assert.assertEquals("512", format.format(KB / 2));
+        Assert.assertEquals("1023", format.format(KB - 1));
         Assert.assertEquals("1K", format.format(KB));
         Assert.assertEquals("512K", format.format(MB / 2));
         Assert.assertEquals("1023K", format.format(MB - 1));
@@ -51,11 +51,10 @@ public class ByteNumberFormatTest {
 
     @Test
     public void testFormatLong() {
-        final ByteNumberFormat format = new ByteNumberFormat();
-        format.setUseLongUnitNames(true);
+        final ByteNumberFormat format = new ByteNumberFormat(ByteNumberFormat.BinaryPrefix.ISO);
         Assert.assertEquals("0", format.format(0));
-        Assert.assertEquals("512B", format.format(KB / 2));
-        Assert.assertEquals("1023B", format.format(KB - 1));
+        Assert.assertEquals("512", format.format(KB / 2));
+        Assert.assertEquals("1023", format.format(KB - 1));
         Assert.assertEquals("1KiB", format.format(KB));
         Assert.assertEquals("512KiB", format.format(MB / 2));
         Assert.assertEquals("1023KiB", format.format(MB - 1));

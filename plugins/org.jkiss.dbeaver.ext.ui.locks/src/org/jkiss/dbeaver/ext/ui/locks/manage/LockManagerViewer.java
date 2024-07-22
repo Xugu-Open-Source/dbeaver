@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2017 Andrew Khitrin (ahitrin@gmail.com) 
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,8 +21,6 @@ import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IContributionManager;
 import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.viewers.ColumnViewer;
-import org.eclipse.jface.viewers.ISelection;
-import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
@@ -165,13 +163,9 @@ public class LockManagerViewer {
         return killAction;
     }
 
+    @Nullable
     private DBAServerLock getSelectedLock() {
-        ISelection selection = lockTable.getSelectionProvider().getSelection();
-        if (selection instanceof IStructuredSelection && !selection.isEmpty()) {
-            return (DBAServerLock) ((IStructuredSelection) selection).getFirstElement();
-        } else {
-            return null;
-        }
+        return lockTable.getSuitableSelectedElement(DBAServerLock.class);
     }
 
     private void refreshGraph(DBAServerLock selected) {
@@ -229,7 +223,7 @@ public class LockManagerViewer {
 
         @Nullable
         @Override
-        protected Class[] getListBaseTypes(Collection<DBAServerLock> items) {
+        protected Class<?>[] getListBaseTypes(Collection<DBAServerLock> items) {
             return new Class[] { locksType };
         }
 

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 package org.jkiss.dbeaver.ext.oracle.model;
 
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.utils.CommonUtils;
 
 /**
@@ -64,7 +65,7 @@ public enum OracleDDLFormat {
         return showTablespace;
     }
 
-    public static OracleDDLFormat getCurrentFormat(OracleDataSource dataSource) {
+    public static OracleDDLFormat getCurrentFormat(DBPDataSource dataSource) {
         String ddlFormatString = dataSource.getContainer().getPreferenceStore().getString(OracleConstants.PREF_KEY_DDL_FORMAT);
         if (!CommonUtils.isEmpty(ddlFormatString)) {
             try {

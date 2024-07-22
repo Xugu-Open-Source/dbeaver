@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,21 +16,25 @@
  */
 package org.jkiss.dbeaver.model.net.ssh;
 
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.DBPDataSource;
-import org.jkiss.dbeaver.model.app.DBPPlatform;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.net.DBWHandlerConfiguration;
 import org.jkiss.dbeaver.model.net.DBWTunnel;
 import org.jkiss.dbeaver.model.net.ssh.registry.SSHImplementationDescriptor;
 import org.jkiss.dbeaver.model.net.ssh.registry.SSHImplementationRegistry;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.registry.RegistryConstants;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
+import org.jkiss.utils.Base64;
 import org.jkiss.utils.CommonUtils;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * SSH tunnel
@@ -38,17 +42,23 @@ import java.io.IOException;
 public class SSHTunnelImpl implements DBWTunnel {
 
     private static final Log log = Log.getLog(SSHTunnelImpl.class);
-    private static final String DEF_IMPLEMENTATION = "jsch";
+    private static final String DEF_IMPLEMENTATION = "sshj";
 
     private DBWHandlerConfiguration configuration;
     private SSHImplementation implementation;
+    private final List<Runnable> listeners = new ArrayList<>();
 
     public SSHImplementation getImplementation() {
         return implementation;
     }
 
     @Override
-    public DBPConnectionConfiguration initializeHandler(DBRProgressMonitor monitor, DBPPlatform platform, DBWHandlerConfiguration configuration, DBPConnectionConfiguration connectionInfo)
+    public void addCloseListener(Runnable listener) {
+        this.listeners.add(listener);
+    }
+
+    @Override
+    public DBPConnectionConfiguration initializeHandler(DBRProgressMonitor monitor, DBWHandlerConfiguration configuration, DBPConnectionConfiguration connectionInfo)
         throws DBException, IOException
     {
         this.configuration = configuration;
@@ -72,7 +82,7 @@ public class SSHTunnelImpl implements DBWTunnel {
         } catch (Throwable e) {
             throw new DBException("Can't create SSH tunnel implementation '" + implId + "'", e);
         }
-        return implementation.initTunnel(monitor, platform, configuration, connectionInfo);
+        return implementation.initTunnel(monitor, configuration, connectionInfo);
     }
 
     @Override
@@ -82,6 +92,10 @@ public class SSHTunnelImpl implements DBWTunnel {
             implementation.closeTunnel(monitor);
             // Do not nullify tunnel to keep saved tunnel port number (#7952)
         }
+        for (Runnable listener : this.listeners) {
+            listener.run();
+        }
+        this.listeners.clear();
     }
 
     @Override
@@ -93,24 +107,39 @@ public class SSHTunnelImpl implements DBWTunnel {
         return false;
     }
 
-    @Override
     public AuthCredentials getRequiredCredentials(DBWHandlerConfiguration configuration) {
+        return getRequiredCredentials(configuration, null);
+    }
+
+    @Override
+    public AuthCredentials getRequiredCredentials(DBWHandlerConfiguration configuration, @Nullable String prefix) {
+        String start = prefix;
+        if (start == null) {
+            start = "";
+        }
         if (!configuration.isEnabled() || !configuration.isSecured()) {
             return AuthCredentials.NONE;
         }
-        if (configuration.isSavePassword()) {
+        if (configuration.getBooleanProperty(start + RegistryConstants.ATTR_SAVE_PASSWORD)) {
             return AuthCredentials.NONE;
         }
 
-        String sshAuthType = configuration.getStringProperty(SSHConstants.PROP_AUTH_TYPE);
+        String sshAuthType = configuration.getStringProperty(start + SSHConstants.PROP_AUTH_TYPE);
         SSHConstants.AuthType authType = SSHConstants.AuthType.PASSWORD;
         if (sshAuthType != null) {
             authType = SSHConstants.AuthType.valueOf(sshAuthType);
         }
         if (authType == SSHConstants.AuthType.PUBLIC_KEY) {
+            String privKeyValue = configuration.getSecureProperty(start + SSHConstants.PROP_KEY_VALUE);
+            if (privKeyValue != null) {
+                byte[] pkBinary = Base64.decode(privKeyValue);
+                if (SSHUtils.isKeyEncrypted(pkBinary)) {
+                    return AuthCredentials.PASSWORD;
+                }
+            }
             // Check whether this key is encrypted
-            String privKeyPath = configuration.getStringProperty(SSHConstants.PROP_KEY_PATH);
-            if (privKeyPath != null && SSHUtils.isKeyEncrypted(privKeyPath)) {
+            String privKeyPath = configuration.getStringProperty(start + SSHConstants.PROP_KEY_PATH);
+            if (!CommonUtils.isEmpty(privKeyPath) && SSHUtils.isKeyFileEncrypted(privKeyPath)) {
                 return AuthCredentials.PASSWORD;
             }
             return AuthCredentials.NONE;

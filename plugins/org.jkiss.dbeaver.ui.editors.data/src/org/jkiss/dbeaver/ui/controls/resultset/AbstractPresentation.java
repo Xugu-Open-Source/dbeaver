@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,12 +27,14 @@ import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Menu;
+import org.eclipse.ui.IEditorSite;
 import org.eclipse.ui.IWorkbenchPartSite;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.contexts.IContextActivation;
 import org.eclipse.ui.contexts.IContextService;
 import org.eclipse.ui.themes.ITheme;
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.editors.EditorUtils;
@@ -149,9 +151,21 @@ public abstract class AbstractPresentation implements IResultSetPresentation, IS
 
     }
 
+    @Nullable
+    @Override
+    public DBDAttributeBinding getFocusAttribute() {
+        return getCurrentAttribute();
+    }
+
     @Override
     public void showAttribute(@NotNull DBDAttributeBinding attribute) {
         // do nothing
+    }
+
+    @Nullable
+    @Override
+    public int[] getCurrentRowIndexes() {
+        return null;
     }
 
     @Override
@@ -164,6 +178,17 @@ public abstract class AbstractPresentation implements IResultSetPresentation, IS
 
     }
 
+    @Override
+    public void rejectChanges() {
+        // do nothing
+    }
+
+    @NotNull
+    @Override
+    public String getFontId() {
+        return ThemeConstants.FONT_SQL_RESULT_SET;
+    }
+
     protected void registerContextMenu() {
         // Register context menu
         MenuManager menuMgr = new MenuManager(null, RESULT_SET_PRESENTATION_CONTEXT_MENU);
@@ -171,10 +196,18 @@ public abstract class AbstractPresentation implements IResultSetPresentation, IS
         menuMgr.addMenuListener(manager -> controller.fillContextMenu(
             manager,
             getCurrentAttribute(),
-            controller.getCurrentRow()));
+            controller.getCurrentRow(),
+            null));
         menuMgr.setRemoveAllWhenShown(true);
         getControl().setMenu(menu);
-        controller.getSite().registerContextMenu(menuMgr, null);
+
+        IWorkbenchPartSite site = controller.getSite();
+        if (site instanceof IEditorSite) {
+            // Exclude editor input contributions from context menu
+            ((IEditorSite) site).registerContextMenu(getClass().getSimpleName() + "_menu", menuMgr, this, false);
+        } else {
+            site.registerContextMenu(menuMgr, this);
+        }
     }
 
     protected void trackPresentationControl() {
@@ -254,4 +287,7 @@ public abstract class AbstractPresentation implements IResultSetPresentation, IS
 
     }
 
+    public void setSelection(@NotNull ISelection selection, boolean reflect) {
+        setSelection(selection);
+    }
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,21 @@
  */
 package org.jkiss.dbeaver.model.sql;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.sql.completion.SQLCompletionRequest;
 import org.jkiss.dbeaver.model.sql.parser.SQLIdentifierDetector;
-import org.jkiss.dbeaver.model.struct.*;
+import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
+import org.jkiss.dbeaver.model.struct.DBSObjectReference;
+import org.jkiss.dbeaver.model.struct.DBSStructureAssistant;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -38,17 +44,65 @@ public class SQLSearchUtils
     private static final Log log = Log.getLog(SQLSearchUtils.class);
 
     @Nullable
-    public static DBSObject findObjectByFQN(DBRProgressMonitor monitor, DBSObjectContainer sc, DBCExecutionContext executionContext, List<String> nameList, boolean useAssistant, SQLIdentifierDetector identifierDetector) {
+    public static DBSObject findObjectByFQN(
+        @NotNull DBRProgressMonitor monitor,
+        @Nullable DBSObjectContainer objectContainer,
+        @Nullable DBCExecutionContext executionContext,
+        @NotNull List<String> nameList,
+        boolean useAssistant,
+        @NotNull SQLIdentifierDetector identifierDetector
+    ) {
+        return findObjectByFQN(monitor, objectContainer, executionContext, nameList, useAssistant, identifierDetector, false);
+    }
+
+    @Nullable
+    public static DBSObject findObjectByFQN(
+        @NotNull DBRProgressMonitor monitor,
+        @Nullable DBSObjectContainer objectContainer,
+        @Nullable SQLCompletionRequest request,
+        @NotNull List<String> nameList
+    ) {
+        return findObjectByFQN(
+            monitor,
+            objectContainer,
+            request.getContext().getExecutionContext(),
+            nameList,
+            !request.isSimpleMode(),
+            request.getWordDetector(),
+            request.getContext().isSearchGlobally()
+        );
+    }
+
+    @Nullable
+    public static DBSObject findObjectByFQN(
+        @NotNull DBRProgressMonitor monitor,
+        @Nullable DBSObjectContainer objectContainer,
+        @Nullable DBCExecutionContext executionContext,
+        @NotNull List<String> nameList,
+        boolean useAssistant,
+        @NotNull SQLIdentifierDetector identifierDetector,
+        boolean isGlobalSearch
+    ) {
         if (nameList.isEmpty()) {
+            return null;
+        }
+        DBPDataSource dataSource = objectContainer == null ? null : objectContainer.getDataSource();
+        if (executionContext == null && dataSource != null) {
+            executionContext = DBUtils.getDefaultContext(dataSource, true);
+        }
+        if (dataSource == null && executionContext != null) {
+            dataSource = executionContext.getDataSource();
+        }
+        if (dataSource == null) {
             return null;
         }
         {
             List<String> unquotedNames = new ArrayList<>(nameList.size());
             for (String name : nameList) {
-                unquotedNames.add(DBUtils.getUnQuotedIdentifier(executionContext.getDataSource(), name));
+                unquotedNames.add(DBUtils.getUnQuotedIdentifier(dataSource, name));
             }
 
-            DBSObject result = findObjectByPath(monitor, executionContext, sc, unquotedNames, identifierDetector, useAssistant);
+            DBSObject result = findObjectByPath(monitor, executionContext, objectContainer, unquotedNames, identifierDetector, useAssistant, isGlobalSearch);
             if (result != null) {
                 return result;
             }
@@ -57,19 +111,40 @@ public class SQLSearchUtils
             // Fix names (convert case or remove quotes)
             for (int i = 0; i < nameList.size(); i++) {
                 String name = nameList.get(i);
-                String unquotedName = DBUtils.getUnQuotedIdentifier(executionContext.getDataSource(), name);
+                String unquotedName = DBUtils.getUnQuotedIdentifier(dataSource, name);
                 if (!unquotedName.equals(name)) {
                     name = unquotedName;
                 } else {
-                    name = DBObjectNameCaseTransformer.transformName(sc.getDataSource(), name);
+                    name = DBObjectNameCaseTransformer.transformName(objectContainer.getDataSource(), name);
                 }
                 nameList.set(i, name);
             }
-            return findObjectByPath(monitor, executionContext, sc, nameList, identifierDetector, useAssistant);
+            return findObjectByPath(monitor, executionContext, objectContainer, nameList, identifierDetector, useAssistant, isGlobalSearch);
         }
     }
 
-    public static DBSObject findObjectByPath(DBRProgressMonitor monitor, DBCExecutionContext executionContext, DBSObjectContainer sc, List<String> nameList, SQLIdentifierDetector identifierDetector, boolean useAssistant) {
+    @Nullable
+    public static DBSObject findObjectByPath(
+        @NotNull DBRProgressMonitor monitor,
+        @NotNull DBCExecutionContext executionContext,
+        @NotNull DBSObjectContainer objectContainer,
+        @NotNull List<String> nameList,
+        @NotNull SQLIdentifierDetector identifierDetector,
+        boolean useAssistant
+    ) {
+        return findObjectByPath(monitor, executionContext, objectContainer, nameList, identifierDetector, useAssistant, false);
+    }
+
+    @Nullable
+    public static DBSObject findObjectByPath(
+        @NotNull DBRProgressMonitor monitor,
+        @NotNull DBCExecutionContext executionContext,
+        @NotNull DBSObjectContainer sc,
+        @NotNull List<String> nameList,
+        @NotNull SQLIdentifierDetector identifierDetector,
+        boolean useAssistant,
+        boolean isGlobalSearch
+    ) {
         try {
             DBSObject childObject = null;
             while (childObject == null) {
@@ -95,6 +170,7 @@ public class SQLSearchUtils
                         params.setParentObject(sc);
                         params.setCaseSensitive(identifierDetector.isQuoted(objectNameMask));
                         params.setMaxResults(2);
+                        params.setGlobalSearch(isGlobalSearch);
                         Collection<DBSObjectReference> tables = structureAssistant.findObjectsByMask(monitor, executionContext, params);
                         if (!tables.isEmpty()) {
                             return tables.iterator().next().resolveObject(monitor);

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -105,9 +105,9 @@ public class ResultSetHandlerCopyAs extends AbstractHandler implements IElementU
         List<ResultSetRow> rsSelectedRows = rsSelection.getSelectedRows();
         List<DBDAttributeBinding> rsSelectedAttributes = rsSelection.getSelectedAttributes();
         if (rsSelectedRows.size() > 1 || rsSelectedAttributes.size() > 1) {
-            List<Long> selectedRows = new ArrayList<>();
+            List<Integer> selectedRows = new ArrayList<>();
             for (ResultSetRow selectedRow : rsSelectedRows) {
-                selectedRows.add((long) selectedRow.getRowNumber());
+                selectedRows.add(selectedRow.getRowNumber());
             }
 
             options.setSelectedRows(selectedRows);
@@ -142,7 +142,6 @@ public class ResultSetHandlerCopyAs extends AbstractHandler implements IElementU
 
                     settings.setOutputClipboard(true);
                     settings.setOutputEncodingBOM(false);
-                    settings.setOpenFolderOnFinish(false);
 
                     Map<DataTransferProcessorDescriptor, Map<String, Object>> propertiesMap = CopyAsConfigurationStorage.getProcessorProperties();
                     Map<String, Object> properties = propertiesMap.get(processor);

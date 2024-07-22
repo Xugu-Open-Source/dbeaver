@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
+import org.eclipse.ui.IEditorReference;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.jkiss.dbeaver.DBException;
@@ -43,7 +44,6 @@ import org.jkiss.dbeaver.ui.dialogs.ConfirmationDialog;
 import org.jkiss.dbeaver.ui.editors.DatabaseEditorInput;
 import org.jkiss.dbeaver.ui.editors.IDatabaseEditor;
 import org.jkiss.dbeaver.ui.editors.IDatabaseEditorInput;
-import org.jkiss.dbeaver.ui.internal.UINavigatorMessages;
 import org.jkiss.dbeaver.ui.navigator.INavigatorModelView;
 import org.jkiss.dbeaver.ui.navigator.NavigatorPreferences;
 import org.jkiss.dbeaver.utils.GeneralUtils;
@@ -121,16 +121,20 @@ public class NavigatorHandlerRefresh extends AbstractHandler {
 
         // Check for open editors with selected objects
         if (!refreshObjects.isEmpty()) {
-            final IEditorPart editorPart = HandlerUtil.getActiveEditor(event);
-            if (editorPart instanceof IRefreshablePart && editorPart.getEditorInput() instanceof DatabaseEditorInput && editorPart.isDirty()) {
-                DBNDatabaseNode editorNode = ((DatabaseEditorInput<?>) editorPart.getEditorInput()).getNavigatorNode();
-                for (Iterator<DBNNode> iter = refreshObjects.iterator(); iter.hasNext(); ) {
-                    DBNNode nextNode = iter.next();
-                    if (nextNode == editorNode || editorNode.isChildOf(nextNode) || nextNode.isChildOf(editorNode)) {
-                        if (((IRefreshablePart) editorPart).refreshPart(this, true) == IRefreshablePart.RefreshResult.CANCELED) {
-                            return true;
+            for (IEditorReference er : UIUtils.getActiveWorkbenchWindow().getActivePage().getEditorReferences()) {
+                IEditorPart editorPart = er.getEditor(false);
+                if (editorPart instanceof IRefreshablePart && editorPart.getEditorInput() instanceof DatabaseEditorInput && editorPart.isDirty()) {
+                    DBNDatabaseNode editorNode = ((DatabaseEditorInput<?>) editorPart.getEditorInput()).getNavigatorNode();
+                    for (Iterator<DBNNode> iter = refreshObjects.iterator(); iter.hasNext(); ) {
+                        DBNNode nextNode = iter.next();
+                        if (nextNode == editorNode || editorNode.isChildOf(nextNode) || nextNode.isChildOf(editorNode)) {
+                            if (((IRefreshablePart) editorPart).refreshPart(this, true) == IRefreshablePart.RefreshResult.CANCELED) {
+                                return true;
+                            }
+                            if (nextNode == editorNode) {
+                                iter.remove();
+                            }
                         }
-                        iter.remove();
                     }
                 }
             }
@@ -185,6 +189,10 @@ public class NavigatorHandlerRefresh extends AbstractHandler {
                         DBNNode refreshed = node.refreshNode(monitor, DBNEvent.FORCE_REFRESH);
                         if (refreshed != null) {
                             refreshedSet.add(refreshed);
+                            Throwable lastLoadError = refreshed.getLastLoadError();
+                            if (lastLoadError != null) {
+                                throw lastLoadError;
+                            }
                         }
                     }
                     catch (Throwable ex) {
@@ -216,8 +224,7 @@ public class NavigatorHandlerRefresh extends AbstractHandler {
             protected Boolean runTask() {
                 IEditorPart nodeEditor = NavigatorHandlerObjectOpen.findEntityEditor(UIUtils.getActiveWorkbenchWindow(), node);
                 if (nodeEditor != null && nodeEditor.isDirty()) {
-                    return ConfirmationDialog.showConfirmDialog(
-                        ResourceBundle.getBundle(UINavigatorMessages.BUNDLE_NAME),
+                    return ConfirmationDialog.confirmAction(
                         null,
                         NavigatorPreferences.CONFIRM_ENTITY_REVERT,
                         ConfirmationDialog.QUESTION,

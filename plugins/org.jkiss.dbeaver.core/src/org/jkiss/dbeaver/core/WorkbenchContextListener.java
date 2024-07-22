@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,15 +26,17 @@ import org.eclipse.ui.contexts.IContextActivation;
 import org.eclipse.ui.contexts.IContextService;
 import org.jkiss.dbeaver.model.runtime.features.DBRFeature;
 import org.jkiss.dbeaver.model.runtime.features.DBRFeatureRegistry;
-import org.jkiss.dbeaver.model.struct.DBSDataContainer;
 import org.jkiss.dbeaver.ui.ActionUtils;
-import org.jkiss.dbeaver.ui.actions.datasource.ConnectionCommands;
+import org.jkiss.dbeaver.ui.actions.ConnectionCommands;
 import org.jkiss.dbeaver.ui.actions.datasource.DataSourceToolbarHandler;
-import org.jkiss.dbeaver.ui.controls.resultset.ResultSetViewer;
-import org.jkiss.dbeaver.ui.editors.entity.EntityEditor;
 import org.jkiss.dbeaver.ui.editors.sql.SQLEditor;
 import org.jkiss.dbeaver.ui.editors.sql.SQLEditorCommands;
 import org.jkiss.dbeaver.ui.perspective.DBeaverPerspective;
+
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * WorkbenchContextListener.
@@ -42,17 +44,14 @@ import org.jkiss.dbeaver.ui.perspective.DBeaverPerspective;
  *
  * TODO: add multipage editor listener and folder listener. Maybe use focus listener on control
  */
-class WorkbenchContextListener implements IWindowListener, IPageListener, IPartListener {
+public class WorkbenchContextListener implements IWindowListener, IPageListener, IPartListener {
 
     //private static final Log log = Log.getLog(WorkbenchContextListener.class);
 
-    private static final String RESULTS_CONTEXT_ID = "org.jkiss.dbeaver.ui.context.resultset";
-    private static final String PERSPECTIVE_CONTEXT_ID = "org.jkiss.dbeaver.ui.perspective";
+    public static final String PERSPECTIVE_CONTEXT_ID = "org.jkiss.dbeaver.ui.perspective";
 
-//    private IContextActivation activationNavigator;
-    private IContextActivation activationSQL;
-    private IContextActivation activationResults;
     private CommandExecutionListener commandExecutionListener;
+    private final Set<IWorkbenchWindow> registeredWindows = new HashSet<>();
 
     public WorkbenchContextListener() {
         IWorkbench workbench = PlatformUI.getWorkbench();
@@ -80,7 +79,7 @@ class WorkbenchContextListener implements IWindowListener, IPageListener, IPartL
 
             @Override
             public void postShutdown(IWorkbench workbench) {
-                DBeaverCore.setClosing(true);
+                DesktopPlatform.setClosing(true);
             }
         });
         IWorkbenchWindow activeWindow = workbench.getActiveWorkbenchWindow();
@@ -98,10 +97,11 @@ class WorkbenchContextListener implements IWindowListener, IPageListener, IPartL
     }
 
     private void listenWindowEvents(IWorkbenchWindow window) {
-        {
+        if (!registeredWindows.contains(window)) {
             // Register ds toolbar handler
             DataSourceToolbarHandler toolbarHandler = new DataSourceToolbarHandler(window);
             window.getShell().addDisposeListener(e -> toolbarHandler.dispose());
+            registeredWindows.add(window);
         }
 
         IPerspectiveListener perspectiveListener = new IPerspectiveListener() {
@@ -119,6 +119,8 @@ class WorkbenchContextListener implements IWindowListener, IPageListener, IPartL
                     contextService.deactivateContext(perspectiveActivation);
                     perspectiveActivation = null;
                 }
+
+                CoreFeatures.GENERAL_SHOW_PERSPECTIVE.use(Map.of("perspective", perspective.getId()));
             }
 
             @Override
@@ -134,6 +136,11 @@ class WorkbenchContextListener implements IWindowListener, IPageListener, IPartL
 
         window.addPageListener(this);
         for (IWorkbenchPage page : window.getPages()) {
+            for (IViewReference vr : page.getViewReferences()) {
+                if (vr.getView(false) != null) {
+                    CoreFeatures.GENERAL_VIEW_OPEN.use(Map.of("view", vr.getId()));
+                }
+            }
             page.addPartListener(this);
         }
     }
@@ -212,15 +219,6 @@ class WorkbenchContextListener implements IWindowListener, IPageListener, IPartL
 //                }
 //                activationSQL = contextService.activateContext(SQLEditorContributions.SQL_EDITOR_CONTEXT);
 //            }
-            if (part.getAdapter(ResultSetViewer.class) != null ||
-                (part instanceof SQLEditor) ||
-                (part instanceof EntityEditor && ((EntityEditor) part).getDatabaseObject() instanceof DBSDataContainer))
-            {
-                if (activationResults != null) {
-                    contextService.deactivateContext(activationResults);
-                }
-                activationResults = contextService.activateContext(RESULTS_CONTEXT_ID);
-            }
             // Refresh auto-commit element state (#3315)
             // Refresh OpenSeparateConnection
             ActionUtils.fireCommandRefresh(ConnectionCommands.CMD_TOGGLE_AUTOCOMMIT, SQLEditorCommands.CMD_TOGGLE_SEPARATE_CONNECTION);
@@ -237,28 +235,6 @@ class WorkbenchContextListener implements IWindowListener, IPageListener, IPartL
     }
 
     void deactivatePartContexts(IWorkbenchPart part) {
-        IContextService contextService = PlatformUI.getWorkbench().getService(IContextService.class);
-        if (contextService == null) {
-            return;
-        }
-        try {
-            contextService.deferUpdates(true);
-//            if (activationNavigator != null && part instanceof INavigatorModelView) {
-//                contextService.deactivateContext(activationNavigator);
-//                activationNavigator = null;
-//            }
-//            if (activationSQL != null) {
-//                contextService.deactivateContext(activationSQL);
-//                activationSQL = null;
-//            }
-            if (activationResults != null) {
-                contextService.deactivateContext(activationResults);
-                activationResults = null;
-            }
-        }
-        finally {
-            contextService.deferUpdates(false);
-        }
     }
 
     @Override
@@ -268,12 +244,21 @@ class WorkbenchContextListener implements IWindowListener, IPageListener, IPartL
 
     @Override
     public void partClosed(IWorkbenchPart part) {
-
+        if (part instanceof IViewPart) {
+            CoreFeatures.GENERAL_VIEW_CLOSE.use(Map.of(
+                "view", ((IViewPart) part).getViewSite().getId()
+            ));
+        }
     }
 
     @Override
     public void partOpened(IWorkbenchPart part) {
-
+        if (part instanceof IViewPart) {
+            CoreFeatures.GENERAL_VIEW_OPEN.use(Map.of(
+                "view", ((IViewPart) part).getViewSite().getId()
+            ));
+        }
+        fireOnNewSqlEditorListener(part);
     }
 
     static WorkbenchContextListener registerInWorkbench() {
@@ -293,15 +278,35 @@ class WorkbenchContextListener implements IWindowListener, IPageListener, IPartL
 
         @Override
         public void postExecuteSuccess(String commandId, Object returnValue) {
-            final DBRFeature commandFeature = DBRFeatureRegistry.getInstance().findCommandFeature(commandId);
-            if (commandFeature != null) {
-                commandFeature.use();
-            }
         }
 
         @Override
         public void preExecute(String commandId, ExecutionEvent event) {
-
+            final DBRFeature commandFeature = DBRFeatureRegistry.getInstance().findCommandFeature(commandId);
+            if (commandFeature != null) {
+                commandFeature.use(event.getParameters());
+            }
         }
     }
+    
+    private static final Object editorListenersSyncRoot = new Object();
+    private static final Set<Consumer<SQLEditor>> editorListeners = new HashSet<>();
+    
+    public static void addOnNewSqlEditorListener(Consumer<SQLEditor> listener) {
+        synchronized (editorListenersSyncRoot) {
+            editorListeners.add(listener);
+        }
+    }
+    
+    private static void fireOnNewSqlEditorListener(IWorkbenchPart part) {
+        if (part instanceof SQLEditor) {
+            SQLEditor editor = (SQLEditor) part;
+            synchronized (editorListenersSyncRoot) {
+                for (Consumer<SQLEditor> consumer : editorListeners) {
+                    consumer.accept(editor);
+                }
+            }
+        }
+    }
+    
 }

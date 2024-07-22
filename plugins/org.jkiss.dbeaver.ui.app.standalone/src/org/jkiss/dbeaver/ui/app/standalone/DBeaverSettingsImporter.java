@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,7 +77,7 @@ class DBeaverSettingsImporter {
     boolean migrateFromPreviousVersion(final File oldDir, final File newDir) {
 
         Properties workspaceProps = new Properties();
-        File versionFile = new File(GeneralUtils.getMetadataFolder(oldDir), DBConstants.WORKSPACE_PROPS_FILE);
+        File versionFile = GeneralUtils.getMetadataFolder(oldDir.toPath()).resolve(DBConstants.WORKSPACE_PROPS_FILE).toFile();
         if (versionFile.exists()) {
             try (InputStream is = new FileInputStream(versionFile)) {
                 workspaceProps.load(is);

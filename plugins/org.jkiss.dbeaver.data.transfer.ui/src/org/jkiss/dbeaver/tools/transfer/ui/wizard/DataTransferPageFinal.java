@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  */
 package org.jkiss.dbeaver.tools.transfer.ui.wizard;
 
+import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.SashForm;
 import org.eclipse.swt.graphics.Color;
@@ -30,6 +31,7 @@ import org.jkiss.dbeaver.model.DBPImage;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.tools.transfer.*;
+import org.jkiss.dbeaver.tools.transfer.internal.DTMessages;
 import org.jkiss.dbeaver.tools.transfer.registry.DataTransferNodeDescriptor;
 import org.jkiss.dbeaver.tools.transfer.registry.DataTransferProcessorDescriptor;
 import org.jkiss.dbeaver.tools.transfer.ui.internal.DTUIMessages;
@@ -100,6 +102,8 @@ class DataTransferPageFinal extends ActiveWizardPage<DataTransferWizard> impleme
 
     @Override
     public void activatePage() {
+        getWizard().loadNodeSettings();
+
         resultTable.removeAll();
         DataTransferSettings settings = getWizard().getSettings();
         List<DataTransferPipe> dataPipes = settings.getDataPipes();
@@ -219,7 +223,7 @@ class DataTransferPageFinal extends ActiveWizardPage<DataTransferWizard> impleme
             String settingsSummary = settings.getSettingsSummary();
             if (!CommonUtils.isEmpty(settingsSummary)) {
                 if (node != null) {
-                    summary.append(node.getName()).append(" settings:\n");
+                    summary.append(NLS.bind(DTMessages.data_transfer_summary_title, node.getName())).append(":\n");
                 }
                 summary.append(CommonUtils.notEmpty(settingsSummary));
             }
@@ -238,11 +242,13 @@ class DataTransferPageFinal extends ActiveWizardPage<DataTransferWizard> impleme
     protected boolean determinePageCompletion() {
         for (DataTransferPipe pipe : getWizard().getSettings().getDataPipes()) {
             if (pipe.getProducer() == null || !pipe.getProducer().isConfigurationComplete()) {
-                setErrorMessage("Source not specified for " + pipe.getConsumer().getObjectName());
+                setErrorMessage(NLS.bind(DTUIMessages.data_transfer_error_source_not_specified,
+                    pipe.getConsumer().getObjectName()));
                 return false;
             }
             if (pipe.getConsumer() == null || !pipe.getConsumer().isConfigurationComplete()) {
-                setErrorMessage("Target not specified for " + pipe.getProducer().getObjectName());
+                setErrorMessage(NLS.bind(DTUIMessages.data_transfer_error_target_not_specified,
+                    pipe.getProducer().getObjectName()));
                 return false;
             }
         }

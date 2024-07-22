@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,6 @@
  */
 package org.jkiss.dbeaver.core;
 
-import org.eclipse.core.resources.IWorkspace;
-import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
@@ -28,7 +26,6 @@ import org.jkiss.dbeaver.model.runtime.features.DBRFeatureRegistry;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 
-import java.io.File;
 import java.io.PrintStream;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
@@ -40,7 +37,6 @@ public class DBeaverActivator extends AbstractUIPlugin {
 
     // The shared instance
     private static DBeaverActivator instance;
-    private static File configDir;
     private ResourceBundle pluginResourceBundle, coreResourceBundle;
     private PrintStream debugWriter;
     private DBPPreferenceStore preferences;
@@ -79,6 +75,8 @@ public class DBeaverActivator extends AbstractUIPlugin {
         this.shutdownUI();
         this.shutdownCore();
 
+        DBRFeatureRegistry.getInstance().endTracking();
+
         if (debugWriter != null) {
             debugWriter.close();
             debugWriter = null;
@@ -89,18 +87,7 @@ public class DBeaverActivator extends AbstractUIPlugin {
     }
 
     private void shutdownUI() {
-        DBeaverUI.disposeUI();
-    }
-
-    /**
-     * Returns configuration file
-     */
-    public static synchronized File getConfigurationFile(String fileName)
-    {
-        if (configDir == null) {
-            configDir = getInstance().getStateLocation().toFile();
-        }
-        return new File(configDir, fileName);
+        DesktopUI.disposeUI();
     }
 
     /**
@@ -120,18 +107,11 @@ public class DBeaverActivator extends AbstractUIPlugin {
         return preferences;
     }
 
-    /**
-     * Returns the workspace instance.
-     */
-    public static IWorkspace getWorkspace() {
-        return ResourcesPlugin.getWorkspace();
-    }
-
     private void shutdownCore() {
         try {
             // Dispose core
-            if (DBeaverCore.instance != null) {
-                DBeaverCore.instance.dispose();
+            if (DesktopPlatform.instance != null) {
+                DesktopPlatform.instance.dispose();
             }
         } catch (Throwable e) {
             e.printStackTrace();
@@ -140,7 +120,7 @@ public class DBeaverActivator extends AbstractUIPlugin {
     }
 
     public static ImageDescriptor getImageDescriptor(String path) {
-        return imageDescriptorFromPlugin(DBeaverCore.PLUGIN_ID, path);
+        return imageDescriptorFromPlugin(DesktopPlatform.PLUGIN_ID, path);
     }
 
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import org.jkiss.utils.CommonUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class ApplicationRegistry {
     private static final Log log = Log.getLog(ApplicationRegistry.class);
@@ -63,8 +64,16 @@ public class ApplicationRegistry {
 
         List<ApplicationDescriptor> finalApps = new ArrayList<>();
         for (ApplicationDescriptor app : applications) {
-            if (app.isFinalApplication()) {
+            if (app.isFinalApplication() && !app.isHidden()) {
                 finalApps.add(app);
+            }
+        }
+        if (finalApps.isEmpty()) {
+            // Include hidden
+            for (ApplicationDescriptor app : applications) {
+                if (app.isFinalApplication()) {
+                    finalApps.add(app);
+                }
             }
         }
         if (finalApps.isEmpty()) {
@@ -80,7 +89,12 @@ public class ApplicationRegistry {
             if (defaultApplication == null) {
                 defaultApplication = finalApps.get(0);
                 if (finalApps.size() > 1) {
-                    log.error("Multiple applications defined. Use first one (" + defaultApplication.getId() + ")");
+                    log.error("Multiple applications defined. Use the first one (" + defaultApplication.getId() + "), " +
+                        "skip the rest (" +
+                        finalApps.stream()
+                            .filter(a -> a != defaultApplication)
+                            .map(ApplicationDescriptor::getId)
+                            .collect(Collectors.joining(",")) + ")");
                 }
             }
         }

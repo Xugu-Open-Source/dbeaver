@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.jkiss.dbeaver.ui.navigator.database;
 
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.jface.util.IPropertyChangeListener;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.graphics.*;
@@ -26,15 +27,17 @@ import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.ScrollBar;
 import org.eclipse.swt.widgets.Tree;
 import org.eclipse.swt.widgets.TreeItem;
+import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.themes.ITheme;
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.data.DBDDataFormatter;
 import org.jkiss.dbeaver.model.meta.Property;
-import org.jkiss.dbeaver.model.navigator.DBNDataSource;
-import org.jkiss.dbeaver.model.navigator.DBNDatabaseFolder;
-import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
-import org.jkiss.dbeaver.model.navigator.DBNNode;
+import org.jkiss.dbeaver.model.navigator.*;
+import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.runtime.AbstractJob;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
@@ -83,22 +86,26 @@ public class StatisticsNavigatorNodeRenderer extends DefaultNavigatorNodeRendere
 
     private static final Map<DBSObject, StatReadJob> statReaders = new IdentityHashMap<>();
 
+    private final IPropertyChangeListener themeChangeListener;
     private Font fontItalic;
 
     public StatisticsNavigatorNodeRenderer(INavigatorModelView view) {
         this.view = view;
+        this.themeChangeListener = e -> {
+            final ITheme theme = PlatformUI.getWorkbench().getThemeManager().getCurrentTheme();
+            fontItalic = theme.getFontRegistry().getItalic(DatabaseNavigatorLabelProvider.TREE_TABLE_FONT);
+        };
+        this.themeChangeListener.propertyChange(null);
+
+        PlatformUI.getWorkbench().getThemeManager().addPropertyChangeListener(themeChangeListener);
+
+        view.getNavigatorViewer().getControl().addDisposeListener(e -> {
+            PlatformUI.getWorkbench().getThemeManager().removePropertyChangeListener(themeChangeListener);
+        });
     }
 
     public INavigatorModelView getView() {
         return view;
-    }
-
-    public Font getFontItalic(Tree tree) {
-        if (fontItalic == null) {
-            fontItalic = UIUtils.modifyFont(tree.getFont(), SWT.ITALIC);
-            tree.addDisposeListener(e -> UIUtils.dispose(fontItalic));
-        }
-        return fontItalic;
     }
 
     public void paintNodeDetails(DBNNode node, Tree tree, GC gc, Event event) {
@@ -108,18 +115,21 @@ public class StatisticsNavigatorNodeRenderer extends DefaultNavigatorNodeRendere
         Object element = event.item.getData();
 
         if (element instanceof DBNDatabaseNode) {
+            final DBPPreferenceStore preferenceStore = DBWorkbench.getPlatform().getPreferenceStore();
+            int widthOccupied = 0;
             if (element instanceof DBNDataSource) {
-                int widthOccupied = 0;
-                if (!scrollEnabled && DBWorkbench.getPlatform().getPreferenceStore().getBoolean(NavigatorPreferences.NAVIGATOR_SHOW_NODE_ACTIONS)) {
+                if (!scrollEnabled && preferenceStore.getBoolean(NavigatorPreferences.NAVIGATOR_SHOW_NODE_ACTIONS)) {
                     widthOccupied += renderDataSourceNodeActions((DBNDatabaseNode) element, tree, gc, event);
                 }
-                if (DBWorkbench.getPlatform().getPreferenceStore().getBoolean(NavigatorPreferences.NAVIGATOR_SHOW_CONNECTION_HOST_NAME)) {
+                if (preferenceStore.getBoolean(NavigatorPreferences.NAVIGATOR_SHOW_CONNECTION_HOST_NAME)) {
                     renderDataSourceHostName((DBNDataSource) element, tree, gc, event, widthOccupied);
                 }
             }
-
-            if (!scrollEnabled && DBWorkbench.getPlatform().getPreferenceStore().getBoolean(NavigatorPreferences.NAVIGATOR_SHOW_STATISTICS_INFO)) {
-                renderObjectStatistics((DBNDatabaseNode) element, tree, gc, event);
+            if (!scrollEnabled && preferenceStore.getBoolean(NavigatorPreferences.NAVIGATOR_SHOW_STATISTICS_INFO)) {
+                widthOccupied += renderObjectStatistics((DBNDatabaseNode) element, tree, gc, event);
+            }
+            if (element instanceof DBNDatabaseItem && preferenceStore.getBoolean(NavigatorPreferences.NAVIGATOR_SHOW_OBJECTS_DESCRIPTION)) {
+                renderObjectDescription((DBNDatabaseItem) element, tree, gc, event, widthOccupied);
             }
         }
     }
@@ -237,26 +247,36 @@ public class StatisticsNavigatorNodeRenderer extends DefaultNavigatorNodeRendere
         return null;
     }
 
+    private void renderObjectDescription(@NotNull DBNDatabaseItem element, @NotNull Tree tree, @NotNull GC gc, @NotNull Event event, int widthOccupied) {
+        final DBSObject object = element.getObject();
+        if (object != null) {
+            final String description = object.getDescription();
+            if (!CommonUtils.isEmptyTrimmed(description)) {
+                drawText(description, null, tree, gc, event, widthOccupied);
+            }
+        }
+    }
+
     ///////////////////////////////////////////////////////////////////
     // Host name
 
     private void renderDataSourceHostName(DBNDataSource element, Tree tree, GC gc, Event event, int widthOccupied) {
-        DBPDataSourceContainer dataSourceContainer = element.getDataSourceContainer();
+        final DBPDataSourceContainer container = element.getDataSourceContainer();
+        final String text = DataSourceUtils.getDataSourceAddressText(container);
+        final Color background = UIUtils.getConnectionColor(container.getConnectionConfiguration());
+        drawText(text, background, tree, gc, event, widthOccupied);
+    }
 
-        String hostText = DataSourceUtils.getDataSourceAddressText(dataSourceContainer);
-        if (!CommonUtils.isEmpty(hostText)) {
+    private void drawText(@Nullable String text, @Nullable Color bgColor, Tree tree, GC gc, Event event, int widthOccupied) {
+        if (!CommonUtils.isEmpty(text)) {
             Font oldFont = gc.getFont();
-
-            DBPDataSourceContainer ds = element.getDataSourceContainer();
-            Color bgColor = UIUtils.getConnectionColor(ds.getConnectionConfiguration());
 
             Color hostNameColor = UIUtils.getSharedColor(
                 (bgColor == null ? UIStyles.isDarkTheme() : UIUtils.isDark(bgColor.getRGB())) ?
                     HOST_NAME_FG_DARK : HOST_NAME_FG_LIGHT);
             gc.setForeground(hostNameColor);
-            Font hostNameFont = getFontItalic(tree);
-            gc.setFont(hostNameFont);
-            Point hostTextSize = gc.stringExtent(hostText);
+            gc.setFont(fontItalic);
+            Point hostTextSize = gc.stringExtent(text);
 
             int xOffset = RuntimeUtils.isLinux() ? 16 : 2;
             ScrollBar hSB = tree.getHorizontalBar();
@@ -273,7 +293,7 @@ public class StatisticsNavigatorNodeRenderer extends DefaultNavigatorNodeRendere
                     event.height
                 );
             }
-            gc.drawText(" - " + hostText,
+            gc.drawText(" - " + text,
                 event.x + event.width + xOffset,
                 event.y + ((event.height - hostTextSize.y) / 2),
                 true);
@@ -367,7 +387,7 @@ public class StatisticsNavigatorNodeRenderer extends DefaultNavigatorNodeRendere
     ///////////////////////////////////////////////////////////////////
     // Statistics renderer
 
-    private void renderObjectStatistics(DBNDatabaseNode element, Tree tree, GC gc, Event event) {
+    private int renderObjectStatistics(DBNDatabaseNode element, Tree tree, GC gc, Event event) {
         DBSObject object = element.getObject();
         if (object instanceof DBPObjectStatistics) {
             String sizeText;
@@ -388,7 +408,7 @@ public class StatisticsNavigatorNodeRenderer extends DefaultNavigatorNodeRendere
                 long statObjectSize = ((DBPObjectStatistics) object).getStatObjectSize();
                 if (statObjectSize <= 0) {
                     // Empty or no size - nothing to show
-                    return;
+                    return 0;
                 }
                 percentFull = maxObjectSize == 0 ? 0 : (int) (statObjectSize * 100 / maxObjectSize);
                 if (percentFull < 0 || percentFull > 100) {
@@ -418,9 +438,6 @@ public class StatisticsNavigatorNodeRenderer extends DefaultNavigatorNodeRendere
                     }
                 }
                 sizeText = format.format(statObjectSize);
-            } else if (statsWasRead) {
-                // Statistic is not available
-                return;
             } else {
                 sizeText = "...";
                 percentFull = 0;
@@ -430,7 +447,7 @@ public class StatisticsNavigatorNodeRenderer extends DefaultNavigatorNodeRendere
                         element.getParentNode(),
                         realParentObject,
                         ((TreeItem) event.item).getParentItem())) {
-                        return;
+                        return 0;
                     }
                 }
             }
@@ -442,24 +459,28 @@ public class StatisticsNavigatorNodeRenderer extends DefaultNavigatorNodeRendere
             int xWidth = getTreeWidth(tree);
 
             if (xWidth - occupiedWidth > Math.max(PERCENT_FILL_WIDTH, textSize.x)) {
-                {
-                    CTabFolder tabFolder = UIUtils.getParentOfType(tree, CTabFolder.class);
-                    Color fillColor = tabFolder == null ? UIStyles.getDefaultWidgetBackground() : tabFolder.getBackground();
-                    gc.setBackground(fillColor);
-                    int fillWidth = PERCENT_FILL_WIDTH * percentFull / 100 + 1;
-                    int x = xWidth - fillWidth - 2;
-                    gc.fillRectangle(x, event.y + 2, fillWidth, event.height - 4);
-                }
+                CTabFolder tabFolder = UIUtils.getParentOfType(tree, CTabFolder.class);
+                Color fillColor = tabFolder == null ? UIStyles.getDefaultWidgetBackground() : tabFolder.getBackground();
 
+                // Frame
+                gc.setForeground(fillColor);
+                gc.drawRectangle(xWidth - PERCENT_FILL_WIDTH - 2, event.y + 1, PERCENT_FILL_WIDTH, event.height - 3);
+
+                // Bar
+                final int width = Math.max((int) Math.ceil((PERCENT_FILL_WIDTH - 3) * percentFull / 100.0), 1);
+                gc.setBackground(fillColor);
+                gc.fillRectangle(xWidth - PERCENT_FILL_WIDTH, event.y + 3, width, event.height - 6);
+
+                // Text
                 gc.setForeground(tree.getForeground());
-                int x = xWidth - textSize.x - 2;
-
-                Font oldFont = gc.getFont();
                 gc.setFont(tree.getFont());
-                gc.drawText(sizeText, x + 2, event.y + (event.height - textSize.y) / 2, true);
-                gc.setFont(oldFont);
+                gc.drawText(sizeText, xWidth - textSize.x, event.y + (event.height - textSize.y) / 2, true);
+
+                return Math.max(PERCENT_FILL_WIDTH, textSize.x);
             }
         }
+
+        return 0;
     }
 
     private DBNNode getParentItem(DBNDatabaseNode element) {

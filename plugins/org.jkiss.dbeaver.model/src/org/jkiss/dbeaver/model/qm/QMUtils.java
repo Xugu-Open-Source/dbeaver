@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,15 +20,22 @@ package org.jkiss.dbeaver.model.qm;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.app.DBPPlatform;
+import org.jkiss.dbeaver.model.app.DBPProject;
+import org.jkiss.dbeaver.model.app.DBPWorkspace;
+import org.jkiss.dbeaver.model.auth.SMAuthSpace;
+import org.jkiss.dbeaver.model.auth.SMSession;
+import org.jkiss.dbeaver.model.auth.SMSessionContext;
+import org.jkiss.dbeaver.model.auth.SMSessionPersistent;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.exec.DBCExecutionPurpose;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
-import org.jkiss.dbeaver.model.qm.meta.QMMSessionInfo;
-import org.jkiss.dbeaver.model.qm.meta.QMMStatementExecuteInfo;
-import org.jkiss.dbeaver.model.qm.meta.QMMTransactionInfo;
-import org.jkiss.dbeaver.model.qm.meta.QMMTransactionSavepointInfo;
+import org.jkiss.dbeaver.model.qm.filters.QMEventCriteria;
+import org.jkiss.dbeaver.model.qm.meta.*;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.ArrayList;
@@ -39,6 +46,8 @@ import java.util.List;
  * Query Manager utils
  */
 public class QMUtils {
+
+    private static final Log log = Log.getLog(QMUtils.class);
 
     private static DBPPlatform application;
     private static QMExecutionHandler defaultHandler;
@@ -86,7 +95,7 @@ public class QMUtils {
         if (executionContext == null || application == null) {
             return false;
         } else {
-            QMMSessionInfo sessionInfo = getCurrentSession(executionContext);
+            QMMConnectionInfo sessionInfo = getCurrentConnection(executionContext);
             if (sessionInfo != null && sessionInfo.isTransactional()) {
                 QMMTransactionInfo txnInfo = sessionInfo.getTransaction();
                 if (txnInfo != null) {
@@ -94,7 +103,7 @@ public class QMUtils {
                     if (sp != null) {
                         if (checkQueries) {
                             // If transaction was enabled all statements are transactional
-                            for (QMMStatementExecuteInfo ei = sp.getLastExecute(); ei != null; ei = ei.getPrevious()) {
+                            for (QMMStatementExecuteInfo ei = sp.getLastExecute(); ei != null && ei.getSavepoint() == sp; ei = ei.getPrevious()) {
                                 if (ei.isTransactional()) {
                                     return true;
                                 }
@@ -114,12 +123,12 @@ public class QMUtils {
         return false;
     }
 
-    public static QMMSessionInfo getCurrentSession(DBCExecutionContext executionContext) {
-        return application.getQueryManager().getMetaCollector().getSessionInfo(executionContext);
+    public static QMMConnectionInfo getCurrentConnection(DBCExecutionContext executionContext) {
+        return application.getQueryManager().getMetaCollector().getConnectionInfo(executionContext);
     }
 
     public static QMMTransactionSavepointInfo getCurrentTransaction(DBCExecutionContext executionContext) {
-        QMMSessionInfo sessionInfo = getCurrentSession(executionContext);
+        QMMConnectionInfo sessionInfo = getCurrentConnection(executionContext);
         if (sessionInfo != null && !sessionInfo.isClosed() && sessionInfo.isTransactional()) {
             QMMTransactionInfo txnInfo = sessionInfo.getTransaction();
             if (txnInfo != null) {
@@ -137,7 +146,7 @@ public class QMUtils {
         if (executionContext == null || application == null) {
             txnMode = false;
         } else {
-            QMMSessionInfo sessionInfo = getCurrentSession(executionContext);
+            QMMConnectionInfo sessionInfo = getCurrentConnection(executionContext);
             if (sessionInfo == null || sessionInfo.isClosed()) {
                 txnMode = false;
             } else if (sessionInfo.isTransactional()) {
@@ -185,6 +194,48 @@ public class QMUtils {
         return criteria;
     }
 
+    /**
+     * Extract QM session from execution context
+     */
+    public static String getQmSessionId(DBCExecutionContext executionContext) throws DBException {
+        DBRProgressMonitor monitor = new LoggingProgressMonitor();
+        DBPProject project = executionContext.getDataSource().getContainer().getProject();
+        SMSessionContext projectAuthContext = project.getSessionContext();
+        SMAuthSpace projectPrimaryAuthSpace = projectAuthContext.getPrimaryAuthSpace();
+
+        SMSession session = null;
+        if (projectPrimaryAuthSpace != null) {
+            session = project.getSessionContext().getSpaceSession(monitor, projectPrimaryAuthSpace, false);
+        }
+        if (session == null) {
+            DBPWorkspace workspace = project.getWorkspace();
+            session = workspace.getAuthContext().getSpaceSession(monitor, workspace, false);
+        }
+
+        return getQmSessionId(session);
+    }
+
+    @Nullable
+    public static String getQmSessionId(SMSession session) {
+        SMSessionPersistent sessionPersistent = DBUtils.getAdapter(SMSessionPersistent.class, session);
+        if (sessionPersistent == null) {
+            log.warn("Session persistent not found");
+            return null;
+        }
+
+        return sessionPersistent.getAttribute(QMConstants.QM_SESSION_ID_ATTR);
+    }
+
+    /**
+     * Return close time for events that were ended
+     */
+    public static long getObjectEventTime(QMMObject object, QMEventAction action) {
+        if (action == QMEventAction.END) {
+            return object.getCloseTime();
+        }
+        return object.getOpenTime();
+    }
+
     public static class ListCursorImpl implements QMEventCursor {
 
         private final List<QMMetaEvent> events;
@@ -213,10 +264,10 @@ public class QMUtils {
         }
 
         @Override
-        public QMMetaEvent nextEvent(DBRProgressMonitor monitor) throws DBException {
+        public QMMetaEventEntity nextEvent(DBRProgressMonitor monitor) throws DBException {
             QMMetaEvent event = events.get(position);
             position++;
-            return event;
+            return new QMMetaEventEntity(event.getObject(), event.getAction(), position, "", null);
         }
 
         @Override
@@ -244,7 +295,7 @@ public class QMUtils {
         }
 
         @Override
-        public QMMetaEvent nextEvent(DBRProgressMonitor monitor) throws DBException {
+        public QMMetaEventEntity nextEvent(DBRProgressMonitor monitor) throws DBException {
             throw new DBException("Empty cursor");
         }
 

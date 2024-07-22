@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,17 +22,17 @@ import org.eclipse.core.commands.ExecutionException;
 import org.eclipse.core.commands.IParameterValues;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
-import org.eclipse.jface.action.ContributionManager;
-import org.eclipse.jface.action.IContributionItem;
-import org.eclipse.jface.action.IContributionManager;
-import org.eclipse.jface.action.MenuManager;
+import org.eclipse.jface.action.*;
 import org.eclipse.jface.dialogs.IDialogSettings;
+import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.actions.CompoundContributionItem;
+import org.eclipse.ui.commands.ICommandService;
 import org.eclipse.ui.commands.IElementUpdater;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.eclipse.ui.menus.CommandContributionItem;
 import org.eclipse.ui.menus.CommandContributionItemParameter;
 import org.eclipse.ui.menus.UIElement;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
 import org.jkiss.dbeaver.model.data.DBDDataFilter;
@@ -53,13 +53,14 @@ import org.jkiss.dbeaver.tools.transfer.stream.IStreamDataExporter;
 import org.jkiss.dbeaver.tools.transfer.stream.StreamConsumerSettings;
 import org.jkiss.dbeaver.tools.transfer.stream.StreamTransferConsumer;
 import org.jkiss.dbeaver.tools.transfer.ui.wizard.DataTransferWizard;
+import org.jkiss.dbeaver.ui.ActionUtils;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.ui.ShellUtils;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.resultset.*;
 import org.jkiss.utils.CommonUtils;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -74,6 +75,7 @@ public class ResultSetHandlerOpenWith extends AbstractHandler implements IElemen
     public static final String PARAM_PROCESSOR_ID = "processorId";
 
     public static final String PARAM_ACTIVE_APP = "org.jkiss.dbeaver.core.resultset.openWith.currentApp";
+    public static final String PREF_OPEN_WITH_DEFAULT_PROCESSOR = "org.jkiss.dbeaver.core.resultset.openWith.defaultprocessor";
 
     @Override
     public Object execute(ExecutionEvent event) throws ExecutionException
@@ -126,9 +128,9 @@ public class ResultSetHandlerOpenWith extends AbstractHandler implements IElemen
         List<ResultSetRow> rsSelectedRows = rsSelection.getSelectedRows();
         List<DBDAttributeBinding> rsSelectedAttributes = rsSelection.getSelectedAttributes();
         if (rsSelectedRows.size() > 1 || rsSelectedAttributes.size() > 1) {
-            List<Long> selectedRows = new ArrayList<>();
+            List<Integer> selectedRows = new ArrayList<>();
             for (ResultSetRow selectedRow : rsSelectedRows) {
-                selectedRows.add((long) selectedRow.getRowNumber());
+                selectedRows.add(selectedRow.getRowNumber());
             }
 
             options.setSelectedRows(selectedRows);
@@ -158,10 +160,10 @@ public class ResultSetHandlerOpenWith extends AbstractHandler implements IElemen
             @Override
             protected IStatus run(DBRProgressMonitor monitor) {
                 try {
-                    File tempDir = DBWorkbench.getPlatform().getTempFolder(monitor, "data-files");
-                    File tempFile = new File(tempDir, new SimpleDateFormat(
+                    Path tempDir = DBWorkbench.getPlatform().getTempFolder(monitor, "data-files");
+                    Path tempFile = tempDir.resolve(new SimpleDateFormat(
                         "yyyyMMdd-HHmmss").format(System.currentTimeMillis()) + "." + processor.getAppFileExtension());
-                    tempFile.deleteOnExit();
+                    tempFile.toFile().deleteOnExit();
 
                     IDataTransferProcessor processorInstance = processor.getInstance();
                     if (!(processorInstance instanceof IStreamDataExporter)) {
@@ -173,9 +175,8 @@ public class ResultSetHandlerOpenWith extends AbstractHandler implements IElemen
                     StreamConsumerSettings settings = new StreamConsumerSettings();
 
                     settings.setOutputEncodingBOM(false);
-                    settings.setOpenFolderOnFinish(false);
-                    settings.setOutputFolder(tempDir.getAbsolutePath());
-                    settings.setOutputFilePattern(tempFile.getName());
+                    settings.setOutputFolder(tempDir.toAbsolutePath().toString());
+                    settings.setOutputFilePattern(tempFile.getFileName().toString());
 
                     Map<String, Object> properties = new HashMap<>();
                     // Default values from wizard
@@ -215,10 +216,10 @@ public class ResultSetHandlerOpenWith extends AbstractHandler implements IElemen
                     consumer.finishTransfer(monitor, false);
 
                     UIUtils.asyncExec(() -> {
-                        if (!ShellUtils.launchProgram(tempFile.getAbsolutePath())) {
+                        if (!ShellUtils.launchProgram(tempFile.toAbsolutePath().toString())) {
                             DBWorkbench.getPlatformUI().showError(
                                 "Open " + processor.getAppName(),
-                                "Can't open " + processor.getAppFileExtension() + " file '" + tempFile.getAbsolutePath() + "'");
+                                "Can't open " + processor.getAppFileExtension() + " file '" + tempFile.toAbsolutePath() + "'");
                         }
                     });
                 } catch (Exception e) {
@@ -292,24 +293,56 @@ public class ResultSetHandlerOpenWith extends AbstractHandler implements IElemen
         }
     }
 
-    public static void fillOpenWithMenu(ResultSetViewer viewer, IContributionManager openWithMenu) {
-
-        ResultSetDataContainerOptions options = new ResultSetDataContainerOptions();
-        ResultSetDataContainer dataContainer = new ResultSetDataContainer(viewer, options);
-
-        List<DataTransferProcessorDescriptor> appProcessors = new ArrayList<>();
-
-        for (final DataTransferNodeDescriptor consumerNode : DataTransferRegistry.getInstance().getAvailableConsumers(Collections.singleton(dataContainer))) {
-            for (DataTransferProcessorDescriptor processor : consumerNode.getProcessors()) {
-                if (processor.getAppFileExtension() != null) {
-                    appProcessors.add(processor);
-                }
+    public static class OpenWithMenuDefaultContributor extends CompoundContributionItem
+    {
+        @Override
+        protected IContributionItem[] getContributionItems() {
+            final ResultSetViewer rsv = (ResultSetViewer) ResultSetHandlerMain.getActiveResultSet(
+                UIUtils.getActiveWorkbenchWindow().getActivePage().getActivePart());
+            if (rsv == null) {
+                return new IContributionItem[0];
             }
+            ContributionManager menu = new MenuManager();
+            // Def processor is null
+            menu.add(new Action(ActionUtils.findCommandDescription(ResultSetHandlerMain.CMD_EXPORT, rsv.getSite(), false), Action.AS_RADIO_BUTTON) {
+                {
+                    setChecked(CommonUtils.isEmpty(getDefaultOpenWithProcessor()));
+                }
+                @Override
+                public void run() {
+                    DBWorkbench.getPlatform().getPreferenceStore().setValue(PREF_OPEN_WITH_DEFAULT_PROCESSOR, "");
+                    updateResultSetToolbar(rsv);
+                }
+            });
+            for (DataTransferProcessorDescriptor processor : getDataFileTransferProcessors(rsv)) {
+                Action setDefaultAction = new Action(processor.getAppName(), Action.AS_RADIO_BUTTON) {
+                    {
+                        //setImageDescriptor(DBeaverIcons.getImageDescriptor(processor.getIcon()));
+                        if (!CommonUtils.isEmpty(processor.getDescription())) {
+                            setToolTipText(processor.getDescription());
+                        }
+                        setChecked(processor.getFullId().equals(getDefaultOpenWithProcessor()));
+                    }
+
+                    @Override
+                    public void run() {
+                        DBWorkbench.getPlatform().getPreferenceStore().setValue(
+                            PREF_OPEN_WITH_DEFAULT_PROCESSOR, processor.getFullId());
+                        updateResultSetToolbar(rsv);
+                    }
+                };
+                menu.add(setDefaultAction);
+            }
+            return menu.getItems();
         }
+    }
 
-        appProcessors.sort(Comparator.comparingInt(DataTransferProcessorDescriptor::getOrder));
+    public static String getDefaultOpenWithProcessor() {
+        return DBWorkbench.getPlatform().getPreferenceStore().getString(PREF_OPEN_WITH_DEFAULT_PROCESSOR);
+    }
 
-        for (DataTransferProcessorDescriptor processor : appProcessors) {
+    public static void fillOpenWithMenu(ResultSetViewer viewer, IContributionManager openWithMenu) {
+        for (DataTransferProcessorDescriptor processor : getDataFileTransferProcessors(viewer)) {
             CommandContributionItemParameter params = new CommandContributionItemParameter(
                 viewer.getSite(),
                 processor.getId(),
@@ -327,5 +360,31 @@ public class ResultSetHandlerOpenWith extends AbstractHandler implements IElemen
         }
     }
 
+    @NotNull
+    private static List<DataTransferProcessorDescriptor> getDataFileTransferProcessors(ResultSetViewer viewer) {
+        ResultSetDataContainerOptions options = new ResultSetDataContainerOptions();
+        ResultSetDataContainer dataContainer = new ResultSetDataContainer(viewer, options);
 
+        List<DataTransferProcessorDescriptor> appProcessors = new ArrayList<>();
+
+        for (final DataTransferNodeDescriptor consumerNode : DataTransferRegistry.getInstance().getAvailableConsumers(Collections.singleton(dataContainer))) {
+            for (DataTransferProcessorDescriptor processor : consumerNode.getProcessors()) {
+                if (processor.getAppFileExtension() != null) {
+                    appProcessors.add(processor);
+                }
+            }
+        }
+
+        appProcessors.sort(Comparator.comparingInt(DataTransferProcessorDescriptor::getOrder));
+        return appProcessors;
+    }
+
+    private static void updateResultSetToolbar(@NotNull IResultSetController controller) {
+        final ICommandService service = PlatformUI.getWorkbench().getService(ICommandService.class);
+
+        if (service != null) {
+            service.refreshElements(ResultSetHandlerMain.CMD_EXPORT, null);
+            controller.updateToolbar();
+        }
+    }
 }

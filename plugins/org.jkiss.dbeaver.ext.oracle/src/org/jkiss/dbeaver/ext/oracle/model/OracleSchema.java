@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureContainer;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureType;
 import org.jkiss.dbeaver.model.struct.rdb.DBSSchema;
@@ -50,7 +51,13 @@ import java.util.stream.Collectors;
 /**
  * OracleSchema
  */
-public class OracleSchema extends OracleGlobalObject implements DBSSchema, DBPRefreshableObject, DBPSystemObject, DBSProcedureContainer, DBPObjectStatisticsCollector
+public class OracleSchema extends OracleGlobalObject implements
+    DBSSchema,
+    DBPRefreshableObject,
+    DBPSystemObject,
+    DBSProcedureContainer,
+    DBPObjectStatisticsCollector,
+    DBPScriptObject
 {
     private static final Log log = Log.getLog(OracleSchema.class);
 
@@ -412,6 +419,7 @@ public class OracleSchema extends OracleGlobalObject implements DBSSchema, DBPRe
             monitor.subTask("Cache table constraints");
             constraintCache.getObjects(monitor, this, null);
             foreignKeyCache.getObjects(monitor, this, null);
+            tableTriggerCache.getAllObjects(monitor, this);
         }
     }
 
@@ -419,6 +427,7 @@ public class OracleSchema extends OracleGlobalObject implements DBSSchema, DBPRe
     public synchronized DBSObject refreshObject(@NotNull DBRProgressMonitor monitor)
         throws DBException
     {
+        hasStatistics = false;
         tableCache.clearCache();
         foreignKeyCache.clearCache();
         constraintCache.clearCache();
@@ -446,6 +455,10 @@ public class OracleSchema extends OracleGlobalObject implements DBSSchema, DBPRe
     public String toString()
     {
         return "Schema " + name;
+    }
+
+    void resetStatistics() {
+        this.hasStatistics = false;
     }
 
     private static OracleTableColumn getTableColumn(JDBCSession session, OracleTableBase parent, ResultSet dbResult,String columnName) throws DBException
@@ -505,11 +518,108 @@ public class OracleSchema extends OracleGlobalObject implements DBSSchema, DBPRe
         }
     }
 
+    @Override
+    public String getObjectDefinitionText(DBRProgressMonitor monitor, Map<String, Object> options) throws DBException {
+        StringBuilder sql = new StringBuilder();
+        sql.append("-- DROP USER ").append(DBUtils.getQuotedIdentifier(this)).append(";\n\n");
+        sql.append("CREATE USER ").append(DBUtils.getQuotedIdentifier(this)).append("\n-- IDENTIFIED BY <password>\n").append(";\n");
+
+        // Show DDL for all schema objects
+        monitor.beginTask("Cache schema", 1);
+        cacheStructure(monitor, DBSObjectContainer.STRUCT_ALL);
+        monitor.done();
+
+        Collection<OracleDataType> dataTypes = getDataTypes(monitor);
+        if (!monitor.isCanceled()) {
+            monitor.beginTask("Load data types", dataTypes.size());
+            for (OracleDataType dataType : dataTypes) {
+                addDDLLine(sql, dataType.getObjectDefinitionText(monitor, options));
+                monitor.worked(1);
+                if (monitor.isCanceled()) {
+                    break;
+                }
+            }
+            monitor.done();
+        }
+
+        if (!monitor.isCanceled()) {
+            List<OracleTableBase> tablesOrViews = getTableCache().getAllObjects(monitor, this);
+            monitor.beginTask("Read tables DDL", tablesOrViews.size());
+            for (OracleTableBase tableBase : tablesOrViews) {
+                monitor.worked(1);
+                if (tableBase instanceof OracleTable && ((OracleTable) tableBase).isNested()) {
+                    // To avoid java.sql.SQLException: ORA-31603
+                    continue;
+                }
+                monitor.subTask("Load table '" + tableBase.getName() + "' DDL");
+                addDDLLine(sql, tableBase.getDDL(monitor, OracleDDLFormat.getCurrentFormat(getDataSource()), options));
+                if (monitor.isCanceled()) {
+                    break;
+                }
+            }
+            monitor.done();
+        }
+
+        if (!monitor.isCanceled()) {
+            Collection<OracleProcedureStandalone> procedures = getProcedures(monitor);
+            monitor.beginTask("Load procedures", procedures.size());
+            for (OracleProcedureStandalone procedure : procedures) {
+                monitor.subTask(procedure.getName());
+                addDDLLine(sql, procedure.getObjectDefinitionText(monitor, options));
+                monitor.worked(1);
+                if (monitor.isCanceled()) {
+                    break;
+                }
+            }
+            monitor.done();
+        }
+
+        if (!monitor.isCanceled()) {
+            Collection<OracleSchemaTrigger> triggers = getTriggers(monitor);
+            monitor.beginTask("Load triggers", triggers.size());
+            for (OracleSchemaTrigger trigger : triggers) {
+                monitor.subTask(trigger.getName());
+                addDDLLine(sql, trigger.getObjectDefinitionText(monitor, options));
+                monitor.worked(1);
+                if (monitor.isCanceled()) {
+                    break;
+                }
+            }
+            monitor.done();
+        }
+
+        if (!monitor.isCanceled()) {
+            Collection<OracleSequence> sequences = getSequences(monitor);
+            monitor.beginTask("Load sequences", sequences.size());
+            for (OracleSequence sequence : sequences) {
+                monitor.subTask(sequence.getName());
+                addDDLLine(sql, sequence.getObjectDefinitionText(monitor, options));
+                monitor.worked(1);
+                if (monitor.isCanceled()) {
+                    break;
+                }
+            }
+            monitor.done();
+        }
+
+        return sql.toString();
+    }
+
+    private void addDDLLine(StringBuilder sql, String ddl) {
+        if (!CommonUtils.isEmpty(ddl)) {
+            sql.append("\n").append(ddl);
+            if (!ddl.endsWith(";")) {
+                sql.append(";");
+            }
+            sql.append("\n");
+        }
+    }
+
     public class TableCache extends JDBCStructLookupCache<OracleSchema, OracleTableBase, OracleTableColumn> {
 
         TableCache()
         {
-            super("OBJECT_NAME");
+            super(OracleConstants.COLUMN_OBJECT_NAME);
             setListOrderComparator(DBUtils.nameComparator());
         }
 
@@ -549,7 +659,7 @@ public class OracleSchema extends OracleGlobalObject implements DBSSchema, DBPRe
         protected OracleTableBase fetchObject(@NotNull JDBCSession session, @NotNull OracleSchema owner, @NotNull JDBCResultSet dbResult)
             throws SQLException, DBException
         {
-            final String tableType = JDBCUtils.safeGetString(dbResult, "OBJECT_TYPE");
+            final String tableType = JDBCUtils.safeGetString(dbResult, OracleConstants.COLUMN_OBJECT_TYPE);
             if ("TABLE".equals(tableType)) {
                 return new OracleTable(session.getProgressMonitor(), owner, dbResult);
             } else if ("MATERIALIZED VIEW".equals(tableType)) {
@@ -668,7 +778,7 @@ public class OracleSchema extends OracleGlobalObject implements DBSSchema, DBPRe
     class ConstraintCache extends JDBCCompositeCache<OracleSchema, OracleTableBase, OracleTableConstraint, OracleTableConstraintColumn> {
         ConstraintCache()
         {
-            super(tableCache, OracleTableBase.class, "TABLE_NAME", "CONSTRAINT_NAME");
+            super(tableCache, OracleTableBase.class, OracleConstants.COL_TABLE_NAME, OracleConstants.COL_CONSTRAINT_NAME);
         }
 
         @NotNull
@@ -884,7 +994,7 @@ public class OracleSchema extends OracleGlobalObject implements DBSSchema, DBPRe
                 
         ForeignKeyCache()
         {
-            super(tableCache, OracleTable.class, "TABLE_NAME", "CONSTRAINT_NAME");
+            super(tableCache, OracleTable.class, OracleConstants.COL_TABLE_NAME, OracleConstants.COL_CONSTRAINT_NAME);
            
         }
 
@@ -909,27 +1019,25 @@ public class OracleSchema extends OracleGlobalObject implements DBSSchema, DBPRe
 
             StringBuilder sql = new StringBuilder(500);
             JDBCPreparedStatement dbStat;
-             if (owner.getDataSource().isAtLeastV11() && forTable != null && !useSimpleConnection) {
-                 sql.append("SELECT \r\n" 
-                         + "    c.TABLE_NAME,\r\n" 
+            String constraintsView = OracleUtils.getAdminAllViewPrefix(session.getProgressMonitor(), getDataSource(), "CONSTRAINTS");
+            if (owner.getDataSource().isAtLeastV11() && forTable != null && !useSimpleConnection) {
+                 sql.append("SELECT \r\n"
+                         + "    c.TABLE_NAME,\r\n"
                          + "    c.CONSTRAINT_NAME,\r\n"
-                         + "    c.CONSTRAINT_TYPE,\r\n" 
-                         + "    c.STATUS,\r\n" 
+                         + "    c.CONSTRAINT_TYPE,\r\n"
+                         + "    c.STATUS,\r\n"
                          + "    c.R_OWNER,\r\n"
-                         + "    c.R_CONSTRAINT_NAME,\r\n" 
-                         + "    (SELECT rc.TABLE_NAME FROM "
-                         + OracleUtils.getAdminAllViewPrefix(session.getProgressMonitor(), getDataSource(),"CONSTRAINTS")
-                         + " rc WHERE rc.OWNER = c.r_OWNER AND rc.CONSTRAINT_NAME = c.R_CONSTRAINT_NAME) AS R_TABLE_NAME,\r\n"
-                         + "    c.DELETE_RULE,\r\n" 
+                         + "    c.R_CONSTRAINT_NAME,\r\n"
+                         + "    rc.TABLE_NAME AS R_TABLE_NAME,\r\n"
+                         + "    c.DELETE_RULE,\r\n"
                          + "    (\r\n"
-                         + "      SELECT LISTAGG(COLUMN_NAME || ':' || POSITION,',') WITHIN GROUP (ORDER BY \"POSITION\") \r\n" 
-                         + "      FROM ALL_CONS_COLUMNS col\r\n" 
+                         + "      SELECT LISTAGG(COLUMN_NAME || ':' || POSITION,',') WITHIN GROUP (ORDER BY \"POSITION\") \r\n"
+                         + "      FROM ALL_CONS_COLUMNS col\r\n"
                          + "      WHERE col.OWNER =? AND col.TABLE_NAME = ? AND col.CONSTRAINT_NAME = c.CONSTRAINT_NAME GROUP BY CONSTRAINT_NAME \r\n"
-                         + "    ) COLUMN_NAMES_NUMS\r\n" + "FROM\r\n" + "    "
-                         + OracleUtils.getAdminAllViewPrefix(session.getProgressMonitor(), getDataSource(),
-                                 "CONSTRAINTS")
-                         + " c\r\n" + "WHERE\r\n" + "    c.CONSTRAINT_TYPE = 'R'\r\n" + "    AND c.OWNER = ?\r\n"
-                         + "    AND c.TABLE_NAME = ?");
+                         + "    ) COLUMN_NAMES_NUMS\r\nFROM " + constraintsView + " c\r\n"
+                         + "LEFT JOIN " + constraintsView + " rc\r\n"
+                         + "ON rc.OWNER = c.r_OWNER AND rc.CONSTRAINT_NAME = c.R_CONSTRAINT_NAME AND rc.CONSTRAINT_TYPE='P'\r\n"
+                         + "WHERE c.OWNER = ? AND c.TABLE_NAME = ? AND c.CONSTRAINT_TYPE = 'R'");
                  // 1- owner
                  // 2-table name
                  // 3-owner
@@ -942,60 +1050,55 @@ public class OracleSchema extends OracleGlobalObject implements DBSSchema, DBPRe
                  dbStat.setString(4, forTable.getName());
 
 
-             }else if (owner.getDataSource().isAtLeastV10() && forTable != null && !useSimpleConnection) {
-                sql.append("SELECT \r\n" + "    c.TABLE_NAME,\r\n" + "    c.CONSTRAINT_NAME,\r\n"
-                        + "    c.CONSTRAINT_TYPE,\r\n" + "    c.STATUS,\r\n" + "    c.R_OWNER,\r\n"
-                        + "    c.R_CONSTRAINT_NAME,\r\n" + "    (SELECT rc.TABLE_NAME FROM "
-                        + OracleUtils.getAdminAllViewPrefix(session.getProgressMonitor(), getDataSource(),
-                                "CONSTRAINTS")
-                        + " rc WHERE rc.OWNER = c.r_OWNER AND rc.CONSTRAINT_NAME = c.R_CONSTRAINT_NAME) AS R_TABLE_NAME,\r\n"
-                        + "    c.DELETE_RULE,\r\n" + "    (\r\n"
-                        + "        SELECT LTRIM(MAX(SYS_CONNECT_BY_PATH(cname || ':' || p,','))    KEEP (DENSE_RANK LAST ORDER BY curr),',') \r\n"
-                        + "        FROM   (SELECT \r\n"
-                        + "                       col.CONSTRAINT_NAME cn,col.POSITION p,col.COLUMN_NAME cname,\r\n"
-                        + "                       ROW_NUMBER() OVER (PARTITION BY col.CONSTRAINT_NAME ORDER BY col.POSITION) AS curr,\r\n"
-                        + "                       ROW_NUMBER() OVER (PARTITION BY col.CONSTRAINT_NAME ORDER BY col.POSITION) -1 AS prev\r\n"
-                        + "                FROM   "
-                        + OracleUtils.getAdminAllViewPrefix(session.getProgressMonitor(), getDataSource(), "CONS_COLUMNS")
-                        + " col \r\n"
-                        + "                WHERE  col.OWNER =? AND col.TABLE_NAME = ? \r\n"
-                        + "                )  WHERE cn = c.CONSTRAINT_NAME GROUP BY cn CONNECT BY prev = PRIOR curr AND cn = PRIOR cn START WITH curr = 1      \r\n"
-                        + "        ) COLUMN_NAMES_NUMS\r\n" + "FROM\r\n" + "    "
-                        + OracleUtils.getAdminAllViewPrefix(session.getProgressMonitor(), getDataSource(),
-                                "CONSTRAINTS")
-                        + " c\r\n" + "WHERE\r\n" + "    c.CONSTRAINT_TYPE = 'R'\r\n" + "    AND c.OWNER = ?\r\n"
-                        + "    AND c.TABLE_NAME = ?");
-                // 1- owner
-                // 2-table name
-                // 3-owner
-                // 4-table name
+            }else {
+                String consColumnsView = OracleUtils.getAdminAllViewPrefix(session.getProgressMonitor(), getDataSource(), "CONS_COLUMNS");
 
-                dbStat = session.prepareStatement(sql.toString());
-                dbStat.setString(1, OracleSchema.this.getName());
-                dbStat.setString(2, forTable.getName());
-                dbStat.setString(3, OracleSchema.this.getName());
-                dbStat.setString(4, forTable.getName());
+                if (owner.getDataSource().isAtLeastV10() && forTable != null && !useSimpleConnection) {
+                    sql.append("SELECT c.TABLE_NAME,c.CONSTRAINT_NAME,c.CONSTRAINT_TYPE,\r\n"
+                            + "    c.STATUS,c.R_OWNER,c.R_CONSTRAINT_NAME,\r\n"
+                            + "    (SELECT rc.TABLE_NAME FROM " + constraintsView
+                            + " rc WHERE rc.OWNER = c.r_OWNER AND rc.CONSTRAINT_NAME = c.R_CONSTRAINT_NAME) AS R_TABLE_NAME,\r\n"
+                            + "    c.DELETE_RULE,\r\n" + "    (\r\n"
+                            + "        SELECT LTRIM(MAX(SYS_CONNECT_BY_PATH(cname || ':' || p,','))    KEEP (DENSE_RANK LAST ORDER BY curr),',') \r\n"
+                            + "        FROM   (SELECT \r\n"
+                            + "                       col.CONSTRAINT_NAME cn,col.POSITION p,col.COLUMN_NAME cname,\r\n"
+                            + "                       ROW_NUMBER() OVER (PARTITION BY col.CONSTRAINT_NAME ORDER BY col.POSITION) AS curr,\r\n"
+                            + "                       ROW_NUMBER() OVER (PARTITION BY col.CONSTRAINT_NAME ORDER BY col.POSITION) -1 AS prev\r\n"
+                            + "                FROM   " + consColumnsView + " col \r\n"
+                            + "                WHERE  col.OWNER =? AND col.TABLE_NAME = ? \r\n"
+                            + "                )  WHERE cn = c.CONSTRAINT_NAME GROUP BY cn CONNECT BY prev = PRIOR curr AND cn = PRIOR cn START WITH curr = 1      \r\n"
+                            + "        ) COLUMN_NAMES_NUMS\r\n" + "FROM " + constraintsView + " c\r\n"
+                            + "WHERE c.OWNER = ? AND c.TABLE_NAME = ? AND c.CONSTRAINT_TYPE = 'R'");
+                    // 1- owner
+                    // 2-table name
+                    // 3-owner
+                    // 4-table name
 
-            } else {
-            
-                sql.append("SELECT " + OracleUtils.getSysCatalogHint(owner.getDataSource()) + " \r\n" +
-                    "c.TABLE_NAME, c.CONSTRAINT_NAME,c.CONSTRAINT_TYPE,c.STATUS,c.R_OWNER,c.R_CONSTRAINT_NAME,rc.TABLE_NAME as R_TABLE_NAME,c.DELETE_RULE, \n" +
-                    "col.COLUMN_NAME,col.POSITION\r\n" +
-                    "FROM " + OracleUtils.getAdminAllViewPrefix(session.getProgressMonitor(), getDataSource(), "CONSTRAINTS") +
-                    " c, " + OracleUtils.getAdminAllViewPrefix(session.getProgressMonitor(), getDataSource(), "CONS_COLUMNS") + " col, " +
-                    OracleUtils.getAdminAllViewPrefix(session.getProgressMonitor(), getDataSource(), "CONSTRAINTS") + " rc\n" +
-                    "WHERE c.CONSTRAINT_TYPE='R' AND c.OWNER=?\n" +
-                    "AND c.OWNER=col.OWNER AND c.CONSTRAINT_NAME=col.CONSTRAINT_NAME\n" +
-                    "AND rc.OWNER=c.r_OWNER AND rc.CONSTRAINT_NAME=c.R_CONSTRAINT_NAME");
-                if (forTable != null) {
-                    sql.append(" AND c.TABLE_NAME=?");
-                }
-                sql.append("\nORDER BY c.CONSTRAINT_NAME,col.POSITION");
-    
-                dbStat = session.prepareStatement(sql.toString());
-                dbStat.setString(1, OracleSchema.this.getName());
-                if (forTable != null) {
+                    dbStat = session.prepareStatement(sql.toString());
+                    dbStat.setString(1, OracleSchema.this.getName());
                     dbStat.setString(2, forTable.getName());
+                    dbStat.setString(3, OracleSchema.this.getName());
+                    dbStat.setString(4, forTable.getName());
+
+                } else {
+
+                    sql.append("SELECT " + OracleUtils.getSysCatalogHint(owner.getDataSource()) + " \r\n" +
+                        "c.TABLE_NAME, c.CONSTRAINT_NAME,c.CONSTRAINT_TYPE,c.STATUS,c.R_OWNER,c.R_CONSTRAINT_NAME,rc.TABLE_NAME as R_TABLE_NAME,c.DELETE_RULE, \n" +
+                        "col.COLUMN_NAME,col.POSITION\r\n" +
+                        "FROM " + constraintsView + " c, " + consColumnsView + " col, " + constraintsView + " rc\n" +
+                        "WHERE c.CONSTRAINT_TYPE='R' AND c.OWNER=?\n" +
+                        "AND c.OWNER=col.OWNER AND c.CONSTRAINT_NAME=col.CONSTRAINT_NAME\n" +
+                        "AND rc.OWNER=c.r_OWNER AND rc.CONSTRAINT_NAME=c.R_CONSTRAINT_NAME");
+                    if (forTable != null) {
+                        sql.append(" AND c.TABLE_NAME=?");
+                    }
+                    sql.append("\r\nORDER BY c.CONSTRAINT_NAME,col.POSITION");
+
+                    dbStat = session.prepareStatement(sql.toString());
+                    dbStat.setString(1, OracleSchema.this.getName());
+                    if (forTable != null) {
+                        dbStat.setString(2, forTable.getName());
+                    }
                 }
             }
             return dbStat;
@@ -1252,7 +1355,8 @@ public class OracleSchema extends OracleGlobalObject implements DBSSchema, DBPRe
             throws SQLException
         {
             JDBCPreparedStatement dbStat = session.prepareStatement(
-                "SELECT " + OracleUtils.getSysCatalogHint(owner.getDataSource()) + " OBJECT_NAME, STATUS FROM " +
+                "SELECT " + OracleUtils.getSysCatalogHint(owner.getDataSource()) +
+                    " OBJECT_NAME, STATUS, CREATED, LAST_DDL_TIME, TEMPORARY FROM " +
                 OracleUtils.getAdminAllViewPrefix(session.getProgressMonitor(), owner.getDataSource(), "OBJECTS") +
                 " WHERE OBJECT_TYPE='PACKAGE' AND OWNER=? " +
                 " ORDER BY OBJECT_NAME");

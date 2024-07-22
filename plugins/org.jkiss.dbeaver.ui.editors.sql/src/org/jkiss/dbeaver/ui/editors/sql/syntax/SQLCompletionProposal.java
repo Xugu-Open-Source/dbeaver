@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,7 @@ package org.jkiss.dbeaver.ui.editors.sql.syntax;
 
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.NullProgressMonitor;
-import org.eclipse.jface.text.BadLocationException;
-import org.eclipse.jface.text.DocumentEvent;
-import org.eclipse.jface.text.IDocument;
-import org.eclipse.jface.text.ITextViewer;
+import org.eclipse.jface.text.*;
 import org.eclipse.jface.text.contentassist.*;
 import org.eclipse.jface.text.source.ISourceViewer;
 import org.eclipse.jface.viewers.StyledString;
@@ -45,6 +42,7 @@ import org.jkiss.dbeaver.model.text.TextUtils;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.editors.sql.SQLPreferenceConstants;
+import org.jkiss.dbeaver.ui.editors.sql.dialogs.SuggestionInformationControlCreator;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.Locale;
@@ -53,11 +51,15 @@ import java.util.Map;
 /**
  * SQL Completion proposal
  */
-public class SQLCompletionProposal extends SQLCompletionProposalBase implements ICompletionProposal, ICompletionProposalExtension2, ICompletionProposalExtension4, ICompletionProposalExtension5, ICompletionProposalExtension6 {
+public class SQLCompletionProposal extends SQLCompletionProposalBase implements ICompletionProposal,
+    ICompletionProposalExtension2, ICompletionProposalExtension3, ICompletionProposalExtension4, ICompletionProposalExtension5,
+    ICompletionProposalExtension6 {
 
     private static final Log log = Log.getLog(SQLCompletionProposal.class);
 
     private String replacementLast;
+    
+    private boolean isNeverAddSpaceAfter = false;
 
     public SQLCompletionProposal(
         SQLCompletionRequest request,
@@ -77,6 +79,10 @@ public class SQLCompletionProposal extends SQLCompletionProposalBase implements 
         } else {
             this.replacementLast = this.replacementFull.substring(divPos + 1);
         }
+        Object paramAlias = params.get(SQLCompletionProposalBase.PARAM_NO_SPACE);
+        if (paramAlias != null && ((boolean) paramAlias)) {
+            isNeverAddSpaceAfter = true;
+        }
     }
 
     @Override
@@ -90,7 +96,7 @@ public class SQLCompletionProposal extends SQLCompletionProposalBase implements 
             if (replacementAfter != null) {
                 replaceOn += replacementAfter;
             }
-            if (getDataSource() != null) {
+            if (!isNeverAddSpaceAfter && getDataSource() != null) {
                 if (getDataSource().getContainer().getPreferenceStore().getBoolean(SQLPreferenceConstants.INSERT_SPACE_AFTER_PROPOSALS)) {
                     boolean insertTrailingSpace;
                     boolean hasClosingParenthesis = false;
@@ -108,11 +114,13 @@ public class SQLCompletionProposal extends SQLCompletionProposalBase implements 
                     } else {
                         if (docLen <= replacementSum + 2) {
                             insertTrailingSpace = true;
+                        } else if (Character.isWhitespace(document.getChar(replacementSum))) {
+                            insertTrailingSpace = docLen > replacementSum + 1 && (!Character.isSpaceChar(document.getChar(replacementSum + 1)));
                         } else {
-                            insertTrailingSpace = document.getChar(replacementSum) != ' ';
+                            insertTrailingSpace = true;
                         }
                         if (insertTrailingSpace) {
-                            replaceOn += " ";
+                            replaceOn += ' ';
                         }
                         cursorPosition++;
                     }
@@ -262,5 +270,24 @@ public class SQLCompletionProposal extends SQLCompletionProposalBase implements 
         } else {
             return new StyledString(getDisplayString());
         }
+    }
+
+    @Override
+    public IInformationControlCreator getInformationControlCreator() {
+        if (hasStructObject()) {
+            return SuggestionInformationControlCreator.INSTANCE;
+        } else {
+            return null;
+        }
+    }
+
+    @Override
+    public CharSequence getPrefixCompletionText(IDocument document, int completionOffset) {
+        return getReplacementString();
+    }
+
+    @Override
+    public int getPrefixCompletionStart(IDocument document, int completionOffset) {
+        return getReplacementOffset();
     }
 }

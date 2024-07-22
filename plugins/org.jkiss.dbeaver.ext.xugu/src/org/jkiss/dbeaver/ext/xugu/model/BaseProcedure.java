@@ -53,6 +53,11 @@ public abstract class BaseProcedure<PARENT extends DBSObjectContainer> extends B
 		this.procedureType = procedureType;
 	}
 
+	public BaseProcedure(PARENT parent, ProcedureStandalone source) {
+		super(parent, null, false);
+		this.procedureType = source.getProcedureType();
+	}
+
 	@Override
 	@Property(viewable = true, editable = true, order = 3)
 	public DBSProcedureType getProcedureType() {

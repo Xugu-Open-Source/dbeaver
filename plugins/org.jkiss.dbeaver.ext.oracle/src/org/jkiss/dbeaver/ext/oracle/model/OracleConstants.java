@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,6 +78,7 @@ public class OracleConstants {
     public static final String PROP_SESSION_NLS_TIMESTAMP_FORMAT = "session-nls-timestamp-format";
     public static final String PROP_SESSION_NLS_LENGTH_FORMAT = "session-nls-length-format";
     public static final String PROP_SESSION_NLS_CURRENCY_FORMAT = "session-nls-currency-format";
+    public static final String PROP_SHOW_ONLY_ONE_SCHEMA = "show-only-one-schema@";
     public static final String PROP_CHECK_SCHEMA_CONTENT = DBConstants.INTERNAL_PROP_PREFIX + "check-schema-content@";
     public static final String PROP_ALWAYS_SHOW_DBA = DBConstants.INTERNAL_PROP_PREFIX + "always-show-dba@";
     public static final String PROP_ALWAYS_USE_DBA_VIEWS = DBConstants.INTERNAL_PROP_PREFIX + "always-use-dba-views@";
@@ -87,6 +88,7 @@ public class OracleConstants {
     public static final String PROP_METADATA_USE_SIMPLE_CONSTRAINTS = DBConstants.INTERNAL_PROP_PREFIX + "meta-use-simple-constraints@";
     public static final String PROP_METADATA_USE_ALTERNATIVE_TABLE_QUERY = DBConstants.INTERNAL_PROP_PREFIX + "meta-use-alternative-table-query@";
     public static final String PROP_SEARCH_METADATA_IN_SYNONYMS = "oracle.meta-search-in-synonyms"; //$NON-NLS-1$
+    public static final String PROP_SHOW_DATE_AS_DATE = "oracle.show-date-as-date"; //$NON-NLS-1$
 
     public static final String OS_AUTH_PROP = DBConstants.INTERNAL_PROP_PREFIX + "os-authentication@";
 
@@ -105,6 +107,9 @@ public class OracleConstants {
     public static final String TYPE_NAME_CFILE = "CFILE";
     public static final String TYPE_CONTENT_POINTER = "CONTENT POINTER";
     public static final String TYPE_NAME_DATE = "DATE";
+    public static final String TYPE_NAME_ROWID = "ROWID";
+    public static final String TYPE_NAME_VARCHAR2 = "VARCHAR2";
+    public static final String TYPE_CLOB = "CLOB";
     public static final String TYPE_NAME_TIMESTAMP = "TIMESTAMP";
     public static final String TYPE_NUMBER = "NUMBER";
     public static final String TYPE_DECIMAL = "DECIMAL";
@@ -114,6 +119,11 @@ public class OracleConstants {
     public static final String TYPE_OCTET = "OCTET";
     public static final String TYPE_INTERVAL_YEAR_MONTH = "INTERVAL YEAR TO MONTH";
     public static final String TYPE_INTERVAL_DAY_SECOND = "INTERVAL DAY TO SECOND";
+    public static final String TYPE_NAME_BLOB = "BLOB";
+    public static final String TYPE_NAME_NUMERIC = "NUMERIC";
+    public static final String TYPE_UUID = "STRING AS UUID";
+    public static final String TYPE_BOOLEAN = "BOOLEAN";
+
 
     public static final int TIMESTAMP_TYPE_LENGTH = 13;
     public static final int DATE_TYPE_LENGTH = 7;
@@ -131,6 +141,14 @@ public class OracleConstants {
     public static final String COL_TABLE_NAME = "TABLE_NAME";
     public static final String COL_CONSTRAINT_NAME = "CONSTRAINT_NAME";
     public static final String COL_CONSTRAINT_TYPE = "CONSTRAINT_TYPE";
+    static final String COLUMN_CREATED = "CREATED";
+    static final String COLUMN_LAST_DDL_TIME = "LAST_DDL_TIME";
+    static final String COLUMN_OBJECT_NAME = "OBJECT_NAME";
+    static final String COLUMN_OBJECT_TYPE = "OBJECT_TYPE";
+    public static final String COLUMN_STATUS = "STATUS";
+    static final String RESULT_STATUS_VALID = "VALID";
+    static final String RESULT_YES_VALUE = "Y";
+    static final String COLUMN_TEMPORARY = "TEMPORARY";
 
     public static final String XML_COLUMN_NAME = "XML";
     public static final String OBJECT_VALUE_COLUMN_NAME = "OBJECT_VALUE";
@@ -175,6 +193,7 @@ public class OracleConstants {
     public static final int EC_FEATURE_NOT_SUPPORTED = 17023;
     public static final int EC_NO_RESULTSET_AVAILABLE = 17283;
     public static final int EC_PASSWORD_EXPIRED = 28001;
+    public static final int EC_PASSWORD_WILL_EXPIRE = 28002;
     public static final int NUMERIC_MAX_PRECISION = 38;
     public static final int INTERVAL_DEFAULT_SECONDS_PRECISION = 6;
     public static final int INTERVAL_DEFAULT_YEAR_DAY_PRECISION = 2;

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,9 +26,12 @@ import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.app.*;
+import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
+import org.jkiss.dbeaver.model.connection.DBPConnectionType;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.exec.DBCTransactionManager;
+import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.qm.QMTransactionState;
 import org.jkiss.dbeaver.model.qm.QMUtils;
 import org.jkiss.dbeaver.model.runtime.AbstractJob;
@@ -105,7 +108,9 @@ public class DataSourceMonitorJob extends AbstractJob {
         }
 
         // End long transactions
-        if (dataSourceDescriptor.isAutoCloseTransactions()) {
+        if (dataSourceDescriptor.isAutoCloseTransactions() ||
+            dataSourceDescriptor.getConnectionConfiguration().getCloseIdleInterval() > 0)
+        {
             endIdleTransactions(dataSourceDescriptor);
         }
 
@@ -161,15 +166,53 @@ public class DataSourceMonitorJob extends AbstractJob {
     }
 
     private void endIdleTransactions(DBPDataSourceContainer dsDescriptor) {
+        if (!dsDescriptor.isConnected()) {
+            return;
+        }
+
+        DBPPreferenceStore preferenceStore = dsDescriptor.getPreferenceStore();
+        long ttlSeconds = 0;
+        if (preferenceStore.contains(ModelPreferences.TRANSACTIONS_AUTO_CLOSE_ENABLED)) {
+            // First check datasource settings from the Transactions preference page
+            ttlSeconds = preferenceStore.getLong(ModelPreferences.TRANSACTIONS_AUTO_CLOSE_TTL);
+        }
+        DBPConnectionConfiguration conConfig = dsDescriptor.getConnectionConfiguration();
+        if (ttlSeconds == 0) {
+            // Or get this info from the current connection type
+            DBPConnectionType connectionType = conConfig.getConnectionType();
+            if (connectionType.isAutoCloseTransactions()) {
+                ttlSeconds = connectionType.getCloseIdleConnectionPeriod();
+            }
+        }
+        DBPApplication application = DBWorkbench.getPlatform().getApplication();
+
+        long lastUserActivityTime = -1;
+        if (application instanceof DBPApplicationDesktop) {
+            lastUserActivityTime = ((DBPApplicationDesktop) application).getLastUserActivityTime();
+        }
+        if (lastUserActivityTime <= 0) {
+            return;
+        }
+        long idleInterval = (System.currentTimeMillis() - lastUserActivityTime) / 1000;
+
+        if (conConfig.getCloseIdleInterval() > 0 && idleInterval > conConfig.getCloseIdleInterval()) {
+            if (DisconnectJob.isInProcess(dsDescriptor)) {
+                return;
+            }
+
+            // Kill idle connection
+            DisconnectJob disconnectJob = new DisconnectJob(dsDescriptor);
+            disconnectJob.schedule();
+            return;
+        }
+
+        if (idleInterval < ttlSeconds) {
+            return;
+        }
         if (EndIdleTransactionsJob.isInProcess(dsDescriptor)) {
             return;
         }
-        int ttlSeconds = dsDescriptor.getPreferenceStore().getInt(ModelPreferences.TRANSACTIONS_AUTO_CLOSE_TTL);
-        DBPApplication application = DBWorkbench.getPlatform().getApplication();
-        long lastUserActivityTime = application.getLastUserActivityTime();
-        if (lastUserActivityTime <= 0 || (System.currentTimeMillis() - lastUserActivityTime) / 1000 < ttlSeconds) {
-            return;
-        }
+
         DBPDataSource dataSource = dsDescriptor.getDataSource();
         if (dataSource != null) {
             try {

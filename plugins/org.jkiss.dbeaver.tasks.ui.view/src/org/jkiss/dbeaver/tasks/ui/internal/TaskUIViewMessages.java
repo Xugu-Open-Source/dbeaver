@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -78,13 +78,16 @@ public class TaskUIViewMessages extends NLS {
 	public static String task_handler_delete_confirm_question_delete_task_folder;
 	public static String task_handler_delete_folder_error_title;
 	public static String task_handler_delete_folder_error_message;
-	public static String task_handler_delete_confirm_question_delete_task_folder_wrapper;
 
     public static String task_handler_folder_create_dialog_title;
     public static String task_handler_folder_create_dialog_text_label_name;
     public static String task_handler_folder_create_dialog_text_label_folder_project;
 	public static String task_handler_folder_create_error_title;
 	public static String task_handler_folder_create_error_message;
+
+    public static String task_handler_folder_rename_property_label;
+    public static String task_handler_folder_rename_error_title;
+    public static String task_handler_folder_rename_error_message;
 
 	static {
 		// initialize resource bundle

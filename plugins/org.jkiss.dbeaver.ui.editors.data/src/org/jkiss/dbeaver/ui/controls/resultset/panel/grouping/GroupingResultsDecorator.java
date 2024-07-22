@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ import java.util.List;
  */
 public class GroupingResultsDecorator extends ResultSetDecoratorBase {
 
-    private GroupingResultsContainer container;
+    private final GroupingResultsContainer container;
 
     public GroupingResultsDecorator(GroupingResultsContainer container) {
         this.container = container;
@@ -54,7 +54,7 @@ public class GroupingResultsDecorator extends ResultSetDecoratorBase {
 
     @Override
     public long getDecoratorFeatures() {
-        return FEATURE_PRESENTATIONS;
+        return FEATURE_PRESENTATIONS | FEATURE_FILTERS | FEATURE_COMPACT_FILTERS;
     }
 
     @Override
@@ -104,7 +104,7 @@ public class GroupingResultsDecorator extends ResultSetDecoratorBase {
             gridDropListeners = null;
         }
         DropTarget dropTarget = new DropTarget(presentationControl, DND.DROP_MOVE | DND.DROP_COPY);
-        dropTarget.setTransfer(LightGrid.GridColumnTransfer.INSTANCE, TextTransfer.getInstance());
+        dropTarget.setTransfer(LightGrid.GridColumnTransfer.INSTANCE);
         dropTarget.addDropListener(new DropTargetAdapter() {
             @Override
             public void dragEnter(DropTargetEvent event) {

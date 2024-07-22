@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.eclipse.swt.widgets.*;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchPreferencePage;
 import org.eclipse.ui.IWorkbenchPropertyPage;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.registry.maven.MavenRegistry;
 import org.jkiss.dbeaver.registry.maven.MavenRepository;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
@@ -60,15 +61,16 @@ public class PrefPageDriversMaven extends AbstractPrefPage implements IWorkbench
     private Button moveUpButton;
     private Button moveDownButton;
     private Color enabledColor, disabledColor;
+    private Button isSnapshotRepository;
 
     @Override
     public void init(IWorkbench workbench)
     {
     }
 
+    @NotNull
     @Override
-    protected Control createContents(Composite parent)
-    {
+    protected Control createPreferenceContent(@NotNull Composite parent) {
         enabledColor = parent.getForeground();
         disabledColor = parent.getDisplay().getSystemColor(SWT.COLOR_WIDGET_DARK_SHADOW);
         Composite composite = UIUtils.createPlaceholder(parent, 1, 5);
@@ -163,31 +165,44 @@ public class PrefPageDriversMaven extends AbstractPrefPage implements IWorkbench
         }
 
         {
-            Group propsGroup = UIUtils.createControlGroup(composite, UIConnectionMessages.pref_page_drivers_maven_group_properties, 2, GridData.FILL_HORIZONTAL, 0);
-            idText = UIUtils.createLabelText(propsGroup, "ID", "", SWT.BORDER | SWT.READ_ONLY);
+            Group propsGroup = UIUtils.createControlGroup(composite,
+                UIConnectionMessages.pref_page_drivers_maven_group_properties, 1, GridData.FILL_HORIZONTAL, 0);
+            Composite fields = UIUtils.createPlaceholder(propsGroup, 2);
+            fields.setLayoutData(new GridData(GridData.FILL_BOTH));
+            idText = UIUtils.createLabelText(fields, "ID", "", SWT.BORDER | SWT.READ_ONLY);
             idText.addModifyListener(e -> {
                 if (getSelectedRepository() != null) {
                     getSelectedRepository().setId(idText.getText());
                     mavenRepoTable.getSelection()[0].setText(0, idText.getText());
                 }
             });
-            nameText = UIUtils.createLabelText(propsGroup, UIConnectionMessages.pref_page_drivers_maven_label_name, "", SWT.BORDER);
+            nameText = UIUtils.createLabelText(fields, UIConnectionMessages.pref_page_drivers_maven_label_name, "", SWT.BORDER);
             nameText.addModifyListener(e -> {
                 if (getSelectedRepository() != null) {
                     getSelectedRepository().setName(nameText.getText());
                 }
             });
-            urlText = UIUtils.createLabelText(propsGroup, "URL", "", SWT.BORDER);
+            urlText = UIUtils.createLabelText(fields, "URL", "", SWT.BORDER);
             urlText.addModifyListener(e -> {
                 if (getSelectedRepository() != null) {
                     getSelectedRepository().setUrl(urlText.getText());
                     mavenRepoTable.getSelection()[0].setText(1, urlText.getText());
                 }
             });
-            scopeText = UIUtils.createLabelText(propsGroup, UIConnectionMessages.pref_page_drivers_maven_label_scope, "", SWT.BORDER);
+            scopeText = UIUtils.createLabelText(fields, UIConnectionMessages.pref_page_drivers_maven_label_scope, "", SWT.BORDER);
             scopeText.addModifyListener(e -> {
                 if (getSelectedRepository() != null) {
                     getSelectedRepository().setScopes(CommonUtils.splitString(scopeText.getText(), ','));
+                }
+            });
+            isSnapshotRepository = UIUtils.createCheckbox(propsGroup,
+                UIConnectionMessages.pref_page_drivers_maven_checkbox_snapshot, false);
+            isSnapshotRepository.addSelectionListener(new SelectionAdapter() {
+                @Override
+                public void widgetSelected(SelectionEvent e) {
+                    if (getSelectedRepository() != null) {
+                        getSelectedRepository().setIsSnapshot(isSnapshotRepository.getSelection());
+                    }
                 }
             });
         }
@@ -262,6 +277,9 @@ public class PrefPageDriversMaven extends AbstractPrefPage implements IWorkbench
             scopeText.setEditable(isEditable);
             scopeText.setText(CommonUtils.makeString(repo.getScopes(), ','));
 
+            isSnapshotRepository.setEnabled(isEditable);
+            isSnapshotRepository.setSelection(repo.isSnapshot());
+
             userNameText.setEnabled(true);
             userNameText.setText(CommonUtils.notEmpty(repo.getAuthInfo().getUserName()));
             userPasswordText.setEnabled(true);
@@ -274,6 +292,7 @@ public class PrefPageDriversMaven extends AbstractPrefPage implements IWorkbench
             urlText.setEnabled(false);
             scopeText.setEnabled(false);
             userNameText.setEnabled(false);
+            isSnapshotRepository.setEnabled(false);
             userPasswordText.setEnabled(false);
         }
         moveUpButton.setEnabled(mavenRepoTable.getSelectionIndex() > 0);

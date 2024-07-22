@@ -29,4 +29,8 @@ public class TablePartition extends BasePartition<BaseTablePhysical> {
 	public TablePartition(BaseTablePhysical table, boolean subpartition, ResultSet dbResult) {
 		super(table, subpartition, dbResult);
 	}
+
+	public TablePartition(BaseTablePhysical table, boolean subpartition, TablePartition srcPartition) {
+		super(table, subpartition, srcPartition);
+	}
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -123,6 +123,10 @@ public abstract class ObjectAttributeDescriptor {
         return id.equals(DBConstants.PROP_ID_NAME) || orderNumber == 1;
     }
 
+    public boolean isDescriptionProperty() {
+        return id.equals(DBConstants.PROP_ID_DESCRIPTION);
+    }
+
     public boolean isRemote()
     {
         return isLazy || parent != null && parent.isRemote();
@@ -167,12 +171,12 @@ public abstract class ObjectAttributeDescriptor {
 
     public abstract String getDescription();
 
+    @NotNull
     public static List<ObjectPropertyDescriptor> extractAnnotations(
         @Nullable DBPPropertySource source,
         Class<?> theClass,
         IPropertyFilter filter,
-        @Nullable String locale)
-    {
+        @Nullable String locale) {
         List<ObjectPropertyDescriptor> annoProps = new ArrayList<ObjectPropertyDescriptor>();
         extractAnnotations(source, null, theClass, annoProps, filter, locale);
         return annoProps;

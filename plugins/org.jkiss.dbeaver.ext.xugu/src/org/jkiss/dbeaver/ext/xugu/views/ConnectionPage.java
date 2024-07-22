@@ -24,6 +24,7 @@ import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
+import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Combo;
@@ -60,14 +61,20 @@ public class ConnectionPage extends ConnectionPageAbstract implements IDialogPag
 
 	private boolean activated = false;
 
-	private static ImageDescriptor LOGO_IMG = Activator.getImageDescriptor("icons/logo.png");
+	private Image logoImage = createImage("icons/logo.png");
 	private Combo serverTimezoneCombo;
 	private Combo roleCombo;
 
 	@Override
 	public void dispose() {
 		super.dispose();
+		UIUtils.dispose(logoImage);
 	}
+
+    @Override
+    public Image getImage() {
+        return logoImage;
+    }
 
 	@Override
 	public void createControl(Composite composite) {
@@ -162,11 +169,6 @@ public class ConnectionPage extends ConnectionPageAbstract implements IDialogPag
 	@Override
 	public void loadSettings() {
 		super.loadSettings();
-
-		DBPDriver driver = getSite().getDriver();
-		if (!activated) {
-			setImageDescriptor(LOGO_IMG);
-		}
 
 		// Load values from new connection info
 		DBPConnectionConfiguration connectionInfo = site.getActiveDataSource().getConnectionConfiguration();

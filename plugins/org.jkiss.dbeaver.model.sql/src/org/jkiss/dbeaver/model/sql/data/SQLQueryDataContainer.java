@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import org.jkiss.dbeaver.model.struct.DBSDataContainer;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.utils.CommonUtils;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -59,8 +60,8 @@ public class SQLQueryDataContainer implements DBSDataContainer, SQLQueryContaine
     }
 
     @Override
-    public int getSupportedFeatures() {
-        return DATA_SELECT;
+    public String[] getSupportedFeatures() {
+        return new String[] {FEATURE_DATA_SELECT, FEATURE_DATA_COUNT, FEATURE_DATA_FILTER};
     }
 
     @Override
@@ -76,7 +77,7 @@ public class SQLQueryDataContainer implements DBSDataContainer, SQLQueryContaine
         // Modify query (filters + parameters)
         DBPDataSource dataSource = session.getDataSource();
         SQLQuery sqlQuery = query;
-        String queryText = sqlQuery.getOriginalText();//.trim();
+        String queryText = sqlQuery.getText();//.trim();
         if (dataFilter != null && dataFilter.hasFilters()) {
             String filteredQueryText = dataSource.getSQLDialect().addFiltersToQuery(
                 session.getProgressMonitor(),
@@ -91,8 +92,8 @@ public class SQLQueryDataContainer implements DBSDataContainer, SQLQueryContaine
             syntaxManager.init(dataSource.getSQLDialect(), dataSource.getContainer().getPreferenceStore());
             SQLRuleManager ruleManager = new SQLRuleManager(syntaxManager);
             ruleManager.loadRules(dataSource, false);
-            SQLParserContext parserContext = new SQLParserContext(getDataSource(), syntaxManager, ruleManager, new Document(query.getOriginalText()));
-            sqlQuery.setParameters(SQLScriptParser.parseParameters(parserContext, 0, sqlQuery.getLength()));
+            SQLParserContext parserContext = new SQLParserContext(getDataSource(), syntaxManager, ruleManager, new Document(query.getText()));
+            sqlQuery.setParameters(SQLScriptParser.parseParametersAndVariables(parserContext, 0, sqlQuery.getLength()));
             if (!scriptContext.fillQueryParameters(sqlQuery, CommonUtils.isBitSet(flags, DBSDataContainer.FLAG_REFRESH))) {
                 // User canceled
                 return statistics;
@@ -182,7 +183,7 @@ public class SQLQueryDataContainer implements DBSDataContainer, SQLQueryContaine
     }
 
     @Override
-    public long countData(@NotNull DBCExecutionSource source, @NotNull DBCSession session, DBDDataFilter dataFilter, long flags)
+    public long countData(@NotNull DBCExecutionSource source, @NotNull DBCSession session, @Nullable DBDDataFilter dataFilter, long flags)
         throws DBCException
     {
         return -1;
@@ -249,7 +250,14 @@ public class SQLQueryDataContainer implements DBSDataContainer, SQLQueryContaine
 
     @Override
     public Map<String, Object> getQueryParameters() {
-        return scriptContext.getAllParameters();
+        if (query.getParameters() == null) {
+            return scriptContext.getAllParameters();
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        for (SQLQueryParameter parameter : query.getParameters()) {
+            result.put(parameter.getVarName(), parameter.getValue());
+        }
+        return result;
     }
 
     @Nullable

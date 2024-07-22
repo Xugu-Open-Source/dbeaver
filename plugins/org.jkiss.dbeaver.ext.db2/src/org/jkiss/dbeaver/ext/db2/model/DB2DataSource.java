@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2013-2016 Denis Forveille (titou10.titou10@gmail.com)
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
  */
 package org.jkiss.dbeaver.ext.db2.model;
 
-import org.eclipse.core.runtime.IAdaptable;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
@@ -71,51 +70,57 @@ import java.util.*;
  * 
  * @author Denis Forveille
  */
-public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdaptable, DBPObjectStatisticsCollector {
+public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, DBPAdaptable, DBPObjectStatisticsCollector {
 
-    private static final Log                                     LOG                = Log.getLog(DB2DataSource.class);
+    private static final Log log = Log.getLog(DB2DataSource.class);
 
-    private static final String                                  GET_SESSION_USER   = "VALUES(SESSION_USER)";
+    private static final String GET_SESSION_USER = "VALUES(SESSION_USER)";
 
-    private static final String                                  C_SCHEMA           = "SELECT * FROM SYSCAT.SCHEMATA ORDER BY SCHEMANAME WITH UR";
-    private static final String                                  C_DT               = "SELECT * FROM SYSCAT.DATATYPES WHERE METATYPE = 'S' ORDER BY TYPESCHEMA,TYPENAME WITH UR";
-    private static final String                                  C_BP               = "SELECT * FROM SYSCAT.BUFFERPOOLS ORDER BY BPNAME WITH UR";
-    private static final String                                  C_TS               = "SELECT * FROM SYSCAT.TABLESPACES ORDER BY TBSPACE WITH UR";
-    private static final String                                  C_SG               = "SELECT * FROM SYSCAT.STOGROUPS ORDER BY SGNAME WITH UR";
-    private static final String                                  C_RL               = "SELECT * FROM SYSCAT.ROLES ORDER BY ROLENAME WITH UR";
-    private static final String                                  C_VR               = "SELECT * FROM SYSCAT.VARIABLES WHERE VARMODULENAME IS NULL ORDER BY VARNAME WITH UR";
+    private static final String C_SCHEMA = "SELECT * FROM SYSCAT.SCHEMATA ORDER BY SCHEMANAME WITH UR";
+    private static final String C_DT = "SELECT * FROM SYSCAT.DATATYPES WHERE METATYPE = 'S' ORDER BY TYPESCHEMA,TYPENAME WITH UR";
+    private static final String C_BP = "SELECT * FROM SYSCAT.BUFFERPOOLS ORDER BY BPNAME WITH UR";
+    private static final String C_TS = "SELECT * FROM SYSCAT.TABLESPACES ORDER BY TBSPACE WITH UR";
+    private static final String C_SG = "SELECT * FROM SYSCAT.STOGROUPS ORDER BY SGNAME WITH UR";
+    private static final String C_RL = "SELECT * FROM SYSCAT.ROLES ORDER BY ROLENAME WITH UR";
+    private static final String C_VR = "SELECT * FROM SYSCAT.VARIABLES WHERE VARMODULENAME IS NULL ORDER BY VARNAME WITH UR";
 
-    private static final String                                  C_SV               = "SELECT * FROM SYSCAT.SERVERS ORDER BY SERVERNAME WITH UR";
-    private static final String                                  C_WR               = "SELECT * FROM SYSCAT.WRAPPERS ORDER BY WRAPNAME WITH UR";
-    private static final String                                  C_UM               = "SELECT * FROM SYSCAT.USEROPTIONS WHERE OPTION = 'REMOTE_AUTHID' ORDER BY SERVERNAME,AUTHID WITH UR";
+    private static final String C_SV = "SELECT * FROM SYSCAT.SERVERS ORDER BY SERVERNAME WITH UR";
+    private static final String C_WR = "SELECT * FROM SYSCAT.WRAPPERS ORDER BY WRAPNAME WITH UR";
+    private static final String C_UM = "SELECT * FROM SYSCAT.USEROPTIONS WHERE OPTION = 'REMOTE_AUTHID' ORDER BY SERVERNAME,AUTHID WITH UR";
 
-    private final DBSObjectCache<DB2DataSource, DB2Schema>       schemaCache        = new JDBCObjectSimpleCache<>(DB2Schema.class, C_SCHEMA);
-    private final DBSObjectCache<DB2DataSource, DB2DataType>     dataTypeCache      = new JDBCObjectSimpleCache<>(DB2DataType.class, C_DT);
-    private final DBSObjectCache<DB2DataSource, DB2Bufferpool>   bufferpoolCache    = new JDBCObjectSimpleCache<>(DB2Bufferpool.class, C_BP);
-    private final DBSObjectCache<DB2DataSource, DB2Tablespace>   tablespaceCache    = new JDBCObjectSimpleCache<>(DB2Tablespace.class, C_TS);
+    private static final String APPLICATION_NAME_PROP = "clientProgramName";
 
-    private final DBSObjectCache<DB2DataSource, DB2RemoteServer> remoteServerCache  = new JDBCObjectSimpleCache<>(DB2RemoteServer.class, C_SV);
-    private final DBSObjectCache<DB2DataSource, DB2Wrapper>      wrapperCache       = new JDBCObjectSimpleCache<>(DB2Wrapper.class, C_WR);
-    private final DBSObjectCache<DB2DataSource, DB2UserMapping>  userMappingCache   = new JDBCObjectSimpleCache<>(DB2UserMapping.class, C_UM);
+    private final DBSObjectCache<DB2DataSource, DB2Schema> schemaCache = new JDBCObjectSimpleCache<>(DB2Schema.class, C_SCHEMA);
+    private final DBSObjectCache<DB2DataSource, DB2DataType> dataTypeCache = new JDBCObjectSimpleCache<>(DB2DataType.class, C_DT);
+    private final DBSObjectCache<DB2DataSource, DB2Bufferpool> bufferpoolCache = new JDBCObjectSimpleCache<>(DB2Bufferpool.class, C_BP);
+    private final DBSObjectCache<DB2DataSource, DB2Tablespace> tablespaceCache = new JDBCObjectSimpleCache<>(DB2Tablespace.class, C_TS);
 
-    private final DB2GranteeCache                                groupCache         = new DB2GranteeCache(DB2AuthIDType.G);
-    private final DB2GranteeCache                                userCache          = new DB2GranteeCache(DB2AuthIDType.U);
+    private final DBSObjectCache<DB2DataSource, DB2RemoteServer> remoteServerCache
+        = new JDBCObjectSimpleCache<>(DB2RemoteServer.class, C_SV);
+    private final DBSObjectCache<DB2DataSource, DB2Wrapper> wrapperCache = new JDBCObjectSimpleCache<>(DB2Wrapper.class, C_WR);
+    private final DBSObjectCache<DB2DataSource, DB2UserMapping> userMappingCache = new JDBCObjectSimpleCache<>(DB2UserMapping.class, C_UM);
+
+    private final DB2GranteeCache groupCache = new DB2GranteeCache(DB2AuthIDType.G);
+    private final DB2GranteeCache userCache = new DB2GranteeCache(DB2AuthIDType.U);
 
     // Those are dependent of DB2 version
     // This is ok as they will never been called as the folder/menu is hidden in plugin.xml
-    private final DBSObjectCache<DB2DataSource, DB2StorageGroup> storagegroupCache  = new JDBCObjectSimpleCache<>(DB2StorageGroup.class, C_SG);
-    private final DBSObjectCache<DB2DataSource, DB2Role>         roleCache          = new JDBCObjectSimpleCache<>(DB2Role.class, C_RL);
-    private final DBSObjectCache<DB2DataSource, DB2Variable>     variableCache      = new JDBCObjectSimpleCache<>(DB2Variable.class, C_VR);
+    private final DBSObjectCache<DB2DataSource, DB2StorageGroup> storagegroupCache
+            = new JDBCObjectSimpleCache<>(DB2StorageGroup.class, C_SG);
+    private final DBSObjectCache<DB2DataSource, DB2Role> roleCache = new JDBCObjectSimpleCache<>(DB2Role.class, C_RL);
+    private final DBSObjectCache<DB2DataSource, DB2Variable> variableCache = new JDBCObjectSimpleCache<>(DB2Variable.class, C_VR);
 
-    private List<DB2Parameter>                                   listDBParameters;
-    private List<DB2Parameter>                                   listDBMParameters;
-    private List<DB2XMLString>                                   listXMLStrings;
 
-    private DB2CurrentUserPrivileges                             db2CurrentUserPrivileges;
+    private List<DB2Parameter> listDBParameters;
+    private List<DB2Parameter> listDBMParameters;
+    private List<DB2XMLString> listXMLStrings;
 
-    private String                                               schemaForExplainTables;
+    private DB2CurrentUserPrivileges db2CurrentUserPrivileges;
 
-    private Double                                               version;                                                                                                                  // Database
+    private String schemaForExplainTables;
+
+    private Double version;
+    private char serverVariant;
     private volatile transient boolean hasStatistics;
     // Version
 
@@ -164,13 +169,20 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
             }
 
         } catch (SQLException e) {
-            LOG.warn("Error reading active schema", e);
+            log.warn("Error reading active schema", e);
         }
 
+        try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load server variant")) {
+            this.serverVariant = DB2Utils.getServerVariant(monitor, session);
+        } catch (SQLException e) {
+            log.warn("Unable to determine server variant", e);
+        }
+        
+        ((JDBCObjectSimpleCache) dataTypeCache).setCaseSensitive(false);
         try {
             this.dataTypeCache.getAllObjects(monitor, this);
         } catch (DBException e) {
-            LOG.warn("Error reading types info", e);
+            log.warn("Error reading types info", e);
             this.dataTypeCache.setCache(Collections.<DB2DataType> emptyList());
         }
     }
@@ -212,13 +224,6 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
     // Connection related Info
     // -----------------------
 
-    @NotNull
-    @Override
-    public DB2DataSource getDataSource()
-    {
-        return this;
-    }
-
     @Override
     protected DBPDataSourceInfo createDataSourceInfo(DBRProgressMonitor monitor, @NotNull JDBCDatabaseMetaData metaData)
     {
@@ -230,10 +235,10 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
             version = Integer.valueOf(metaData.getDatabaseMajorVersion()).doubleValue();
             version += Integer.valueOf(metaData.getDatabaseMinorVersion()).doubleValue() / 10;
         } catch (SQLException e) {
-            LOG.warn("SQLException when reading database version. Set it to lowest supported version : " + DB2Constants.DB2v9_1
+            log.warn("SQLException when reading database version. Set it to lowest supported version : " + DB2Constants.DB2v9_1
                 + " : " + e.getMessage());
         }
-        LOG.debug(getName() + " is version v" + version);
+        log.debug(getName() + " is version v" + version);
 
         // disable result set scroll
         // (it doesn't work for some queries and some column types so I have to disable it for ALL queries).
@@ -258,12 +263,20 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
     }
 
     @Override
-    protected Map<String, String> getInternalConnectionProperties(DBRProgressMonitor monitor, DBPDriver driver, JDBCExecutionContext context, String purpose, DBPConnectionConfiguration connectionInfo) throws DBCException
-    {
+    protected Map<String, String> getInternalConnectionProperties(
+        @NotNull DBRProgressMonitor monitor,
+        @NotNull DBPDriver driver,
+        @Nullable JDBCExecutionContext context,
+        @NotNull String purpose,
+        @NotNull DBPConnectionConfiguration connectionInfo
+    ) throws DBCException {
         Map<String, String> props = new HashMap<>();
         props.putAll(DB2DataSourceProvider.getConnectionsProps());
         if (getContainer().isConnectionReadOnly()) {
             props.put(DB2Constants.PROP_READ_ONLY, "true");
+        }
+        if (!getContainer().getPreferenceStore().getBoolean(ModelPreferences.META_CLIENT_NAME_DISABLE)) {
+            props.put(APPLICATION_NAME_PROP, GeneralUtils.getProductName());
         }
         return props;
     }
@@ -278,7 +291,7 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
                 db2Connection.setClientInfo(JDBCConstants.APPLICATION_NAME_CLIENT_PROPERTY,
                     CommonUtils.truncateString(DBUtils.getClientApplicationName(getContainer(), context, purpose), 255));
             } catch (Throwable e) {
-                // just ignore
+                log.debug(e);
             }
         }
 
@@ -321,7 +334,7 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
         try {
             return getDataTypes(new VoidProgressMonitor());
         } catch (DBException e) {
-            LOG.error("DBException occurred when reading system dataTypes: ", e);
+            log.error("DBException occurred when reading system dataTypes: ", e);
             return null;
         }
     }
@@ -332,7 +345,7 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
         try {
             return getDataType(new VoidProgressMonitor(), typeName);
         } catch (DBException e) {
-            LOG.error("DBException occurred when reading system dataTYpe : " + typeName, e);
+            log.error("DBException occurred when reading system dataTYpe : " + typeName, e);
             return null;
         }
     }
@@ -406,7 +419,7 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
         }
         Boolean ok = DB2Utils.checkExplainTables(monitor, this, sessionUserSchema);
         if (ok) {
-            LOG.debug("Valid explain tables found in " + sessionUserSchema);
+            log.debug("Valid explain tables found in " + sessionUserSchema);
             schemaForExplainTables = sessionUserSchema;
             return schemaForExplainTables;
         }
@@ -414,14 +427,14 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
         // Verify explain table from SYSTOOLS
         ok = DB2Utils.checkExplainTables(monitor, this, DB2Constants.EXPLAIN_SCHEMA_NAME_DEFAULT);
         if (ok) {
-            LOG.debug("Valid explain tables found in " + DB2Constants.EXPLAIN_SCHEMA_NAME_DEFAULT);
+            log.debug("Valid explain tables found in " + DB2Constants.EXPLAIN_SCHEMA_NAME_DEFAULT);
             schemaForExplainTables = DB2Constants.EXPLAIN_SCHEMA_NAME_DEFAULT;
             return schemaForExplainTables;
         }
         
         DB2PlanConfig cfg = new DB2PlanConfig();
         DBEObjectConfigurator configurator = GeneralUtils.adapt(cfg, DBEObjectConfigurator.class);
-        if (configurator == null || configurator.configureObject(monitor, this, cfg) == null) {
+        if (configurator == null || configurator.configureObject(monitor, this, cfg, Collections.emptyMap()) == null) {
             return null;
         }
 
@@ -586,7 +599,7 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
             try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load Database Parameters")) {
                 listDBParameters = DB2Utils.readDBCfg(monitor, session);
             } catch (SQLException e) {
-                LOG.warn(e);
+                log.warn(e);
             }
         }
         return listDBParameters;
@@ -598,7 +611,7 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
             try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load Instance Parameters")) {
                 listDBMParameters = DB2Utils.readDBMCfg(monitor, session);
             } catch (SQLException e) {
-                LOG.warn(e);
+                log.warn(e);
             }
         }
         return listDBMParameters;
@@ -610,7 +623,7 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
             try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load Global XMLStrings")) {
                 listXMLStrings = DB2Utils.readXMLStrings(monitor, session);
             } catch (SQLException e) {
-                LOG.warn(e);
+                log.warn(e);
             }
         }
         return listXMLStrings;
@@ -672,6 +685,18 @@ public class DB2DataSource extends JDBCDataSource implements DBCQueryPlanner, IA
     public Double getVersion()
     {
         return version;
+    }
+
+    // -------------------------
+    // Variant Testing
+    // -------------------------
+
+    public boolean isBigSQL() {
+        return 'B' == serverVariant;
+    }
+
+    public boolean isWarehouse() {
+        return 'D' == serverVariant;
     }
 
     // -------------------------

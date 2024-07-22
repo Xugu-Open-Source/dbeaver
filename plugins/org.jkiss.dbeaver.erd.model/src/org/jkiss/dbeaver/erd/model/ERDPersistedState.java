@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,9 @@
  */
 package org.jkiss.dbeaver.erd.model;
 
-import org.eclipse.core.resources.IFile;
-import org.eclipse.core.runtime.CoreException;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.app.DBPProject;
-import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.xml.XMLException;
 import org.jkiss.utils.xml.XMLUtils;
@@ -79,16 +76,12 @@ public class ERDPersistedState {
     public static final String TAG_NOTES = "notes";
     public static final String TAG_NOTE = "note";
 
-    public static List<DBPDataSourceContainer> extractContainers(IFile resource)
+    public static List<DBPDataSourceContainer> extractContainers(DBPProject project, InputStream is)
         throws IOException, XMLException, DBException
     {
         List<DBPDataSourceContainer> containers = new ArrayList<>();
 
-        DBPProject projectMeta = DBWorkbench.getPlatform().getWorkspace().getProject(resource.getProject());
-        if (projectMeta == null) {
-            return containers;
-        }
-        try (InputStream is = resource.getContents()) {
+        {
             final Document document = XMLUtils.parseDocument(is);
             final Element diagramElem = document.getDocumentElement();
 
@@ -99,15 +92,13 @@ public class ERDPersistedState {
                     String dsId = dsElem.getAttribute(ATTR_ID);
                     if (!CommonUtils.isEmpty(dsId)) {
                         // Get connected datasource
-                        final DBPDataSourceContainer dataSourceContainer = projectMeta.getDataSourceRegistry().getDataSource(dsId);
+                        final DBPDataSourceContainer dataSourceContainer = project.getDataSourceRegistry().getDataSource(dsId);
                         if (dataSourceContainer != null) {
                             containers.add(dataSourceContainer);
                         }
                     }
                 }
             }
-        } catch (CoreException e) {
-            throw new DBException("Error reading resource contents", e);
         }
         return containers;
     }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ import org.jkiss.dbeaver.ui.dialogs.HelpEnabledDialog;
 import org.jkiss.dbeaver.ui.internal.UIConnectionMessages;
 import org.jkiss.utils.CommonUtils;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Set;
 
@@ -45,8 +45,8 @@ public class DriverLibraryDetailsDialog extends HelpEnabledDialog
 {
     private static final String DIALOG_ID = "DBeaver.DriverLibraryDetailsDialog";//$NON-NLS-1$
 
-    private DBPDriver driver;
-    private DBPDriverLibrary library;
+    private final DBPDriver driver;
+    private final DBPDriverLibrary library;
 
     public DriverLibraryDetailsDialog(Shell shell, DBPDriver driver, DBPDriverLibrary library)
     {
@@ -62,12 +62,12 @@ public class DriverLibraryDetailsDialog extends HelpEnabledDialog
     }
 
     @Override
-    protected Control createDialogArea(Composite parent)
+    protected Composite createDialogArea(Composite parent)
     {
         getShell().setText(NLS.bind(UIConnectionMessages.dialog_edit_driver_text_driver_library, driver.getName(), library.getDisplayName())); //$NON-NLS-2$
         getShell().setImage(DBeaverIcons.getImage(library.getIcon()));
 
-        Composite group = (Composite) super.createDialogArea(parent);
+        Composite group = super.createDialogArea(parent);
         GridData gd = new GridData(GridData.FILL_BOTH);
         gd.widthHint = 500;
         group.setLayoutData(gd);
@@ -88,9 +88,9 @@ public class DriverLibraryDetailsDialog extends HelpEnabledDialog
         createLicenseTab(tabs);
         createDetailsTab(tabs);
 
-        final File localFile = library.getLocalFile();
+        final Path localFile = library.getLocalFile();
         if (localFile != null) {
-            fileText.setText(localFile.getAbsolutePath());
+            fileText.setText(localFile.toAbsolutePath().toString());
         }
 
         return group;

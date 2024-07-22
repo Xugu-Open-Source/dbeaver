@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@ import org.jkiss.dbeaver.model.data.DBDDataFilter;
 import org.jkiss.dbeaver.model.exec.DBCAttributeMetaData;
 import org.jkiss.dbeaver.model.exec.DBCEntityMetaData;
 import org.jkiss.dbeaver.model.exec.DBCException;
+import org.jkiss.dbeaver.model.impl.sql.SQLDialectQueryGenerator;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLDialect;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
@@ -60,12 +61,12 @@ public class SQLSemanticProcessor {
 
     private static final Log log = Log.getLog(SQLSemanticProcessor.class);
 
-    private static final String NESTED_QUERY_AlIAS = "z_q";
-
+    private static final boolean ALLOW_COMPLEX_PARSING = false;
 
     public static Statement parseQuery(@Nullable SQLDialect dialect, @NotNull String sql) throws DBCException {
         CCJSqlParser parser = new CCJSqlParser(new StringProvider(sql));
         try {
+            parser.withAllowComplexParsing(ALLOW_COMPLEX_PARSING);
             if (dialect != null) {
                 // Enable square brackets
                 for (String[] qs : ArrayUtils.safeArray(dialect.getIdentifierQuoteStrings())) {
@@ -77,7 +78,35 @@ public class SQLSemanticProcessor {
             }
             return parser.Statement();
         } catch (Exception e) {
-            throw new DBCException("Error parsing SQL query", e);
+            throw new DBCException("Error parsing SQL query: " + e.getMessage(), e);
+        }
+    }
+
+    public static Statement parseQuery(@NotNull String sql) throws DBCException {
+        return parseQuery(null, sql);
+    }
+
+    public static Expression parseExpression(String expression) throws DBCException {
+        return parseExpression(expression, true);
+    }
+
+    public static Expression parseExpression(String expression, boolean allowPartialParse) throws DBCException {
+        try {
+            return CCJSqlParserUtil.parseExpression(expression, allowPartialParse);
+        } catch (JSQLParserException e) {
+            throw new DBCException("Error parsing conditional SQL expression", e);
+        }
+    }
+
+    public static Expression parseCondExpression(String expression) throws DBCException {
+        return parseCondExpression(expression, true);
+    }
+
+    public static Expression parseCondExpression(String expression, boolean allowPartialParse) throws DBCException {
+        try {
+            return CCJSqlParserUtil.parseCondExpression(expression, allowPartialParse);
+        } catch (JSQLParserException e) {
+            throw new DBCException("Error parsing SQL expression", e);
         }
     }
 
@@ -95,20 +124,21 @@ public class SQLSemanticProcessor {
         }
     }
 
-    // Applying filters changes query formatting (thus it changes column names in expressions)
-    // Solution - always wrap query in subselect + add patched WHERE and ORDER
-    // It is configurable
+    /**
+     *  Applying filters changes query formatting (thus it changes column names in expressions)
+     *  Solution - always wrap query in subselect + add patched WHERE and ORDER
+     *  It is configurable
+     *
+     * @deprecated Use {@link SQLDialectQueryGenerator#getQueryWithAppliedFilters(DBRProgressMonitor, DBPDataSource, String, DBDDataFilter)} instead
+     */
+    @Deprecated
     public static String addFiltersToQuery(DBRProgressMonitor monitor, final DBPDataSource dataSource, String sqlQuery, final DBDDataFilter dataFilter) {
-        boolean supportSubqueries = dataSource.getSQLDialect().supportsSubqueries();
-        if (supportSubqueries && dataSource.getContainer().getPreferenceStore().getBoolean(ModelPreferences.SQL_FILTER_FORCE_SUBSELECT)) {
-            return wrapQuery(dataSource, sqlQuery, dataFilter);
-        }
-        String newQuery = injectFiltersToQuery(monitor, dataSource, sqlQuery, dataFilter);
-        if (newQuery == null) {
-            // Let's try subquery though.
-            return wrapQuery(dataSource, sqlQuery, dataFilter);
-        }
-        return newQuery;
+        return dataSource.getSQLDialect().getQueryGenerator().getQueryWithAppliedFilters(monitor, dataSource, sqlQuery,
+            dataFilter);
+    }
+
+    public static boolean isForceFilterSubQuery(DBPDataSource dataSource) {
+        return dataSource.getSQLDialect().supportsSubqueries() && dataSource.getContainer().getPreferenceStore().getBoolean(ModelPreferences.SQL_FILTER_FORCE_SUBSELECT);
     }
 
     public static String injectFiltersToQuery(DBRProgressMonitor monitor, final DBPDataSource dataSource, String sqlQuery, final DBDDataFilter dataFilter) {
@@ -126,31 +156,23 @@ public class SQLSemanticProcessor {
         return null;
     }
 
+
+    /**
+     *
+     * @deprecated Use {@link SQLDialectQueryGenerator#getWrappedFilterQuery(DBPDataSource, String, DBDDataFilter)} instead
+     */
     public static String wrapQuery(final DBPDataSource dataSource, String sqlQuery, final DBDDataFilter dataFilter) {
-        // Append filter conditions to query
-        StringBuilder modifiedQuery = new StringBuilder(sqlQuery.length() + 100);
-        modifiedQuery.append("SELECT * FROM (\n");
-        modifiedQuery.append(sqlQuery);
-        modifiedQuery.append("\n) ").append(NESTED_QUERY_AlIAS);
-        if (dataFilter.hasConditions()) {
-            modifiedQuery.append(" WHERE ");
-            SQLUtils.appendConditionString(dataFilter, dataSource, NESTED_QUERY_AlIAS, modifiedQuery, true);
-        }
-        if (dataFilter.hasOrdering()) {
-            modifiedQuery.append(" ORDER BY "); //$NON-NLS-1$
-            SQLUtils.appendOrderString(dataFilter, dataSource, NESTED_QUERY_AlIAS, modifiedQuery);
-        }
-        return modifiedQuery.toString();
+        return dataSource.getSQLDialect().getQueryGenerator().getWrappedFilterQuery(dataSource, sqlQuery, dataFilter);
     }
 
     private static boolean patchSelectQuery(DBRProgressMonitor monitor, DBPDataSource dataSource, PlainSelect select, DBDDataFilter filter) throws JSQLParserException, DBException {
         // WHERE
         if (filter.hasConditions()) {
             for (DBDAttributeConstraint co : filter.getConstraints()) {
-                if (co.hasCondition()) {
-                    Table table = getConstraintTable(select, co);
+                if (co.hasCondition() && !isDynamicAttribute(co.getAttribute())) {
+                    Table table = getConstraintTable(dataSource, select, co);
                     if (!isValidTableColumn(monitor, dataSource, table, co)) {
-                        table = null;
+                        return false;
                     }
                     if (table != null) {
                         if (table.getAlias() != null) {
@@ -159,7 +181,7 @@ public class SQLSemanticProcessor {
                             co.setEntityAlias(table.getName());
                         }
                     } else {
-                        co.setEntityAlias(null);
+                        return false;
                     }
                 }
             }
@@ -180,7 +202,7 @@ public class SQLSemanticProcessor {
                 for (DBDAttributeConstraint co : orderConstraints) {
                     String columnName = co.getAttributeName();
                     boolean forceNumeric = filter.hasNameDuplicates(columnName) || !SQLUtils.PATTERN_SIMPLE_NAME.matcher(columnName).matches();
-                    Expression orderExpr = getOrderConstraintExpression(monitor, dataSource, select, co, forceNumeric);
+                    Expression orderExpr = getOrderConstraintExpression(monitor, dataSource, select, filter, co, forceNumeric);
                     OrderByElement element = new OrderByElement();
                     element.setExpression(orderExpr);
                     if (co.isOrderDescending()) {
@@ -204,11 +226,25 @@ public class SQLSemanticProcessor {
         return true;
     }
 
+    private static boolean isDynamicAttribute(@Nullable DBSAttributeBase attribute) {
+        if (!(attribute instanceof DBDAttributeBinding)) {
+            return DBUtils.isDynamicAttribute(attribute);
+        }
+        DBDAttributeBinding attributeBinding = ((DBDAttributeBinding) attribute);
+        return DBUtils.isDynamicAttribute(attributeBinding.getAttribute());
+    }
+
     private static boolean isValidTableColumn(DBRProgressMonitor monitor, DBPDataSource dataSource, Table table, DBDAttributeConstraint co) throws DBException {
         DBSAttributeBase attribute = co.getAttribute();
+
+        if (isDynamicAttribute(attribute)) {
+            return true;
+        }
+
         if (attribute instanceof DBDAttributeBinding) {
             attribute = ((DBDAttributeBinding) attribute).getMetaAttribute();
         }
+
         if (table != null && attribute instanceof DBCAttributeMetaData) {
             DBSEntityAttribute entityAttribute = null;
             DBCEntityMetaData entityMetaData = ((DBCAttributeMetaData) attribute).getEntityMetaData();
@@ -224,14 +260,18 @@ public class SQLSemanticProcessor {
         return true;
     }
 
-    private static Expression getOrderConstraintExpression(DBRProgressMonitor monitor, DBPDataSource dataSource, PlainSelect select, DBDAttributeConstraint co, boolean forceNumeric) throws JSQLParserException, DBException {
+    private static Expression getOrderConstraintExpression(DBRProgressMonitor monitor, DBPDataSource dataSource, PlainSelect select, DBDDataFilter filter, DBDAttributeConstraint co, boolean forceNumeric) throws DBException {
         Expression orderExpr;
         String attrName = DBUtils.getQuotedIdentifier(dataSource, co.getAttributeName());
         if (forceNumeric || attrName.isEmpty()) {
-            orderExpr = new LongValue(co.getOrderPosition());
+            int orderColumnIndex = SQLUtils.getConstraintOrderIndex(filter, co);
+            if (orderColumnIndex == -1) {
+                throw new DBException("Can't generate column order: no position found");
+            }
+            orderExpr = new LongValue(orderColumnIndex);
         } else if (CommonUtils.isJavaIdentifier(attrName)) {
             // Use column table only if there are multiple source tables (joins)
-            Table orderTable = CommonUtils.isEmpty(select.getJoins()) ? null : getConstraintTable(select, co);
+            Table orderTable = CommonUtils.isEmpty(select.getJoins()) ? null : getConstraintTable(dataSource, select, co);
 
             if (!isValidTableColumn(monitor, dataSource, orderTable, co)) {
                 orderTable = null;
@@ -240,7 +280,7 @@ public class SQLSemanticProcessor {
             orderExpr = new Column(orderTable, attrName);
         } else {
             // TODO: set tableAlias for all column references in expression
-            orderExpr = CCJSqlParserUtil.parseExpression(attrName);
+            orderExpr = SQLSemanticProcessor.parseExpression(attrName);
             //orderExpr = new CustomExpression(attrName);
             //orderExpr = new LongValue(co.getAttribute().getOrdinalPosition() + 1);
         }
@@ -252,7 +292,7 @@ public class SQLSemanticProcessor {
      * Searches in FROM and JOIN
      */
     @Nullable
-    public static Table getConstraintTable(PlainSelect select, DBDAttributeConstraint constraint) {
+    public static Table getConstraintTable(DBPDataSource dataSource, PlainSelect select, DBDAttributeConstraint constraint) {
         String constrTable;
         DBSAttributeBase ca = constraint.getAttribute();
         if (ca instanceof DBDAttributeBinding) {
@@ -266,12 +306,12 @@ public class SQLSemanticProcessor {
             return null;
         }
         FromItem fromItem = select.getFromItem();
-        Table table = findTableInFrom(fromItem, constrTable);
+        Table table = findTableInFrom(dataSource, fromItem, constrTable);
         if (table == null) {
             // Maybe it is a join
             if (!CommonUtils.isEmpty(select.getJoins())) {
                 for (Join join : select.getJoins()) {
-                    table = findTableInFrom(join.getRightItem(), constrTable);
+                    table = findTableInFrom(dataSource, join.getRightItem(), constrTable);
                     if (table != null) {
                         break;
                     }
@@ -293,8 +333,9 @@ public class SQLSemanticProcessor {
     }
 
     @Nullable
-    private static Table findTableInFrom(FromItem fromItem, String tableName) {
-        if (fromItem instanceof Table && tableName.equals(((Table) fromItem).getName())) {
+    private static Table findTableInFrom(DBPDataSource dataSource, FromItem fromItem, String tableName) {
+        if (fromItem instanceof Table && 
+            DBUtils.getUnQuotedIdentifier(dataSource, tableName).equals(DBUtils.getUnQuotedIdentifier(dataSource, ((Table) fromItem).getName()))) {
             return (Table) fromItem;
         }
         return null;
@@ -308,7 +349,7 @@ public class SQLSemanticProcessor {
             if (fromItem instanceof Table && equalTables((Table) fromItem, tableName)) {
                 return (Table) fromItem;
             }
-            for (Join join : ((PlainSelect) selectBody).getJoins()) {
+            for (Join join : CommonUtils.safeCollection(((PlainSelect) selectBody).getJoins())) {
                 if (join.getRightItem() instanceof Table && equalTables((Table) join.getRightItem(), tableName)) {
                     return (Table) join.getRightItem();
                 }
@@ -328,17 +369,12 @@ public class SQLSemanticProcessor {
         }
     }
 
-    public static void addWhereToSelect(PlainSelect select, String condString) throws JSQLParserException {
-        Expression filterWhere;
-        try {
-            filterWhere = CCJSqlParserUtil.parseCondExpression(condString);
-        } catch (JSQLParserException e) {
-            throw new JSQLParserException("Bad query condition: [" + condString + "]", e);
-        }
+    public static void addWhereToSelect(PlainSelect select, String condString) throws DBCException {
+        Expression filterWhere = SQLSemanticProcessor.parseCondExpression(condString);
         addWhereToSelect(select, filterWhere);
     }
 
-    public static void addWhereToSelect(PlainSelect select, Expression conditionExpr) throws JSQLParserException {
+    public static void addWhereToSelect(PlainSelect select, Expression conditionExpr) {
         Expression sourceWhere = select.getWhere();
         if (sourceWhere == null) {
             select.setWhere(conditionExpr);

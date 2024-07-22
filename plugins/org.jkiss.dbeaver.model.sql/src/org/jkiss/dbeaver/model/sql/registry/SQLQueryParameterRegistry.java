@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,11 +27,14 @@ import org.jkiss.utils.xml.XMLBuilder;
 import org.jkiss.utils.xml.XMLException;
 import org.xml.sax.Attributes;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 
-public class SQLQueryParameterRegistry
-{
+public class SQLQueryParameterRegistry {
     private static final Log log = Log.getLog(SQLQueryParameterRegistry.class);
 
     public static final String CONFIG_FILE_NAME = "parameter-bindings.xml"; //$NON-NLS-1$
@@ -50,12 +53,10 @@ public class SQLQueryParameterRegistry
         }
     }
 
-    private SQLQueryParameterRegistry()
-    {
+    private SQLQueryParameterRegistry() {
     }
 
-    public static synchronized SQLQueryParameterRegistry getInstance()
-    {
+    public static synchronized SQLQueryParameterRegistry getInstance() {
         if (registry == null) {
             registry = new SQLQueryParameterRegistry();
             registry.loadParameters();
@@ -67,23 +68,24 @@ public class SQLQueryParameterRegistry
         return new ArrayList<>(parameterMap.values());
     }
 
-    public ParameterInfo getParameter(String name)
-    {
-        return parameterMap.get(name.toUpperCase(Locale.ENGLISH));
+    public ParameterInfo getParameter(String name) {
+        return parameterMap.get(name);
     }
 
-    public void setParameter(String name, String value)
-    {
-        parameterMap.put(name.toUpperCase(Locale.ENGLISH), new ParameterInfo(name, value));
+    public void setParameter(String name, String value) {
+        parameterMap.put(name, new ParameterInfo(name, value));
     }
 
-    private void loadParameters()
-    {
-        File storeFile = DBWorkbench.getPlatform().getConfigurationFile(CONFIG_FILE_NAME);
-        if (!storeFile.exists()) {
+    public void deleteParameter(String name) {
+        parameterMap.remove(name);
+    }
+
+    private void loadParameters() {
+        Path storeFile = DBWorkbench.getPlatform().getLocalConfigurationFile(CONFIG_FILE_NAME);
+        if (!Files.exists(storeFile)) {
             return;
         }
-        try (InputStream is = new FileInputStream(storeFile)) {
+        try (InputStream is = Files.newInputStream(storeFile)) {
             SAXReader parser = new SAXReader(is);
             try {
                 parser.parse(new ParametersParser());
@@ -91,16 +93,15 @@ public class SQLQueryParameterRegistry
                 throw new DBException("Parameters binding parse error", ex);
             }
         } catch (DBException ex) {
-            log.warn("Can't load parameters binding from " + storeFile.getPath(), ex);
+            log.warn("Can't load parameters binding from " + storeFile, ex);
         } catch (IOException ex) {
             log.warn("IO error", ex);
         }
     }
 
-    public void save()
-    {
-        File storeFile = DBWorkbench.getPlatform().getConfigurationFile(CONFIG_FILE_NAME);
-        try (OutputStream os = new FileOutputStream(storeFile)) {
+    public void save() {
+        Path storeFile = DBWorkbench.getPlatform().getLocalConfigurationFile(CONFIG_FILE_NAME);
+        try (OutputStream os = Files.newOutputStream(storeFile)) {
             XMLBuilder xml = new XMLBuilder(os, GeneralUtils.UTF8_ENCODING);
             xml.setButify(true);
             xml.startElement("bindings");
@@ -112,21 +113,18 @@ public class SQLQueryParameterRegistry
             }
             xml.endElement();
             xml.flush();
-        }
-        catch (IOException ex) {
+        } catch (IOException ex) {
             log.warn("IO error", ex);
         }
     }
 
-    private class ParametersParser implements SAXListener
-    {
+    private class ParametersParser implements SAXListener {
         private String curParameterName, curParameterValue;
         private StringBuilder legacyParameterValue = new StringBuilder();
 
         @Override
         public void saxStartElement(SAXReader reader, String namespaceURI, String localName, Attributes atts)
-            throws XMLException
-        {
+            throws XMLException {
             if (localName.equals(TAG_PARAMETER)) {
                 curParameterName = atts.getValue("name");
                 curParameterValue = atts.getValue("value");
@@ -135,8 +133,7 @@ public class SQLQueryParameterRegistry
 
         @Override
         public void saxText(SAXReader reader, String data)
-            throws XMLException
-        {
+            throws XMLException {
             if (curParameterName != null) {
                 legacyParameterValue.append(data);
             }
@@ -144,8 +141,7 @@ public class SQLQueryParameterRegistry
 
         @Override
         public void saxEndElement(SAXReader reader, String namespaceURI, String localName)
-            throws XMLException
-        {
+            throws XMLException {
             if (localName.equals(TAG_PARAMETER) && curParameterName != null) {
                 if (curParameterValue == null) {
                     String legacyValue = legacyParameterValue.toString().trim();
@@ -158,7 +154,7 @@ public class SQLQueryParameterRegistry
                     curParameterValue = legacyValue;
                 }
                 parameterMap.put(
-                    curParameterName.toUpperCase(),
+                    curParameterName,
                     new ParameterInfo(curParameterName, curParameterValue));
                 curParameterName = null;
                 legacyParameterValue.setLength(0);
