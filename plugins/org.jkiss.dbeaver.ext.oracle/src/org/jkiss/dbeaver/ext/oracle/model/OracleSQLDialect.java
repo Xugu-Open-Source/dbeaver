@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package org.jkiss.dbeaver.ext.oracle.model;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.oracle.data.OracleBinaryFormatter;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.data.DBDBinaryFormatter;
@@ -28,22 +30,35 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSource;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCSQLDialect;
 import org.jkiss.dbeaver.model.impl.sql.BasicSQLDialect;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
-import org.jkiss.dbeaver.model.sql.SQLConstants;
-import org.jkiss.dbeaver.model.sql.SQLExpressionFormatter;
+import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
+import org.jkiss.dbeaver.model.sql.*;
+import org.jkiss.dbeaver.model.sql.parser.SQLParserActionKind;
+import org.jkiss.dbeaver.model.sql.parser.SQLRuleManager;
+import org.jkiss.dbeaver.model.sql.parser.SQLTokenPredicateSet;
+import org.jkiss.dbeaver.model.sql.parser.tokens.SQLTokenType;
+import org.jkiss.dbeaver.model.sql.parser.tokens.predicates.TokenPredicateFactory;
+import org.jkiss.dbeaver.model.sql.parser.tokens.predicates.TokenPredicateSet;
+import org.jkiss.dbeaver.model.sql.parser.tokens.predicates.TokenPredicatesCondition;
 import org.jkiss.dbeaver.model.struct.DBSDataType;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedure;
+import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureType;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.Arrays;
+import java.util.Locale;
+import java.util.UUID;
 
 /**
  * Oracle SQL dialect
  */
-public class OracleSQLDialect extends JDBCSQLDialect {
+public class OracleSQLDialect extends JDBCSQLDialect
+    implements SQLDataTypeConverter, SQLDialectDDLExtension, SQLDialectSchemaController {
 
-    private static final String[] EXEC_KEYWORDS = new String[]{ "call" };
+    private static final Log log = Log.getLog(OracleSQLDialect.class);
+
+    private static final String[] EXEC_KEYWORDS = new String[]{"call"};
 
     private static final String[] ORACLE_NON_TRANSACTIONAL_KEYWORDS = ArrayUtils.concatArrays(
         BasicSQLDialect.NON_TRANSACTIONAL_KEYWORDS,
@@ -55,7 +70,6 @@ public class OracleSQLDialect extends JDBCSQLDialect {
 
     private static final String[][] ORACLE_BEGIN_END_BLOCK = new String[][]{
         {SQLConstants.BLOCK_BEGIN, SQLConstants.BLOCK_END},
-        {"IF", SQLConstants.BLOCK_END},
         {"LOOP", SQLConstants.BLOCK_END + " LOOP"},
         {SQLConstants.KEYWORD_CASE, SQLConstants.BLOCK_END + " " + SQLConstants.KEYWORD_CASE},
     };
@@ -70,7 +84,7 @@ public class OracleSQLDialect extends JDBCSQLDialect {
         "IS",
     };
 
-    public static final String[] OTHER_TYPES_FUNCTIONS = {
+    private static final String[] OTHER_TYPES_FUNCTIONS = {
         //functions without parentheses #8710
         "CURRENT_DATE",
         "CURRENT_TIMESTAMP",
@@ -80,7 +94,7 @@ public class OracleSQLDialect extends JDBCSQLDialect {
         "SYSTIMESTAMP"
     };
 
-    public static final String[] ADVANCED_KEYWORDS = {
+    private static final String[] ADVANCED_KEYWORDS = {
         "REPLACE",
         "PACKAGE",
         "FUNCTION",
@@ -106,9 +120,17 @@ public class OracleSQLDialect extends JDBCSQLDialect {
         "BULK",
         "ELSIF",
         "EXIT",
+        "SUBPARTITION",
+        "TEMPFILE",
+        "DATAFILE",
+        "TABLESPACE"
     };
+
+    private static final String AUTO_INCREMENT_KEYWORD = "GENERATED ALWAYS AS IDENTITY";
     private boolean crlfBroken;
     private DBPPreferenceStore preferenceStore;
+
+    private SQLTokenPredicateSet cachedDialectSkipTokenPredicates = null;
 
     public OracleSQLDialect() {
         super("Oracle", "oracle");
@@ -351,6 +373,14 @@ public class OracleSQLDialect extends JDBCSQLDialect {
 
         addKeywords(Arrays.asList(OTHER_TYPES_FUNCTIONS), DBPKeywordType.OTHER);
         turnFunctionIntoKeyword("TRUNCATE");
+
+        cachedDialectSkipTokenPredicates = makeDialectSkipTokenPredicates(dataSource);
+    }
+
+    @Override
+    protected void loadDataTypesFromDatabase(JDBCDataSource dataSource) {
+        super.loadDataTypesFromDatabase(dataSource);
+        addDataTypes(OracleDataType.PREDEFINED_TYPES.keySet());
     }
 
     @Override
@@ -379,6 +409,11 @@ public class OracleSQLDialect extends JDBCSQLDialect {
     @Override
     public MultiValueInsertMode getDefaultMultiValueInsertMode() {
         return MultiValueInsertMode.INSERT_ALL;
+    }
+
+    @Override
+    public String getLikeEscapeClause(@NotNull String escapeChar) {
+        return " ESCAPE " + getQuotedString(escapeChar);
     }
 
     @NotNull
@@ -441,8 +476,20 @@ public class OracleSQLDialect extends JDBCSQLDialect {
 
     @Override
     protected String getStoredProcedureCallInitialClause(DBSProcedure proc) {
-        String schemaName = proc.getParentObject().getName();
-        return "CALL " + schemaName + "." + proc.getName();
+        if (proc.getProcedureType() == DBSProcedureType.FUNCTION) {
+            return SQLConstants.KEYWORD_SELECT + " " + proc.getFullyQualifiedName(DBPEvaluationContext.DML);
+        } else {
+            return "CALL " + proc.getFullyQualifiedName(DBPEvaluationContext.DML);
+        }
+    }
+
+    @NotNull
+    @Override
+    protected String getProcedureCallEndClause(DBSProcedure procedure) {
+        if (procedure.getProcedureType() == DBSProcedureType.FUNCTION) {
+            return "FROM DUAL";
+        }
+        return super.getProcedureCallEndClause(procedure);
     }
 
     @Override
@@ -476,8 +523,10 @@ public class OracleSQLDialect extends JDBCSQLDialect {
                 if (precision == 0 || precision > OracleConstants.NUMERIC_MAX_PRECISION) {
                     precision = OracleConstants.NUMERIC_MAX_PRECISION;
                 }
-                if (scale != null && precision > 0) {
-                    return "(" + precision + ',' + scale + ")";
+                if (scale != null || precision > 0) {
+                    // 38 - is default precision value. And we can not add scale here.
+                    // It will be changed to 0 automatically after table creation from the Oracle side.
+                    return "(" + (precision > 0 ? precision : "38") + (scale != null ? "," + scale : "") +  ")";
                 }
                 break;
             case OracleConstants.TYPE_INTERVAL_DAY_SECOND:
@@ -502,5 +551,218 @@ public class OracleSQLDialect extends JDBCSQLDialect {
                 return "";
         }
         return super.getColumnTypeModifiers(dataSource, column, typeName, dataKind);
+    }
+
+    @Override
+    public String convertExternalDataType(@NotNull SQLDialect sourceDialect, @NotNull DBSTypedObject sourceTypedObject, @Nullable DBPDataTypeProvider targetTypeProvider) {
+        String type = super.convertExternalDataType(sourceDialect, sourceTypedObject, targetTypeProvider);
+        if (type != null) {
+            return type;
+        }
+        String externalTypeName = sourceTypedObject.getTypeName().toUpperCase(Locale.ENGLISH);
+        String localDataType = null, dataTypeModifies = null;
+
+        switch (externalTypeName) {
+            case "VARCHAR":
+                //We don't want to use a VARCHAR it's not recommended
+                //See https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/Data-Types.html#GUID-DF7E10FC-A461-4325-A295-3FD4D150809E
+                localDataType = OracleConstants.TYPE_NAME_VARCHAR2;
+                if (sourceTypedObject.getMaxLength() > 0
+                    && sourceTypedObject.getMaxLength() != Integer.MAX_VALUE
+                    && sourceTypedObject.getMaxLength() != Long.MAX_VALUE) {
+                    dataTypeModifies = String.valueOf(sourceTypedObject.getMaxLength());
+                }
+                break;
+            case "XML":
+            case "XMLTYPE":
+                localDataType = OracleConstants.TYPE_FQ_XML;
+                break;
+            case "JSON":
+            case "JSONB":
+                localDataType = "JSON";
+                break;
+            case "GEOMETRY":
+            case "GEOGRAPHY":
+            case "SDO_GEOMETRY":
+                localDataType = OracleConstants.TYPE_FQ_GEOMETRY;
+                break;
+            case "NUMERIC":
+                localDataType = OracleConstants.TYPE_NUMBER;
+                if (sourceTypedObject.getPrecision() != null) {
+                    dataTypeModifies = sourceTypedObject.getPrecision().toString();
+                    if (sourceTypedObject.getScale() != null) {
+                        dataTypeModifies += "," + sourceTypedObject.getScale();
+                    }
+                }
+                break;
+        }
+        if (localDataType == null) {
+            return null;
+        }
+        if (targetTypeProvider != null) {
+            try {
+                DBSDataType dataType = targetTypeProvider.resolveDataType(new VoidProgressMonitor(), localDataType);
+                if (dataType == null) {
+                    return null;
+
+                }
+                String targetTypeName = DBUtils.getObjectFullName(dataType, DBPEvaluationContext.DDL);
+                if (dataTypeModifies != null) {
+                    targetTypeName += "(" + dataTypeModifies + ")";
+                }
+                return targetTypeName;
+            } catch (DBException e) {
+                log.debug("Error resolving local data type", e);
+                return null;
+            }
+        }
+        return localDataType;
+    }
+
+    @Override
+    @NotNull
+    public SQLTokenPredicateSet getSkipTokenPredicates() {
+        return cachedDialectSkipTokenPredicates == null ? super.getSkipTokenPredicates() : cachedDialectSkipTokenPredicates;
+    }
+
+    @NotNull
+    private SQLTokenPredicateSet makeDialectSkipTokenPredicates(JDBCDataSource dataSource) {
+        SQLSyntaxManager syntaxManager = new SQLSyntaxManager();
+        syntaxManager.init(this, dataSource.getContainer().getPreferenceStore());
+        SQLRuleManager ruleManager = new SQLRuleManager(syntaxManager);
+        ruleManager.loadRules(dataSource, false);
+        TokenPredicateFactory tt = TokenPredicateFactory.makeDialectSpecificFactory(ruleManager);
+
+        // Oracle SQL references could be found from https://docs.oracle.com/en/database/oracle/oracle-database/
+        // by following through Get Started links till the SQL Language Reference link presented
+
+        TokenPredicateSet conditions = TokenPredicateSet.of(
+                // https://docs.oracle.com/en/database/oracle/oracle-database/12.2/lnpls/CREATE-PACKAGE-BODY-statement.html#GUID-68526FF2-96A1-4F14-A10B-4DD3E1CD80BE
+                // also presented in the earliest found reference on 7.3, so considered as always supported https://docs.oracle.com/pdf/A32538_1.pdf
+                new TokenPredicatesCondition(
+                        SQLParserActionKind.BEGIN_BLOCK,
+                        tt.sequence(
+                                "CREATE",
+                                tt.optional("OR", "REPLACE"),
+                                tt.optional(tt.alternative("EDITIONABLE", "NONEDITIONABLE")),
+                                "PACKAGE", "BODY"
+                        ),
+                        tt.sequence()
+                ),
+                // https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/CREATE-FUNCTION.html#GUID-156AEDAC-ADD0-4E46-AA56-6D1F7CA63306
+                // https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/CREATE-PROCEDURE.html#GUID-771879D8-BBFD-4D87-8A6C-290102142DA3
+                // not fully described, only some cases partially discovered
+                new TokenPredicatesCondition(
+                        SQLParserActionKind.SKIP_SUFFIX_TERM,
+                        tt.sequence(
+                                "CREATE",
+                                tt.optional("OR", "REPLACE"),
+                                tt.optional(tt.alternative("EDITIONABLE", "NONEDITIONABLE")),
+                                tt.alternative("FUNCTION", "PROCEDURE")
+                        ),
+                        tt.sequence(tt.alternative(
+                                tt.sequence("RETURN", SQLTokenType.T_TYPE),
+                                "deterministor", "pipelined", "parallel_enable", "result_cache",
+                                ")",
+                                tt.sequence("procedure", SQLTokenType.T_OTHER),
+                                tt.sequence(SQLTokenType.T_OTHER, SQLTokenType.T_TYPE)
+                        ), ";")
+                ),
+                new TokenPredicatesCondition(
+                    SQLParserActionKind.BEGIN_BLOCK,
+                    tt.sequence(),
+                    tt.sequence(tt.not("END"), "IF", tt.not("EXISTS"))
+                )
+        );
+
+
+
+        if (dataSource.isServerVersionAtLeast(12, 1)) {
+            // for WITH procedures and functions prepending select clause introduced in 12.1
+            //     https://oracle-base.com/articles/12c/with-clause-enhancements-12cr1
+            // notation presented in https://docs.oracle.com/en/database/oracle/oracle-database/18/sqlrf/SELECT.html
+            // but missing in https://docs.oracle.com/cd/E11882_01/server.112/e41084/statements_10002.htm
+            conditions.add(new TokenPredicatesCondition(
+                    SQLParserActionKind.SKIP_SUFFIX_TERM,
+                    tt.token("WITH"),
+                    tt.sequence("END", ";")
+            ));
+        }
+
+        return conditions;
+    }
+
+    @Override
+    public boolean hasCaseSensitiveFiltration() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsAliasInConditions() {
+        return false;
+    }
+
+    @Nullable
+    @Override
+    public String getAutoIncrementKeyword() {
+        return AUTO_INCREMENT_KEYWORD;
+    }
+
+    @Override
+    public boolean supportsCreateIfExists() {
+        return false;
+    }
+
+    @NotNull
+    @Override
+    public String getTimestampDataType() {
+        return OracleConstants.TYPE_NAME_TIMESTAMP;
+    }
+
+    @NotNull
+    @Override
+    public String getBigIntegerType() {
+        return OracleConstants.TYPE_NUMBER;
+    }
+
+    @NotNull
+    @Override
+    public String getClobDataType() {
+        return OracleConstants.TYPE_CLOB;
+    }
+
+    @NotNull
+    @Override
+    public String getBlobDataType() {
+        return OracleConstants.TYPE_NAME_BLOB;
+    }
+
+    @NotNull
+    @Override
+    public String getUuidDataType() {
+        return OracleConstants.TYPE_UUID;
+    }
+
+    @NotNull
+    @Override
+    public String getBooleanDataType() {
+        return OracleConstants.TYPE_BOOLEAN;
+    }
+
+    @Override
+    public boolean needsDefaultDataTypes() {
+        return false;
+    }
+
+    @NotNull
+    @Override
+    public String getSchemaExistQuery(@NotNull String schemaName) {
+        return "SELECT 1 FROM all_users WHERE USERNAME='" + schemaName + "'";
+    }
+
+    @NotNull
+    @Override
+    public String getCreateSchemaQuery(@NotNull String schemaName) {
+        return "CREATE USER \"" + schemaName + "\" IDENTIFIED BY \"" + UUID.randomUUID() + "\"";
     }
 }

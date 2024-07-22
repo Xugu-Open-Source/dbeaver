@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.jkiss.dbeaver.ui.app.standalone;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IAdaptable;
 import org.eclipse.core.runtime.preferences.DefaultScope;
+import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.dialogs.MessageDialogWithToggle;
 import org.eclipse.jface.dialogs.TrayDialog;
 import org.eclipse.jface.preference.IPreferenceNode;
@@ -29,27 +30,45 @@ import org.eclipse.ui.application.IWorkbenchConfigurer;
 import org.eclipse.ui.application.IWorkbenchWindowConfigurer;
 import org.eclipse.ui.application.WorkbenchWindowAdvisor;
 import org.eclipse.ui.internal.SaveableHelper;
+import org.eclipse.ui.internal.WorkbenchImages;
+import org.eclipse.ui.internal.WorkbenchPlugin;
+import org.eclipse.ui.internal.dialogs.WorkbenchWizardElement;
+import org.eclipse.ui.internal.ide.IDEInternalWorkbenchImages;
 import org.eclipse.ui.internal.ide.application.DelayedEventsProcessor;
 import org.eclipse.ui.internal.ide.application.IDEWorkbenchAdvisor;
+import org.eclipse.ui.internal.wizards.AbstractExtensionWizardRegistry;
+import org.eclipse.ui.wizards.IWizardCategory;
+import org.eclipse.ui.wizards.IWizardDescriptor;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBeaverPreferences;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ModelPreferences;
-import org.jkiss.dbeaver.core.DBeaverActivator;
+import org.jkiss.dbeaver.core.CoreFeatures;
+import org.jkiss.dbeaver.erd.ui.ERDUIConstants;
+import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.app.DBPApplication;
+import org.jkiss.dbeaver.model.app.DBPProject;
+import org.jkiss.dbeaver.model.impl.preferences.BundlePreferenceStore;
+import org.jkiss.dbeaver.model.task.DBTTaskManager;
 import org.jkiss.dbeaver.registry.DataSourceRegistry;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.dbeaver.ui.DBeaverIcons;
+import org.jkiss.dbeaver.ui.UIFonts;
 import org.jkiss.dbeaver.ui.actions.datasource.DataSourceHandler;
 import org.jkiss.dbeaver.ui.app.standalone.internal.CoreApplicationActivator;
+import org.jkiss.dbeaver.ui.app.standalone.internal.CoreApplicationMessages;
 import org.jkiss.dbeaver.ui.app.standalone.update.DBeaverVersionChecker;
+import org.jkiss.dbeaver.ui.controls.resultset.ThemeConstants;
 import org.jkiss.dbeaver.ui.dialogs.ConfirmationDialog;
 import org.jkiss.dbeaver.ui.editors.EditorUtils;
 import org.jkiss.dbeaver.ui.editors.content.ContentEditorInput;
 import org.jkiss.dbeaver.ui.perspective.DBeaverPerspective;
 import org.jkiss.dbeaver.ui.preferences.PrefPageDatabaseEditors;
 import org.jkiss.dbeaver.ui.preferences.PrefPageDatabaseUserInterface;
+import org.jkiss.dbeaver.utils.RuntimeUtils;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 /**
  * This workbench advisor creates the window advisor, and specifies
@@ -71,9 +90,13 @@ public class ApplicationWorkbenchAdvisor extends IDEWorkbenchAdvisor {
         //"org.eclipse.ui.preferencePages.FileEditors",
         WORKBENCH_PREF_PAGE_ID + "/" + APPEARANCE_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.Decorators",
         //WORKBENCH_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.Workspace",
+        WORKBENCH_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.Workspace/org.eclipse.ui.preferencePages.BuildOrder",
         //WORKBENCH_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.ContentTypes",
-        //WORKBENCH_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.Startup",
         WORKBENCH_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.General.LinkHandlers",
+        WORKBENCH_PREF_PAGE_ID + "/org.eclipse.ui.preferencePages.Startup",
+        WORKBENCH_PREF_PAGE_ID + "/org.eclipse.ui.trace.tracingPage",
+        WORKBENCH_PREF_PAGE_ID + "/org.eclipse.epp.mpc.projectnatures",
+        "org.eclipse.ui.internal.console.ansi.preferences.AnsiConsolePreferencePage"
 
         // Team preferences - not needed in CE
         //"org.eclipse.team.ui.TeamPreferences",
@@ -101,11 +124,51 @@ public class ApplicationWorkbenchAdvisor extends IDEWorkbenchAdvisor {
         "org.eclipse.equinox.internal.p2.ui.sdk.ProvisioningPreferencePage",    // Install-Update
         "org.eclipse.debug.ui.DebugPreferencePage"                              // Debugger
     };
+    
+    
+    /**
+     * Diagram font
+     */
+    public static String DIAGRAM_FONT = ERDUIConstants.PROP_DIAGRAM_FONT;
 
+    public static String RESULTS_GRID_FONT = ThemeConstants.FONT_SQL_RESULT_SET;
+    
+    private static final Set<String> fontPrefIdsToHide = Set.of(
+        ApplicationWorkbenchWindowAdvisor.TEXT_EDITOR_BLOCK_SELECTION_FONT,
+        ApplicationWorkbenchWindowAdvisor.TEXT_FONT,
+        ApplicationWorkbenchWindowAdvisor.CONSOLE_FONT,
+        ApplicationWorkbenchWindowAdvisor.DETAIL_PANE_TEXT_FONT,
+        ApplicationWorkbenchWindowAdvisor.MEMORY_VIEW_TABLE_FONT,
+        ApplicationWorkbenchWindowAdvisor.COMPARE_TEXT_FONT,
+        ApplicationWorkbenchWindowAdvisor.DIALOG_FONT,
+        ApplicationWorkbenchWindowAdvisor.VARIABLE_TEXT_FONT,
+        ApplicationWorkbenchWindowAdvisor.PART_TITLE_FONT,
+        ApplicationWorkbenchWindowAdvisor.TREE_AND_TABLE_FONT_FOR_VIEWS
+    );
+    
+    private static final Map<String, List<String>> fontOverrides = Map.of(
+        UIFonts.DBEAVER_FONTS_MONOSPACE, List.of(
+            ApplicationWorkbenchWindowAdvisor.TEXT_EDITOR_BLOCK_SELECTION_FONT,
+            ApplicationWorkbenchWindowAdvisor.TEXT_FONT,
+            ApplicationWorkbenchWindowAdvisor.CONSOLE_FONT,
+            ApplicationWorkbenchWindowAdvisor.DETAIL_PANE_TEXT_FONT,
+            ApplicationWorkbenchWindowAdvisor.MEMORY_VIEW_TABLE_FONT,
+            ApplicationWorkbenchWindowAdvisor.COMPARE_TEXT_FONT
+        ),
+        UIFonts.DBEAVER_FONTS_MAIN_FONT, List.of(
+            ApplicationWorkbenchWindowAdvisor.DIALOG_FONT,
+            ApplicationWorkbenchWindowAdvisor.VARIABLE_TEXT_FONT,
+            ApplicationWorkbenchWindowAdvisor.PART_TITLE_FONT,
+            ApplicationWorkbenchWindowAdvisor.TREE_AND_TABLE_FONT_FOR_VIEWS
+        )
+    ); 
+    
     //processor must be created before we start event loop
+    protected final DBPApplication application;
     private final DelayedEventsProcessor processor;
 
-    protected ApplicationWorkbenchAdvisor() {
+    protected ApplicationWorkbenchAdvisor(DBPApplication application) {
+        this.application = application;
         this.processor = new DelayedEventsProcessor(Display.getCurrent());
     }
 
@@ -121,6 +184,16 @@ public class ApplicationWorkbenchAdvisor extends IDEWorkbenchAdvisor {
 
     @Override
     public void initialize(IWorkbenchConfigurer configurer) {
+        if (RuntimeUtils.isMacOS()) {
+            // Disable URI handlers auto registration.
+            // They modify plist file on MacOS - this breaks sealed application
+            try {
+                new BundlePreferenceStore("org.eclipse.urischeme").setValue("skipAutoRegistration", true);
+            } catch (Exception e) {
+                log.debug("Error disabling urischeme auto registration", e);
+            }
+        }
+
         super.initialize(configurer);
 
         // Initialize app preferences
@@ -129,6 +202,13 @@ public class ApplicationWorkbenchAdvisor extends IDEWorkbenchAdvisor {
         // Don't show Help button in JFace dialogs
         TrayDialog.setDialogHelpAvailable(false);
 
+        // Replace Eclipse error icon shown in the "Problems" view with our own
+        WorkbenchImages.getImageRegistry().remove(IDEInternalWorkbenchImages.IMG_OBJS_ERROR_PATH);
+        WorkbenchImages.getImageRegistry().put(IDEInternalWorkbenchImages.IMG_OBJS_ERROR_PATH, DBeaverIcons.getImageDescriptor(DBIcon.SMALL_ERROR));
+        WorkbenchImages.getDescriptors().put(IDEInternalWorkbenchImages.IMG_OBJS_ERROR_PATH, DBeaverIcons.getImageDescriptor(DBIcon.SMALL_ERROR));
+
+        FontPreferenceOverrides.overrideFontPrefValues(fontOverrides);
+            
 /*
         // Set default resource encoding to UTF-8
         String defEncoding = DBWorkbench.getPlatform().getPreferenceStore().getString(DBeaverPreferences.DEFAULT_RESOURCE_ENCODING);
@@ -142,6 +222,12 @@ public class ApplicationWorkbenchAdvisor extends IDEWorkbenchAdvisor {
     @Override
     public void preStartup() {
         super.preStartup();
+
+        {
+            Map<String, Object> params = new LinkedHashMap<>();
+            params.put("startTime", DBWorkbench.getPlatform().getApplication().getApplicationStartTime());
+            CoreFeatures.APP_OPEN.use(params);
+        }
     }
 
     @Override
@@ -149,8 +235,11 @@ public class ApplicationWorkbenchAdvisor extends IDEWorkbenchAdvisor {
         super.postStartup();
 
         filterPreferencePages();
+        filterWizards();
 
-        startVersionChecker();
+        if (!application.isDistributed()) {
+            startVersionChecker();
+        }
     }
 
     @Override
@@ -164,11 +253,14 @@ public class ApplicationWorkbenchAdvisor extends IDEWorkbenchAdvisor {
             property.equals(DBeaverPreferences.LOGS_DEBUG_LOCATION) ||
             property.equals(ModelPreferences.PLATFORM_LANGUAGE);
     }
-
+    
+    
     private void filterPreferencePages() {
-        // Remove unneeded pref pages
+        // Remove unneeded pref pages and override font preferences page
         PreferenceManager pm = PlatformUI.getWorkbench().getPreferenceManager();
-
+        
+        FontPreferenceOverrides.hideFontPrefs(pm, fontPrefIdsToHide);
+        
         for (String epp : getExcludedPreferencePageIds()) {
             pm.remove(epp);
         }
@@ -191,6 +283,30 @@ public class ApplicationWorkbenchAdvisor extends IDEWorkbenchAdvisor {
         }
     }
 
+    protected boolean isWizardAllowed(String wizardId) {
+        return !(application.isStandalone() && "org.eclipse.ui.wizards.new.project".equals(wizardId));
+    }
+
+    private void filterWizards() {
+        AbstractExtensionWizardRegistry wizardRegistry = (AbstractExtensionWizardRegistry) WorkbenchPlugin.getDefault().getNewWizardRegistry();
+        IWizardCategory[] categories = WorkbenchPlugin.getDefault().getNewWizardRegistry().getRootCategory().getCategories();
+        for (IWizardDescriptor wizard : getAllWizards(categories)) {
+            WorkbenchWizardElement wizardElement = (WorkbenchWizardElement) wizard;
+            if (!isWizardAllowed(wizardElement.getId())) {
+                wizardRegistry.removeExtension(wizardElement.getConfigurationElement().getDeclaringExtension(), new Object[]{wizardElement});
+            }
+        }
+    }
+
+    private IWizardDescriptor[] getAllWizards(IWizardCategory... categories) {
+        List<IWizardDescriptor> results = new ArrayList<>();
+        for(IWizardCategory wizardCategory : categories){
+            Collections.addAll(results, wizardCategory.getWizards());
+            Collections.addAll(results, getAllWizards(wizardCategory.getCategories()));
+        }
+        return results.toArray(new IWizardDescriptor[0]);
+    }
+
     private void startVersionChecker() {
         DBeaverVersionChecker checker = new DBeaverVersionChecker(false);
         checker.schedule(3000);
@@ -204,6 +320,7 @@ public class ApplicationWorkbenchAdvisor extends IDEWorkbenchAdvisor {
             // User rejected to exit
             return false;
         } else {
+            CoreFeatures.APP_CLOSE.use();
             return super.preShutdown();
         }
     }
@@ -219,7 +336,9 @@ public class ApplicationWorkbenchAdvisor extends IDEWorkbenchAdvisor {
             if (window != null) {
                 if (!MessageDialogWithToggle.NEVER.equals(ConfirmationDialog.getSavedPreference(DBeaverPreferences.CONFIRM_EXIT))) {
                     // Workaround of #703 bug. NEVER doesn't make sense for Exit confirmation. It is the same as ALWAYS.
-                    if (!ConfirmationDialog.confirmAction(DBeaverActivator.getCoreResourceBundle(), window.getShell(), DBeaverPreferences.CONFIRM_EXIT)) {
+                    if (ConfirmationDialog.confirmAction(window.getShell(), DBeaverPreferences.CONFIRM_EXIT, ConfirmationDialog.QUESTION)
+                        != IDialogConstants.YES_ID)
+                    {
                         return false;
                     }
                 }
@@ -258,7 +377,7 @@ public class ApplicationWorkbenchAdvisor extends IDEWorkbenchAdvisor {
                 }
             }
 
-            return closeActiveTransactions();
+            return cancelRunningTasks() && closeActiveTransactions();
         } catch (Throwable e) {
             e.printStackTrace();
             return true;
@@ -267,10 +386,34 @@ public class ApplicationWorkbenchAdvisor extends IDEWorkbenchAdvisor {
 
     private boolean closeActiveTransactions() {
         for (DBPDataSourceContainer dataSourceDescriptor : DataSourceRegistry.getAllDataSources()) {
-            if (!DataSourceHandler.checkAndCloseActiveTransaction(dataSourceDescriptor)) {
+            if (!DataSourceHandler.checkAndCloseActiveTransaction(dataSourceDescriptor, false)) {
                 return false;
             }
         }
+        return true;
+    }
+
+    private boolean cancelRunningTasks() {
+        DBPProject activeProject = DBWorkbench.getPlatform().getWorkspace().getActiveProject();
+        if (activeProject == null) {
+            // Probably some TE user without permissions and projects
+            return true;
+        }
+        final DBTTaskManager manager = activeProject.getTaskManager();
+
+        if (manager.hasRunningTasks()) {
+            final boolean cancel = DBWorkbench.getPlatformUI().confirmAction(
+                CoreApplicationMessages.confirmation_cancel_database_tasks_title,
+                CoreApplicationMessages.confirmation_cancel_database_tasks_message
+            );
+
+            if (cancel) {
+                manager.cancelRunningTasks();
+            }
+
+            return cancel;
+        }
+
         return true;
     }
 

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,13 +25,15 @@ import org.jkiss.dbeaver.model.struct.rdb.DBSForeignKeyModifyRule;
 import org.jkiss.dbeaver.ui.UITask;
 import org.jkiss.dbeaver.ui.editors.object.struct.EditForeignKeyPage;
 
+import java.util.Map;
+
 /**
  * SQL Server foreign key manager
  */
 public class SQLServerForeignKeyConfigurator implements DBEObjectConfigurator<SQLServerTableForeignKey> {
 
     @Override
-    public SQLServerTableForeignKey configureObject(DBRProgressMonitor monitor, Object container, SQLServerTableForeignKey foreignKey) {
+    public SQLServerTableForeignKey configureObject(DBRProgressMonitor monitor, Object container, SQLServerTableForeignKey foreignKey, Map<String, Object> options) {
         return new UITask<SQLServerTableForeignKey>() {
             @Override
             protected SQLServerTableForeignKey runTask() {
@@ -42,7 +44,7 @@ public class SQLServerForeignKeyConfigurator implements DBEObjectConfigurator<SQ
                         DBSForeignKeyModifyRule.NO_ACTION,
                         DBSForeignKeyModifyRule.CASCADE, DBSForeignKeyModifyRule.RESTRICT,
                         DBSForeignKeyModifyRule.SET_NULL,
-                        DBSForeignKeyModifyRule.SET_DEFAULT });
+                        DBSForeignKeyModifyRule.SET_DEFAULT }, options);
                 if (!editPage.edit()) {
                     return null;
                 }

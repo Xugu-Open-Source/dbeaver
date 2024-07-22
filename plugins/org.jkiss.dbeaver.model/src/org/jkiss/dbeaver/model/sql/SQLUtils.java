@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,12 +22,15 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.model.*;
+import org.jkiss.dbeaver.model.DBPDataKind;
+import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.model.DBPObject;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.data.*;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
-import org.jkiss.dbeaver.model.exec.DBCLogicalOperator;
 import org.jkiss.dbeaver.model.exec.DBCSession;
 import org.jkiss.dbeaver.model.impl.sql.BasicSQLDialect;
+import org.jkiss.dbeaver.model.impl.sql.RelationalSQLDialect;
 import org.jkiss.dbeaver.model.runtime.DBRFinder;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
@@ -42,7 +45,7 @@ import org.jkiss.utils.Pair;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.lang.reflect.Array;
+import java.lang.Character.UnicodeBlock;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -296,7 +299,6 @@ public final class SQLUtils {
      * Removes \\r characters from query.
      * Actually this is done specially for Oracle due to some bug in it's driver
      *
-     *
      * @param dataSource
      * @param query query
      * @return normalized query
@@ -321,14 +323,18 @@ public final class SQLUtils {
         return result.toString();
     }
 
-    public static void appendLikeCondition(StringBuilder sql, String value, boolean not)
-    {
+    public static void appendLikeCondition(@NotNull StringBuilder sql,@NotNull String value, boolean not,@Nullable SQLDialect dialect) {
         value = makeSQLLike(value);
         if (value.contains("%") || value.contains("_")) {
             if (not) sql.append(" NOT");
             sql.append(" LIKE ?");
-        }  else {
-            sql.append(not ? "<>?": "=?");
+            if (dialect instanceof RelationalSQLDialect &&
+                ((RelationalSQLDialect) dialect).getLikeEscapeClause(SQLConstants.DEFAULT_LIKE_ESCAPE) != null)
+            {
+                sql.append(((RelationalSQLDialect) dialect).getLikeEscapeClause(SQLConstants.DEFAULT_LIKE_ESCAPE));
+            }
+        } else {
+            sql.append(not ? "<>?" : "=?");
         }
     }
 
@@ -457,199 +463,71 @@ public final class SQLUtils {
         @NotNull StringBuilder query,
         boolean inlineCriteria)
     {
-        final String operator = filter.isAnyConstraint() ? " OR " : " AND ";  //$NON-NLS-1$ $NON-NLS-2$
-        final DBDAttributeConstraint[] constraints = filter.getConstraints().stream()
-            .filter(x -> x.getCriteria() != null || x.getOperator() != null)
-            .toArray(DBDAttributeConstraint[]::new);
-
-        for (int index = 0; index < constraints.length; index++) {
-            final DBDAttributeConstraint constraint = constraints[index];
-            if (index > 0) {
-                query.append(operator);
-            }
-            if (constraints.length > 1) {
-                // Add parenthesis for the sake of sanity
-                // Constraint may consist of several conditions and we don't want to break operator precedence
-                query.append('(');
-            }
-            if (constraint.getEntityAlias() != null) {
-                query.append(constraint.getEntityAlias()).append('.');
-            } else if (conditionTable != null) {
-                query.append(conditionTable).append('.');
-            }
-            // Attribute name could be an expression. So check if this is a real attribute
-            // and generate full/quoted name for it.
-            String attrName;
-            DBSAttributeBase cAttr = constraint.getAttribute();
-            if (cAttr instanceof DBDAttributeBinding) {
-                DBDAttributeBinding binding = (DBDAttributeBinding) cAttr;
-                if (binding.getEntityAttribute() != null &&
-                    binding.getEntityAttribute().getName().equals(binding.getMetaAttribute().getName()) ||
-                    binding instanceof DBDAttributeBindingType)
-                {
-                    attrName = DBUtils.getObjectFullName(dataSource, binding, DBPEvaluationContext.DML);
-                } else {
-                    // Most likely it is an expression so we don't want to quote it
-                    attrName = binding.getMetaAttribute().getName();
-                }
-            } else if (cAttr != null) {
-                attrName = DBUtils.getObjectFullName(dataSource, cAttr, DBPEvaluationContext.DML);
-            } else {
-                attrName = DBUtils.getQuotedIdentifier(dataSource, constraint.getAttributeName());
-            }
-            query.append(attrName).append(' ').append(getConstraintCondition(dataSource, constraint, conditionTable, inlineCriteria));
-            if (constraints.length > 1) {
-                query.append(')');
-            }
-        }
-
-        if (!CommonUtils.isEmpty(filter.getWhere())) {
-            if (constraints.length > 0) {
-                query.append(operator);
-            }
-            query.append(filter.getWhere());
-        }
+        appendConditionString(filter, dataSource, conditionTable, query, inlineCriteria, false);
     }
 
-    public static void appendOrderString(@NotNull DBDDataFilter filter, @NotNull DBPDataSource dataSource, @Nullable String conditionTable, @NotNull StringBuilder query)
-    {
-        // Construct ORDER BY
-        boolean hasOrder = false;
-        for (DBDAttributeConstraint co : filter.getOrderConstraints()) {
-            if (hasOrder) query.append(',');
-            String orderString = null;
-            if (co.isPlainNameReference() || co.getAttribute() == null || co.getAttribute() instanceof DBDAttributeBindingMeta || co.getAttribute() instanceof DBDAttributeBindingType) {
-                String orderColumn = co.getAttributeName();
-                if (co.getAttribute() == null || PATTERN_SIMPLE_NAME.matcher(orderColumn).matches()) {
-                    // It is a simple column.
-                    orderString = co.getFullAttributeName();
-                    if (conditionTable != null) {
-                        orderString = conditionTable + '.' + orderString;
-                    }
-                }
-            }
-            if (orderString == null) {
-                // Use position number
-                int orderIndex = filter.getConstraints().indexOf(co);
-                if (orderIndex != -1) {
-                    orderString = String.valueOf(orderIndex + 1);
-                } else {
-                    log.debug("Can't generate column order: no name and no position found");
-                    continue;
-                }
-            }
-            query.append(orderString);
-            if (co.isOrderDescending()) {
-                query.append(" DESC"); //$NON-NLS-1$
-            }
-            hasOrder = true;
-        }
-        if (!CommonUtils.isEmpty(filter.getOrder())) {
-            if (hasOrder) query.append(',');
-            query.append(filter.getOrder());
-        }
+    public static void appendConditionString(
+        @NotNull DBDDataFilter filter,
+        @NotNull DBPDataSource dataSource,
+        @Nullable String conditionTable,
+        @NotNull StringBuilder query,
+        boolean inlineCriteria,
+        boolean subQuery
+    ) {
+        dataSource.getSQLDialect().getQueryGenerator().appendConditionString(filter, dataSource, conditionTable, query, inlineCriteria,
+            subQuery);
+    }
+
+    public static void appendConditionString(
+        @NotNull DBDDataFilter filter,
+        @NotNull List<DBDAttributeConstraint> constraints,
+        @NotNull DBPDataSource dataSource,
+        @Nullable String conditionTable,
+        @NotNull StringBuilder query,
+        boolean inlineCriteria,
+        boolean subQuery) {
+        dataSource.getSQLDialect().getQueryGenerator().appendConditionString(filter, constraints, dataSource,
+            conditionTable, query, inlineCriteria, subQuery);
+    }
+
+    public static void appendOrderString(
+        @NotNull DBDDataFilter filter,
+        @NotNull DBPDataSource dataSource,
+        @Nullable String conditionTable,
+        boolean subQuery,
+        @NotNull StringBuilder query) {
+        dataSource.getSQLDialect()
+            .getQueryGenerator()
+            .appendOrderString(filter, dataSource, conditionTable, subQuery, query);
     }
 
     @Nullable
     public static String getConstraintCondition(@NotNull DBPDataSource dataSource, @NotNull DBDAttributeConstraint constraint, @Nullable String conditionTable, boolean inlineCriteria) {
-        String criteria = constraint.getCriteria();
-        if (!CommonUtils.isEmpty(criteria)) {
-            final char firstChar = criteria.trim().charAt(0);
-            if (!Character.isLetter(firstChar) && firstChar != '=' && firstChar != '>' && firstChar != '<' && firstChar != '!') {
-                return '=' + criteria;
-            } else {
-                return criteria;
-            }
-        } else if (constraint.getOperator() != null) {
-            DBCLogicalOperator operator = constraint.getOperator();
-            StringBuilder conString = new StringBuilder();
-            Object value = constraint.getValue();
-            if (DBUtils.isNullValue(value)) {
-                if (operator.getArgumentCount() == 0) {
-                    return operator.getExpression();
-                }
-                conString.append("IS ");
-                if (constraint.isReverseOperator()) {
-                    conString.append("NOT ");
-                }
-                conString.append("NULL");
-                return conString.toString();
-            }
-            if (constraint.isReverseOperator()) {
-                conString.append("NOT ");
-            }
-            if (operator.getArgumentCount() > 0) {
-                conString.append(operator.getExpression());
-                for (int i = 0; i < operator.getArgumentCount(); i++) {
-                    if (i > 0) {
-                        conString.append(" AND");
-                    }
-                    String strValue;
-                    if (constraint.getAttribute() == null) {
-                        // We have only attribute name
-                        if (value instanceof CharSequence) {
-                            strValue = dataSource.getSQLDialect().getQuotedString(value.toString());
-                        } else {
-                            strValue = CommonUtils.toString(value);
-                        }
-                    } else if (inlineCriteria) {
-                        strValue = convertValueToSQL(dataSource, constraint.getAttribute(), value);
-                    } else {
-                        strValue = dataSource.getSQLDialect().getTypeCastClause(constraint.getAttribute(), "?");
-                    }
-                    conString.append(' ').append(strValue);
-                }
-            } else if (operator.getArgumentCount() < 0) {
-                // Multiple arguments
-                int valueCount = Array.getLength(value);
-                boolean hasNull = false, hasNotNull = false;
-                for (int i = 0; i < valueCount; i++) {
-                    final boolean isNull = DBUtils.isNullValue(Array.get(value, i));
-                    if (isNull && !hasNull) {
-                        hasNull = true;
-                    }
-                    if (!isNull && !hasNotNull) {
-                        hasNotNull = true;
-                    }
-                }
-                if (!hasNotNull) {
-                    return "IS NULL";
-                }
-                if (hasNull) {
-                    conString.append("IS NULL OR ");
-                    if (conditionTable != null) {
-                        conString.append(conditionTable).append('.');
-                    }
-                    conString.append(DBUtils.getObjectFullName(dataSource, constraint.getAttribute(), DBPEvaluationContext.DML)).append(" ");
-                }
+        return dataSource.getSQLDialect().getQueryGenerator().getConstraintCondition(dataSource, constraint,
+            conditionTable,
+            inlineCriteria);
+    }
 
-                conString.append(operator.getExpression());
-                conString.append(" (");
-                if (!value.getClass().isArray()) {
-                    value = new Object[] {value};
-                }
-                boolean hasValue = false;
-                for (int i = 0; i < valueCount; i++) {
-                    Object itemValue = Array.get(value, i);
-                    if (DBUtils.isNullValue(itemValue)) {
-                        continue;
-                    }
-                    if (hasValue) {
-                        conString.append(",");
-                    }
-                    hasValue = true;
-                    if (inlineCriteria) {
-                        conString.append(convertValueToSQL(dataSource, constraint.getAttribute(), itemValue));
-                    } else {
-                        conString.append(dataSource.getSQLDialect().getTypeCastClause(constraint.getAttribute(), "?"));
-                    }
-                }
-                conString.append(")");
+    private static String getStringValue(@NotNull DBPDataSource dataSource, @NotNull DBDAttributeConstraint constraint, boolean inlineCriteria, Object value) {
+        String strValue;
+        if (constraint.getAttribute() == null) {
+            // We have only attribute name
+            if (value instanceof CharSequence) {
+                strValue = dataSource.getSQLDialect().getQuotedString(value.toString());
+            } else {
+                strValue = CommonUtils.toString(value);
             }
-            return conString.toString();
+        } else if (inlineCriteria) {
+            strValue = convertValueToSQL(dataSource, constraint.getAttribute(), value);
         } else {
-            return null;
+            strValue = dataSource.getSQLDialect().getTypeCastClause(constraint.getAttribute(), "?", true);
         }
+        return strValue;
+    }
+
+    public static int getConstraintOrderIndex(@NotNull DBDDataFilter dataFilter, @NotNull DBDAttributeConstraint constraint) {
+        int index = dataFilter.getConstraints().indexOf(constraint);
+        return index == -1 ? index : index + 1;
     }
 
     public static String convertValueToSQL(@NotNull DBPDataSource dataSource, @NotNull DBSTypedObject attribute, @Nullable Object value) {
@@ -665,7 +543,7 @@ public final class SQLUtils {
 
         return dataSource.getSQLDialect().getTypeCastClause(
             attribute,
-            convertValueToSQLFormat(dataSource, attribute, valueHandler, value, displayFormat));
+            convertValueToSQLFormat(dataSource, attribute, valueHandler, value, displayFormat), false);
     }
 
     private static String convertValueToSQLFormat(@NotNull DBPDataSource dataSource, @NotNull DBSTypedObject attribute, @NotNull DBDValueHandler valueHandler, @Nullable Object value, DBDDisplayFormat displayFormat) {
@@ -695,15 +573,10 @@ public final class SQLUtils {
             case STRING:
             case ROWID:
                 if (sqlDialect != null) {
-                    if (!sqlDialect.isQuotedString(strValue)) {
-                        return sqlDialect.getQuotedString(strValue);
-                    } else {
-                        return strValue;
-                    }
+                    return sqlDialect.getQuotedString(strValue);
                 }
                 return strValue;
             case BOOLEAN:
-            case DATETIME:
             case NUMERIC:
             default:
                 if (sqlDialect != null) {
@@ -717,8 +590,7 @@ public final class SQLUtils {
         try {
             DBRProgressMonitor monitor = new VoidProgressMonitor();
             if (!content.isNull() && ContentUtils.isTextContent(content)) {
-                String strValue = ContentUtils.getContentStringValue(monitor, content);
-                return dataSource.getSQLDialect().escapeString(strValue);
+                return ContentUtils.getContentStringValue(monitor, content);
             } else {
                 byte[] binValue = ContentUtils.getContentBinaryValue(monitor, content);
                 if (binValue == null) {
@@ -869,23 +741,25 @@ public final class SQLUtils {
             return sql;
         }
         boolean hasFixes = false;
-        char[] fixed = sql.toCharArray();
-        for (int i = 0; i < fixed.length; i++) {
-            if (fixed[i] == '\r') {
-                if (i > 0 && fixed[i - 1] == '\n') {
+        char[] initial = sql.toCharArray();
+        StringBuilder fixed = new StringBuilder(initial.length);
+        for (int i = 0; i < initial.length; i++) {
+            fixed.append(initial[i]);
+            if (initial[i] == '\r') {
+                if (i > 0 && initial[i - 1] == '\n') {
                     // \n\r
                     continue;
                 }
-                if (i == fixed.length - 1 || fixed[i + 1] == '\n') {
+                if (i == initial.length - 1 || initial[i + 1] == '\n') {
                     // \r\n
                     continue;
                 }
-                // Single \r - replace it with space
-                fixed[i] = ' ';
+                // Single \r - add \n after it to get \r\n sequence
+                fixed.append('\n');
                 hasFixes = true;
             }
         }
-        return hasFixes ? String.valueOf(fixed) : sql;
+        return hasFixes ? fixed.toString() : sql;
     }
 
     /**
@@ -893,10 +767,16 @@ public final class SQLUtils {
      * We can remove double whitespaces and any whitespaces between special chars (*-+,: etc).
      */
     public static boolean compareAliases(String str1, String str2) {
+        if (str1 == null && str2 == null) {
+            return true;
+        }
+        if (str1 == null || str2 == null) {
+            return false;
+        }
         return removeExtraSpaces(str1).equals(removeExtraSpaces(str2));
     }
 
-    public static String removeExtraSpaces(String str) {
+    public static String removeExtraSpaces(@NotNull String str) {
         if (str.indexOf(' ') == -1) {
             return str;
         }
@@ -939,15 +819,15 @@ public final class SQLUtils {
                 .append(DBEAVER_DDL_WARNING).append(lineSeparator);
         }
         if (persistActions != null) {
-            String redefiner = sqlDialect.getScriptDelimiterRedefiner();
             for (DBEPersistAction action : persistActions) {
                 String scriptLine = action.getScript();
                 if (CommonUtils.isEmpty(scriptLine)) {
                     continue;
                 }
 
+                String redefiner = sqlDialect.getScriptDelimiterRedefiner();
                 String delimiter = getScriptLineDelimiter(sqlDialect);
-                if (action.isComplex() && redefiner != null) {
+                if (action.isComplex() && redefiner != null && !redefiner.equals(delimiter)) {
                     script.append(lineSeparator).append(redefiner).append(" ").append(DBEAVER_SCRIPT_DELIMITER).append(lineSeparator);
                     delimiter = DBEAVER_SCRIPT_DELIMITER;
                     script.append(delimiter).append(lineSeparator);
@@ -977,7 +857,7 @@ public final class SQLUtils {
                 }
                 script.append(lineSeparator);
 
-                if (action.isComplex() && redefiner != null) {
+                if (action.isComplex() && redefiner != null && !redefiner.equals(delimiter)) {
                     script.append(redefiner).append(" ").append(getScriptLineDelimiter(sqlDialect)).append(lineSeparator);
                 }
             }
@@ -1042,7 +922,8 @@ public final class SQLUtils {
             return name.split(Pattern.quote(nameSeparator));
         }
         if (!name.contains(nameSeparator)) {
-            return new String[] { DBUtils.getUnQuotedIdentifier(name, quoteStrings) };
+            name = keepQuotes ? name : DBUtils.getUnQuotedIdentifier(name, quoteStrings);
+            return new String[]{name};
         }
         List<String> nameList = new ArrayList<>();
         while (!name.isEmpty()) {
@@ -1165,23 +1046,22 @@ public final class SQLUtils {
         return CommonUtils.escapeIdentifier(table.getName());
     }
 
-    public static void appendQueryConditions(DBPDataSource dataSource, @NotNull StringBuilder query, @Nullable String tableAlias, @Nullable DBDDataFilter dataFilter)
-    {
-        if (dataFilter != null && dataFilter.hasConditions()) {
-            query.append("\nWHERE "); //$NON-NLS-1$
-            appendConditionString(dataFilter, dataSource, tableAlias, query, true);
-        }
+    public static void appendQueryConditions(
+        DBPDataSource dataSource,
+        @NotNull StringBuilder query,
+        @Nullable String tableAlias,
+        @Nullable DBDDataFilter dataFilter
+    ) {
+        dataSource.getSQLDialect().getQueryGenerator().appendQueryConditions(dataSource, query, tableAlias, dataFilter);
     }
 
-    public static void appendQueryOrder(DBPDataSource dataSource, @NotNull StringBuilder query, @Nullable String tableAlias, @Nullable DBDDataFilter dataFilter)
-    {
-        if (dataFilter != null) {
-            // Construct ORDER BY
-            if (dataFilter.hasOrdering()) {
-                query.append("\nORDER BY "); //$NON-NLS-1$
-                appendOrderString(dataFilter, dataSource, tableAlias, query);
-            }
-        }
+    public static void appendQueryOrder(
+        DBPDataSource dataSource,
+        @NotNull StringBuilder query,
+        @Nullable String tableAlias,
+        @Nullable DBDDataFilter dataFilter
+    ) {
+        dataSource.getSQLDialect().getQueryGenerator().appendQueryOrder(dataSource, query, tableAlias, dataFilter);
     }
 
     public static boolean isExecQuery(@NotNull SQLDialect dialect, String query) {
@@ -1268,5 +1148,15 @@ public final class SQLUtils {
             return scriptDelimiters[0];
         }
         return SQLConstants.DEFAULT_STATEMENT_DELIMITER;
+    }
+
+    /**
+     * Determines if a unicode code point represents a letter from LATIN-1.
+     *
+     * @param codePoint unicode code point
+     * @return {@code true} if the code point represents a letter from LATIN-1
+     */
+    public static boolean isLatinLetter(int codePoint) {
+        return Character.isLetter(codePoint) && Character.UnicodeBlock.of(codePoint) == Character.UnicodeBlock.BASIC_LATIN;
     }
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,14 +38,13 @@ import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSDataContainer;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.resultset.*;
 import org.jkiss.dbeaver.ui.controls.resultset.internal.ResultSetMessages;
 import org.jkiss.dbeaver.ui.data.IValueController;
 import org.jkiss.dbeaver.ui.dialogs.ConfirmationDialog;
 import org.jkiss.dbeaver.ui.editors.data.AbstractDataEditor;
-
-import java.util.ResourceBundle;
 
 /**
  * CursorViewComposite
@@ -74,8 +73,7 @@ public class CursorViewComposite extends Composite implements IResultSetContaine
         if (value != null) {
             DBPPreferenceStore preferenceStore = valueController.getExecutionContext().getDataSource().getContainer().getPreferenceStore();
             if (!preferenceStore.getBoolean(ResultSetPreferences.KEEP_STATEMENT_OPEN)) {
-                if (ConfirmationDialog.showConfirmDialog(
-                        ResourceBundle.getBundle(ResultSetMessages.BUNDLE_NAME),
+                if (ConfirmationDialog.confirmAction(
                         getShell(),
                         ResultSetPreferences.CONFIRM_KEEP_STATEMENT_OPEN,
                         ConfirmationDialog.QUESTION) == IDialogConstants.YES_ID)
@@ -147,9 +145,9 @@ public class CursorViewComposite extends Composite implements IResultSetContaine
         if (executionContext == null) {
             return;
         }
-        final DBNDatabaseNode targetNode = executionContext.getDataSource().getContainer().getPlatform().getNavigatorModel().getNodeByObject(monitor, dataContainer, false);
+        final DBNDatabaseNode targetNode = DBWorkbench.getPlatform().getNavigatorModel().getNodeByObject(monitor, dataContainer, false);
         if (targetNode == null) {
-            UIUtils.showMessageBox(null, "Open link", "Can't navigate to '" + DBUtils.getObjectFullName(dataContainer, DBPEvaluationContext.UI) + "' - navigator node not found", SWT.ICON_ERROR);
+            UIUtils.showMessageBox(null, "Open link", "Cannot navigate to '" + DBUtils.getObjectFullName(dataContainer, DBPEvaluationContext.UI) + "' - navigator node not found", SWT.ICON_ERROR);
             return;
         }
         AbstractDataEditor.openNewDataEditor(targetNode, newFilter);
@@ -188,10 +186,10 @@ public class CursorViewComposite extends Composite implements IResultSetContaine
     private class CursorDataContainer implements DBSDataContainer {
 
         @Override
-        public int getSupportedFeatures()
+        public String[] getSupportedFeatures()
         {
             // Nothing but plain read
-            return DATA_SELECT;
+            return new String[] {FEATURE_DATA_SELECT};
         }
 
         @NotNull
@@ -256,7 +254,7 @@ public class CursorViewComposite extends Composite implements IResultSetContaine
         }
 
         @Override
-        public long countData(@NotNull DBCExecutionSource source, @NotNull DBCSession session, DBDDataFilter dataFilter, long flags)
+        public long countData(@NotNull DBCExecutionSource source, @NotNull DBCSession session, @Nullable DBDDataFilter dataFilter, long flags)
         {
             return -1;
         }

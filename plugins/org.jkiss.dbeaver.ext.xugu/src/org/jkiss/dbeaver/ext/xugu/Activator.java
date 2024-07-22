@@ -16,16 +16,20 @@
  */
 package org.jkiss.dbeaver.ext.xugu;
 
+import org.eclipse.core.runtime.Plugin;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
-import org.jkiss.dbeaver.core.DBeaverCore;
+import org.jkiss.dbeaver.ModelPreferences;
+import org.jkiss.dbeaver.model.impl.preferences.BundlePreferenceStore;
+import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.utils.PrefUtils;
 import org.osgi.framework.BundleContext;
 
 /**
  * 此插件激活类，控制插件生命周期
  */
-public class Activator extends AbstractUIPlugin {
+public class Activator extends Plugin {
 	/**
 	 * 插件唯一标识
 	 */
@@ -35,6 +39,8 @@ public class Activator extends AbstractUIPlugin {
 	 * 插件共享实例
 	 */
 	private static Activator plugin;
+    private BundlePreferenceStore preferenceStore;
+    private DBPPreferenceStore preferences;
 
 	/**
 	 * 插件默认构造函数
@@ -51,12 +57,7 @@ public class Activator extends AbstractUIPlugin {
 	public void start(BundleContext context) throws Exception {
 		super.start(context);
 		plugin = this;
-		PrefUtils.setDefaultPreferenceValue(DBeaverCore.getGlobalPreferenceStore(), Constants.PREF_SUPPORT_ROWID, true);
-		PrefUtils.setDefaultPreferenceValue(DBeaverCore.getGlobalPreferenceStore(), Constants.PREF_DBMS_OUTPUT, true);
-		PrefUtils.setDefaultPreferenceValue(DBeaverCore.getGlobalPreferenceStore(),
-				Constants.PREF_DBMS_READ_ALL_SYNONYMS, true);
-		PrefUtils.setDefaultPreferenceValue(DBeaverCore.getGlobalPreferenceStore(),
-				Constants.PREF_DISABLE_SCRIPT_ESCAPE_PROCESSING, true);
+		preferences = new BundlePreferenceStore(getBundle());
 	}
 
 	/**
@@ -79,14 +80,11 @@ public class Activator extends AbstractUIPlugin {
 		return plugin;
 	}
 
-	/**
-	 * 
-	 * 通过给定的相对路径获取图像描述符
-	 *
-	 * @param 图像文件相对路径
-	 * @return 图像描述符
-	 */
-	public static ImageDescriptor getImageDescriptor(String path) {
-		return imageDescriptorFromPlugin(PLUGIN_ID, path);
-	}
+    public DBPPreferenceStore getPreferenceStore() {
+        // Create the preference store lazily.
+        if (preferenceStore == null) {
+            preferenceStore = new BundlePreferenceStore(getBundle());
+        }
+        return preferenceStore;
+    }
 }

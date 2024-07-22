@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,49 +17,71 @@
 
 package org.jkiss.dbeaver.model.app;
 
+import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPObject;
-import org.jkiss.dbeaver.model.auth.DBAAuthSpace;
-import org.jkiss.dbeaver.model.auth.DBASessionContext;
+import org.jkiss.dbeaver.model.access.DBAPermissionRealm;
+import org.jkiss.dbeaver.model.auth.SMAuthSpace;
+import org.jkiss.dbeaver.model.auth.SMSession;
+import org.jkiss.dbeaver.model.auth.SMSessionContext;
+import org.jkiss.dbeaver.model.navigator.DBNModel;
+import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.task.DBTTaskManager;
 
-import java.io.File;
+import javax.crypto.SecretKey;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.UUID;
 
 /**
  * Project meta information.
  */
-public interface DBPProject extends DBPObject, DBAAuthSpace
-{
+public interface DBPProject extends DBPObject, SMAuthSpace, DBAPermissionRealm {
     String METADATA_FOLDER = ".dbeaver";
-
-    String PROP_SECURE_PROJECT = "secureProject";
 
     @NotNull
     DBPWorkspace getWorkspace();
 
-    // In multi-use environment virtual project is a project owned by user
+    // In multi-user environment virtual project is a project owned by user
     boolean isVirtual();
 
     // Project with no persistent state
     boolean isInMemory();
 
+    /**
+     * Project unique ID.
+     * May start with RMProjectType prefix
+     */
+    String getId();
+
     @NotNull
     String getName();
 
+    @NotNull
+    String getDisplayName();
+
+    /**
+     * Proiject UUID was deprecated. Use getId instead.
+     */
+    @Deprecated
+    @NotNull
     UUID getProjectID();
 
     @NotNull
-    File getAbsolutePath();
+    Path getAbsolutePath();
 
-    @NotNull
+    @Nullable
     IProject getEclipseProject();
 
+    @Nullable
+    IContainer getRootResource();
+
     @NotNull
-    File getMetadataFolder(boolean create);
+    Path getMetadataFolder(boolean create);
 
     boolean isOpen();
 
@@ -67,7 +89,23 @@ public interface DBPProject extends DBPObject, DBAAuthSpace
 
     boolean isRegistryLoaded();
 
-    boolean isModernProject();
+    /**
+     * Encrypted project configuration files are stored in encrypted form
+     */
+    boolean isEncryptedProject();
+
+    /**
+     * Is secret storage is enabled then all secret credentials are stored there.
+     * Otherwise, credentials are stored locally.
+     */
+    boolean isUseSecretStorage();
+
+    boolean isPrivateProject();
+
+    /**
+     * Secret key is used encrypt project data
+     */
+    SecretKey getLocalSecretKey();
 
     @NotNull
     DBPDataSourceRegistry getDataSourceRegistry();
@@ -75,26 +113,43 @@ public interface DBPProject extends DBPObject, DBAAuthSpace
     @NotNull
     DBTTaskManager getTaskManager();
 
-    @NotNull
-    DBASecureStorage getSecureStorage();
-
     /**
      * Project auth context
      */
     @NotNull
-    DBASessionContext getSessionContext();
+    SMSessionContext getSessionContext();
+
+    default SMSession getWorkspaceSession() {
+        return getSessionContext().findSpaceSession(getWorkspace());
+    }
 
     Object getProjectProperty(String propName);
 
     void setProjectProperty(String propName, Object propValue);
 
-    Object getResourceProperty(IResource resource, String propName);
+    /**
+     * Returns logical resource path
+     */
+    String getResourcePath(@NotNull IResource resource);
 
-    Map<String, Object> getResourceProperties(IResource resource);
+    /**
+     * Finds resources that match the supplied {@code properties} map.
+     */
+    @NotNull
+    String[] findResources(@NotNull Map<String, ?> properties) throws DBException;
 
-    Map<String, Map<String, Object>> getResourceProperties();
+    Map<String, Object> getResourceProperties(@NotNull String resourcePath);
 
-    void setResourceProperty(IResource resource, String propName, Object propValue);
+    @Nullable
+    Object getResourceProperty(@NotNull String resourcePath, @NotNull String propName);
 
-    void setResourceProperties(IResource resource, Map<String, Object> props);
+    void setResourceProperty(@NotNull String resourcePath, @NotNull String propName, @Nullable Object propValue);
+
+    void moveResourceProperties(@NotNull String oldResourcePath, @NotNull String newResourcePath);
+
+    void refreshProject(DBRProgressMonitor monitor);
+
+    @Nullable
+    DBNModel getNavigatorModel();
+
 }

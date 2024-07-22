@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,19 +16,19 @@
  */
 package org.jkiss.dbeaver.registry;
 
-import org.eclipse.equinox.security.storage.ISecurePreferences;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBPDataSourceFolder;
 import org.jkiss.dbeaver.model.DBPDataSourceProvider;
 import org.jkiss.dbeaver.model.DBPInformationProvider;
-import org.jkiss.dbeaver.model.app.DBASecureStorage;
 import org.jkiss.dbeaver.model.app.DBPDataSourceRegistry;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
+import org.jkiss.dbeaver.model.connection.DBPDriverConfigurationType;
 import org.jkiss.dbeaver.model.net.DBWHandlerConfiguration;
 import org.jkiss.dbeaver.model.net.DBWHandlerType;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
@@ -64,6 +64,8 @@ public class DataSourceUtils {
     private static final String PARAM_MERGE_ENTITIES = "mergeEntities";
     private static final String PARAM_FOLDER = "folder";
     private static final String PARAM_AUTO_COMMIT = "autoCommit";
+    private static final String PARAM_CREATE = "create";
+    private static final String PARAM_SAVE = "save";
 
     private static final String PREFIX_HANDLER = "handler.";
     private static final String PREFIX_PROP = "prop.";
@@ -88,7 +90,8 @@ public class DataSourceUtils {
             hideFolders = false,
             hideSchemas = false,
             mergeEntities = false,
-            savePassword = true;
+            savePassword = true,
+            isTemporary = true;
         Boolean autoCommit = null;
         Map<String, String> conProperties = new HashMap<>();
         Map<String, Map<String, String>> handlerProps = new HashMap<>();
@@ -170,6 +173,15 @@ public class DataSourceUtils {
                     break;
                 case PARAM_AUTO_COMMIT:
                     autoCommit = CommonUtils.toBoolean(paramValue);
+                    break;
+                case PARAM_CREATE:
+                    createNewDataSource = CommonUtils.toBoolean(paramValue);
+                    if (parameterHandler != null) {
+                        parameterHandler.setParameter(paramName, paramValue);
+                    }
+                    break;
+                case PARAM_SAVE:
+                    isTemporary = !CommonUtils.toBoolean(paramValue);
                     break;
                 default:
                     boolean handled = false;
@@ -331,7 +343,7 @@ public class DataSourceUtils {
 
         DBPDataSourceContainer newDS = dsRegistry.createDataSource(driver, connConfig);
         newDS.setName(dsName);
-        ((DataSourceDescriptor)newDS).setTemporary(true);
+        ((DataSourceDescriptor)newDS).setTemporary(isTemporary);
         if (savePassword) {
             newDS.setSavePassword(true);
         }
@@ -347,58 +359,12 @@ public class DataSourceUtils {
         navSettings.setMergeEntities(mergeEntities);
 
         //ds.set
-        dsRegistry.addDataSource(newDS);
-        return newDS;
-    }
-
-    /**
-     * Save secure config in protected storage.
-     * @return true on success (if protected storage is available and configured)
-     */
-    static boolean saveCredentialsInSecuredStorage(
-        @NotNull DBPProject project,
-        @Nullable DataSourceDescriptor dataSource,
-        @Nullable String subNode,
-        @NotNull SecureCredentials credentials)
-    {
-        final DBASecureStorage secureStorage = project.getSecureStorage();
-        {
-            try {
-                ISecurePreferences prefNode = dataSource == null ?
-                    project.getSecureStorage().getSecurePreferences() :
-                    dataSource.getSecurePreferences();
-                if (!secureStorage.useSecurePreferences()) {
-                    prefNode.removeNode();
-                } else {
-                    if (subNode != null) {
-                        for (String nodeName : subNode.split("/")) {
-                            prefNode = prefNode.node(nodeName);
-                        }
-                    }
-                    prefNode.put("name", dataSource != null ? dataSource.getName() : project.getName(), false);
-
-                    if (!CommonUtils.isEmpty(credentials.getUserName())) {
-                        prefNode.put(RegistryConstants.ATTR_USER, credentials.getUserName(), true);
-                    } else {
-                        prefNode.remove(RegistryConstants.ATTR_USER);
-                    }
-                    if (!CommonUtils.isEmpty(credentials.getUserPassword())) {
-                        prefNode.put(RegistryConstants.ATTR_PASSWORD, credentials.getUserPassword(), true);
-                    } else {
-                        prefNode.remove(RegistryConstants.ATTR_PASSWORD);
-                    }
-                    if (!CommonUtils.isEmpty(credentials.getProperties())) {
-                        for (Map.Entry<String, String> prop : credentials.getProperties().entrySet()) {
-                            prefNode.put(prop.getKey(), prop.getValue(), true);
-                        }
-                    }
-                    return true;
-                }
-            } catch (Throwable e) {
-                log.error("Can't save credentials in secure storage", e);
-            }
+        try {
+            dsRegistry.addDataSource(newDS);
+        } catch (DBException e) {
+            log.error(e);
         }
-        return false;
+        return newDS;
     }
 
     @NotNull
@@ -413,12 +379,16 @@ public class DataSourceUtils {
             }
         }
         DBPConnectionConfiguration cfg = dataSourceContainer.getConnectionConfiguration();
-        String hostText = getTargetTunnelHostName(cfg);
-        String hostPort = cfg.getHostPort();
-        if (!CommonUtils.isEmpty(hostPort)) {
-            return hostText + ":" + hostPort;
+        if (cfg.getConfigurationType() == DBPDriverConfigurationType.MANUAL) {
+            String hostText = getTargetTunnelHostName(cfg);
+            String hostPort = cfg.getHostPort();
+            if (!CommonUtils.isEmpty(hostPort)) {
+                return hostText + ":" + hostPort;
+            }
+            return hostText;
+        } else {
+            return cfg.getUrl();
         }
-        return hostText;
     }
 
     @NotNull
@@ -437,5 +407,9 @@ public class DataSourceUtils {
             }
         }
         return CommonUtils.notEmpty(hostText);
+    }
+    
+    public static boolean isFolderHasTemporaryDataSources(DataSourceFolder folder) {
+        return folder.getDataSourceRegistry().getDataSources().stream().anyMatch(d -> d.getFolder() == folder && d.isTemporary());
     }
 }

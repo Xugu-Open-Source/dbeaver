@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,27 +21,36 @@ import org.eclipse.jface.action.IContributionItem;
 import org.eclipse.swt.widgets.Display;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBPOrderedObject;
 import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.app.DBPPlatform;
+import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.app.DBPResourceHandler;
 import org.jkiss.dbeaver.model.edit.*;
 import org.jkiss.dbeaver.model.navigator.*;
+import org.jkiss.dbeaver.model.navigator.fs.DBNPath;
+import org.jkiss.dbeaver.model.rm.RMConstants;
 import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
+import org.jkiss.dbeaver.registry.DataSourceRegistry;
 import org.jkiss.dbeaver.registry.ObjectManagerRegistry;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.ActionUtils;
+import org.jkiss.dbeaver.ui.actions.exec.SQLNativeExecutorDescriptor;
+import org.jkiss.dbeaver.ui.actions.exec.SQLNativeExecutorRegistry;
 import org.jkiss.dbeaver.ui.navigator.actions.NavigatorHandlerObjectCreateNew;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
+import org.jkiss.utils.CommonUtils;
 
 import java.util.List;
 
 /**
  * ObjectPropertyTester
  */
-public class ObjectPropertyTester extends PropertyTester
-{
+public class ObjectPropertyTester extends PropertyTester {
     //static final Log log = Log.getLog(ObjectPropertyTester.class);
 
     public static final String NAMESPACE = "org.jkiss.dbeaver.core.object";
@@ -59,6 +68,9 @@ public class ObjectPropertyTester extends PropertyTester
     public static final String PROP_HAS_TOOLS = "hasTools";
     public static final String PROP_SUPPORTS_CREATING_INDEX = "supportsIndexCreate";
     public static final String PROP_SUPPORTS_CREATING_CONSTRAINT = "supportsConstraintCreate";
+    public static final String PROP_PROJECT_RESOURCE_EDITABLE = "projectResourceEditable";
+    public static final String PROP_PROJECT_RESOURCE_VIEWABLE = "projectResourceViewable";
+    public static final String PROP_SUPPORTS_NATIVE_EXECUTION = "supportsNativeExecution";
 
     public ObjectPropertyTester() {
         super();
@@ -125,18 +137,40 @@ public class ObjectPropertyTester extends PropertyTester
             }
 */
             }
+            case PROP_SUPPORTS_NATIVE_EXECUTION:
+                if (receiver instanceof DBNResource) {
+                    List<DBPDataSourceContainer> associatedDataSources
+                        = (List<DBPDataSourceContainer>) ((DBNResource) receiver).getAssociatedDataSources();
+                    if (CommonUtils.isEmpty(associatedDataSources)) {
+                        return false;
+                    }
+                    DBPDataSourceContainer dbpDataSourceContainer = associatedDataSources.get(0);
+                    SQLNativeExecutorDescriptor executorDescriptor = SQLNativeExecutorRegistry.getInstance()
+                        .getExecutorDescriptor(dbpDataSourceContainer);
+                    try {
+                        return executorDescriptor != null && executorDescriptor.getNativeExecutor() != null;
+                    } catch (DBException e) {
+                        return false;
+                    }
+                }
+                return false;
             case PROP_CAN_DELETE: {
                 if (node instanceof DBNDataSource || node instanceof DBNLocalFolder) {
-                    return true;
+                    return nodeProjectHasPermission(node, RMConstants.PERMISSION_PROJECT_DATASOURCES_EDIT);
                 }
 
                 if (DBNUtils.isReadOnly(node)) {
                     return false;
                 }
+                if (node instanceof DBNNodeWithResource && !nodeProjectHasPermission(node, RMConstants.PERMISSION_PROJECT_RESOURCE_EDIT)) {
+                    return false;
+                }
 
                 if (node instanceof DBSWrapper) {
                     DBSObject object = ((DBSWrapper) node).getObject();
-                    if (object == null || DBUtils.isReadOnly(object) || !(node.getParentNode() instanceof DBNContainer)) {
+                    if (object == null || DBUtils.isReadOnly(object) || !(node.getParentNode() instanceof DBNContainer) ||
+                        !DBWorkbench.getPlatform().getWorkspace().hasRealmPermission(RMConstants.PERMISSION_METADATA_EDITOR)
+                    ) {
                         return false;
                     }
                     DBEObjectMaker objectMaker = getObjectManager(object.getClass(), DBEObjectMaker.class);
@@ -145,10 +179,15 @@ public class ObjectPropertyTester extends PropertyTester
                     if ((((DBNResource) node).getFeatures() & DBPResourceHandler.FEATURE_DELETE) != 0) {
                         return true;
                     }
+                } else if (node instanceof DBNPath) {
+                    return true;
                 }
                 break;
             }
             case PROP_CAN_RENAME: {
+                if (node instanceof DBNNodeWithResource && !nodeProjectHasPermission(node, RMConstants.PERMISSION_PROJECT_RESOURCE_EDIT)) {
+                    return false;
+                }
                 if (node.supportsRename()) {
                     return true;
                 }
@@ -220,11 +259,26 @@ public class ObjectPropertyTester extends PropertyTester
                 return supportsCreatingColumnObject(node, DBSTableIndex.class);
             case PROP_SUPPORTS_CREATING_CONSTRAINT:
                 return supportsCreatingColumnObject(node, DBSEntityConstraint.class);
+            case PROP_PROJECT_RESOURCE_EDITABLE:
+                return nodeProjectHasPermission(node, RMConstants.PERMISSION_PROJECT_RESOURCE_EDIT);
+            case PROP_PROJECT_RESOURCE_VIEWABLE:
+                return nodeProjectHasPermission(node, RMConstants.PERMISSION_PROJECT_RESOURCE_VIEW);
         }
         return false;
     }
 
+    /**
+     * Check whether the owner project of the specified node has required permissions
+     */
+    public static boolean nodeProjectHasPermission(@NotNull DBNNode node, @NotNull String permissionName) {
+        DBPProject project = node.getOwnerProject();
+        return project == null || project.hasRealmPermission(permissionName);        
+    }
+
     public static boolean canCreateObject(DBNNode node, Boolean onlySingle) {
+        if (!DBWorkbench.getPlatform().getWorkspace().hasRealmPermission(RMConstants.PERMISSION_METADATA_EDITOR)) {
+            return false;
+        }
         if (node instanceof DBNDatabaseNode) {
             if (((DBNDatabaseNode)node).isVirtual()) {
                 // Can't create virtual objects
@@ -240,12 +294,12 @@ public class ObjectPropertyTester extends PropertyTester
         }
         if (onlySingle == null) {
             // Just try to find first create handler
-            if (node instanceof DBNDataSource) {
+            if (node instanceof DBNDataSource || node instanceof DBNLocalFolder) {
                 // We always can create datasource
-                return true;
+                return node.getOwnerProject().hasRealmPermission(RMConstants.PERMISSION_PROJECT_DATASOURCES_EDIT);
             }
 
-            Class objectType;
+            Class<?> objectType;
             if (!(node instanceof DBNContainer)) {
                 if (node.getParentNode() instanceof DBNContainer) {
                     node = node.getParentNode();
@@ -269,7 +323,7 @@ public class ObjectPropertyTester extends PropertyTester
             if (objectType == null) {
                 return false;
             }
-            DBEObjectMaker objectMaker = getObjectManager(objectType, DBEObjectMaker.class);
+            DBEObjectMaker<?,?> objectMaker = getObjectManager(objectType, DBEObjectMaker.class);
             if (objectMaker == null) {
                 return false;
             }

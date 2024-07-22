@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,15 +31,17 @@ public final class ToggleSingleLineCommentHandler extends AbstractCommentHandler
             return;
         }
         int selOffset = textSelection.getOffset();
+        int originalOffset = textSelection.getOffset();
         int originalLength = textSelection.getLength();
         int selLength = originalLength;
+        
         DocumentRewriteSession rewriteSession = null;
         if (document instanceof IDocumentExtension4) {
             rewriteSession = ((IDocumentExtension4) document).startRewriteSession(DocumentRewriteSessionType.SEQUENTIAL);
         }
         int endLine = textSelection.getEndLine();
         int startLine = textSelection.getStartLine();
-
+        
         boolean forceComment = true;
         String firstLineText = document.get(document.getLineOffset(startLine), document.getLineLength(startLine)).trim();
         for (String commentString : singleLineComments) {
@@ -48,13 +50,18 @@ public final class ToggleSingleLineCommentHandler extends AbstractCommentHandler
                 break;
             }
         }
+        
         for (int lineNum = endLine; lineNum >= startLine; lineNum--) {
             int lineOffset = document.getLineOffset(lineNum);
             int lineLength = document.getLineLength(lineNum);
             if (forceComment) {
                 // Add comment
                 document.replace(lineOffset, 0, singleLineComments[0]);
-                selLength += singleLineComments[0].length();
+                if (lineNum == startLine) {
+                    selOffset += singleLineComments[0].length();
+                } else {
+                    selLength += singleLineComments[0].length();
+                }
             } else {
                 String lineComment = null;
                 String lineText = document.get(lineOffset, lineLength);
@@ -74,8 +81,17 @@ public final class ToggleSingleLineCommentHandler extends AbstractCommentHandler
                 }
                 if (lineComment != null) {
                     // Remove comment
-                    document.replace(lineOffset, checkOffset + lineComment.length(), "");
-                    selLength -= checkOffset + lineComment.length();
+                    document.replace(lineOffset + checkOffset, lineComment.length(), "");
+                    
+                    if (lineNum == startLine && originalOffset != lineOffset) {
+                        selOffset = Math.max(lineOffset, originalOffset - lineComment.length());
+                        if (lineComment.length() + lineOffset > originalOffset) {
+                            selLength -= lineComment.length() - originalOffset + lineOffset;
+                        }
+                    } else {
+                        selOffset = lineOffset;
+                        selLength -= lineComment.length();
+                    }
                 }
             }
         }

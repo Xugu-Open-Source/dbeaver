@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,6 +81,7 @@ public class DBVContainer extends DBVObject implements DBSObjectContainer {
         containers.clear();
     }
 
+    @Nullable
     public DBSObjectContainer getRealContainer(DBRProgressMonitor monitor) throws DBException {
         DBSObjectContainer realParent = parent.getRealContainer(monitor);
         if (realParent == null) {
@@ -99,7 +100,7 @@ public class DBVContainer extends DBVObject implements DBSObjectContainer {
         return parent;
     }
 
-    @NotNull
+    @Nullable
     @Override
     public DBPDataSource getDataSource() {
         return parent.getDataSource();
@@ -148,6 +149,10 @@ public class DBVContainer extends DBVObject implements DBSObjectContainer {
         containers.put(container.getName(), container);
     }
 
+    protected void clearContainers() {
+        this.containers.clear();
+    }
+
     @NotNull
     public Collection<DBVEntity> getEntities() {
         return entities.values();
@@ -169,6 +174,10 @@ public class DBVContainer extends DBVObject implements DBSObjectContainer {
     synchronized void removeEntity(DBVEntity entity) {
         entities.remove(entity.getName());
         entity.dispose();
+    }
+
+    protected void clearEntities() {
+        this.entities.clear();
     }
 
     @Override

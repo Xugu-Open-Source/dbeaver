@@ -97,6 +97,11 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 	}
 
 	@Override
+	public boolean canCreateObject(Object container) {
+		return container instanceof Schema;
+	}
+
+	@Override
 	protected Trigger createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context,
 			final Object container, Object from, Map<String, Object> options) {
 		Schema parent = (Schema) container;
@@ -345,7 +350,7 @@ public class TriggerManager extends SQLTriggerManager<Trigger, BaseTable> {
 
 			Composite eventBox = UIUtils.createPlaceholder(composite, 4, 1);
 			eventBox.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-			CLabel eventLabel = UIUtils.createInfoLabel(eventBox, Messages.dialog_trigger_event);
+			Control eventLabel = UIUtils.createInfoLabel(eventBox, Messages.dialog_trigger_event);
 			eventLabel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 			triggerEventInsert = UIUtils.createCheckbox(eventBox, Messages.dialog_trigger_event_insert, false);
 			triggerEventInsert.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));

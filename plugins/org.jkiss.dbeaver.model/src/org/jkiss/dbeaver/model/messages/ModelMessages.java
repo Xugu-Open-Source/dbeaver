@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -177,14 +177,80 @@ public class ModelMessages extends NLS {
 
     public static String dbp_permission_edit_data_name;
     public static String dbp_permission_edit_data_description;
-    public static String dbp_permission_edit_metadata_name;
-    public static String dbp_permission_edit_metadata_description;
-    public static String dbp_permission_execute_scripts_name;
-    public static String dbp_permission_execute_scripts_description;
-    public static String dbp_permission_import_data_name;
-    public static String dbp_permission_import_data_description;
+	public static String dbp_permission_edit_metadata_name;
+	public static String dbp_permission_edit_metadata_description;
+	public static String dbp_permission_execute_scripts_name;
+	public static String dbp_permission_execute_scripts_description;
+	public static String dbp_permission_import_data_name;
+	public static String dbp_permission_import_data_description;
 
-    static {
+	public static String task_rows_fetched_message_part;
+	public static String task_rows_modified_message_part;
+	public static String task_statements_executed_message_part;
+
+	public static String controls_querylog__ms;
+	public static String controls_querylog_action_clear_log;
+	public static String controls_querylog_action_copy;
+	public static String controls_querylog_action_copy_all_fields;
+	public static String controls_querylog_action_delete;
+	public static String controls_querylog_action_select_all;
+	public static String controls_querylog_column_duration_name;
+	public static String controls_querylog_column_duration_tooltip;
+	public static String controls_querylog_column_result_name;
+	public static String controls_querylog_column_result_tooltip;
+	public static String controls_querylog_column_rows_name;
+	public static String controls_querylog_column_rows_tooltip;
+	public static String controls_querylog_column_text_name;
+	public static String controls_querylog_column_text_tooltip;
+	public static String controls_querylog_column_time_name;
+	public static String controls_querylog_column_time_tooltip;
+	public static String controls_querylog_column_type_name;
+	public static String controls_querylog_column_type_tooltip;
+	public static String controls_querylog_column_connection_name;
+	public static String controls_querylog_column_connection_tooltip;
+	public static String controls_querylog_column_context_name;
+	public static String controls_querylog_column_context_tooltip;
+	public static String controls_querylog_commit;
+	public static String controls_querylog_connected_to;
+	public static String controls_querylog_disconnected_from;
+	public static String controls_querylog_error;
+	public static String controls_querylog_format_minutes;
+	public static String controls_querylog_job_refresh;
+	public static String controls_querylog_label_result;
+	public static String controls_querylog_label_text;
+	public static String controls_querylog_label_time;
+	public static String controls_querylog_label_type;
+	public static String controls_querylog_rollback;
+	public static String controls_querylog_savepoint;
+	public static String controls_querylog_script;
+	public static String controls_querylog_shell_text;
+	public static String controls_querylog_success;
+	public static String controls_querylog_transaction;
+	
+	public static String tasks_restore_confirmation_title;
+	public static String tasks_restore_confirmation_cancelled_message;
+    public static String tasks_restore_confirmation_message;
+	public static String tasks_restore_readonly_title;
+	public static String tasks_restore_readonly_message;
+
+	public static String project_shared_display_name;
+	public static String project_private_display_name;
+
+    public static String jdbc_content_view_error_message_title;
+    public static String jdbc_content_view_error_message_hint;
+
+    public static String no_corresponding_table_column_text;
+    public static String cannot_determine_unique_row_identifier_text;
+	public static String all_columns_read_only;
+
+    public static String dialog_user_password_change_label;
+    public static String dialog_user_password_change_question_label;
+    public static String dialog_user_password_change_question_message;
+    public static String dialog_user_password_change_error_message;
+
+    public static String dbutils_type_name_unknown;
+
+	static {
 		// initialize resource bundle
 		NLS.initializeMessages(BUNDLE_NAME, ModelMessages.class);
 	}

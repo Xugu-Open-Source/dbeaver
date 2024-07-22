@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,14 @@ package org.jkiss.dbeaver.ui.editors;
 
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.resource.ImageDescriptor;
+import org.eclipse.osgi.util.NLS;
 import org.eclipse.ui.IMemento;
 import org.eclipse.ui.IPersistableElement;
+import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
@@ -46,37 +49,39 @@ import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.ui.UITask;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.dialogs.ConnectionLostDialog;
+import org.jkiss.dbeaver.ui.editors.internal.EditorsMessages;
 import org.jkiss.dbeaver.utils.GeneralUtils;
+import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Objects;
 
 /**
  * Lazy input. Use by entity editors which are created during DBeaver startup (from memo by factory).
  */
-public class DatabaseLazyEditorInput implements IDatabaseEditorInput, IPersistableElement
+public class DatabaseLazyEditorInput implements IDatabaseEditorInput, ILazyEditorInput, IPersistableElement
 {
     private static final Log log = Log.getLog(DatabaseLazyEditorInput.class);
 
     private final String nodePath;
-    private DBPProject project;
-    private String nodeName;
+    private final String nodeName;
     private final String activePageId;
     private final String activeFolderId;
     private final String dataSourceId;
-
-    private final IMemento memento;
-    private DBPDataSourceContainer dataSourceContainer;
     private final String inputClass;
+    private final boolean canLoadImmediately;
+
+    // Initialized on demand
+    private DBPProject project;
+    private DBPDataSourceContainer dataSourceContainer;
 
     public DatabaseLazyEditorInput(IMemento memento) {
-        this.memento = memento;
-
         inputClass = memento.getString(DatabaseEditorInputFactory.TAG_CLASS);
         nodePath = memento.getString(DatabaseEditorInputFactory.TAG_NODE);
-        nodeName = memento.getString(DatabaseEditorInputFactory.TAG_NODE_NAME);
+        String nodeName = memento.getString(DatabaseEditorInputFactory.TAG_NODE_NAME);
         String projectName = memento.getString(DatabaseEditorInputFactory.TAG_PROJECT);
         project = CommonUtils.isEmpty(projectName) ? null : DBWorkbench.getPlatform().getWorkspace().getProject(projectName);
         dataSourceId = memento.getString(DatabaseEditorInputFactory.TAG_DATA_SOURCE);
@@ -91,6 +96,30 @@ public class DatabaseLazyEditorInput implements IDatabaseEditorInput, IPersistab
             nodeName = divPos == -1 ? nodePath : nodePath.substring(divPos + 1);
         }
 
+        this.nodeName = nodeName;
+        this.canLoadImmediately = true;
+    }
+
+    public DatabaseLazyEditorInput(
+        String nodePath,
+        String nodeName,
+        String activePageId,
+        String activeFolderId,
+        String dataSourceId,
+        String inputClass,
+        @Nullable DBPProject project,
+        @Nullable DBPDataSourceContainer dataSourceContainer,
+        boolean canLoadImmediately
+    ) {
+        this.nodePath = nodePath;
+        this.nodeName = nodeName;
+        this.activePageId = activePageId;
+        this.activeFolderId = activeFolderId;
+        this.dataSourceId = dataSourceId;
+        this.inputClass = inputClass;
+        this.project = project;
+        this.dataSourceContainer = dataSourceContainer;
+        this.canLoadImmediately = canLoadImmediately;
     }
 
     @Override
@@ -116,9 +145,12 @@ public class DatabaseLazyEditorInput implements IDatabaseEditorInput, IPersistab
     }
 
     @Override
-    public IPersistableElement getPersistable()
-    {
-        return null;
+    public IPersistableElement getPersistable() {
+        if (!canLoadImmediately && DBWorkbench.getPlatform().getPreferenceStore().getBoolean(DatabaseEditorPreferences.PROP_SAVE_EDITORS_STATE)) {
+            return this;
+        } else {
+            return null;
+        }
     }
 
     @Override
@@ -191,16 +223,22 @@ public class DatabaseLazyEditorInput implements IDatabaseEditorInput, IPersistab
     }
 
     @Override
-    public boolean equals(Object obj)
-    {
-        if (obj instanceof DatabaseLazyEditorInput) {
-            DatabaseLazyEditorInput li = (DatabaseLazyEditorInput) obj;
-            return CommonUtils.equalObjects(memento, li.memento);
-        }
-        return false;
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        DatabaseLazyEditorInput that = (DatabaseLazyEditorInput) o;
+        return Objects.equals(nodePath, that.nodePath)
+            && Objects.equals(activePageId, that.activePageId)
+            && Objects.equals(activeFolderId, that.activeFolderId)
+            && Objects.equals(dataSourceId, that.dataSourceId);
     }
 
-    public IDatabaseEditorInput initializeRealInput(final DBRProgressMonitor monitor) throws DBException
+    @Override
+    public int hashCode() {
+        return Objects.hash(nodePath, activePageId, activeFolderId, dataSourceId);
+    }
+
+    public IDatabaseEditorInput initializeRealInput(@NotNull DBRProgressMonitor monitor) throws DBException
     {
         // Get the node path.
         if (project != null) {
@@ -217,7 +255,8 @@ public class DatabaseLazyEditorInput implements IDatabaseEditorInput, IPersistab
         navigatorModel.ensureProjectLoaded(project);
         //dataSourceContainer, project, nodePath, nodeName, activePageId, activeFolderId
 
-        DBPDataSource dataSource;
+        long connectionTimeout = dataSourceContainer.getPreferenceStore().getInt(ModelPreferences.CONNECTION_VALIDATION_TIMEOUT);
+        long connectionStart = System.currentTimeMillis();
         while (!dataSourceContainer.isConnected()) {
             try {
                 dataSourceContainer.connect(monitor, true, true);
@@ -234,15 +273,20 @@ public class DatabaseLazyEditorInput implements IDatabaseEditorInput, IPersistab
                     // Close editor
                     return null;
                 } else if (result == IDialogConstants.RETRY_ID) {
+                    connectionStart = System.currentTimeMillis();
                     continue;
                 } else {
                     return new ErrorEditorInput(GeneralUtils.makeExceptionStatus(e), navigatorModel.getNodeByObject(dataSourceContainer));
                 }
             }
-            break;
+            if (connectionTimeout > 0 && connectionStart + connectionTimeout <= System.currentTimeMillis()) {
+                break;
+            }
+            // Wait a few seconds to let in-progress connection initialize
+            RuntimeUtils.pause(1000);
         }
         try {
-            dataSource = dataSourceContainer.getDataSource();
+            final DBPDataSource dataSource = dataSourceContainer.getDataSource();
             if (dataSource == null) {
                 throw new DBException("Connection to '" + dataSourceContainer.getName() + "' canceled");
             }
@@ -265,7 +309,7 @@ public class DatabaseLazyEditorInput implements IDatabaseEditorInput, IPersistab
             });
             DBNNode node = editorNodeResult[0];
             if (node == null) {
-                throw new DBException("Navigator node '" + nodePath + "' not found");
+                throw new DBException(NLS.bind(EditorsMessages.lazy_editor_input_cant_find_node, nodePath));
             }
             if (node instanceof DBNDatabaseNode) {
                 DBSObject object = ((DBNDatabaseNode) node).getObject();
@@ -284,6 +328,27 @@ public class DatabaseLazyEditorInput implements IDatabaseEditorInput, IPersistab
         } catch (DBException e) {
             return new ErrorEditorInput(GeneralUtils.makeExceptionStatus(e), navigatorModel.getNodeByObject(dataSourceContainer));
         }
+    }
+
+    @Override
+    public boolean canLoadImmediately() {
+        return canLoadImmediately;
+    }
+
+    @NotNull
+    @Override
+    public ILazyEditorInput unloadInput() {
+        return new DatabaseLazyEditorInput(
+            nodePath,
+            nodeName,
+            activePageId,
+            activeFolderId,
+            dataSourceId,
+            inputClass,
+            project,
+            dataSourceContainer,
+            false
+        );
     }
 
     @Override

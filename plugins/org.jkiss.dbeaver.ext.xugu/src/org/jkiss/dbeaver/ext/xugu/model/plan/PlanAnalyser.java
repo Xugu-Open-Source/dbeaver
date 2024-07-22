@@ -87,7 +87,7 @@ public class PlanAnalyser implements DBCPlan {
 			}
 			dbStat.close();
 		} catch (SQLException e) {
-			throw new DBCException(e, session.getDataSource());
+			throw new DBCException(e, session.getExecutionContext());
 		}
 	}
 

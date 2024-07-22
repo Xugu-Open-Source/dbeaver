@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@ import java.util.Map;
  * Configuration origin.
  * It can be local configuration or some cloud provider.
  */
+@DPIObject
+@DPIElement
 public interface DBPDataSourceOrigin extends DBPObjectWithDetails<DBPDataSourceContainer> {
 
     /**
@@ -48,6 +50,6 @@ public interface DBPDataSourceOrigin extends DBPObjectWithDetails<DBPDataSourceC
     boolean isDynamic();
 
     @NotNull
-    Map<String, Object> getConfiguration();
+    Map<String, Object> getDataSourceConfiguration();
 
 }

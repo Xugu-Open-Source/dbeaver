@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2017-2017 Karl Griesser (fullref@gmail.com)
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,11 @@ import org.jkiss.dbeaver.ext.exasol.model.ExasolTableForeignKey;
 import org.jkiss.dbeaver.model.struct.rdb.DBSForeignKeyModifyRule;
 import org.jkiss.dbeaver.ui.editors.object.struct.EditForeignKeyPage;
 
+import java.util.Map;
+
 public class ExasolCreateForeignKeyDialog extends EditForeignKeyPage {
-    public ExasolCreateForeignKeyDialog(String title, ExasolTableForeignKey foreignKey) {
-        super(title, foreignKey, new DBSForeignKeyModifyRule[0]);
+    public ExasolCreateForeignKeyDialog(String title, ExasolTableForeignKey foreignKey, Map<String, Object> options) {
+        super(title, foreignKey, new DBSForeignKeyModifyRule[0], options);
     }
 
     @Override

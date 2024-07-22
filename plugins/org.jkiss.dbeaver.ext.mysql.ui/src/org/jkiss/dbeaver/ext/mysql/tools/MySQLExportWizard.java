@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,8 +35,11 @@ import org.jkiss.dbeaver.ui.ShellUtils;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.utils.CommonUtils;
 
+import java.io.File;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 class MySQLExportWizard extends AbstractNativeExportWizard<MySQLExportSettings, MySQLDatabaseExportInfo> {
     private MySQLExportWizardPageObjects objectsPage;
@@ -63,8 +66,12 @@ class MySQLExportWizard extends AbstractNativeExportWizard<MySQLExportSettings, 
 
     @Override
     public void saveTaskState(DBRRunnableContext runnableContext, DBTTask task, Map<String, Object> state) {
-        objectsPage.saveState();
-        settingsPage.saveState();
+        if (objectsPage.getControl() != null) {
+            objectsPage.saveState();
+        }
+        if (settingsPage.getControl() != null) {
+            settingsPage.saveState();
+        }
         getSettings().saveSettings(runnableContext, new TaskPreferenceStore(state));
     }
 
@@ -106,6 +113,8 @@ class MySQLExportWizard extends AbstractNativeExportWizard<MySQLExportSettings, 
             MySQLUIMessages.tools_db_export_wizard_title,
             CommonUtils.truncateString(NLS.bind(MySQLUIMessages.tools_db_export_wizard_message_export_completed, getObjectsName()), 255),
             SWT.ICON_INFORMATION);
-        ShellUtils.launchProgram(getSettings().getOutputFolder().getAbsolutePath());
+
+        Set<File> set = getSettings().getExportObjects().stream().map(it -> getSettings().getOutputFolder(it)).collect(Collectors.toSet());
+        set.forEach(it -> ShellUtils.launchProgram(it.getAbsolutePath()));
 	}
 }

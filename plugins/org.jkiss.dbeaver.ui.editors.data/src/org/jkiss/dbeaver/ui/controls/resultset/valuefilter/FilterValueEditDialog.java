@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,10 +38,7 @@ import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.ui.UIIcon;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.ViewerColumnController;
-import org.jkiss.dbeaver.ui.controls.resultset.ResultSetRow;
-import org.jkiss.dbeaver.ui.controls.resultset.ResultSetUtils;
-import org.jkiss.dbeaver.ui.controls.resultset.ResultSetValueController;
-import org.jkiss.dbeaver.ui.controls.resultset.ResultSetViewer;
+import org.jkiss.dbeaver.ui.controls.resultset.*;
 import org.jkiss.dbeaver.ui.data.IValueController;
 import org.jkiss.dbeaver.ui.data.IValueEditor;
 import org.jkiss.dbeaver.ui.data.editors.StringInlineEditor;
@@ -92,8 +89,7 @@ public class FilterValueEditDialog extends BaseDialog{
         ResultSetRow singleRow = handler.getRows()[0];
         final ResultSetValueController valueController = new ResultSetValueController(
             handler.getViewer(),
-            handler.getAttribute(),
-            singleRow,
+            new ResultSetCellLocation(handler.getAttribute(), singleRow, null),
             IValueController.EditType.INLINE,
             editorPlaceholder) {
             @Override

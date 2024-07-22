@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.generic.GenericConstants;
 import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.DPIContainer;
 import org.jkiss.dbeaver.model.connection.DBPConnectionBootstrap;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContextDefaults;
@@ -52,6 +53,7 @@ public class GenericExecutionContext extends JDBCExecutionContext implements DBC
         super(instance, purpose);
     }
 
+    @DPIContainer
     @NotNull
     @Override
     public GenericDataSource getDataSource() {
@@ -147,11 +149,16 @@ public class GenericExecutionContext extends JDBCExecutionContext implements DBC
             boolean needToSetAutocommit = false;
             try (JDBCSession session = openSession(monitor, DBCExecutionPurpose.UTIL, "Set active catalog")) {
                 if (dataSource.isSelectedEntityFromAPI()) {
-                    // Use JDBC API to change entity
-                    if (context.supportsCatalogChange()) {
-                        session.setCatalog(entityName);
+                    // FIXME: Do not call setCatalog/Schema on legacy ODBC driver
+                    if (!dataSource.getContainer().getDriver().isInternalDriver()) {
+                        // Use JDBC API to change entity
+                        if (context.supportsCatalogChange()) {
+                            session.setCatalog(entityName);
+                        } else {
+                            session.setSchema(entityName);
+                        }
                     } else {
-                        session.setSchema(entityName);
+                        log.debug("Catalog/schema switch is disabled for legacy drivers");
                     }
                 } else {
                     if (CommonUtils.isEmpty(dataSource.getQuerySetActiveDB())) {
@@ -210,12 +217,16 @@ public class GenericExecutionContext extends JDBCExecutionContext implements DBC
     @Override
     public boolean supportsCatalogChange() {
         GenericDataSource dataSource = getDataSource();
+        if (!(dataSource.getInfo() instanceof GenericDataSourceInfo)) {
+            return true;
+        }
+        final GenericDataSourceInfo info = (GenericDataSourceInfo) dataSource.getInfo();
         if (dataSource.isSelectedEntityFromAPI() || !CommonUtils.isEmpty(dataSource.getQuerySetActiveDB())) {
             if (CommonUtils.isEmpty(dataSource.getSelectedEntityType())) {
-                return dataSource.hasCatalogs();
+                return dataSource.hasCatalogs() && info.supportsCatalogSelection();
             }
             if (dataSource.hasCatalogs()) {
-                return GenericConstants.ENTITY_TYPE_CATALOG.equals(dataSource.getSelectedEntityType()) || !dataSource.hasSchemas();
+                return (GenericConstants.ENTITY_TYPE_CATALOG.equals(dataSource.getSelectedEntityType()) || !dataSource.hasSchemas()) && info.supportsCatalogSelection();
             }
         }
         return false;
@@ -224,12 +235,16 @@ public class GenericExecutionContext extends JDBCExecutionContext implements DBC
     @Override
     public boolean supportsSchemaChange() {
         GenericDataSource dataSource = getDataSource();
+        if (!(dataSource.getInfo() instanceof GenericDataSourceInfo)) {
+            return true;
+        }
+        final GenericDataSourceInfo info = (GenericDataSourceInfo) dataSource.getInfo();
         if (dataSource.isSelectedEntityFromAPI() || !CommonUtils.isEmpty(dataSource.getQuerySetActiveDB())) {
             if (CommonUtils.isEmpty(dataSource.getSelectedEntityType())) {
-                return !dataSource.hasCatalogs() && dataSource.hasSchemas();
+                return !dataSource.hasCatalogs() && dataSource.hasSchemas() && info.supportsSchemaSelection();
             }
             if (dataSource.hasSchemas()) {
-                return GenericConstants.ENTITY_TYPE_SCHEMA.equals(dataSource.getSelectedEntityType()) || !dataSource.hasCatalogs();
+                return (GenericConstants.ENTITY_TYPE_SCHEMA.equals(dataSource.getSelectedEntityType()) || !dataSource.hasCatalogs()) && info.supportsSchemaSelection();
             }
         }
         return false;
@@ -248,7 +263,11 @@ public class GenericExecutionContext extends JDBCExecutionContext implements DBC
         boolean needToSetAutocommit = false;
         try (JDBCSession session = openSession(monitor, DBCExecutionPurpose.UTIL, "Set active catalog")) {
             if (dataSource.isSelectedEntityFromAPI()) {
-                session.setCatalog(catalog.getName());
+                if (!dataSource.getContainer().getDriver().isInternalDriver()) {
+                    session.setCatalog(catalog.getName());
+                } else {
+                    log.debug("Catalog change is disabled for legacy drivers");
+                }
             } else {
                 if (CommonUtils.isEmpty(dataSource.getQuerySetActiveDB())) {
                     throw new DBCException("Active catalog can't be changed for this kind of datasource!");

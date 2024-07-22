@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,28 +17,36 @@
  */
 package org.jkiss.dbeaver.tasks.nativetool;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableContext;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
+import org.jkiss.dbeaver.model.struct.DBSStructContainer;
+import org.jkiss.dbeaver.model.struct.rdb.DBSSchema;
+import org.jkiss.dbeaver.model.struct.rdb.DBSTable;
+import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.CommonUtils;
 
-import java.io.File;
+import java.util.Collection;
+import java.util.Iterator;
+
 
 public abstract class AbstractImportExportSettings<BASE_OBJECT extends DBSObject> extends AbstractNativeToolSettings<BASE_OBJECT> {
     private static final Log log = Log.getLog(AbstractImportExportSettings.class);
 
-    private File outputFolder;
+    private String outputFolderPattern;
     private String outputFilePattern;
 
-    public File getOutputFolder() {
-        return outputFolder;
+    public String getOutputFolderPattern() {
+        return outputFolderPattern;
     }
 
-    public void setOutputFolder(File outputFolder) {
-        this.outputFolder = outputFolder;
+    public void setOutputFolderPattern(String outputFolderPattern) {
+        this.outputFolderPattern = outputFolderPattern;
     }
 
     public String getOutputFilePattern() {
@@ -60,17 +68,9 @@ public abstract class AbstractImportExportSettings<BASE_OBJECT extends DBSObject
         if (CommonUtils.isEmpty(this.outputFilePattern)) {
             this.outputFilePattern = "dump-${database}-${timestamp}.sql";
         }
-        String outputFolderPath = CommonUtils.toString(store.getString("export.outputFolder"));
-        if (CommonUtils.isNotEmpty(outputFolderPath)) {
-            File outputFolder = new File(outputFolderPath);
-            if (outputFolder.exists()) {
-                this.outputFolder = outputFolder;
-            } else {
-                log.warn("Output directory does not exists, using user home directory instead");
-            }
-        }
-        if (this.outputFolder == null) {
-            this.outputFolder = new File(RuntimeUtils.getUserHomeDir().getAbsolutePath());
+        this.outputFolderPattern = CommonUtils.toString(store.getString("export.outputFolder"));
+        if (CommonUtils.isEmpty(this.outputFolderPattern)) {
+            this.outputFolderPattern = RuntimeUtils.getUserHomeDir().getAbsolutePath();
         }
     }
 
@@ -78,7 +78,42 @@ public abstract class AbstractImportExportSettings<BASE_OBJECT extends DBSObject
     public void saveSettings(DBRRunnableContext runnableContext, DBPPreferenceStore preferenceStore) {
         super.saveSettings(runnableContext, preferenceStore);
         preferenceStore.setValue("export.outputFilePattern", this.outputFilePattern);
-        preferenceStore.setValue("export.outputFolder", this.outputFolder.getAbsolutePath());
+        preferenceStore.setValue("export.outputFolder", this.outputFolderPattern);
+    }
+
+    protected String resolveVars(@NotNull DBSObjectContainer container, Collection<? extends DBSSchema> schemas, Collection<? extends DBSTable> tables, String pattern) {
+        return GeneralUtils.replaceVariables(pattern, name -> {
+            switch (name) {
+                case NativeToolUtils.VARIABLE_DATABASE:
+                    return container.getName();
+                case NativeToolUtils.VARIABLE_HOST:
+                    return container.getDataSource().getContainer().getConnectionConfiguration().getHostName();
+                case NativeToolUtils.VARIABLE_CONN_TYPE:
+                    return container.getDataSource().getContainer().getConnectionConfiguration().getConnectionType().getId();
+                case NativeToolUtils.VARIABLE_SCHEMA: {
+                    final Iterator<? extends DBSSchema> iterator = schemas == null ? null : schemas.iterator();
+                    if (iterator != null && iterator.hasNext()) {
+                        return iterator.next().getName();
+                    } else {
+                        return container instanceof DBSStructContainer ? container.getName() : "null";
+                    }
+                }
+                case NativeToolUtils.VARIABLE_TABLE: {
+                    final Iterator<? extends DBSTable> iterator = tables == null ? null : tables.iterator();
+                    if (iterator != null && iterator.hasNext()) {
+                        return iterator.next().getName();
+                    } else {
+                        return "null";
+                    }
+                }
+                case NativeToolUtils.VARIABLE_TIMESTAMP:
+                    return RuntimeUtils.getCurrentTimeStamp();
+                case NativeToolUtils.VARIABLE_DATE:
+                    return RuntimeUtils.getCurrentDate();
+                default:
+                    return NativeToolUtils.replaceVariables(name);
+            }
+        });
     }
 
 }

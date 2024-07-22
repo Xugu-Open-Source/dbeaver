@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,17 +18,16 @@ package org.jkiss.dbeaver.ui.app.standalone.about;
 
 import org.eclipse.core.runtime.IProduct;
 import org.eclipse.core.runtime.Platform;
+import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.jface.resource.JFaceColors;
+import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.BusyIndicator;
 import org.eclipse.swt.events.MouseAdapter;
 import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
-import org.eclipse.swt.graphics.Color;
-import org.eclipse.swt.graphics.Font;
-import org.eclipse.swt.graphics.GC;
-import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.graphics.*;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.*;
@@ -39,6 +38,7 @@ import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.core.CoreMessages;
 import org.jkiss.dbeaver.model.impl.app.ApplicationRegistry;
+import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.ShellUtils;
 import org.jkiss.dbeaver.ui.UIUtils;
@@ -71,8 +71,14 @@ public class AboutBoxDialog extends InformationDialog
     public AboutBoxDialog(Shell shell)
     {
         super(shell);
-        NAME_FONT = new Font(shell.getDisplay(), CoreMessages.dialog_about_font, 14, SWT.BOLD);
-        TITLE_FONT = new Font(shell.getDisplay(), CoreMessages.dialog_about_font, 10, SWT.NORMAL);
+        final FontData[] data = JFaceResources.getDialogFont().getFontData();
+
+        data[0].height += 1;
+        TITLE_FONT = new Font(shell.getDisplay(), data);
+
+        data[0].height += 4;
+        data[0].setStyle(data[0].getStyle() | SWT.BOLD);
+        NAME_FONT = new Font(shell.getDisplay(), data);
     }
 
     @Override
@@ -173,7 +179,7 @@ public class AboutBoxDialog extends InformationDialog
 
         if (splashImage == null) {
             try {
-                URL splashResource = ApplicationRegistry.getInstance().getApplication().getContributorBundle().getResource("splash.bmp");
+                URL splashResource = ApplicationRegistry.getInstance().getApplication().getContributorBundle().getResource("splash.png");
                 if (splashResource != null) {
                     try (InputStream is = splashResource.openStream()) {
                         Image img = new Image(getShell().getDisplay(), is);
@@ -232,12 +238,14 @@ public class AboutBoxDialog extends InformationDialog
         gd.horizontalAlignment = GridData.CENTER;
         siteLink.setLayoutData(gd);
 
-        String infoDetails = DBWorkbench.getPlatform().getApplication().getInfoDetails();
+        String infoDetails = DBWorkbench.getPlatform().getApplication().getInfoDetails(new VoidProgressMonitor());
         if (!CommonUtils.isEmpty(infoDetails)) {
             Text extraText = new Text(group, SWT.MULTI | SWT.BORDER | SWT.READ_ONLY | SWT.WRAP | SWT.V_SCROLL);
             extraText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
             extraText.setText(infoDetails);
         }
+
+        Dialog.applyDialogFont(group);
 
         return parent;
     }

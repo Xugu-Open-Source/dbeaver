@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,12 @@
  */
 package org.jkiss.dbeaver.ext.postgresql.tasks;
 
+import org.eclipse.osgi.util.NLS;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableContext;
 import org.jkiss.dbeaver.model.struct.DBSObject;
@@ -51,12 +55,18 @@ public class PostgreDatabaseRestoreHandler extends PostgreNativeToolHandler<Post
     @Override
     protected boolean validateTaskParameters(DBTTask task, PostgreDatabaseRestoreSettings settings, Log log) {
         if (task.getType().getId().equals(PostgreSQLTasks.TASK_DATABASE_BACKUP)) {
-            final File dir = settings.getOutputFolder();
+            final File dir = new File(settings.getOutputFilePattern());
             if (!dir.exists()) {
                 if (!dir.mkdirs()) {
                     log.error("Can't create directory '" + dir.getAbsolutePath() + "'");
                     return false;
                 }
+            }
+        } else if (task.getType().getId().equals(PostgreSQLTasks.TASK_DATABASE_RESTORE)) {
+            DBPDataSource dataSource = settings.getDataSourceContainer().getDataSource();
+            if (dataSource != null && DBUtils.isReadOnly(settings.getDataSourceContainer().getDataSource())) {
+                log.error(NLS.bind(ModelMessages.tasks_restore_readonly_message, dataSource.getName()));
+                return false; 
             }
         }
         return true;
@@ -81,6 +91,9 @@ public class PostgreDatabaseRestoreHandler extends PostgreNativeToolHandler<Post
         }
         if (settings.isNoOwner()) {
             cmd.add("--no-owner");
+        }
+        if (settings.isCreateDatabase()) {
+            cmd.add("--create");
         }
     }
 
@@ -133,7 +146,7 @@ public class PostgreDatabaseRestoreHandler extends PostgreNativeToolHandler<Post
     @Override
     public void validateErrorCode(int exitCode) throws IOException {
     if (exitCode == 1) {
-        DBWorkbench.getPlatformUI().showWarningMessageBox("Warning", "Database restore finished with warnings.\nPlease check the error log to see what is wrong.");
+        DBWorkbench.getPlatformUI().showWarningNotification("Warning", "Database restore finished with warnings.\nPlease check the error log to see what is wrong.");
     } else {
         super.validateErrorCode(exitCode);
     }

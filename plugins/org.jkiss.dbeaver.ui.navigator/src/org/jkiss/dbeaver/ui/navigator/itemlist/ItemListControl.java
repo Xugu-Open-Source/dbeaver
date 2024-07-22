@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.jkiss.dbeaver.ui.navigator.itemlist;
 
 import org.eclipse.jface.action.*;
+import org.eclipse.jface.util.IPropertyChangeListener;
 import org.eclipse.jface.viewers.*;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Color;
@@ -26,8 +27,10 @@ import org.eclipse.ui.IWorkbenchCommandConstants;
 import org.eclipse.ui.IWorkbenchPartSite;
 import org.eclipse.ui.IWorkbenchSite;
 import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.menus.CommandContributionItem;
 import org.eclipse.ui.part.MultiPageEditorPart;
 import org.eclipse.ui.part.MultiPageEditorSite;
+import org.eclipse.ui.themes.ITheme;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBPObjectStatisticsCollector;
@@ -50,6 +53,7 @@ import org.jkiss.dbeaver.ui.editors.DatabaseEditorUtils;
 import org.jkiss.dbeaver.ui.editors.entity.EntityEditor;
 import org.jkiss.dbeaver.ui.internal.UINavigatorMessages;
 import org.jkiss.dbeaver.ui.navigator.NavigatorCommands;
+import org.jkiss.dbeaver.ui.navigator.NavigatorUtils;
 import org.jkiss.dbeaver.ui.navigator.actions.NavigatorHandlerFilterConfig;
 import org.jkiss.dbeaver.ui.navigator.actions.NavigatorHandlerObjectCreateNew;
 import org.jkiss.dbeaver.ui.properties.PropertyEditorUtils;
@@ -70,13 +74,15 @@ public class ItemListControl extends NodeListControl
     private static final String COLOR_NEW = "org.jkiss.dbeaver.sql.resultset.color.cell.new.background";
     private static final String COLOR_MODIFIED = "org.jkiss.dbeaver.sql.resultset.color.cell.modified.background";
 
+    private final IPropertyChangeListener themeChangeListener;
     private final ISearchExecutor searcher;
     private final Color searchHighlightColor;
     //private Color disabledCellColor;
-    private final Font normalFont;
-    private final Font boldFont;
+    private Font normalFont;
+    private Font boldFont;
 
     private final Map<DBNNode, Map<String, Object>> changedProperties = new HashMap<>();
+    private CommandContributionItem createObjectCommand;
 
     public ItemListControl(
         Composite parent,
@@ -86,12 +92,43 @@ public class ItemListControl extends NodeListControl
         DBXTreeNode metaNode)
     {
         super(parent, style, workbenchSite, node, metaNode);
+        this.themeChangeListener = e -> {
+            final ITheme theme = PlatformUI.getWorkbench().getThemeManager().getCurrentTheme();
+            normalFont = theme.getFontRegistry().get(UIFonts.DBEAVER_FONTS_MAIN_FONT);
+            boldFont = theme.getFontRegistry().getBold(UIFonts.DBEAVER_FONTS_MAIN_FONT);
+            super.getItemsViewer().refresh();
+            Viewer navigatorViewer = super.getNavigatorViewer();
+            if (navigatorViewer != null) {
+                navigatorViewer.refresh();
+            }
+        };
+        this.themeChangeListener.propertyChange(null);
 
+        PlatformUI.getWorkbench().getThemeManager().addPropertyChangeListener(themeChangeListener);
         this.searcher = new SearcherFilter();
         this.searchHighlightColor = new Color(parent.getDisplay(), 170, 255, 170);
         //this.disabledCellColor = UIStyles.getDefaultTextBackground();//parent.getDisplay().getSystemColor(SWT.COLOR_WIDGET_LIGHT_SHADOW);
-        this.normalFont = parent.getFont();
-        this.boldFont = UIUtils.makeBoldFont(normalFont);
+    }
+
+    @Override
+    protected NodeSelectionProvider createSelectionProvider(ISelectionProvider selectionProvider) {
+        return new NodeSelectionProvider(selectionProvider) {
+            @Override
+            public void selectionChanged(SelectionChangedEvent event) {
+                super.selectionChanged(event);
+                if (createObjectCommand != null) {
+                    DBNNode selectedNode = NavigatorUtils.getSelectedNode(event.getSelection());
+                    boolean isEnabled = ObjectPropertyTester.canCreateObject(selectedNode, true);
+                    if (isEnabled != createObjectCommand.isVisible()) {
+                        createObjectCommand.setVisible(isEnabled);
+                        IContributionManager toolbarManager = createObjectCommand.getParent();
+                        if (toolbarManager != null) {
+                            toolbarManager.update(true);
+                        }
+                    }
+                }
+            }
+        };
     }
 
     @Override
@@ -126,9 +163,10 @@ public class ItemListControl extends NodeListControl
                 NavigatorCommands.CMD_OBJECT_OPEN));
             {
                 if (ObjectPropertyTester.canCreateObject(rootNode, true)) {
-                    contributionManager.add(ActionUtils.makeCommandContribution(
+                    createObjectCommand = ActionUtils.makeCommandContribution(
                         workbenchSite,
-                        NavigatorCommands.CMD_OBJECT_CREATE));
+                        NavigatorCommands.CMD_OBJECT_CREATE);
+                    contributionManager.add(createObjectCommand);
                 } else if (ObjectPropertyTester.canCreateObject(rootNode, false)) {
                     contributionManager.add(new Action(null, Action.AS_DROP_DOWN_MENU) {
                         {
@@ -171,12 +209,10 @@ public class ItemListControl extends NodeListControl
             }
             if (hasReorder) {
                 contributionManager.add(new Separator());
-                contributionManager.add(ActionUtils.makeCommandContribution(
-                    workbenchSite,
-                    NavigatorCommands.CMD_OBJECT_MOVE_UP));
-                contributionManager.add(ActionUtils.makeCommandContribution(
-                    workbenchSite,
-                    NavigatorCommands.CMD_OBJECT_MOVE_DOWN));
+                contributionManager.add(ActionUtils.makeCommandContribution(workbenchSite, NavigatorCommands.CMD_OBJECT_MOVE_TOP));
+                contributionManager.add(ActionUtils.makeCommandContribution(workbenchSite, NavigatorCommands.CMD_OBJECT_MOVE_UP));
+                contributionManager.add(ActionUtils.makeCommandContribution(workbenchSite, NavigatorCommands.CMD_OBJECT_MOVE_DOWN));
+                contributionManager.add(ActionUtils.makeCommandContribution(workbenchSite, NavigatorCommands.CMD_OBJECT_MOVE_BOTTOM));
             }
         }
 
@@ -211,7 +247,10 @@ public class ItemListControl extends NodeListControl
 //        }
         UIUtils.dispose(searchHighlightColor);
         //UIUtils.dispose(disabledCellColor);
-        UIUtils.dispose(boldFont);
+        //UIUtils.dispose(boldFont);
+
+        PlatformUI.getWorkbench().getThemeManager().removePropertyChangeListener(themeChangeListener);
+        
         super.disposeControl();
     }
 
@@ -418,6 +457,9 @@ public class ItemListControl extends NodeListControl
         @Override
         public Font getFont(Object element)
         {
+            if (!(element instanceof DBNNode)) {
+                return normalFont;
+            }
             final Object object = getObjectValue((DBNNode) element);
             return objectColumn.isNameColumn(object) && DBNUtils.isDefaultElement(element) ? boldFont : normalFont;
         }
@@ -431,6 +473,9 @@ public class ItemListControl extends NodeListControl
         @Override
         public Color getBackground(Object element)
         {
+            if (!(element instanceof DBNNode)) {
+                return null;
+            }
             DBNNode node = (DBNNode) element;
             if (node.isDisposed()) {
                 return null;

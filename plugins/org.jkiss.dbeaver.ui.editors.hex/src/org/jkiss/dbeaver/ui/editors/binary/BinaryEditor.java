@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,8 +27,6 @@ import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.graphics.FontData;
 import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Event;
-import org.eclipse.swt.widgets.Listener;
 import org.eclipse.ui.*;
 import org.eclipse.ui.editors.text.IEncodingSupport;
 import org.eclipse.ui.internal.WorkbenchMessages;
@@ -44,8 +42,8 @@ import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.editors.EditorUtils;
 import org.jkiss.dbeaver.ui.editors.binary.internal.BinaryEditorMessages;
 import org.jkiss.dbeaver.ui.editors.binary.pref.HexPreferencesPage;
-import org.jkiss.dbeaver.utils.ContentUtils;
 import org.jkiss.dbeaver.utils.GeneralUtils;
+import org.jkiss.dbeaver.utils.ResourceUtils;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
 
 import java.io.File;
@@ -87,7 +85,7 @@ public class BinaryEditor extends EditorPart implements ISelectionProvider, IMen
         if (localPath == null) {
             return;
         }
-        localPath = ContentUtils.convertPathToWorkspacePath(localPath);
+        localPath = ResourceUtils.convertPathToWorkspacePath(localPath);
         if (localPath == null) {
             return;
         }
@@ -152,30 +150,21 @@ public class BinaryEditor extends EditorPart implements ISelectionProvider, IMen
         createEditorAction(bars, IWorkbenchCommandConstants.EDIT_FIND_AND_REPLACE);
         createEditorAction(bars, ITextEditorActionConstants.GOTO_LINE);
 
-        manager.addListener(new Listener() {
-            @Override
-            public void handleEvent(Event event)
-            {
-                firePropertyChange(PROP_DIRTY);
-                updateActionsStatus();
-            }
+        manager.addListener(event -> {
+            firePropertyChange(PROP_DIRTY);
+            updateActionsStatus();
         });
 
         bars.updateActionBars();
 
-        preferencesChangeListener = new DBPPreferenceListener() {
-            @Override
-            public void preferenceChange(PreferenceChangeEvent event)
-            {
-                if (HexPreferencesPage.PROP_FONT_DATA.equals(event.getProperty())) {
-                    manager.setTextFont((FontData) event.getNewValue());
-                }
-                if (HexPreferencesPage.PROP_DEF_WIDTH.equals(event.getProperty())) {
-                		manager.setDefWidth((String) event.getNewValue());
-                }
-                    
+        preferencesChangeListener = event -> {
+            if (HexPreferencesPage.PROP_FONT_DATA.equals(event.getProperty())) {
+                manager.setTextFont((FontData) event.getNewValue());
             }
-            
+            if (HexPreferencesPage.PROP_DEF_WIDTH.equals(event.getProperty())) {
+                    manager.setDefWidth((String) event.getNewValue());
+            }
+
         };
         DBPPreferenceStore store = DBWorkbench.getPlatform().getPreferenceStore();
         store.addPropertyChangeListener(preferencesChangeListener);
@@ -240,8 +229,10 @@ public class BinaryEditor extends EditorPart implements ISelectionProvider, IMen
             manager = null;
         }
 
-        DBPPreferenceStore store = DBWorkbench.getPlatform().getPreferenceStore();
-        store.removePropertyChangeListener(preferencesChangeListener);
+        if (preferencesChangeListener != null) {
+            DBPPreferenceStore store = DBWorkbench.getPlatform().getPreferenceStore();
+            store.removePropertyChangeListener(preferencesChangeListener);
+        }
 
         ResourcesPlugin.getWorkspace().removeResourceChangeListener(this);
 
@@ -258,8 +249,17 @@ public class BinaryEditor extends EditorPart implements ISelectionProvider, IMen
         IEditorInput editorInput = getEditorInput();
         // Sync file changes
         IFile file = EditorUtils.getFileFromInput(editorInput);
+        IPath absolutePath = null;
         if (file != null) {
-            final IPath absolutePath = file.getLocation();
+            absolutePath = file.getLocation();
+        } else if (editorInput instanceof IPathEditorInput) {
+            // no IFile for files outside of workspace (hex editor temporary files for example)
+            IPath path = ((IPathEditorInput)editorInput).getPath();
+            if (path != null) {
+                absolutePath = path.makeAbsolute();
+            }
+        }
+        if (absolutePath != null) {
             File systemFile = absolutePath.toFile();
             // Save to file
             try {
@@ -268,8 +268,10 @@ public class BinaryEditor extends EditorPart implements ISelectionProvider, IMen
             catch (IOException e) {
                 log.error("Can't save binary content", e);
             }
-            // Sync file changes
-            ContentUtils.syncFile(RuntimeUtils.makeMonitor(monitor), file);
+            // Sync workspace-related file changes
+            if (file != null) {
+                ResourceUtils.syncFile(RuntimeUtils.makeMonitor(monitor), file);
+            }
         }
     }
 
@@ -416,7 +418,7 @@ public class BinaryEditor extends EditorPart implements ISelectionProvider, IMen
     }
 
     class EditorAction extends Action {
-        String actionId = null;
+        String actionId;
 
         EditorAction(String actionId, String text)
         {

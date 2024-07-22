@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import org.jkiss.dbeaver.model.edit.DBEObjectEditor;
 import org.jkiss.dbeaver.model.edit.DBEObjectMaker;
 import org.jkiss.dbeaver.model.edit.prop.DBECommandProperty;
 import org.jkiss.dbeaver.model.edit.prop.DBEPropertyHandler;
+import org.jkiss.dbeaver.model.rm.RMConstants;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
@@ -67,7 +68,8 @@ public class PropertySourceEditable extends PropertySourceAbstract implements DB
         }
         DBEObjectEditor objectEditor = getObjectEditor(DBEObjectEditor.class);
         return objectEditor != null &&
-            object instanceof DBPObject && objectEditor.canEditObject((DBPObject) object);
+            object instanceof DBPObject && objectEditor.canEditObject((DBPObject) object)
+            && DBWorkbench.getPlatform().getWorkspace().hasRealmPermission(RMConstants.PERMISSION_METADATA_EDITOR);
     }
 
     private <T> T getObjectEditor(Class<T> managerType)
@@ -179,6 +181,7 @@ public class PropertySourceEditable extends PropertySourceAbstract implements DB
             if (editableValue instanceof DBSObject) {
                 DBUtils.fireObjectUpdate((DBSObject) editableValue, prop);
             }
+            addChangedProperties(prop, value);
             return true;
         } catch (Throwable e) {
             if (e instanceof InvocationTargetException) {

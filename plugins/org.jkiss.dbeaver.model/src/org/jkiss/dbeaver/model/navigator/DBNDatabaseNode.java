@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableParametrized;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.*;
+import org.jkiss.dbeaver.model.struct.rdb.DBSCatalog;
 import org.jkiss.dbeaver.model.struct.rdb.DBSPackage;
 import org.jkiss.dbeaver.model.struct.rdb.DBSSchema;
 import org.jkiss.dbeaver.model.struct.rdb.DBSSequence;
@@ -50,7 +51,7 @@ import java.util.*;
 /**
  * DBNDatabaseNode
  */
-public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DBSWrapper, DBPContextProvider, IDataSourceContainerProvider {
+public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DBSWrapper, DBPContextProvider, DBPDataSourceContainerProvider {
 
     private static final DBNDatabaseNode[] EMPTY_NODES = new DBNDatabaseNode[0];
 
@@ -350,11 +351,6 @@ public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DB
         DBSObject object = getObject();
         if (object instanceof DBPRefreshableObject) {
             DBPDataSource dataSource = object.getDataSource();
-            if (dataSource == null && object instanceof DBPDataSourceContainer) {
-                DBPDataSourceContainer dsd = ((DBPDataSourceContainer) object);
-                dsd.reconnect(monitor);
-                dataSource = object.getDataSource();
-            }
             if (object.isPersisted() && dataSource != null) {
                 DBSObject[] newObject = new DBSObject[1];
                 DBExecUtils.tryExecuteRecover(monitor, dataSource, param -> {
@@ -439,11 +435,17 @@ public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DB
             return;
         }
         monitor.beginTask(ModelMessages.model_navigator_load_items_, childMetas.size());
-        DBNBrowseSettings navSettings = getDataSourceContainer().getNavigatorSettings();
+        DBPDataSourceContainer container = getDataSourceContainer();
+        DBNBrowseSettings navSettings = container.getNavigatorSettings();
         final boolean showSystem = navSettings.isShowSystemObjects();
         final boolean showOnlyEntities = navSettings.isShowOnlyEntities();
         final boolean hideFolders = navSettings.isHideFolders();
         boolean mergeEntities = navSettings.isMergeEntities();
+        boolean supportsOptionalFolders = false;
+        DBPDataSource dataSource = container.getDataSource();
+        if (dataSource instanceof DBPDataSourceWithOptionalElements) {
+            supportsOptionalFolders = ((DBPDataSourceWithOptionalElements) dataSource).hasOptionalFolders();
+        }
 
         for (DBXTreeNode child : childMetas) {
             if (monitor.isCanceled()) {
@@ -467,7 +469,7 @@ public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DB
                     }
                 }
             } else if (child instanceof DBXTreeFolder) {
-                if (hideFolders || (mergeEntities && ((DBXTreeFolder)child).isOptional())) {
+                if (hideFolders || ((mergeEntities || supportsOptionalFolders) && ((DBXTreeFolder)child).isOptional())) {
                     if (child.isVirtual()) {
                         continue;
                     }
@@ -513,7 +515,7 @@ public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DB
                         new DBNDatabaseObject(this, (DBXTreeObject) child));
                 } else {
                     for (DBNDatabaseNode oldObject : oldList) {
-                        if (oldObject.getMeta() == child) {
+                        if (oldObject.getMeta().equals(child)) {
                             oldObject.reloadChildren(monitor, source, reflect);
                             toList.add(oldObject);
                             break;
@@ -550,7 +552,8 @@ public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DB
                 !DBSDataType.class.isAssignableFrom(nodeChildClass) &&
                 !DBSSequence.class.isAssignableFrom(nodeChildClass) &&
                 !DBSPackage.class.isAssignableFrom(nodeChildClass)) ||
-            DBSEntityAttribute.class.isAssignableFrom(nodeChildClass);
+            DBSEntityAttribute.class.isAssignableFrom(nodeChildClass) ||
+            DBSInstance.class.isAssignableFrom(nodeChildClass);
     }
 
     /**
@@ -567,7 +570,7 @@ public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DB
     private boolean loadTreeItems(
         DBRProgressMonitor monitor,
         DBXTreeItem meta,
-        final DBNDatabaseNode[] oldList,
+        final DBNDatabaseNode[] oldListCmp,
         final List<DBNDatabaseNode> toList,
         Object source,
         boolean showSystem,
@@ -610,7 +613,9 @@ public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DB
 
         final DBSObjectFilter filter = getNodeFilter(meta, false);
         this.filtered = filter != null && !filter.isNotApplicable();
-
+        if (filter != null && dataSource != null) {
+            filter.setCaseSensitive(dataSource.getSQLDialect().hasCaseSensitiveFiltration());
+        }
         final Collection<?> itemList = (Collection<?>) propertyValue;
         if (itemList.isEmpty()) {
             return false;
@@ -620,7 +625,10 @@ public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DB
             // check it
             return false;
         }
-
+        List<DBNDatabaseNode> oldList = new LinkedList<>();
+        if (oldListCmp != null) {
+            Collections.addAll(oldList, oldListCmp);
+        }
         for (Object childItem : itemList) {
             if (childItem == null) {
                 continue;
@@ -633,7 +641,8 @@ public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DB
                 // Skip hidden objects
                 continue;
             }
-            if (!showSystem && DBUtils.isSystemObject(childItem)) {
+            if ((!showSystem && DBUtils.isSystemObject(childItem)) &&
+                !(itemList.size() == 1 && (childItem instanceof DBSSchema || childItem instanceof DBSCatalog))) { // Show system catalog/schema in case when only one object in the itemList
                 // Skip system objects
                 continue;
             }
@@ -651,9 +660,10 @@ public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DB
             }
             DBSObject object = (DBSObject) childItem;
             boolean added = false;
-            if (oldList != null) {
+            if (!oldList.isEmpty()) {
                 // Check that new object is a replacement of old one
-                for (DBNDatabaseNode oldChild : oldList) {
+                for (Iterator<DBNDatabaseNode> iterator = oldList.iterator(); iterator.hasNext(); ) {
+                    DBNDatabaseNode oldChild = iterator.next();
                     if (oldChild.getMeta() == meta && equalObjects(oldChild.getObject(), object)) {
                         boolean updated = oldChild.reloadObject(monitor, object);
 
@@ -668,6 +678,7 @@ public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DB
 
                         toList.add(oldChild);
                         added = true;
+                        iterator.remove();
                         break;
                     }
                 }
@@ -679,7 +690,7 @@ public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DB
             }
         }
 
-        if (oldList != null) {
+        {
             // Now remove all non-existing items
             for (DBNDatabaseNode oldChild : oldList) {
                 if (oldChild.getMeta() != meta) {
@@ -705,6 +716,9 @@ public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DB
     @Nullable
     @Override
     public DBCExecutionContext getExecutionContext() {
+        if (!getDataSourceContainer().isConnected()) {
+            return null;
+        }
         return DBUtils.getDefaultContext(getObject(), true);
     }
 
@@ -746,7 +760,7 @@ public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DB
         return null;
     }
 
-    public void setNodeFilter(DBXTreeItem meta, DBSObjectFilter filter) {
+    public void setNodeFilter(DBXTreeItem meta, DBSObjectFilter filter, boolean saveConfiguration) {
         DBPDataSourceContainer dataSource = getDataSourceContainer();
         if (this instanceof DBNContainer) {
             Class<?> childrenClass = this.getChildrenOrFolderClass(meta);
@@ -759,7 +773,9 @@ public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DB
                     childrenClass,
                     (DBSObject) parentObject,
                     filter);
-                dataSource.persistConfiguration();
+                if (saveConfiguration) {
+                    dataSource.persistConfiguration();
+                }
             } else {
                 log.error("Cannot detect child node type - can't save filter configuration");
             }
@@ -802,7 +818,7 @@ public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DB
             if (pathName.length() > 0) {
                 pathName.insert(0, '/');
             }
-            pathName.insert(0, node.getNodeName().replace('/', '_'));
+            pathName.insert(0, node.getNodeName().replace("/", DBNModel.SLASH_ESCAPE_TOKEN));
         }
         return pathName.toString();
     }
@@ -925,10 +941,49 @@ public abstract class DBNDatabaseNode extends DBNNode implements DBNLazyNode, DB
             return null;
         }
         String propertyName = meta.getPropertyName();
+        if (propertyName.contains(".")) {
+            // Extract property recursively
+            for (String fieldName : propertyName.split("\\.")) {
+                object = extractDynamicPropertyValue(monitor, object, fieldName);
+                if (object == null) {
+                    return null;
+                }
+            }
+            return object;
+        }
         try {
             Method getter = meta.getPropertyReadMethod(object.getClass());
             if (getter == null) {
                 log.warn("Can't find property '" + propertyName + "' read method in '" + object.getClass().getName() + "'");
+                return null;
+            }
+            Class<?>[] paramTypes = getter.getParameterTypes();
+            if (paramTypes.length == 0) {
+                // No params - just read it
+                return getter.invoke(object);
+            } else if (paramTypes.length == 1 && paramTypes[0] == DBRProgressMonitor.class) {
+                // Read with progress monitor
+                return getter.invoke(object, monitor);
+            } else {
+                log.warn("Can't read property '" + propertyName + "' - bad method signature: " + getter.toString());
+                return null;
+            }
+        } catch (IllegalAccessException ex) {
+            log.warn("Error accessing items " + propertyName, ex);
+            return null;
+        } catch (InvocationTargetException ex) {
+            if (ex.getTargetException() instanceof DBException) {
+                throw (DBException) ex.getTargetException();
+            }
+            throw new DBException("Can't read " + propertyName + ": " + ex.getTargetException().getMessage(), ex.getTargetException());
+        }
+    }
+
+    private static Object extractDynamicPropertyValue(DBRProgressMonitor monitor, Object object, String propertyName) throws DBException {
+        try {
+            Method getter = DBXTreeItem.findPropertyReadMethod(object.getClass(), propertyName);
+            if (getter == null) {
+                log.warn("Can't find dynamic property '" + propertyName + "' read method in '" + object.getClass().getName() + "'");
                 return null;
             }
             Class<?>[] paramTypes = getter.getParameterTypes();

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,8 @@
  */
 package org.jkiss.dbeaver.tools.transfer.ui.pages.stream;
 
-import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.preference.PreferenceDialog;
-import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.jface.viewers.*;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CLabel;
@@ -30,10 +28,13 @@ import org.eclipse.swt.widgets.*;
 import org.eclipse.ui.dialogs.PreferencesUtil;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.DBPNamedObject;
 import org.jkiss.dbeaver.model.DBValueFormatting;
 import org.jkiss.dbeaver.model.app.DBPDataFormatterRegistry;
+import org.jkiss.dbeaver.model.app.DBPPlatformDesktop;
 import org.jkiss.dbeaver.model.data.DBDDataFormatterProfile;
+import org.jkiss.dbeaver.model.rm.RMConstants;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSDataContainer;
@@ -90,7 +91,7 @@ public class StreamConsumerPageSettings extends DataTransferPageNodeSettings {
     @Override
     public void createControl(Composite parent) {
 
-        DBPDataFormatterRegistry dataFormatterRegistry = DBWorkbench.getPlatform().getDataFormatterRegistry();
+        DBPDataFormatterRegistry dataFormatterRegistry = DBPPlatformDesktop.getInstance().getDataFormatterRegistry();
 
         initializeDialogUnits(parent);
         final StreamConsumerSettings settings = getWizard().getPageSettings(this, StreamConsumerSettings.class);
@@ -116,23 +117,27 @@ public class StreamConsumerPageSettings extends DataTransferPageNodeSettings {
                     }
                 });
 
-                UIUtils.createDialogButton(generalSettings, DTMessages.data_transfer_wizard_settings_button_edit, new SelectionAdapter() {
-                    @Override
-                    public void widgetSelected(SelectionEvent e)
-                    {
-                        PreferenceDialog propDialog = PreferencesUtil.createPropertyDialogOn(
-                            getShell(),
-                            dataFormatterRegistry,
-                            "org.jkiss.dbeaver.preferences.main.dataformat", // TODO: replace this hardcode with some model invocation
-                            null,
-                            getSelectedFormatterProfile(),
-                            PreferencesUtil.OPTION_NONE);
-                        if (propDialog != null) {
-                            propDialog.open();
-                            reloadFormatProfiles();
+                Button editProfileButton = UIUtils.createDialogButton(
+                    generalSettings,
+                    DTMessages.data_transfer_wizard_settings_button_edit,
+                    new SelectionAdapter() {
+                        @Override
+                        public void widgetSelected(SelectionEvent e) {
+                            PreferenceDialog propDialog = PreferencesUtil.createPropertyDialogOn(
+                                getShell(),
+                                dataFormatterRegistry,
+                                "org.jkiss.dbeaver.preferences.main.dataformat", // TODO: replace this hardcode with some model invocation
+                                null,
+                                getSelectedFormatterProfile(),
+                                PreferencesUtil.OPTION_NONE);
+                            if (propDialog != null) {
+                                propDialog.open();
+                                reloadFormatProfiles();
+                            }
                         }
                     }
-                });
+                );
+                editProfileButton.setEnabled(true);
 
                 reloadFormatProfiles();
 
@@ -228,7 +233,7 @@ public class StreamConsumerPageSettings extends DataTransferPageNodeSettings {
 
     private Object getSelectedFormatterProfile()
     {
-        DBPDataFormatterRegistry registry = DBWorkbench.getPlatform().getDataFormatterRegistry();
+        DBPDataFormatterRegistry registry = DBPPlatformDesktop.getInstance().getDataFormatterRegistry();
         int selectionIndex = formatProfilesCombo.getSelectionIndex();
         if (selectionIndex < 0) {
             return null;
@@ -241,7 +246,7 @@ public class StreamConsumerPageSettings extends DataTransferPageNodeSettings {
 
     private void reloadFormatProfiles()
     {
-        DBPDataFormatterRegistry registry = DBWorkbench.getPlatform().getDataFormatterRegistry();
+        DBPDataFormatterRegistry registry = DBPPlatformDesktop.getInstance().getDataFormatterRegistry();
         formatProfilesCombo.removeAll();
         formatProfilesCombo.add(DTMessages.data_transfer_wizard_settings_listbox_formatting_item_default);
         for (DBDDataFormatterProfile profile : registry.getCustomProfiles()) {
@@ -260,6 +265,8 @@ public class StreamConsumerPageSettings extends DataTransferPageNodeSettings {
 
     @Override
     public void activatePage() {
+        getWizard().loadNodeSettings();
+
         final StreamConsumerSettings settings = getWizard().getPageSettings(this, StreamConsumerSettings.class);
 
         DataTransferProcessorDescriptor processor = getWizard().getSettings().getProcessor();
@@ -410,7 +417,7 @@ public class StreamConsumerPageSettings extends DataTransferPageNodeSettings {
 
             errorLabel = new CLabel(group, SWT.NONE);
             errorLabel.setText(DTUIMessages.stream_consumer_page_mapping_label_error_no_columns_selected_text);
-            errorLabel.setImage(JFaceResources.getImage(Dialog.DLG_IMG_MESSAGE_ERROR));
+            errorLabel.setImage(DBeaverIcons.getImage(DBIcon.SMALL_ERROR));
             errorLabel.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, true, false));
 
             UIUtils.asyncExec(() -> {

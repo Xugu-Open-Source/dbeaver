@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +18,7 @@
 package org.jkiss.dbeaver.ui.controls;
 
 import org.eclipse.jface.dialogs.IDialogSettings;
+import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.MouseAdapter;
 import org.eclipse.swt.events.MouseEvent;
@@ -38,11 +39,13 @@ import org.jkiss.dbeaver.model.navigator.DBNModel;
 import org.jkiss.dbeaver.model.navigator.DBNNode;
 import org.jkiss.dbeaver.model.navigator.DBNProject;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
+import org.jkiss.dbeaver.model.struct.DBSInstance;
 import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
 import org.jkiss.dbeaver.model.struct.rdb.DBSSchema;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.ui.internal.UIMessages;
 import org.jkiss.utils.CommonUtils;
 
 import java.lang.reflect.InvocationTargetException;
@@ -127,8 +130,8 @@ public abstract class ObjectContainerSelectorPanel extends Composite
         ToolBar buttonToolbar = new ToolBar(this, SWT.FLAT | SWT.RIGHT);
         final ToolItem browseButton = new ToolItem(buttonToolbar, SWT.NONE);
         browseButton.setImage(DBeaverIcons.getImage(DBIcon.TREE_FOLDER));
-        browseButton.setText("Choose ...");
-        browseButton.setToolTipText("Choose target catalog/schema");
+        browseButton.setText(UIMessages.browse_button_choose);
+        browseButton.setToolTipText(UIMessages.browse_button_choose_tooltip);
         Runnable containerSelector = () -> {
             if (project != null) {
                 final DBNModel navigatorModel = DBWorkbench.getPlatform().getNavigatorModel();
@@ -139,7 +142,7 @@ public abstract class ObjectContainerSelectorPanel extends Composite
                     containerHint != null ? containerHint : containerTitle,
                     rootNode.getDatabases(),
                     selectedNode,
-                    new Class[]{DBSObjectContainer.class},
+                    new Class[]{ DBSInstance.class, DBSObjectContainer.class },
                     new Class[] { DBSObjectContainer.class },
                     new Class[]{ DBSSchema.class });
                 if (node != null) {
@@ -149,7 +152,8 @@ public abstract class ObjectContainerSelectorPanel extends Composite
                         addNodeToHistory((DBNDatabaseNode) node);
                         saveHistory();
                     } catch (DBException e) {
-                        DBWorkbench.getPlatformUI().showError("Bad container node", "Node '" + node.getName() + "' cannot be selected as table container", e);
+                        DBWorkbench.getPlatformUI().showError(UIMessages.bad_container_node,
+                            NLS.bind(UIMessages.bad_container_node_message, node.getName()), e);
                     }
                 }
             }

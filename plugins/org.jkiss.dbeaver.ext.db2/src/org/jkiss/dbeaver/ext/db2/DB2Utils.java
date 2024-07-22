@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2013-2017 Denis Forveille (titou10.titou10@gmail.com)
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  */
 package org.jkiss.dbeaver.ext.db2;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.db2.info.DB2Parameter;
@@ -127,7 +128,7 @@ public class DB2Utils {
     //
     // TODO DF: Tables in SYSTOOLS tables must exist first
     public static String generateDDLforTable(DBRProgressMonitor monitor, String statementDelimiter, DB2DataSource dataSource,
-        DB2Table db2Table) throws DBException
+        DB2Table db2Table, boolean includeViews) throws DBException
     {
         LOG.debug("Generate DDL for " + db2Table.getFullyQualifiedName(DBPEvaluationContext.DDL));
 
@@ -152,7 +153,10 @@ public class DB2Utils {
 
         int token;
         StringBuilder sb = new StringBuilder(2048);
-        String command = String.format(DB2LK_COMMAND, statementDelimiter, db2Table.getFullyQualifiedName(DBPEvaluationContext.DDL));
+        String command = String.format(
+            (includeViews ? "" : "-noview ") + DB2LK_COMMAND,
+            statementDelimiter,
+            db2Table.getFullyQualifiedName(DBPEvaluationContext.DDL));
 
         try (JDBCSession session = DBUtils.openMetaSession(monitor, dataSource, "Generate DDL")) {
             LOG.debug("Calling DB2LK_GENERATE_DDL with command : " + command);
@@ -178,8 +182,10 @@ public class DB2Utils {
                         ddlStmt = dbResult.getClob(1);
                         try {
                             ddlLength = ddlStmt.length() + 1L;
-                            sb.append(ddlStmt.getSubString(ddlStart, ddlLength.intValue()));
-                            sb.append(LINE_SEP);
+                            String stmtSubString = ddlStmt.getSubString(ddlStart, ddlLength.intValue());
+                            if (CommonUtils.isNotEmpty(stmtSubString)) {
+                                sb.append(stmtSubString.trim()).append(LINE_SEP).append("\n");
+                            }
                         } finally {
                             try {
                                 ddlStmt.free();
@@ -601,6 +607,23 @@ public class DB2Utils {
         result = result.replaceAll("WHERE\\r\\n", "WHERE ");
 
         return result;
+    }
+    
+    /**
+     * Retrieves the server variant information from the DB2 SQLCA.
+     */
+    public static @NotNull char getServerVariant(@NotNull DBRProgressMonitor monitor, @NotNull JDBCSession session) throws SQLException {
+        DB2Sqlca sqlca = DB2Sqlca.from(session.getOriginal());
+        if (sqlca == null) {
+            return 0;
+        }
+        
+        char[] sqlwarn = sqlca.getSqlWarn();
+        if (sqlwarn == null || sqlwarn.length < 8) {
+            return 0;
+        }
+        
+        return sqlwarn[7];
     }
 
     private DB2Utils()

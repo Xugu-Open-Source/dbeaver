@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import org.jkiss.dbeaver.ui.dialogs.ActiveWizardPage;
 
 /**
  * This page hosts other settings pages.
- * Since 21.2.4 we don't use composite page anymore.
+ * Since 21.2.5 we don't use composite page anymore.
  */
 @Deprecated
 class DataTransferPageSettings extends ActiveWizardPage<DataTransferWizard> {

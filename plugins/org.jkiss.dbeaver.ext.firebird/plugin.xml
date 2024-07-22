@@ -13,7 +13,7 @@
 
         <datasource
                 class="org.jkiss.dbeaver.ext.firebird.FireBirdDataSourceProvider"
-                description="%datasource.firebird.description"
+                description="Firebird Jaybird driver"
                 id="jaybird"
                 parent="generic"
                 label="Firebird"
@@ -33,17 +33,20 @@
                         webURL="https://firebirdsql.org/en/jdbc-driver/"
                         propertiesURL="https://github.com/FirebirdSQL/jaybird/wiki/Connection-properties"
                         description="Firebird Jaybird driver"
+                        supportedConfigurationTypes="MANUAL,URL"
                         categories="sql,embedded">
                     <replace provider="generic" driver="firebird_jaybird"/>
                     <replace provider="generic" driver="firebird_jaybird3"/>
 
-                    <file type="jar" path="maven:/org.firebirdsql.jdbc:jaybird:RELEASE[4.0.0.java8]" bundle="!drivers.firebird"/>
+                    <file type="jar" path="maven:/org.firebirdsql.jdbc:jaybird:RELEASE[5.0.2.java11]" bundle="!drivers.firebird"/>
+                    <file type="license" path="https://www.gnu.org/licenses/lgpl-3.0.txt" bundle="!drivers.firebird"/>
 
                     <file type="license" path="drivers/jaybird/LICENSE.txt" bundle="drivers.firebird"/>
                     <file type="jar" path="drivers/jaybird" bundle="drivers.firebird"/>
 
                     <property name="encoding" value="UTF8"/>
 
+                    <parameter name="supports-embedded-database-creation" value="false"/>
                     <parameter name="supports-scroll" value="true"/>
                     <parameter name="ddl-drop-column-short" value="true"/>
                     <parameter name="script-delimiter-redefiner" value="SET TERM"/>
@@ -85,6 +88,7 @@
         <manager class="org.jkiss.dbeaver.ext.firebird.edit.FireBirdTableManager" objectType="org.jkiss.dbeaver.ext.firebird.model.FireBirdTable"/>
         <manager class="org.jkiss.dbeaver.ext.firebird.edit.FireBirdTableColumnManager" objectType="org.jkiss.dbeaver.ext.firebird.model.FireBirdTableColumn"/>
         <manager class="org.jkiss.dbeaver.ext.firebird.edit.FireBirdProcedureManager" objectType="org.jkiss.dbeaver.ext.firebird.model.FireBirdProcedure"/>
+        <manager class="org.jkiss.dbeaver.ext.firebird.edit.FireBirdSequenceManager" objectType="org.jkiss.dbeaver.ext.firebird.model.FireBirdSequence"/>
     </extension>
 
     <extension point="org.jkiss.dbeaver.sqlInsertMethod">

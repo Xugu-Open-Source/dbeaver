@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
+import org.jkiss.dbeaver.model.data.DBDAttributeBindingMeta;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.edit.DBERegistry;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
@@ -29,10 +30,12 @@ import org.jkiss.dbeaver.model.impl.sql.edit.struct.SQLTableManager;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.SubTaskProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLConstants;
+import org.jkiss.dbeaver.model.sql.SQLDataTypeConverter;
 import org.jkiss.dbeaver.model.sql.SQLDialect;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTable;
 import org.jkiss.dbeaver.model.struct.rdb.DBSView;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
@@ -45,6 +48,16 @@ import java.util.*;
 public final class DBStructUtils {
 
     private static final Log log = Log.getLog(DBStructUtils.class);
+
+    private static final String INT_DATA_TYPE = "int";
+    private static final String INTEGER_DATA_TYPE = "integer";
+    private static final String FLOAT_DATA_TYPE = "float";
+    private static final String REAL_DATA_TYPE = "real";
+    private static final String DOUBLE_DATA_TYPE = "double";
+    private static final String TEXT_DATA_TYPE = "text";
+    private static final String VARCHAR_DATA_TYPE = "varchar";
+    private static final String VARCHAR2_DATA_TYPE = "varchar2";
+    private static final int DEFAULT_VARCHAR_LENGTH = 100;
 
     @Nullable
     public static DBSEntityReferrer getEnumerableConstraint(@NotNull DBRProgressMonitor monitor, @NotNull DBDAttributeBinding attribute) throws DBException {
@@ -82,7 +95,7 @@ public final class DBStructUtils {
     }
 
     public static String generateTableDDL(@NotNull DBRProgressMonitor monitor, @NotNull DBSEntity table, Map<String, Object> options, boolean addComments) throws DBException {
-        final DBERegistry editorsRegistry = table.getDataSource().getContainer().getPlatform().getEditorsRegistry();
+        final DBERegistry editorsRegistry = DBWorkbench.getPlatform().getEditorsRegistry();
         final SQLObjectEditor<?, ?> entityEditor = editorsRegistry.getObjectManager(table.getClass(), SQLObjectEditor.class);
         if (entityEditor instanceof SQLTableManager) {
             DBEPersistAction[] ddlActions = ((SQLTableManager) entityEditor).getTableDDL(monitor, table, options);
@@ -93,7 +106,7 @@ public final class DBStructUtils {
     }
 
     public static String generateObjectDDL(@NotNull DBRProgressMonitor monitor, @NotNull DBSObject object, Map<String, Object> options, boolean addComments) throws DBException {
-        final DBERegistry editorsRegistry = object.getDataSource().getContainer().getPlatform().getEditorsRegistry();
+        final DBERegistry editorsRegistry = DBWorkbench.getPlatform().getEditorsRegistry();
         final SQLObjectEditor entityEditor = editorsRegistry.getObjectManager(object.getClass(), SQLObjectEditor.class);
         if (entityEditor != null) {
             SQLObjectEditor.ObjectCreateCommand createCommand = entityEditor.makeCreateCommand(object, options);
@@ -142,17 +155,24 @@ public final class DBStructUtils {
             }
             cycleTableList.removeAll(goodCycleTableList);
 
-            Map<String, Object> optionsNoFK = new HashMap<>(options);
-            optionsNoFK.put(DBPScriptObject.OPTION_DDL_SKIP_FOREIGN_KEYS, true);
-            for (T table : goodCycleTableList) {
-                sql.append(getObjectNameComment(table, "definition"));
-                addDDLLine(sql, DBStructUtils.getTableDDL(monitor, table, optionsNoFK, addComments));
-            }
-            Map<String, Object> optionsOnlyFK = new HashMap<>(options);
-            optionsOnlyFK.put(DBPScriptObject.OPTION_DDL_ONLY_FOREIGN_KEYS, true);
-            for (T table : goodCycleTableList) {
-                sql.append(getObjectNameComment(table, "foreign keys"));
-                addDDLLine(sql, DBStructUtils.getTableDDL(monitor, table, optionsOnlyFK, addComments));
+            if (!CommonUtils.getOption(options, DBPScriptObject.OPTION_DDL_SEPARATE_FOREIGN_KEYS_STATEMENTS, true)) {
+                for (T table : goodCycleTableList) {
+                    sql.append(getObjectNameComment(table, "definition"));
+                    addDDLLine(sql, DBStructUtils.getTableDDL(monitor, table, options, addComments));
+                }
+            } else {
+                Map<String, Object> optionsNoFK = new HashMap<>(options);
+                optionsNoFK.put(DBPScriptObject.OPTION_DDL_SKIP_FOREIGN_KEYS, true);
+                for (T table : goodCycleTableList) {
+                    sql.append(getObjectNameComment(table, "definition"));
+                    addDDLLine(sql, DBStructUtils.getTableDDL(monitor, table, optionsNoFK, addComments));
+                }
+                Map<String, Object> optionsOnlyFK = new HashMap<>(options);
+                optionsOnlyFK.put(DBPScriptObject.OPTION_DDL_ONLY_FOREIGN_KEYS, true);
+                for (T table : goodCycleTableList) {
+                    sql.append(getObjectNameComment(table, "foreign keys"));
+                    addDDLLine(sql, DBStructUtils.getTableDDL(monitor, table, optionsOnlyFK, addComments));
+                }
             }
 
             // the rest - tables which can't split their DDL
@@ -260,38 +280,50 @@ public final class DBStructUtils {
         monitor.done();
     }
 
-    public static String mapTargetDataType(DBSObject objectContainer, DBSTypedObject typedObject, boolean addModifiers) {
+    public static String mapTargetDataType(
+        @Nullable DBSObject objectContainer,
+        @NotNull DBSTypedObject srcTypedObject,
+        boolean addModifiers
+    ) {
         boolean isBindingWithEntityAttr = false;
-        if (typedObject instanceof DBDAttributeBinding) {
-            DBDAttributeBinding attributeBinding = (DBDAttributeBinding) typedObject;
+        if (srcTypedObject instanceof DBDAttributeBinding) {
+            DBDAttributeBinding attributeBinding = (DBDAttributeBinding) srcTypedObject;
             if (attributeBinding.getEntityAttribute() != null) {
                 isBindingWithEntityAttr = true;
             }
         }
-        if (objectContainer != null && (typedObject instanceof DBSEntityAttribute || isBindingWithEntityAttr)) {
+        if (objectContainer != null && (srcTypedObject instanceof DBSEntityAttribute || isBindingWithEntityAttr || (
+                srcTypedObject instanceof DBSObject &&  objectContainer.getDataSource() == ((DBSObject) srcTypedObject).getDataSource()))) {
             // If source and target datasources have the same type then just return the same type name
-            DBPDataSource srcDataSource = ((DBSObject) typedObject).getDataSource();
+            DBPDataSource srcDataSource = ((DBSObject) srcTypedObject).getDataSource();
+            assert srcDataSource != null;
             DBPDataSource tgtDataSource = objectContainer.getDataSource();
+            assert tgtDataSource != null;
             if (srcDataSource.getClass() == tgtDataSource.getClass() && addModifiers) {
-                return typedObject.getFullTypeName();
+                return srcTypedObject.getFullTypeName();
             }
         }
 
         {
-            DBPDataTypeMapper dataTypeMapper = DBUtils.getAdapter(DBPDataTypeMapper.class, objectContainer);
-            if (dataTypeMapper != null) {
-                String targetTypeName = dataTypeMapper.mapExternalDataType(
-                    ((DBSObject) typedObject).getDataSource(),
-                    typedObject);
+            SQLDataTypeConverter dataTypeConverter = objectContainer == null || objectContainer.getDataSource() == null ? null :
+                DBUtils.getAdapter(SQLDataTypeConverter.class, objectContainer.getDataSource().getSQLDialect());
+            if (dataTypeConverter != null && srcTypedObject instanceof DBSObject) {
+                DBPDataSource srcDataSource = ((DBSObject) srcTypedObject).getDataSource();
+                assert srcDataSource != null;
+                DBPDataSource tgtDataSource = objectContainer.getDataSource();
+                String targetTypeName = dataTypeConverter.convertExternalDataType(
+                    srcDataSource.getSQLDialect(),
+                    srcTypedObject, DBUtils.getAdapter(DBPDataTypeProvider.class, tgtDataSource)
+                );
                 if (targetTypeName != null) {
                     return targetTypeName;
                 }
             }
         }
 
-        String typeName = typedObject.getTypeName();
+        String typeName = srcTypedObject.getTypeName();
         String typeNameLower = typeName.toLowerCase(Locale.ENGLISH);
-        DBPDataKind dataKind = typedObject.getDataKind();
+        DBPDataKind dataKind = srcTypedObject.getDataKind();
 
         DBPDataTypeProvider dataTypeProvider = DBUtils.getParentOfType(DBPDataTypeProvider.class, objectContainer);
         if (dataTypeProvider != null) {
@@ -299,8 +331,12 @@ public final class DBStructUtils {
             if (dataType == null && typeName.contains("(")) {
                 // It seems this data type has modifiers. Try to find without modifiers
                 dataType = dataTypeProvider.getLocalDataType(SQLUtils.stripColumnTypeModifiers(typeName));
+                if (dataType != null) {
+                    int startPos = typeName.indexOf("(");
+                    typeName = dataType + typeName.substring(startPos);
+                }
             }
-            if (dataType == null && typeNameLower.equals("double")) {
+            if (dataType == null && typeNameLower.equals(DOUBLE_DATA_TYPE)) {
                 dataType = dataTypeProvider.getLocalDataType("DOUBLE PRECISION");
                 if (dataType != null) {
                     typeName = dataType.getTypeName();
@@ -326,36 +362,44 @@ public final class DBStructUtils {
                     if (targetType == null && dataKind == DBPDataKind.NUMERIC) {
                         // Try to find appropriate type with the same scale/precision
                         for (DBSDataType type : possibleTypes.values()) {
-                            if (CommonUtils.equalObjects(type.getScale(), typedObject.getScale()) &&
-                                CommonUtils.equalObjects(type.getPrecision(), typedObject.getPrecision()))
+                            if (CommonUtils.equalObjects(type.getScale(), srcTypedObject.getScale()) &&
+                                CommonUtils.equalObjects(type.getPrecision(), srcTypedObject.getPrecision()))
                             {
                                 targetType = type;
                                 break;
                             }
                         }
                         if (targetType == null) {
-                            if (typeNameLower.contains("float") ||
-                                typeNameLower.contains("real") ||
-                                (typedObject.getScale() != null && typedObject.getScale() > 0 && typedObject.getScale() <= 6))
+                            if (typeNameLower.contains(FLOAT_DATA_TYPE) ||
+                                typeNameLower.contains(REAL_DATA_TYPE) ||
+                                (srcTypedObject.getScale() != null && srcTypedObject.getScale() > 0 && srcTypedObject.getScale() <= 6))
                             {
                                 for (String psn : possibleTypes.keySet()) {
-                                    if (psn.contains("float") || psn.contains("real")) {
+                                    if (psn.contains(FLOAT_DATA_TYPE) || psn.contains(REAL_DATA_TYPE)) {
                                         targetType = possibleTypes.get(psn);
                                         break;
                                     }
                                 }
-                            } else if (typeNameLower.contains("double") ||
-                                (typedObject.getScale() != null && typedObject.getScale() > 0 && typedObject.getScale() <= 15))
+                            } else if (typeNameLower.contains(DOUBLE_DATA_TYPE) ||
+                                (srcTypedObject.getScale() != null && srcTypedObject.getScale() > 0 && srcTypedObject.getScale() <= 15))
                             {
                                 for (String psn : possibleTypes.keySet()) {
-                                    if (psn.contains("double")) {
+                                    if (psn.contains(DOUBLE_DATA_TYPE)) {
                                         targetType = possibleTypes.get(psn);
                                         break;
                                     }
                                 }
-                            } else if (typeNameLower.contains("int")) {
+                            } else if ((INT_DATA_TYPE.equals(typeNameLower) && possibleTypes.get(INTEGER_DATA_TYPE) != null)
+                                || (INTEGER_DATA_TYPE.equals(typeNameLower) && possibleTypes.get(INT_DATA_TYPE) != null))
+                            {
+                                // Let's use the closest int/integer synonym
+                                targetType = INT_DATA_TYPE.equals(typeNameLower)
+                                    ? possibleTypes.get(INTEGER_DATA_TYPE) : possibleTypes.get(INT_DATA_TYPE);
+
+                            } else if (typeNameLower.contains(INT_DATA_TYPE)) {
+                                // Ok, probably we do not have int/integer types, let's find something similar
                                 for (String psn : possibleTypes.keySet()) {
-                                    if (psn.contains("int")) {
+                                    if (psn.contains(INT_DATA_TYPE)) {
                                         targetType = possibleTypes.get(psn);
                                         break;
                                     }
@@ -363,12 +407,15 @@ public final class DBStructUtils {
                             }
                         }
                     } else if (targetType == null && dataKind == DBPDataKind.STRING) {
-                        if (typeNameLower.contains("text")) {
-                            if (possibleTypes.containsKey("text")) {
-                                targetType = possibleTypes.get("text");
+                        if (typeNameLower.contains(TEXT_DATA_TYPE) || srcTypedObject.getMaxLength() <= 0) {
+                            // Search data types ending with "text" for the source data type including "text".
+                            // Like "longtext", "ntext", "mediumtext".
+                            // Other string data types can also be turned into the "text" data type if they have no length.
+                            if (possibleTypes.containsKey(TEXT_DATA_TYPE)) {
+                                targetType = possibleTypes.get(TEXT_DATA_TYPE);
                             } else {
                                 for (Map.Entry<String, DBSDataType> type : possibleTypes.entrySet()) {
-                                    if (type.getKey().contains("text")) {
+                                    if (type.getKey().endsWith(TEXT_DATA_TYPE) && type.getValue().getDataKind() == DBPDataKind.STRING) {
                                         targetType = type.getValue();
                                         break;
                                     }
@@ -393,17 +440,60 @@ public final class DBStructUtils {
             }
             if (dataType != null) {
                 dataKind = dataType.getDataKind();
+                // Datatype caches ignore case, but we probably should use it with the original case
+                if (typeName.equalsIgnoreCase(dataType.getTypeName())) {
+                    typeName = dataType.getTypeName();
+                }
             }
         }
 
         // Get type modifiers from target datasource
         if (addModifiers && objectContainer != null) {
             SQLDialect dialect = objectContainer.getDataSource().getSQLDialect();
-            String modifiers = dialect.getColumnTypeModifiers((DBPDataSource)objectContainer, typedObject, typeName, dataKind);
+            String modifiers = dialect.getColumnTypeModifiers((DBPDataSource)objectContainer, srcTypedObject, typeName, dataKind);
             if (modifiers != null) {
                 typeName += modifiers;
+            } else if (VARCHAR_DATA_TYPE.equals(typeNameLower) || VARCHAR2_DATA_TYPE.equals(typeNameLower)) {
+                // Default max length value for varchar column, because many databases do not support varchar without modifiers.
+                // VARCHAR2 - is a special Oracle and Oracle-based databases case.
+                typeName += "(" + DEFAULT_VARCHAR_LENGTH + ")";
             }
         }
         return typeName;
+    }
+
+    /**
+     * Get name of the attribute
+
+     * @param attribute to get name of
+     * @return attribute name
+     */
+    public static String getAttributeName(@NotNull DBSAttributeBase attribute) {
+        return getAttributeName(attribute, DBPAttributeReferencePurpose.UNSPECIFIED);
+    }
+
+    /**
+     * Get name of the attribute
+
+     * @param attribute to get name of
+     * @param purpose of the name usage
+     * @return attribute name
+     */
+    public static String getAttributeName(@NotNull DBSAttributeBase attribute, DBPAttributeReferencePurpose purpose) {
+        if (attribute instanceof DBDAttributeBindingMeta) {
+            // For top-level query bindings we need to use table columns name instead of alias.
+            // For nested attributes we should use aliases
+
+            // Entity attribute obtain commented because it broke complex attributes full name construction
+            // We can't use entity attr because only particular query metadata contains real structure
+            DBSEntityAttribute entityAttribute = ((DBDAttributeBindingMeta) attribute).getEntityAttribute();
+            if (entityAttribute != null) {
+                attribute = entityAttribute;
+            }
+        }
+        // Do not quote pseudo attribute name
+        return DBUtils.isPseudoAttribute(attribute)
+            ? attribute.getName()
+            : DBUtils.getObjectFullName(attribute, DBPEvaluationContext.DML);
     }
 }

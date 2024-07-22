@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,20 +16,33 @@
  */
 package org.jkiss.dbeaver.erd.ui.part;
 
-import org.eclipse.draw2dl.IFigure;
-import org.eclipse.gef3.*;
-import org.eclipse.gef3.tools.DragEditPartsTracker;
-import org.jkiss.dbeaver.erd.model.ERDEntity;
-import org.jkiss.dbeaver.erd.model.ERDEntityAttribute;
+import org.eclipse.draw2d.ChopboxAnchor;
+import org.eclipse.draw2d.ConnectionAnchor;
+import org.eclipse.draw2d.IFigure;
+import org.eclipse.gef.*;
+import org.eclipse.gef.tools.DragEditPartsTracker;
+import org.eclipse.osgi.util.NLS;
+import org.eclipse.swt.accessibility.AccessibleEvent;
+import org.eclipse.swt.graphics.Color;
+import org.jkiss.dbeaver.erd.model.*;
+import org.jkiss.dbeaver.erd.ui.ERDUIConstants;
 import org.jkiss.dbeaver.erd.ui.ERDUIUtils;
 import org.jkiss.dbeaver.erd.ui.command.AttributeCheckCommand;
+import org.jkiss.dbeaver.erd.ui.editor.ERDGraphicalViewer;
+import org.jkiss.dbeaver.erd.ui.editor.ERDHighlightingHandle;
 import org.jkiss.dbeaver.erd.ui.figures.AttributeItemFigure;
 import org.jkiss.dbeaver.erd.ui.figures.EditableLabel;
+import org.jkiss.dbeaver.erd.ui.internal.ERDUIActivator;
 import org.jkiss.dbeaver.erd.ui.internal.ERDUIMessages;
 import org.jkiss.dbeaver.erd.ui.policy.AttributeConnectionEditPolicy;
 import org.jkiss.dbeaver.erd.ui.policy.AttributeDragAndDropEditPolicy;
+import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
+import org.jkiss.dbeaver.ui.UIUtils;
 
 import java.beans.PropertyChangeEvent;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -37,9 +50,12 @@ import java.util.Map;
  *
  * @author Serge Rider
  */
-public class AttributePart extends PropertyAwarePart {
+public class AttributePart extends NodePart {
 
     public static final String PROP_CHECKED = "CHECKED";
+
+    private ERDHighlightingHandle associatedRelationsHighlighing = null;
+    private AccessibleGraphicalEditPart accPart;
 
     public AttributePart() {
 
@@ -62,6 +78,58 @@ public class AttributePart extends PropertyAwarePart {
         return ERDUIUtils.getFullAttributeLabel(getDiagram(), getAttribute(), false);
     }
 
+    @Override
+    protected void addSourceConnection(ConnectionEditPart connection, int index) {
+        final DBPPreferenceStore store = ERDUIActivator.getDefault().getPreferences();
+        if (!store.getString(ERDUIConstants.PREF_ROUTING_TYPE).equals(ERDUIConstants.ROUTING_MIKAMI) || ERDAttributeVisibility.isHideAttributeAssociations(store)) {
+            return;
+        }
+        if (((AssociationPart) connection).getAssociation().getSourceAttributes().contains(getAttribute())) {
+            super.addSourceConnection(connection, index);
+        }
+    }
+
+    @Override
+    protected List<ERDAssociation> getModelSourceConnections() {
+        final DBPPreferenceStore store = ERDUIActivator.getDefault().getPreferences();
+        if (!store.getString(ERDUIConstants.PREF_ROUTING_TYPE).equals(ERDUIConstants.ROUTING_MIKAMI) || ERDAttributeVisibility.isHideAttributeAssociations(store)) {
+            return Collections.emptyList();
+        }
+        List<ERDAssociation> list = new ArrayList<>();
+        for (ERDAssociation erdAssociation : super.getModelSourceConnections()) {
+            if (erdAssociation.getSourceAttributes().contains(getAttribute()) && erdAssociation.getSourceEntity() != null) {
+                list.add(erdAssociation);
+            }
+        }
+        return list;
+    }
+
+    @Override
+    protected List<ERDAssociation> getModelTargetConnections() {
+        final DBPPreferenceStore store = ERDUIActivator.getDefault().getPreferences();
+        if (!store.getString(ERDUIConstants.PREF_ROUTING_TYPE).equals(ERDUIConstants.ROUTING_MIKAMI) || ERDAttributeVisibility.isHideAttributeAssociations(store)) {
+            return Collections.emptyList();
+        }
+        List<ERDAssociation> list = new ArrayList<>();
+        for (ERDAssociation erdAssociation : super.getModelTargetConnections()) {
+            if (erdAssociation.getTargetAttributes().contains(getAttribute()) && erdAssociation.getTargetEntity() != null) {
+                list.add(erdAssociation);
+            }
+        }
+        return list;
+    }
+
+    @Override
+    protected void addTargetConnection(ConnectionEditPart connection, int index) {
+        final DBPPreferenceStore store = ERDUIActivator.getDefault().getPreferences();
+        if (!store.getString(ERDUIConstants.PREF_ROUTING_TYPE).equals(ERDUIConstants.ROUTING_MIKAMI) || ERDAttributeVisibility.isHideAttributeAssociations(store)) {
+            return;
+        }
+        if (((AssociationPart) connection).getAssociation().getTargetAttributes().contains(getAttribute())) {
+            super.addTargetConnection(connection, index);
+        }
+    }
+
     /**
      * @return the ColumnLabel representing the Column
      */
@@ -80,13 +148,15 @@ public class AttributePart extends PropertyAwarePart {
      */
     @Override
     protected void createEditPolicies() {
-        if (isLayoutEnabled()) {
-            if (getEditPolicy(EditPolicy.CONTAINER_ROLE) == null && isColumnDragAndDropSupported()) {
-                installEditPolicy(EditPolicy.CONTAINER_ROLE, new AttributeConnectionEditPolicy(this));
-                installEditPolicy(EditPolicy.PRIMARY_DRAG_ROLE, new AttributeDragAndDropEditPolicy(this));
+        if (!getEditor().isReadOnly()) {
+            if (isLayoutEnabled()) {
+                if (getEditPolicy(EditPolicy.CONTAINER_ROLE) == null && isColumnDragAndDropSupported()) {
+                    installEditPolicy(EditPolicy.CONTAINER_ROLE, new AttributeConnectionEditPolicy(this));
+                    installEditPolicy(EditPolicy.PRIMARY_DRAG_ROLE, new AttributeDragAndDropEditPolicy(this));
+                }
             }
+            getDiagram().getModelAdapter().installPartEditPolicies(this);
         }
-        getDiagram().getModelAdapter().installPartEditPolicies(this);
     }
 
     @Override
@@ -117,6 +187,16 @@ public class AttributePart extends PropertyAwarePart {
             }
         }
         columnLabel.repaint();
+
+        if (value != EditPart.SELECTED_NONE) {
+            if (this.getViewer() instanceof ERDGraphicalViewer && associatedRelationsHighlighing == null) {
+                Color color = UIUtils.getColorRegistry().get(ERDUIConstants.COLOR_ERD_FK_HIGHLIGHTING);
+                associatedRelationsHighlighing = ((ERDGraphicalViewer) this.getViewer()).getEditor().getHighlightingManager().highlightAttributeAssociations(this, color);
+            }
+        } else if (associatedRelationsHighlighing != null) {
+            associatedRelationsHighlighing.release();
+            associatedRelationsHighlighing = null;
+        }
     }
 
     public void handleNameChange() {
@@ -188,4 +268,42 @@ public class AttributePart extends PropertyAwarePart {
         return ERDUIMessages.column_.trim() + " " + getAttribute().getLabelText();
     }
 
+    @Override
+    public ERDElement getElement() {
+        return getEntity();
+    }
+
+    @Override
+    public ConnectionAnchor getSourceConnectionAnchor(ConnectionEditPart connection) {
+        return new ChopboxAnchor(getFigure());
+    }
+
+    @Override
+    public ConnectionAnchor getSourceConnectionAnchor(Request request) {
+        return new ChopboxAnchor(getFigure());
+    }
+
+    @Override
+    public ConnectionAnchor getTargetConnectionAnchor(ConnectionEditPart connection) {
+        return new ChopboxAnchor(getFigure());
+    }
+
+    @Override
+    public ConnectionAnchor getTargetConnectionAnchor(Request request) {
+        return new ChopboxAnchor(getFigure());
+    }
+
+    @Override
+    protected AccessibleEditPart getAccessibleEditPart() {
+        if (this.accPart == null) {
+            this.accPart = new AccessibleGraphicalEditPart() {
+                public void getName(AccessibleEvent e) {
+                    e.result = NLS.bind(ERDUIMessages.erd_accessibility_attribute_part,
+                        ERDUIUtils.getFullAttributeLabel(getDiagram(), getAttribute(), true, true));
+                }
+            };
+        }
+
+        return this.accPart;
+    }
 }

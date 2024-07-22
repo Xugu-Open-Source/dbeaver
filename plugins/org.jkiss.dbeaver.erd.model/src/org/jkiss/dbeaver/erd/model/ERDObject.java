@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,20 +19,22 @@
  */
 package org.jkiss.dbeaver.erd.model;
 
-import org.eclipse.core.runtime.IAdaptable;
+import org.jkiss.code.NotNull;
+import org.jkiss.dbeaver.model.DBPAdaptable;
 import org.jkiss.dbeaver.model.DBPNamedObject;
 import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
 import org.jkiss.dbeaver.runtime.properties.PropertyCollector;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
+import java.util.Map;
 
 /**
  * Provides base class support for model objects to participate in event handling framework
  *
  * @author Serge Rider
  */
-public abstract class ERDObject<OBJECT> implements IAdaptable, DBPNamedObject {
+public abstract class ERDObject<OBJECT> implements DBPAdaptable, DBPNamedObject {
 
     public static final String PROP_CHILD = "CHILD";
     public static final String PROP_REORDER = "REORDER";
@@ -95,4 +97,9 @@ public abstract class ERDObject<OBJECT> implements IAdaptable, DBPNamedObject {
         }
         return null;
     }
+
+    public abstract void fromMap(@NotNull ERDContext context, Map<String, Object> map);
+
+    public abstract Map<String, Object> toMap(@NotNull ERDContext context, boolean fullInfo);
+
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  */
 package org.jkiss.dbeaver.model.impl.sql.edit.struct;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
@@ -23,7 +24,6 @@ import org.jkiss.dbeaver.model.edit.DBEObjectWithDependencies;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.edit.prop.DBECommandComposite;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
-import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.edit.DBECommandAbstract;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
@@ -90,29 +90,7 @@ public abstract class SQLTableColumnManager<OBJECT_TYPE extends DBSEntityAttribu
         NullNotNullModifier.appendModifier(monitor, column, sql, command);
     };
 
-    protected final ColumnModifier<OBJECT_TYPE> DefaultModifier = (monitor, column, sql, command) -> {
-        String defaultValue = CommonUtils.toString(column.getDefaultValue());
-        if (!CommonUtils.isEmpty(defaultValue)) {
-            DBPDataKind dataKind = column.getDataKind();
-            boolean useQuotes = false;//dataKind == DBPDataKind.STRING;
-            if (!defaultValue.startsWith(QUOTE) && !defaultValue.endsWith(QUOTE)) {
-                if (useQuotes && defaultValue.trim().startsWith(QUOTE)) {
-                    useQuotes = false;
-                }
-                if (dataKind == DBPDataKind.DATETIME) {
-                    final char firstChar = defaultValue.trim().charAt(0);
-                    if (!Character.isLetter(firstChar) && firstChar != '(' && firstChar != '[') {
-                        useQuotes = true;
-                    }
-                }
-            }
-
-            sql.append(" DEFAULT "); //$NON-NLS-1$
-            if (useQuotes) sql.append(QUOTE);
-            sql.append(defaultValue);
-            if (useQuotes) sql.append(QUOTE);
-        }
-    };
+    protected ColumnModifier<OBJECT_TYPE> DefaultModifier = new BaseDefaultModifier();
 
     protected ColumnModifier[] getSupportedModifiers(OBJECT_TYPE column, Map<String, Object> options)
     {
@@ -188,31 +166,9 @@ public abstract class SQLTableColumnManager<OBJECT_TYPE extends DBSEntityAttribu
         );
     }
 
-    protected String getNewColumnName(DBRProgressMonitor monitor, DBECommandContext context, TABLE_TYPE table)
-    {
-        for (int i = 1; ; i++)  {
-            final String name = DBObjectNameCaseTransformer.transformName(table.getDataSource(), "Column" + i);
-            try {
-                // check for existing columns
-                boolean exists = table.getAttribute(monitor, name) != null;
-                if (!exists) {
-                    // Check for new columns (they are present only within command context)
-                    for (DBPObject contextObject : context.getEditedObjects()) {
-                        if (contextObject instanceof DBSEntityAttribute && ((DBSEntityAttribute) contextObject).getParentObject() == table && name.equalsIgnoreCase(((DBSEntityAttribute) contextObject).getName())) {
-                            exists = true;
-                            break;
-                        }
-                    }
-                }
-                if (!exists) {
-                    return name;
-                }
-            } catch (DBException e) {
-                log.warn(e);
-                return name;
-            }
-        }
-
+    @NotNull
+    protected String getNewColumnName(@NotNull DBRProgressMonitor monitor, @NotNull DBECommandContext context, @NotNull TABLE_TYPE table) {
+        return DBUtils.makeNewObjectName(monitor, "Column{0}", table, DBSEntityAttribute.class, DBSEntity::getAttribute, context);
     }
 
     @Override
@@ -327,7 +283,49 @@ public abstract class SQLTableColumnManager<OBJECT_TYPE extends DBSEntityAttribu
         actionList.add(new SQLDatabasePersistAction(
             "Comment column",
             "COMMENT ON COLUMN " + DBUtils.getObjectFullName(table, DBPEvaluationContext.DDL) + "." + DBUtils.getQuotedIdentifier(column) +
-                " IS " + SQLUtils.quoteString(column.getDataSource(), column.getDescription())));
+                " IS " + SQLUtils.quoteString(column.getDataSource(), CommonUtils.notEmpty(column.getDescription()))));
     }
-}
 
+    protected class BaseDefaultModifier implements ColumnModifier<OBJECT_TYPE> {
+        @Override
+        public void appendModifier(
+            @NotNull DBRProgressMonitor monitor,
+            @NotNull OBJECT_TYPE column,
+            @NotNull StringBuilder sql,
+            @NotNull DBECommandAbstract<OBJECT_TYPE> command
+        ) {
+            String defaultValue = CommonUtils.toString(column.getDefaultValue());
+            if (!CommonUtils.isEmpty(defaultValue)) {
+                DBPDataKind dataKind = column.getDataKind();
+                boolean useQuotes = isUsesQuotes(defaultValue, dataKind);
+                sql.append(" DEFAULT "); //$NON-NLS-1$
+                appendDefaultValue(sql, defaultValue, useQuotes);
+            }
+        }
+
+        protected boolean isUsesQuotes(@NotNull String defaultValue, @NotNull DBPDataKind dataKind) {
+            boolean useQuotes = false;
+            if (!defaultValue.startsWith(QUOTE) && !defaultValue.endsWith(QUOTE)) {
+                if (dataKind == DBPDataKind.DATETIME) {
+                    final char firstChar = defaultValue.trim().charAt(0);
+                    if (!Character.isLetter(firstChar) && firstChar != '(' && firstChar != '[') {
+                        useQuotes = true;
+                    }
+                }
+            }
+            return useQuotes;
+        }
+
+        protected void appendDefaultValue(@NotNull StringBuilder sql, @NotNull String defaultValue, boolean useQuotes) {
+            if (useQuotes) {
+                sql.append(QUOTE);
+            }
+            sql.append(defaultValue);
+            if (useQuotes) {
+                sql.append(QUOTE);
+            }
+        }
+
+    }
+
+}

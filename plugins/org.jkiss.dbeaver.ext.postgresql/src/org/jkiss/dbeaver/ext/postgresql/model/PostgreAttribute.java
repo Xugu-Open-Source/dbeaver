@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,6 +74,7 @@ public abstract class PostgreAttribute<OWNER extends DBSEntity & PostgreObject> 
     private String defaultValue;
     @Nullable
     private boolean isGeneratedColumn;
+    private long depObjectId;
 
     protected PostgreAttribute(
         OWNER table)
@@ -171,8 +172,10 @@ public abstract class PostgreAttribute<OWNER extends DBSEntity & PostgreObject> 
                 }
             }
         }
-        //setTypeName(dataType.getTypeName());
-        setValueType(dataType.getTypeID());
+        if (dataType != null) {
+            //setTypeName(dataType.getTypeName());
+            setValueType(dataType.getTypeID());
+        }
         typeMod = JDBCUtils.safeGetInt(dbResult, "atttypmod");
         this.description = JDBCUtils.safeGetString(dbResult, "description");
         this.arrayDim = JDBCUtils.safeGetInt(dbResult, "attndims");
@@ -196,10 +199,12 @@ public abstract class PostgreAttribute<OWNER extends DBSEntity & PostgreObject> 
         this.acl = JDBCUtils.safeGetObject(dbResult, "attacl");
 
         if (getTable() instanceof PostgreTableForeign) {
-            foreignTableColumnOptions = JDBCUtils.safeGetArray(dbResult, "attfdwoptions");
+            foreignTableColumnOptions = PostgreUtils.safeGetStringArray(dbResult, "attfdwoptions");
         }
 
         setPersisted(true);
+
+        this.depObjectId = JDBCUtils.safeGetLong(dbResult, "objid"); // ID of object which has dependency with this column
     }
 
     @NotNull
@@ -277,7 +282,7 @@ public abstract class PostgreAttribute<OWNER extends DBSEntity & PostgreObject> 
     }
 
     @Nullable
-    @Property(viewable = true, editable = true, order = 28)
+    @Property(viewable = true, editableExpr = "!object.table.view", order = 28)
     public PostgreAttributeIdentity getIdentity() {
         return identity;
     }
@@ -292,7 +297,7 @@ public abstract class PostgreAttribute<OWNER extends DBSEntity & PostgreObject> 
     }
 
     @Override
-    @Property(viewable = true, editable = true, updatable = true, order = 50)
+    @Property(viewable = true, editableExpr = "!object.table.view", updatableExpr = "!object.table.view", order = 50)
     public boolean isRequired()
     {
         return super.isRequired();
@@ -311,7 +316,7 @@ public abstract class PostgreAttribute<OWNER extends DBSEntity & PostgreObject> 
 
     @Nullable
     @Override
-    @Property(viewable = true, editable = true, updatable = true, order = 70)
+    @Property(viewable = true, editableExpr = "!object.table.view", updatableExpr = "!object.table.view", order = 70)
     public String getDefaultValue()
     {
         if (isGeneratedColumn) {
@@ -358,7 +363,11 @@ public abstract class PostgreAttribute<OWNER extends DBSEntity & PostgreObject> 
         this.description = description;
     }
 
-    @Property(viewable = true, editable = true, order = 30, listProvider = CollationListProvider.class)
+    public long getDepObjectId() {
+        return depObjectId;
+    }
+
+    @Property(viewable = true, editableExpr = "!object.table.view", order = 30, listProvider = CollationListProvider.class)
     public PostgreCollation getCollation(DBRProgressMonitor monitor) throws DBException {
         if (collationId <= 0) {
             return null;
@@ -373,7 +382,10 @@ public abstract class PostgreAttribute<OWNER extends DBSEntity & PostgreObject> 
 
     @Override
     public boolean isHidden() {
-        return isPersisted() && getOrdinalPosition() < 0;
+        if (isPersisted()) {
+            return getOrdinalPosition() < 0 || getDataSource().getServerType().isHiddenRowidColumn(this);
+        }
+        return false;
     }
 
     @Override
@@ -391,14 +403,14 @@ public abstract class PostgreAttribute<OWNER extends DBSEntity & PostgreObject> 
 
     @Override
     public void setTypeName(String typeName) throws DBException {
-        final PostgreDataType dataType = findDataType(getSchema(), typeName);
+        final PostgreDataType dataType = resolveOrCreateDataType(typeName);
         this.typeName = typeName;
         this.typeId = dataType.getTypeID();
         this.dataType = dataType;
     }
 
     @Override
-    @Property(viewable = true, editable = true, updatable = true, order = 20, listProvider = DataTypeListProvider.class)
+    @Property(viewable = true, editableExpr = "!object.table.view", updatableExpr = "!object.table.view", order = 20, listProvider = DataTypeListProvider.class)
     public String getFullTypeName() {
         if (dataType == null) {
             return getTypeName();
@@ -416,7 +428,7 @@ public abstract class PostgreAttribute<OWNER extends DBSEntity & PostgreObject> 
         final String typeName = type.getFirst();
         final String[] typeMods = type.getSecond();
 
-        final PostgreDataType dataType = findDataType(getSchema(), typeName);
+        final PostgreDataType dataType = resolveOrCreateDataType(typeName);
         final PostgreTypeHandler handler = PostgreTypeHandlerProvider.getTypeHandler(dataType);
         if (handler != null) {
             this.typeMod = handler.getTypeModifiers(dataType, typeName, typeMods);
@@ -435,6 +447,16 @@ public abstract class PostgreAttribute<OWNER extends DBSEntity & PostgreObject> 
     @NotNull
     public abstract PostgreSchema getSchema();
 
+    @NotNull
+    private PostgreDataType resolveOrCreateDataType(@NotNull String typeName) throws DBException {
+        PostgreDataType dataType = PostgreUtils.resolveTypeFullName(new VoidProgressMonitor(), getSchema(), typeName);
+        if (dataType == null) {
+            // retry search in local schema types and create some data type on failure
+            dataType = findDataType(getSchema(), typeName);
+        }
+        return dataType;
+    }
+    
     @NotNull
     private static PostgreDataType findDataType(@NotNull PostgreSchema schema, @NotNull String typeName) throws DBException {
         PostgreDataType dataType = schema.getDataSource().getLocalDataType(typeName);

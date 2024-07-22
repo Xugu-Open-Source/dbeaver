@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,19 +19,23 @@ package org.jkiss.dbeaver.tasks.ui.view;
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.jface.dialogs.IDialogConstants;
+import org.eclipse.jface.viewers.ISelection;
+import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.layout.GridData;
-import org.eclipse.swt.widgets.*;
+import org.eclipse.swt.widgets.Combo;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.task.DBTTaskFolder;
 import org.jkiss.dbeaver.model.task.DBTTaskManager;
-import org.jkiss.dbeaver.registry.task.TaskManagerImpl;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.tasks.ui.internal.TaskUIViewMessages;
 import org.jkiss.dbeaver.ui.UIUtils;
@@ -53,8 +57,20 @@ public class TaskHandlerFolderCreate extends AbstractHandler {
             DBPProject folderProject = createFolderDialog.getProject();
             DBTTaskManager taskManager = folderProject.getTaskManager();
             DBTTaskFolder taskFolder = null;
+            DBTTaskFolder parentFolder = null;
+
+            // Check selected object. If it is a folder - then add it as parent for tne new folder
+            ISelection selection = HandlerUtil.getCurrentSelection(event);
+            if (selection instanceof IStructuredSelection) {
+                IStructuredSelection structuredSelection = (IStructuredSelection) selection;
+                Object selectedObject = structuredSelection.getFirstElement();
+                if (selectedObject instanceof DBTTaskFolder) {
+                    parentFolder = (DBTTaskFolder) selectedObject;
+                }
+            }
+
             try {
-                taskFolder = taskManager.createTaskFolder(folderProject, createFolderDialog.getName(), null);
+                taskFolder = taskManager.createTaskFolder(folderProject, createFolderDialog.getName(), parentFolder, null);
             } catch (DBException e) {
                 DBWorkbench.getPlatformUI().showError(
                         TaskUIViewMessages.task_handler_folder_create_error_title,
@@ -64,8 +80,8 @@ public class TaskHandlerFolderCreate extends AbstractHandler {
                 log.error("Can't create new task folder", e);
             }
             // Write new task folder name in json file
-            if (taskFolder != null && taskManager instanceof TaskManagerImpl) {
-                ((TaskManagerImpl) taskManager).saveConfiguration();
+            if (taskFolder != null) {
+                taskManager.updateConfiguration();
             }
         }
         return null;
@@ -91,7 +107,7 @@ public class TaskHandlerFolderCreate extends AbstractHandler {
                 getButton(IDialogConstants.OK_ID).setEnabled(!name.isEmpty());
             });
 
-            List<DBPProject> projects = DBWorkbench.getPlatform().getWorkspace().getProjects();
+            List<? extends DBPProject> projects = DBWorkbench.getPlatform().getWorkspace().getProjects();
             UIUtils.createControlLabel(composite, TaskUIViewMessages.task_handler_folder_create_dialog_text_label_folder_project);
 
             final Combo projectCombo = new Combo(composite, SWT.DROP_DOWN | SWT.READ_ONLY);

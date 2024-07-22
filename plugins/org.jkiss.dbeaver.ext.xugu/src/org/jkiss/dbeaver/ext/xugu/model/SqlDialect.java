@@ -18,7 +18,6 @@ package org.jkiss.dbeaver.ext.xugu.model;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
-import org.jkiss.dbeaver.ext.xugu.data.BinaryFormatter;
 import org.jkiss.dbeaver.model.DBConstants;
 import org.jkiss.dbeaver.model.DBPDataKind;
 import org.jkiss.dbeaver.model.DBPDataSource;
@@ -36,6 +35,7 @@ import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.dbeaver.ext.xugu.Constants;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
+import org.jkiss.dbeaver.ext.xugu.data.content.BinaryFormatter;
 
 import java.util.Arrays;
 import java.util.Locale;

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package org.jkiss.dbeaver.model.navigator;
 
 import org.eclipse.core.resources.IProject;
-import org.eclipse.core.runtime.IAdaptable;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
@@ -25,8 +24,10 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.navigator.meta.DBXTreeFolder;
+import org.jkiss.dbeaver.model.navigator.meta.DBXTreeNode;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.Collection;
@@ -36,11 +37,12 @@ import java.util.List;
 /**
  * DBNNode
  */
-public abstract class DBNNode implements DBPNamedObject, DBPNamedObjectLocalized, DBPPersistedObject, IAdaptable {
+public abstract class DBNNode implements DBPNamedObject, DBPNamedObjectLocalized, DBPPersistedObject, DBPAdaptable {
     static final Log log = Log.getLog(DBNNode.class);
 
     public enum NodePathType {
         resource,
+        dbvfs,
         folder,
         database,
         ext,
@@ -92,6 +94,10 @@ public abstract class DBNNode implements DBPNamedObject, DBPNamedObjectLocalized
     @NotNull
     @Override
     public String getName() {
+        return getNodeName();
+    }
+
+    protected String getSortName() {
         return getNodeName();
     }
 
@@ -255,6 +261,10 @@ public abstract class DBNNode implements DBPNamedObject, DBPNamedObjectLocalized
         return null;
     }
 
+    public Throwable getLastLoadError() {
+        return null;
+    }
+
     static void sortNodes(List<? extends DBNNode> nodes) {
         nodes.sort((Comparator<DBNNode>) (o1, o2) -> {
             boolean isFolder1 = o1 instanceof DBNLocalFolder;
@@ -264,8 +274,12 @@ public abstract class DBNNode implements DBPNamedObject, DBPNamedObjectLocalized
             } else if (!isFolder1 && isFolder2) {
                 return 1;
             }
-            return o1.getName().compareToIgnoreCase(o2.getName());
+            return o1.getSortName().compareToIgnoreCase(o2.getSortName());
         });
+    }
+
+    protected void fireNodeEvent(final DBNEvent event) {
+        getModel().fireNodeEvent(event);
     }
 
     public static Class<? extends DBSObject> getFolderChildrenClass(DBXTreeFolder meta) {
@@ -285,5 +299,19 @@ public abstract class DBNNode implements DBPNamedObject, DBPNamedObjectLocalized
         return aClass;
     }
 
+    public static boolean nodeHasStructureContainers(DBNNode node, DBXTreeNode meta) {
+        List<DBXTreeNode> children = meta.getChildren(node);
+        if (!CommonUtils.isEmpty(children)) {
+            for (DBXTreeNode child : children) {
+                if (child instanceof DBXTreeFolder) {
+                    Class<? extends DBSObject> childrenClass = DBNNode.getFolderChildrenClass((DBXTreeFolder) child);
+                    if (childrenClass != null && DBSObjectContainer.class.isAssignableFrom(childrenClass)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
 
 }

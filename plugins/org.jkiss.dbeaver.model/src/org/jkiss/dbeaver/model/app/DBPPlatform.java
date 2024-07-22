@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,37 +18,36 @@
 package org.jkiss.dbeaver.model.app;
 
 import org.jkiss.code.NotNull;
-import org.jkiss.dbeaver.model.DBPExternalFileManager;
+import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.model.DBConfigurationController;
+import org.jkiss.dbeaver.model.DBFileController;
 import org.jkiss.dbeaver.model.connection.DBPDataSourceProviderRegistry;
 import org.jkiss.dbeaver.model.data.DBDRegistry;
 import org.jkiss.dbeaver.model.edit.DBERegistry;
+import org.jkiss.dbeaver.model.fs.DBFRegistry;
 import org.jkiss.dbeaver.model.navigator.DBNModel;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
-import org.jkiss.dbeaver.model.qm.QMController;
+import org.jkiss.dbeaver.model.qm.QMRegistry;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.OSDescriptor;
+import org.jkiss.dbeaver.model.task.DBTTaskController;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 
 /**
  * DBPPlatform
  */
-public interface DBPPlatform
-{
+public interface DBPPlatform {
+
     @NotNull
     DBPApplication getApplication();
 
     @NotNull
     DBPWorkspace getWorkspace();
 
-    @NotNull
-    DBPResourceHandler getDefaultResourceHandler();
-
-    @NotNull
-    DBPPlatformLanguage getLanguage();
-
-    @NotNull
+    @Deprecated // use navigator model from DBPProject
+    @Nullable
     DBNModel getNavigatorModel();
 
     @NotNull
@@ -57,8 +56,11 @@ public interface DBPPlatform
     @NotNull
     OSDescriptor getLocalSystem();
 
+    /**
+     * Returns global QM registry
+     */
     @NotNull
-    QMController getQueryManager();
+    QMRegistry getQueryManager();
 
     @NotNull
     DBDRegistry getValueHandlerRegistry();
@@ -66,10 +68,8 @@ public interface DBPPlatform
     @NotNull
     DBERegistry getEditorsRegistry();
 
-    DBPGlobalEventManager getGlobalEventManager();
-
     @NotNull
-    DBPDataFormatterRegistry getDataFormatterRegistry();
+    DBFRegistry getFileSystemRegistry();
 
     @NotNull
     DBPPreferenceStore getPreferenceStore();
@@ -78,24 +78,50 @@ public interface DBPPlatform
     DBACertificateStorage getCertificateStorage();
 
     @NotNull
-    DBASecureStorage getSecureStorage();
+    Path getTempFolder(DBRProgressMonitor monitor, String name) throws IOException;
 
+    /**
+     * Returns platform configuration controller,
+     * which keeps configuration which can be shared with other users.
+     */
     @NotNull
-    DBPExternalFileManager getExternalFileManager();
-
+    DBConfigurationController getConfigurationController();
+    
+    /**
+     * Returns configuration controller,
+     * which keeps product configuration which can be shared with other users.
+     */
     @NotNull
-    File getTempFolder(DBRProgressMonitor monitor, String name) throws IOException;
-
+    DBConfigurationController getProductConfigurationController();
+    
+    /**
+     * Returns configuration controller,
+     * which keeps plugin configuration which can be shared with other users.
+     */
     @NotNull
-    File getApplicationConfiguration();
+    DBConfigurationController getPluginConfigurationController(@NotNull String pluginId);
 
+    /**
+     * Local config files are used to store some configuration specific to local machine only.
+     */
     @NotNull
-    File getConfigurationFile(String fileName);
+    Path getLocalConfigurationFile(String fileName);
 
+    /**
+     * File controller allows to read/write binary files (e.g. custom driver libraries)
+     */
     @NotNull
-    File getCustomDriversHome();
+    DBFileController getFileController();
 
-    boolean isReadOnly();
+    /**
+     * Task controller can read and change tasks configuration file
+     */
+    @NotNull
+    DBTTaskController getTaskController();
+
+    @Deprecated
+    @NotNull
+    Path getApplicationConfiguration();
 
     boolean isShuttingDown();
 

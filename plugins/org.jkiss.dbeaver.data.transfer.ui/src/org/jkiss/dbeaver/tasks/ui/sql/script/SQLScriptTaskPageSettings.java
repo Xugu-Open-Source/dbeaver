@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,11 +29,13 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.*;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.app.DBPPlatformDesktop;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.app.DBPResourceHandler;
 import org.jkiss.dbeaver.model.navigator.DBNDataSource;
 import org.jkiss.dbeaver.model.navigator.DBNProject;
 import org.jkiss.dbeaver.model.navigator.DBNResource;
+import org.jkiss.dbeaver.model.rm.RMUtils;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.tools.sql.SQLScriptExecuteSettings;
 import org.jkiss.dbeaver.tools.transfer.internal.DTMessages;
@@ -55,7 +57,7 @@ class SQLScriptTaskPageSettings extends ActiveWizardPage<SQLScriptTaskConfigurat
 
     private static final Log log = Log.getLog(SQLScriptTaskPageSettings.class);
 
-    private SQLScriptTaskConfigurationWizard sqlWizard;
+    private final SQLScriptTaskConfigurationWizard sqlWizard;
     private Button ignoreErrorsCheck;
     private Button dumpQueryCheck;
     private Button autoCommitCheck;
@@ -76,14 +78,14 @@ class SQLScriptTaskPageSettings extends ActiveWizardPage<SQLScriptTaskConfigurat
     public void createControl(Composite parent) {
         initializeDialogUnits(parent);
 
-        Composite composite = UIUtils.createComposite(parent, 1);
+        Composite composite = UIUtils.createComposite(parent, 2);
         composite.setLayoutData(new GridData(GridData.FILL_BOTH));
 
         SQLScriptExecuteSettings dtSettings = getWizard().getSettings();
 
         SashForm mainGroup = new SashForm(composite, SWT.NONE);
         mainGroup.setSashWidth(5);
-        mainGroup.setLayoutData(new GridData(GridData.FILL_BOTH));
+        mainGroup.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true, 2, 1));
 
         DBNProject projectNode = DBWorkbench.getPlatform().getNavigatorModel().getRoot().getProjectNode(sqlWizard.getProject());
 
@@ -107,7 +109,7 @@ class SQLScriptTaskPageSettings extends ActiveWizardPage<SQLScriptTaskConfigurat
                 StructuredSelection selection = (StructuredSelection) event.getSelection();
                 IResource resource = ((DBNResource) selection.getFirstElement()).getResource();
                 if (resource != null) {
-                    DBPResourceHandler handler = DBWorkbench.getPlatform().getWorkspace().getResourceHandler(resource);
+                    DBPResourceHandler handler = DBPPlatformDesktop.getInstance().getWorkspace().getResourceHandler(resource);
                     if (handler != null) {
                         try {
                             handler.openResource(resource);
@@ -281,15 +283,20 @@ class SQLScriptTaskPageSettings extends ActiveWizardPage<SQLScriptTaskConfigurat
         }
 
         {
-            Composite settingsGroup = UIUtils.createControlGroup(composite, DTMessages.sql_script_task_page_settings_group_script, 4, GridData.HORIZONTAL_ALIGN_BEGINNING, 0);
+            Composite settingsGroup = UIUtils.createControlGroup(
+                composite,
+                DTMessages.sql_script_task_page_settings_group_script,
+                3,
+                GridData.FILL_HORIZONTAL | GridData.VERTICAL_ALIGN_BEGINNING,
+                0
+            );
 
             ignoreErrorsCheck = UIUtils.createCheckbox(settingsGroup, DTMessages.sql_script_task_page_settings_option_ignore_errors, "", dtSettings.isIgnoreErrors(), 1);
             dumpQueryCheck = UIUtils.createCheckbox(settingsGroup, DTMessages.sql_script_task_page_settings_option_dump_results, "", dtSettings.isDumpQueryResultsToLog(), 1);
-            dumpQueryCheck.setEnabled(false);
             autoCommitCheck = UIUtils.createCheckbox(settingsGroup, DTMessages.sql_script_task_page_settings_option_auto_commit, "", dtSettings.isAutoCommit(), 1);
-
-            getWizard().createVariablesEditButton(settingsGroup);
         }
+
+        getWizard().createVariablesEditButton(composite);
 
         loadSettings();
 
@@ -365,12 +372,12 @@ class SQLScriptTaskPageSettings extends ActiveWizardPage<SQLScriptTaskConfigurat
 
         List<String> scriptFiles = settings.getScriptFiles();
         for (String filePath : scriptFiles) {
-            IFile file = SQLScriptExecuteSettings.getWorkspaceFile(filePath);
+            IFile file = RMUtils.findEclipseProjectFile(getWizard().getProject(), filePath);
             if (file == null) {
                 log.debug("Script file '" + filePath + "' not found");
                 continue;
             }
-            DBPProject currentProject = DBWorkbench.getPlatform().getWorkspace().getProject(file.getProject());
+            DBPProject currentProject = DBPPlatformDesktop.getInstance().getWorkspace().getProject(file.getProject());
             if (currentProject == null) {
                 log.debug("Project '" + file.getProject().getName() + "' not found");
                 continue;
@@ -410,19 +417,29 @@ class SQLScriptTaskPageSettings extends ActiveWizardPage<SQLScriptTaskConfigurat
         for (DBNResource resource : selectedScripts) {
             IResource res = resource.getResource();
             if (res instanceof IFile) {
-                scriptPaths.add(res.getFullPath().toString());
+                scriptPaths.add(getWizard().getProject().getResourcePath(res));
             }
         }
-        settings.setScriptFiles(scriptPaths);
+        if (!CommonUtils.isEmpty(scriptPaths)) {
+            settings.setScriptFiles(scriptPaths);
+        }
         List<DBPDataSourceContainer> dsList = new ArrayList<>();
         for (DBNDataSource dsNode : selectedDataSources) {
             dsList.add(dsNode.getDataSourceContainer());
         }
-        settings.setDataSources(dsList);
+        if (!CommonUtils.isEmpty(dsList)) {
+            settings.setDataSources(dsList);
+        }
 
-        settings.setIgnoreErrors(ignoreErrorsCheck.getSelection());
-        settings.setDumpQueryResultsToLog(dumpQueryCheck.getSelection());
-        settings.setAutoCommit(autoCommitCheck.getSelection());
+        if (ignoreErrorsCheck != null) {
+            settings.setIgnoreErrors(ignoreErrorsCheck.getSelection());
+        }
+        if (dumpQueryCheck != null) {
+            settings.setDumpQueryResultsToLog(dumpQueryCheck.getSelection());
+        }
+        if (autoCommitCheck != null) {
+            settings.setAutoCommit(autoCommitCheck.getSelection());
+        }
     }
 
 }

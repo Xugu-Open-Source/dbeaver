@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import org.jkiss.dbeaver.runtime.DBWorkbench;
 
 import java.util.List;
 
-import static org.mockito.Matchers.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -86,7 +86,7 @@ public class RequestBuilder {
 
         when(dataSource.getSQLDialect()).thenReturn(dialectRegistry.getDialect("generic").createInstance());
         when(dataSource.getContainer()).thenReturn(dataSourceContainer);
-        when(dataSource.getChild(any(), any())).then(x -> DBUtils.findObject(children, x.getArgumentAt(1, String.class)));
+        when(dataSource.getChild(any(), any())).then(x -> DBUtils.findObject(children, x.getArgument(1, String.class)));
         when(dataSource.getChildren(any())).then(x -> children);
 
         return new RequestResult(dataSource);

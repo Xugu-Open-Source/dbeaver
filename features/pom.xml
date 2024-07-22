@@ -15,8 +15,6 @@
     <modules>
         <module>org.jkiss.dbeaver.runtime.feature</module>
         <module>org.jkiss.dbeaver.db.feature</module>
-
-        <module>org.jkiss.dbeaver.net.sshj.feature</module>
     </modules>
 
     <profiles>
@@ -31,13 +29,17 @@
                 <module>org.jkiss.dbeaver.debug.feature</module>
 
                 <module>org.jkiss.dbeaver.db.ui.feature</module>
+                <module>org.jkiss.dbeaver.git.feature</module>
+                <module>org.jkiss.dbeaver.ext.ai.feature</module>
+                <module>org.jkiss.dbeaver.ext.office.feature</module>
+                <module>org.jkiss.dbeaver.ext.ui.svg.feature</module>
+
                 <module>org.jkiss.dbeaver.ide.feature</module>
+                <module>org.jkiss.dbeaver.app.base.feature</module>
+                <module>org.jkiss.dbeaver.app.local.feature</module>
                 <module>org.jkiss.dbeaver.standalone.feature</module>
                 <module>org.jkiss.dbeaver.appstore.feature</module>
                 <module>org.jkiss.dbeaver.ce.feature</module>
-                <module>org.jkiss.dbeaver.git.feature</module>
-                <module>org.jkiss.dbeaver.ext.office.feature</module>
-                <module>org.jkiss.dbeaver.ext.ui.svg.feature</module>
             </modules>
         </profile>
     </profiles>

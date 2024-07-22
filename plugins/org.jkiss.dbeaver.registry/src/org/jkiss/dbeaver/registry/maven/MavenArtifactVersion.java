@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,11 +44,12 @@ public class MavenArtifactVersion implements IMavenIdentifier {
     private static final Log log = Log.getLog(MavenArtifactVersion.class);
 
     public static final String PROP_PROJECT_VERSION = "project.version";
+    public static final String PROP_PROJECT_PARENT_VERSION = "project.parent.version";
     public static final String PROP_PROJECT_GROUP_ID = "project.groupId";
     public static final String PROP_PROJECT_ARTIFACT_ID = "project.artifactId";
     private static final String DEFAULT_PROFILE_ID = "#root";
 
-    private MavenArtifact artifact;
+    private final MavenArtifact artifact;
     private String name;
     private String version;
     private String packaging;
@@ -60,12 +61,14 @@ public class MavenArtifactVersion implements IMavenIdentifier {
     private final List<MavenProfile> profiles = new ArrayList<>();
     private final List<MavenRepository> repositories = new ArrayList<>();
 
-    private IVariableResolver propertyResolver = new IVariableResolver() {
+    private final IVariableResolver propertyResolver = new IVariableResolver() {
         @Override
         public String get(String name) {
             switch (name) {
                 case PROP_PROJECT_VERSION:
                     return version;
+                case PROP_PROJECT_PARENT_VERSION:
+                    return parent != null ? parent.version : null;
                 case PROP_PROJECT_GROUP_ID:
                     return artifact.getGroupId();
                 case PROP_PROJECT_ARTIFACT_ID:
@@ -86,7 +89,12 @@ public class MavenArtifactVersion implements IMavenIdentifier {
         }
     };
 
-    MavenArtifactVersion(@NotNull DBRProgressMonitor monitor, @NotNull MavenArtifact artifact, @NotNull String version, boolean resolveOptionalDependencies) throws IOException {
+    MavenArtifactVersion(
+        @NotNull DBRProgressMonitor monitor,
+        @NotNull MavenArtifact artifact,
+        @NotNull String version,
+        boolean resolveOptionalDependencies
+    ) throws IOException {
         this.artifact = artifact;
         this.version = CommonUtils.trim(version);
 
@@ -120,6 +128,12 @@ public class MavenArtifactVersion implements IMavenIdentifier {
     @Override
     public String getClassifier() {
         return artifact.getClassifier();
+    }
+
+    @Nullable
+    @Override
+    public String getFallbackVersion() {
+        return artifact.getFallbackVersion();
     }
 
     @NotNull
@@ -187,7 +201,8 @@ public class MavenArtifactVersion implements IMavenIdentifier {
                 return new File(externalURL);
             }
         }
-        return new File(artifact.getRepository().getLocalCacheDir(), artifact.getGroupId() + "/" + artifact.getVersionFileName(version, fileExt));
+        return artifact.getRepository().getLocalCacheDir().resolve(
+            artifact.getGroupId() + "/" + artifact.getVersionFileName(version, fileExt)).toFile();
     }
 
     public String getExternalURL() {
@@ -196,11 +211,16 @@ public class MavenArtifactVersion implements IMavenIdentifier {
 
     @NotNull
     private String getPackagingFileExtension() {
-        String fileExt = packaging;
-        if (CommonUtils.isEmpty(fileExt) || fileExt.equals(MavenArtifact.PACKAGING_BUNDLE) || fileExt.equals(MavenArtifact.FILE_POM)) {
-            fileExt = MavenArtifact.FILE_JAR;
+        final String packaging = CommonUtils.notEmpty(this.packaging);
+        switch (packaging) {
+            case "": // empty packaging
+            case MavenArtifact.PACKAGING_BUNDLE:
+            case MavenArtifact.PACKAGING_MAVEN_PLUGIN:
+            case MavenArtifact.FILE_POM:
+                return MavenArtifact.FILE_JAR;
+            default:
+                return packaging;
         }
-        return fileExt;
     }
 
     public String getExternalURL(String fileType) {
@@ -224,9 +244,8 @@ public class MavenArtifactVersion implements IMavenIdentifier {
                 log.warn(e);
             }
         }
-        return new File(
-            artifact.getRepository().getLocalCacheDir(),
-            artifact.getGroupId() + "/" + artifact.getVersionFileName(version, MavenArtifact.FILE_POM));
+        return artifact.getRepository().getLocalCacheDir().resolve(
+            artifact.getGroupId() + "/" + artifact.getVersionFileName(version, MavenArtifact.FILE_POM)).toFile();
     }
 
     private String getRemotePOMLocation() {
@@ -282,6 +301,7 @@ public class MavenArtifactVersion implements IMavenIdentifier {
             if (parentElement != null) {
                 String parentGroupId = CommonUtils.trim(XMLUtils.getChildElementBody(parentElement, "groupId"));
                 String parentArtifactId = CommonUtils.trim(XMLUtils.getChildElementBody(parentElement, "artifactId"));
+                String parentClassifier = CommonUtils.trim(XMLUtils.getChildElementBody(parentElement, "classifier"));
                 String parentVersion = CommonUtils.trim(XMLUtils.getChildElementBody(parentElement, "version"));
                 if (parentGroupId == null || parentArtifactId == null || parentVersion == null) {
                     log.error("Broken parent reference: " + parentGroupId + ":" + parentArtifactId + ":" + parentVersion);
@@ -289,6 +309,7 @@ public class MavenArtifactVersion implements IMavenIdentifier {
                     MavenArtifactReference parentReference = new MavenArtifactReference(
                         parentGroupId,
                         parentArtifactId,
+                        parentClassifier,
                         null,
                         parentVersion);
                     if (this.version == null) {
@@ -441,15 +462,9 @@ public class MavenArtifactVersion implements IMavenIdentifier {
                 MavenArtifactDependency dmInfo = depManagement ? null : findDependencyManagement(groupId, artifactId);
 
                 // Resolve scope
-                MavenArtifactDependency.Scope scope = null;
                 String scopeName = XMLUtils.getChildElementBody(dep, "scope");
-                if (!CommonUtils.isEmpty(scopeName)) {
-                    try {
-                        scope = MavenArtifactDependency.Scope.valueOf(scopeName.toUpperCase(Locale.ENGLISH));
-                    } catch (IllegalArgumentException e) {
-                        log.debug("Bad artifact '" + getArtifactId() + "' scope: " + scopeName);
-                    }
-                }
+                MavenArtifactDependency.Scope scope = scopeName == null ? null : CommonUtils.valueOf(
+                    MavenArtifactDependency.Scope.class, scopeName.toUpperCase(Locale.ENGLISH), null);
                 if (scope == null && dmInfo != null) {
                     scope = dmInfo.getScope();
                 }
@@ -476,6 +491,7 @@ public class MavenArtifactVersion implements IMavenIdentifier {
                         groupId,
                         artifactId,
                         classifier,
+                        MavenArtifactReference.VERSION_PATTERN_RELEASE,
                         version);
                     if (resolveOptionalDependencies) {
                         importReference.setResolveOptionalDependencies(true);
@@ -488,7 +504,7 @@ public class MavenArtifactVersion implements IMavenIdentifier {
                         imports = new ArrayList<>();
                     }
                     imports.add(importedVersion);
-                } else if (depManagement || (!optional && includesScope(scope))) {
+                } else if (depManagement || (!optional && includesScope(scope, resolveOptionalDependencies))) {
                     // TODO: maybe we should include optional or PROVIDED
 
                     if (version == null && dmInfo != null) {
@@ -516,6 +532,7 @@ public class MavenArtifactVersion implements IMavenIdentifier {
                                 new MavenArtifactReference(
                                     CommonUtils.notEmpty(XMLUtils.getChildElementBody(exclusion, "groupId")),
                                     CommonUtils.notEmpty(XMLUtils.getChildElementBody(exclusion, "artifactId")),
+                                    CommonUtils.notEmpty(XMLUtils.getChildElementBody(exclusion, "classifier")),
                                     null,
                                     ""));
                         }
@@ -534,11 +551,11 @@ public class MavenArtifactVersion implements IMavenIdentifier {
         return result;
     }
 
-    private boolean includesScope(MavenArtifactDependency.Scope scope) {
+    private boolean includesScope(MavenArtifactDependency.Scope scope, boolean resolveOptionalDependencies) {
         return
             scope == MavenArtifactDependency.Scope.COMPILE ||
-            scope == MavenArtifactDependency.Scope.RUNTIME/* ||
-            scope == MavenArtifactDependency.Scope.PROVIDED*/;
+            scope == MavenArtifactDependency.Scope.RUNTIME ||
+            (resolveOptionalDependencies && scope == MavenArtifactDependency.Scope.PROVIDED);
     }
 
     private MavenArtifactDependency findDependencyManagement(String groupId, String artifactId) {

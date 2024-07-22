@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,19 @@
  */
 package org.jkiss.dbeaver.ui.editors.sql.execute;
 
+import net.sf.jsqlparser.statement.Statement;
+import net.sf.jsqlparser.statement.delete.Delete;
+import net.sf.jsqlparser.statement.insert.Insert;
+import net.sf.jsqlparser.statement.select.PlainSelect;
+import net.sf.jsqlparser.statement.select.Select;
+import net.sf.jsqlparser.statement.update.Update;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.dialogs.IDialogSettings;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.dialogs.MessageDialogWithToggle;
+import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Composite;
@@ -43,19 +50,24 @@ import org.jkiss.dbeaver.model.impl.local.StatResultSet;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.qm.QMUtils;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.runtime.DBRRunnableParametrized;
 import org.jkiss.dbeaver.model.sql.*;
+import org.jkiss.dbeaver.model.sql.data.SQLQueryDataContainer;
 import org.jkiss.dbeaver.model.sql.parser.SQLSemanticProcessor;
+import org.jkiss.dbeaver.model.sql.registry.SQLCommandsRegistry;
+import org.jkiss.dbeaver.model.sql.registry.SQLPragmaHandlerDescriptor;
 import org.jkiss.dbeaver.model.struct.DBSDataContainer;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.jobs.DataSourceJob;
-import org.jkiss.dbeaver.runtime.sql.SQLResultsConsumer;
 import org.jkiss.dbeaver.runtime.ui.DBPPlatformUI;
+import org.jkiss.dbeaver.ui.ISmartTransactionManager;
 import org.jkiss.dbeaver.ui.UITask;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.resultset.ResultSetPreferences;
 import org.jkiss.dbeaver.ui.dialogs.ConfirmationDialog;
 import org.jkiss.dbeaver.ui.dialogs.exec.ExecutionQueueErrorJob;
 import org.jkiss.dbeaver.ui.editors.sql.SQLPreferenceConstants;
+import org.jkiss.dbeaver.ui.editors.sql.SQLResultsConsumer;
 import org.jkiss.dbeaver.ui.editors.sql.internal.SQLEditorActivator;
 import org.jkiss.dbeaver.ui.editors.sql.internal.SQLEditorMessages;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
@@ -66,6 +78,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 /**
  * SQLQueryJob
@@ -108,6 +121,8 @@ public class SQLQueryJob extends DataSourceJob
     private long fetchFlags;
     private SQLQueryResult curResult;
 
+    private transient int rowsFetched;
+
     public SQLQueryJob(
         @NotNull IWorkbenchPartSite partSite,
         @NotNull String name,
@@ -116,7 +131,8 @@ public class SQLQueryJob extends DataSourceJob
         @NotNull List<SQLScriptElement> queries,
         @NotNull SQLScriptContext scriptContext,
         @Nullable SQLResultsConsumer resultsConsumer,
-        @Nullable SQLQueryListener listener)
+        @Nullable SQLQueryListener listener,
+        boolean isDisableFetchResultSet)
     {
         super(name, executionContext);
         this.dataContainer = dataContainer;
@@ -131,7 +147,9 @@ public class SQLQueryJob extends DataSourceJob
             DBPPreferenceStore preferenceStore = getDataSourceContainer().getPreferenceStore();
             this.commitType = SQLScriptCommitType.valueOf(preferenceStore.getString(SQLPreferenceConstants.SCRIPT_COMMIT_TYPE));
             this.errorHandling = SQLScriptErrorHandling.valueOf(preferenceStore.getString(SQLPreferenceConstants.SCRIPT_ERROR_HANDLING));
-            this.fetchResultSets = queries.size() == 1 || preferenceStore.getBoolean(SQLPreferenceConstants.SCRIPT_FETCH_RESULT_SETS);
+            this.fetchResultSets = queries.size() == 1 || (
+                preferenceStore.getBoolean(SQLPreferenceConstants.SCRIPT_FETCH_RESULT_SETS) && !isDisableFetchResultSet
+            );
             this.rsMaxRows = preferenceStore.getInt(ModelPreferences.RESULT_SET_MAX_ROWS);
         }
     }
@@ -320,6 +338,35 @@ public class SQLQueryJob extends DataSourceJob
 
     private boolean executeSingleQuery(@NotNull DBCSession session, @NotNull SQLScriptElement element, final boolean fireEvents)
     {
+
+        if (!scriptContext.getPragmas().isEmpty() && element instanceof SQLQuery) {
+            final SQLQueryDataContainer container = new SQLQueryDataContainer(this::getExecutionContext, (SQLQuery) element, scriptContext, log);
+
+            for (var it = scriptContext.getPragmas().entrySet().iterator(); it.hasNext(); ) {
+                final Map.Entry<String, Map<String, Object>> entry = it.next();
+                final String id = entry.getKey();
+                final SQLPragmaHandlerDescriptor descriptor = SQLCommandsRegistry.getInstance().getPragmaHandler(id);
+
+                if (descriptor != null) {
+                    final int result;
+
+                    try {
+                        result = descriptor.createHandler().processPragma(session.getProgressMonitor(), container, entry.getValue());
+                    } catch (DBException e) {
+                        lastError = e;
+                        return false;
+                    }
+
+                    if (CommonUtils.isBitSet(result, SQLPragmaHandler.RESULT_CONSUME_PRAGMA)) {
+                        it.remove();
+                    }
+
+                    if (CommonUtils.isBitSet(result, SQLPragmaHandler.RESULT_CONSUME_QUERY)) {
+                        return false;
+                    }
+                }
+            }
+        }
         if (element instanceof SQLControlCommand) {
             try {
                 return scriptContext.executeControlCommand((SQLControlCommand)element);
@@ -428,7 +475,7 @@ public class SQLQueryJob extends DataSourceJob
             startTime = System.currentTimeMillis();
 
             SQLQuery execStatement = sqlQuery;
-            DBExecUtils.tryExecuteRecover(session, session.getDataSource(), param -> {
+            DBRRunnableParametrized<DBCSession> executor = param -> {
                 try {
                     // We can't reset statistics here (we can be in script mode)
                     //statistics.setStatementsCount(0);
@@ -445,7 +492,17 @@ public class SQLQueryJob extends DataSourceJob
                 } catch (Throwable e) {
                     throw new InvocationTargetException(e);
                 }
-            });
+            };
+
+            if (shouldRecoverQuery(execStatement)) {
+                DBExecUtils.tryExecuteRecover(session, session.getDataSource(), executor);
+            } else {
+                try {
+                    executor.run(session);
+                } catch (InvocationTargetException e) {
+                    throw e.getTargetException();
+                }
+            }
         }
         catch (Throwable ex) {
             if (!(ex instanceof DBException)) {
@@ -461,8 +518,6 @@ public class SQLQueryJob extends DataSourceJob
                 notifyQueryExecutionEnd(curResult);
             }
 
-            scriptContext.clearStatementContext();
-
             monitor.done();
         }
 
@@ -471,6 +526,20 @@ public class SQLQueryJob extends DataSourceJob
         }
         // Success
         lastGoodQuery = originalQuery;
+        return true;
+    }
+
+    private boolean shouldRecoverQuery(SQLQuery query) {
+        Statement statement = query.getStatement();
+        if (statement instanceof Insert ||
+            statement instanceof Delete ||
+            statement instanceof Update ||
+            (statement instanceof Select &&
+                ((Select) statement).getSelectBody() instanceof PlainSelect &&
+                !CommonUtils.isEmpty(((PlainSelect) ((Select) statement).getSelectBody()).getIntoTables())))
+        {
+            return false;
+        }
         return true;
     }
 
@@ -518,13 +587,31 @@ public class SQLQueryJob extends DataSourceJob
             curResult.setHasResultSet(hasResultSet);
 
             long updateCount = -1;
+            // Some databases (especially NoSQL) may produce a lot of
+            // result sets, we should warn user because it may lead to UI freeze
+            int resultSetCounter = 0;
+            boolean confirmed = false;
             while (true) {
                 // Fetch data only if we have to fetch all results or if it is rs requested
                 if (fetchResultSetNumber < 0 || fetchResultSetNumber == resultSetNumber) {
+                    if (hasResultSet && !confirmed && resultSetCounter >= getDataSourceContainer().getPreferenceStore()
+                        .getInt(SQLPreferenceConstants.RESULT_SET_MAX_TABS_PER_QUERY)) {
+                        hasResultSet = DBWorkbench.getPlatformUI().confirmAction(
+                            SQLEditorMessages.editors_sql_warning_many_subtables_title,
+                            NLS.bind(
+                                SQLEditorMessages.editors_sql_warning_many_subtables_text,
+                                getDataSourceContainer().getPreferenceStore()
+                                    .getInt(SQLPreferenceConstants.RESULT_SET_MAX_TABS_PER_QUERY)
+                            ),
+                            true
+                        );
+                        confirmed = hasResultSet;
+                    }
                     if (hasResultSet && fetchResultSets) {
                         DBCResultSet resultSet;
                         try {
                             resultSet = dbcStatement.openResultSet();
+                            resultSetCounter++;
                         } catch (DBCException e) {
                             DBPErrorAssistant.ErrorType errorType = DBExecUtils.discoverErrorType(session.getDataSource(), e);
                             if (errorType == DBPErrorAssistant.ErrorType.RESULT_SET_MISSING) {
@@ -541,7 +628,19 @@ public class SQLQueryJob extends DataSourceJob
                         } else {
                             DBDDataReceiver dataReceiver = resultsConsumer.getDataReceiver(sqlQuery, resultSetNumber);
                             if (dataReceiver != null) {
-                                hasResultSet = fetchQueryData(session, resultSet, curResult, curResult.addExecuteResult(true), dataReceiver, true);
+                                try {
+                                    hasResultSet = fetchQueryData(session, resultSet, curResult, curResult.addExecuteResult(true), dataReceiver, true);
+                                } catch (DBCException e) {
+                                    if (rowsFetched == 0) {
+                                        throw e;
+                                    } else {
+                                        // Some rows were fetched so we don't want to fail entire query
+                                        // Ad error as a warning
+                                        log.warn("Fetch failed", e);
+                                        statistics.setRowsFetched(rowsFetched);
+                                        statistics.setError(e);
+                                    }
+                                }
                             }
                         }
                     }
@@ -575,7 +674,8 @@ public class SQLQueryJob extends DataSourceJob
                         hasResultSet = dbcStatement.nextResults();
                     } catch (DBCException e) {
                         if (session.getDataSource().getInfo().isMultipleResultsFetchBroken()) {
-                            log.error(e);
+                            statistics.addWarning(e);
+                            statistics.setError(e);
                             // #2792: Check this twice. Some drivers (e.g. Sybase jConnect)
                             // throw error on n'th result fetch - but it still can keep fetching next results
                             hasResultSet = dbcStatement.nextResults();
@@ -595,6 +695,9 @@ public class SQLQueryJob extends DataSourceJob
             } catch (Throwable e) {
                 log.warn("Can't read execution warnings", e);
             }
+            if (!CommonUtils.isEmpty(statistics.getWarnings())) {
+                curResult.addWarnings(statistics.getWarnings().toArray(new Throwable[0]));
+            }
             //monitor.subTask("Close query");
             if (!keepStatementOpen()) {
                 closeStatement();
@@ -603,10 +706,7 @@ public class SQLQueryJob extends DataSourceJob
     }
 
     private void showExecutionResult(DBCSession session) {
-        int statementsCount = statistics.getStatementsCount();
-        if (statementsCount > 1 || // Many statements
-            (statementsCount == 1 && resultSetNumber == 0) || // Single non-select statement
-            (resultSetNumber == 0 && (statistics.getRowsUpdated() >= 0 || statistics.getRowsFetched() >= 0))) { // Single statement with some stats
+        if (isShowExecutionResult()) { // Single statement with some stats
             SQLQuery query = new SQLQuery(session.getDataSource(), "", -1, -1);
             if (queries.size() == 1) {
                 query.setText(queries.get(0).getText());
@@ -620,6 +720,19 @@ public class SQLQueryJob extends DataSourceJob
                     log.error("Error generating execution result stats", e);
                 }
             }
+        } else if (!CommonUtils.isBitSet(fetchFlags, DBSDataContainer.FLAG_REFRESH)) {
+            resultsConsumer.releaseDataReceiver(resultSetNumber);
+        }
+    }
+
+    private boolean isShowExecutionResult() {
+        if (resultSetNumber <= 0 || statistics.getRowsUpdated() >= 0) {
+            // If there are no results or we have updated some rows, always display statistics
+            return true;
+        } else {
+            // Otherwise, display statistics if the option is set
+            final DBPPreferenceStore store = getDataSourceContainer().getPreferenceStore();
+            return statistics.getStatementsCount() > 1 && store.getBoolean(SQLPreferenceConstants.SHOW_STATISTICS_FOR_QUERIES_WITH_RESULTS);
         }
     }
 
@@ -637,6 +750,7 @@ public class SQLQueryJob extends DataSourceJob
             fakeResultSet.addColumn("Execute time (ms)", DBPDataKind.NUMERIC);
             fakeResultSet.addColumn("Fetch time (ms)", DBPDataKind.NUMERIC);
             fakeResultSet.addColumn("Total time (ms)", DBPDataKind.NUMERIC);
+            fakeResultSet.addColumn("Start time", DBPDataKind.DATETIME);
             fakeResultSet.addColumn("Finish time", DBPDataKind.DATETIME);
             fakeResultSet.addRow(
                 statistics.getStatementsCount(),
@@ -644,6 +758,7 @@ public class SQLQueryJob extends DataSourceJob
                 statistics.getExecuteTime(),
                 statistics.getFetchTime(),
                 statistics.getTotalTime(),
+                new SimpleDateFormat(DBConstants.DEFAULT_TIMESTAMP_FORMAT).format(new Date(statistics.getStartTime())),
                 new SimpleDateFormat(DBConstants.DEFAULT_TIMESTAMP_FORMAT).format(new Date()));
             executeResult.setResultSetName(SQLEditorMessages.editors_sql_statistics);
         } else {
@@ -651,8 +766,9 @@ public class SQLQueryJob extends DataSourceJob
             long updateCount = statistics.getRowsUpdated();
             fakeResultSet.addColumn("Updated Rows", DBPDataKind.NUMERIC);
             fakeResultSet.addColumn("Query", DBPDataKind.STRING);
+            fakeResultSet.addColumn("Start time", DBPDataKind.DATETIME);
             fakeResultSet.addColumn("Finish time", DBPDataKind.DATETIME);
-            fakeResultSet.addRow(updateCount, query.getText(), new Date());
+            fakeResultSet.addRow(updateCount, query.getText(), new Date(statistics.getStartTime()), new Date());
 
             executeResult.setResultSetName(SQLEditorMessages.editors_sql_data_grid);
         }
@@ -717,8 +833,10 @@ public class SQLQueryJob extends DataSourceJob
             long fetchStartTime = System.currentTimeMillis();
 
             // Fetch all rows
+            rowsFetched = 0;
             while ((!hasLimits() || !fetchProgress.isMaxRowsFetched(rsMaxRows)) && !fetchProgress.isCanceled() && resultSet.nextRow()) {
                 dataReceiver.fetchRow(session, resultSet);
+                rowsFetched++;
                 fetchProgress.monitorRowFetch();
             }
             if (updateStatistics) {
@@ -802,7 +920,7 @@ public class SQLQueryJob extends DataSourceJob
     }
 */
 
-    public void extractData(@NotNull DBCSession session, @NotNull SQLScriptElement query, int resultNumber)
+    public void extractData(@NotNull DBCSession session, @NotNull SQLScriptElement query, int resultNumber, boolean fireEvents)
         throws DBCException
     {
         // Reset query to original. Otherwise multiple filters will corrupt it
@@ -813,7 +931,7 @@ public class SQLQueryJob extends DataSourceJob
         //session.getProgressMonitor().beginTask(CommonUtils.truncateString(query.getText(), 512), 1);
         session.getProgressMonitor().subTask(CommonUtils.truncateString(query.getText(), 512));
 
-        boolean result = executeSingleQuery(session, query, true);
+        boolean result = executeSingleQuery(session, query, fireEvents);
         if (!result && lastError != null) {
             if (lastError instanceof DBCException) {
                 throw (DBCException) lastError;

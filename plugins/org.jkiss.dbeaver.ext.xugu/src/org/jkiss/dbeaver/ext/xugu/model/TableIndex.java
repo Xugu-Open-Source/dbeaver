@@ -25,6 +25,9 @@ import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTableIndex;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.rdb.DBSIndexType;
+import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
+import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndexColumn;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.Constants;
 
 import java.sql.Date;
@@ -116,6 +119,20 @@ public class TableIndex extends JDBCTableIndex<Schema, BaseTablePhysical> {
 	public TableIndex(Schema schema, BaseTablePhysical parent, String name, boolean unique, DBSIndexType indexType) {
 		super(schema, parent, name, indexType, false);
 		this.unique = unique;
+	}
+
+	public TableIndex(DBRProgressMonitor monitor, Table table, DBSTableIndex source) throws DBException {
+		super(table.getSchema(), table, source, false);
+		this.setIndexType(source.getIndexType());
+		this.setUnique(source.isUnique());
+        List<? extends DBSTableIndexColumn> columns = source.getAttributeReferences(monitor);
+        if (columns != null) {
+            this.columns = new ArrayList<>(columns.size());
+            for (DBSTableIndexColumn sourceColumn : columns) {
+                this.columns.add(new TableIndexColumn(monitor, this, (TableIndexColumn) sourceColumn));
+            }
+        }
+		
 	}
 
 	@NotNull

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,6 +21,7 @@ import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.*;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.core.CoreMessages;
 import org.jkiss.dbeaver.model.DBConstants;
@@ -47,7 +48,8 @@ public class PrefPageConnectionClient extends TargetPrefPage
         DBPConnectionConfiguration.VARIABLE_SERVER,
         DBPConnectionConfiguration.VARIABLE_DATABASE,
         DBPConnectionConfiguration.VARIABLE_USER,
-        DBPConnectionConfiguration.VARIABLE_PASSWORD,
+        // We removed support of ${password} variable due to dbeaver/pro#1861
+        // DBPConnectionConfiguration.VARIABLE_PASSWORD,
         DBPConnectionConfiguration.VARIABLE_URL,
         DBPConnectionConfiguration.VARIABLE_CONN_TYPE,
         DBPConnectionConfiguration.VARIABLE_DATASOURCE,
@@ -94,9 +96,9 @@ public class PrefPageConnectionClient extends TargetPrefPage
         return true;
     }
 
+    @NotNull
     @Override
-    protected Control createPreferenceContent(Composite parent)
-    {
+    protected Control createPreferenceContent(@NotNull Composite parent) {
         Composite composite = UIUtils.createPlaceholder(parent, 1, 5);
         {
             Group clientNameGroup = UIUtils.createControlGroup(composite, CoreMessages.pref_page_database_client_name_group, 2, GridData.FILL_HORIZONTAL, 0);

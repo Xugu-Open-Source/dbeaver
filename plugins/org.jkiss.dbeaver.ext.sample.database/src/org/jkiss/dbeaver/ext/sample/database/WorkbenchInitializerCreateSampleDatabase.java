@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.jkiss.dbeaver.ext.sample.database;
 import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IWorkbenchWindow;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.app.DBPDataSourceRegistry;
 import org.jkiss.dbeaver.model.app.DBPProject;
@@ -103,7 +104,7 @@ public class WorkbenchInitializerCreateSampleDatabase implements IWorkbenchWindo
             return;
         }
         // Extract bundled database to workspace metadata
-        File dbFolder = new File(GeneralUtils.getMetadataFolder(), SAMPLE_DB1_FOLDER);
+        File dbFolder = GeneralUtils.getMetadataFolder().resolve(SAMPLE_DB1_FOLDER).toFile();
         if (!dbFolder.exists()) {
             if (!dbFolder.mkdirs()) {
                 log.error("Can't create target database folder " + dbFolder.getAbsolutePath());
@@ -123,12 +124,16 @@ public class WorkbenchInitializerCreateSampleDatabase implements IWorkbenchWindo
         DBPConnectionConfiguration connectionInfo = new DBPConnectionConfiguration();
         connectionInfo.setDatabaseName(dbFile.getAbsolutePath());
         connectionInfo.setConnectionType(DBPConnectionType.DEV);
-        connectionInfo.setUrl(genericDSProvider.getInstance(sqliteDriver).getConnectionURL(sqliteDriver, connectionInfo));
+        connectionInfo.setUrl(sqliteDriver.getConnectionURL(connectionInfo));
         dataSource = new DataSourceDescriptor(dsRegistry, SAMPLE_DB1_ID, sqliteDriver, connectionInfo);
         dataSource.setSavePassword(true);
         dataSource.getNavigatorSettings().setShowSystemObjects(true);
         dataSource.setName("DBeaver Sample Database (SQLite)");
-        dsRegistry.addDataSource(dataSource);
+        try {
+            dsRegistry.addDataSource(dataSource);
+        } catch (DBException e) {
+            DBWorkbench.getPlatformUI().showError("Connection create error", null, e);
+        }
     }
 }
 

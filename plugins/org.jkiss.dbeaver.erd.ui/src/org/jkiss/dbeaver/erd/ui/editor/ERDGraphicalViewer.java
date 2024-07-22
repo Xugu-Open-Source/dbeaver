@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,17 +19,17 @@
  */
 package org.jkiss.dbeaver.erd.ui.editor;
 
-import org.eclipse.draw2dl.FigureCanvas;
-import org.eclipse.draw2dl.geometry.Dimension;
-import org.eclipse.draw2dl.geometry.Rectangle;
-import org.eclipse.gef3.*;
-import org.eclipse.gef3.palette.PaletteContainer;
-import org.eclipse.gef3.palette.PaletteDrawer;
-import org.eclipse.gef3.palette.PaletteRoot;
-import org.eclipse.gef3.palette.ToolEntry;
-import org.eclipse.gef3.tools.SelectionTool;
-import org.eclipse.gef3.ui.parts.AbstractEditPartViewer;
-import org.eclipse.gef3.ui.parts.ScrollingGraphicalViewer;
+import org.eclipse.draw2d.FigureCanvas;
+import org.eclipse.draw2d.geometry.Dimension;
+import org.eclipse.draw2d.geometry.Rectangle;
+import org.eclipse.gef.*;
+import org.eclipse.gef.palette.PaletteContainer;
+import org.eclipse.gef.palette.PaletteDrawer;
+import org.eclipse.gef.palette.PaletteRoot;
+import org.eclipse.gef.palette.ToolEntry;
+import org.eclipse.gef.tools.SelectionTool;
+import org.eclipse.gef.ui.parts.AbstractEditPartViewer;
+import org.eclipse.gef.ui.parts.ScrollingGraphicalViewer;
 import org.eclipse.jface.util.IPropertyChangeListener;
 import org.eclipse.jface.util.PropertyChangeEvent;
 import org.eclipse.swt.SWT;
@@ -47,10 +47,7 @@ import org.eclipse.ui.part.MultiPageEditorSite;
 import org.eclipse.ui.themes.ITheme;
 import org.eclipse.ui.themes.IThemeManager;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.erd.model.ERDEntity;
-import org.jkiss.dbeaver.erd.model.ERDEntityAttribute;
-import org.jkiss.dbeaver.erd.model.ERDObject;
-import org.jkiss.dbeaver.erd.model.ERDUtils;
+import org.jkiss.dbeaver.erd.model.*;
 import org.jkiss.dbeaver.erd.ui.ERDUIConstants;
 import org.jkiss.dbeaver.erd.ui.directedit.ValidationMessageHandler;
 import org.jkiss.dbeaver.erd.ui.internal.ERDUIActivator;
@@ -359,7 +356,6 @@ public class ERDGraphicalViewer extends ScrollingGraphicalViewer implements IPro
         } else if (object instanceof DBSEntityAssociation) {
             entityAssociation = (DBSEntityAssociation) object;
             entity = entityAssociation.getParentObject();
-            return;
         } else {
             return;
         }
@@ -394,7 +390,18 @@ public class ERDGraphicalViewer extends ScrollingGraphicalViewer implements IPro
                             erdEntity.firePropertyChange(ERDEntity.PROP_CONTENTS, null, null);
                         });
                     }
-
+                } else if (entityAssociation != null) {
+                    ERDEntity erdEntity = diagram.getEntity(entity);
+                    ERDEntity targetEntity = diagram.getEntity(entityAssociation.getAssociatedEntity());
+                    DBSEntityAssociation addedAssociation = entityAssociation;
+                    UIUtils.asyncExec(() -> {
+                        if (erdEntity != null &&
+                            erdEntity.getAssociation(addedAssociation) == null &&
+                            erdEntity.getReferenceAssociation(addedAssociation) == null)
+                        {
+                            new ERDAssociation(addedAssociation, erdEntity, targetEntity, true);
+                        }
+                    });
                 } else {
                     // New entity. Add it if it has the same object container
                     // or if this entity was created from the same editor
@@ -438,6 +445,7 @@ public class ERDGraphicalViewer extends ScrollingGraphicalViewer implements IPro
                                 curBounds.x = loc.x;
                                 curBounds.y = loc.y;
                                 entityPart.modifyBounds(curBounds);
+                                getEditor().setDirty(true);
                                 //autoLayoutEntity(entityPart);
                             }
                         });
@@ -449,16 +457,30 @@ public class ERDGraphicalViewer extends ScrollingGraphicalViewer implements IPro
                 ERDEntity erdEntity = diagram.getEntity(entity);
                 if (erdEntity != null) {
                     DBSEntityAttribute removedAttribute = entityAttribute;
+                    DBSEntityAssociation removedAssociation = entityAssociation;
                     UIUtils.asyncExec(() -> {
-                        if (removedAttribute == null) {
-                            // Entity delete
-                            diagram.removeEntity(erdEntity, true);
-                        } else {
+                        if (removedAttribute != null) {
                             ERDEntityAttribute erdAttribute = erdEntity.getAttribute(removedAttribute);
                             if (erdAttribute != null) {
                                 erdEntity.removeAttribute(erdAttribute, false);
                                 erdEntity.firePropertyChange(ERDEntity.PROP_CONTENTS, null, null);
                             }
+                        } else if (removedAssociation != null) {
+                            ERDAssociation erdAssociation = erdEntity.getAssociation(removedAssociation);
+                            if (erdAssociation != null) {
+                                erdEntity.removeAssociation(erdAssociation, true);
+
+                                if (erdAssociation.getTargetEntity() instanceof ERDEntity) {
+                                    ERDEntity refEntity = (ERDEntity) erdAssociation.getTargetEntity();
+                                    if (refEntity != null) {
+                                        refEntity.removeReferenceAssociation(erdAssociation, true);
+                                    }
+                                }
+                            }
+
+                        } else {
+                            // Entity delete
+                            diagram.removeEntity(erdEntity, true);
                         }
                     });
                 }
@@ -468,17 +490,21 @@ public class ERDGraphicalViewer extends ScrollingGraphicalViewer implements IPro
                 ERDEntity erdEntity = diagram.getEntity(entity);
                 if (erdEntity != null) {
                     DBSEntityAttribute updatedAttribute = entityAttribute;
+                    DBSEntityAssociation updatedAssociation = entityAssociation;
+
                     UIUtils.asyncExec(() -> {
-                        if (updatedAttribute == null) {
-                            erdEntity.reloadAttributes(diagram);
-                            erdEntity.firePropertyChange(ERDEntity.PROP_CONTENTS, null, null);
-                        } else {
+                        if (updatedAttribute != null) {
                             ERDEntityAttribute erdAttribute = erdEntity.getAttribute(updatedAttribute);
                             if (erdAttribute != null) {
                                 erdAttribute.firePropertyChange(ERDEntityAttribute.PROP_NAME, null, updatedAttribute.getName());
                                 // Resize entity
                                 erdEntity.firePropertyChange(ERDObject.PROP_SIZE, null, null);
                             }
+                        } else if (updatedAssociation != null) {
+
+                        } else {
+                            erdEntity.reloadAttributes(diagram);
+                            erdEntity.firePropertyChange(ERDEntity.PROP_CONTENTS, null, null);
                         }
                     });
                 }
@@ -566,10 +592,10 @@ public class ERDGraphicalViewer extends ScrollingGraphicalViewer implements IPro
     /**
      * Handler that provides horizontal scrolling using mouse wheel.
      *
-     * Copied from {@link org.eclipse.graphiti.ui.internal.util.gef3.MouseWheelHorizontalScrollHandler}
+     * Copied from {@link org.eclipse.graphiti.ui.internal.util.gef.MouseWheelHorizontalScrollHandler}
      *
      * @implNote this implementation differs from the source, since scrolling direction is inverted.
-     * @see org.eclipse.graphiti.ui.internal.util.gef3.MouseWheelHorizontalScrollHandler
+     * @see org.eclipse.graphiti.ui.internal.util.gef.MouseWheelHorizontalScrollHandler
      */
     private static class MouseWheelHorizontalScrollHandler implements MouseWheelHandler {
         public static final MouseWheelHandler SINGLETON = new MouseWheelHorizontalScrollHandler();

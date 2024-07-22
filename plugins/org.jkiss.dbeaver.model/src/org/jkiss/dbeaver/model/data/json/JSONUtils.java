@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,13 +23,11 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.exec.DBCException;
-import org.jkiss.dbeaver.model.runtime.DBRRunnableContext;
-import org.jkiss.dbeaver.runtime.serialize.DBPObjectSerializer;
-import org.jkiss.dbeaver.runtime.serialize.SerializerRegistry;
 import org.jkiss.utils.CommonUtils;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.sql.Timestamp;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAccessor;
@@ -41,6 +39,8 @@ import java.util.*;
  */
 public class JSONUtils {
 
+    public static final String DEFAULT_INDENT = "\t";
+    public static final String EMPTY_INDENT = "";
     private static final Log log = Log.getLog(JSONUtils.class);
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter
@@ -48,7 +48,18 @@ public class JSONUtils {
         .withZone(ZoneId.of("UTC"));
 
     public static String formatDate(Date date) {
-        return LocalDateTime.ofInstant(date.toInstant(), ZoneId.of("UTC")).format(DATE_TIME_FORMATTER);
+        try {
+            if (date instanceof java.sql.Time) {
+                return DateTimeFormatter.ISO_TIME.format(Instant.ofEpochMilli(date.getTime()).atZone(ZoneId.of("UTC")));
+            } else if (date instanceof java.sql.Date) {
+                return DateTimeFormatter.ISO_DATE.format(((java.sql.Date) date).toLocalDate());
+            } else {
+                return LocalDateTime.ofInstant(date.toInstant(), ZoneId.of("UTC")).format(DATE_TIME_FORMATTER);
+            }
+        } catch (Exception ex) {
+            log.warn("Error formatting date to ISO-8601. Falling back to default string representation of " + date.getClass().getName(), ex);
+            return date.toString();
+        }
     }
 
     @Nullable
@@ -158,17 +169,25 @@ public class JSONUtils {
     }
 
     public static void serializeStringList(@NotNull JsonWriter json, @NotNull String tagName, @Nullable Collection<String> list) throws IOException {
-        serializeStringList(json, tagName, list, false);
+        serializeStringList(json, tagName, list, true, false);
     }
 
-    public static void serializeStringList(@NotNull JsonWriter json, @NotNull String tagName, @Nullable Collection<String> list, boolean force) throws IOException {
+    public static void serializeStringList(
+        @NotNull JsonWriter json,
+        @NotNull String tagName,
+        @Nullable Collection<String> list,
+        boolean compact,
+        boolean force
+    ) throws IOException {
         if (force || !CommonUtils.isEmpty(list)) {
             json.name(tagName);
             json.beginArray();
+            if (compact) json.setIndent(EMPTY_INDENT);
             for (String include : CommonUtils.safeCollection(list)) {
                 json.value(include);
             }
             json.endArray();
+            if (compact) json.setIndent(DEFAULT_INDENT);
         }
     }
 
@@ -183,6 +202,17 @@ public class JSONUtils {
         if (!CommonUtils.isEmpty(properties)) {
             json.name(tagName);
             serializeMap(json, properties);
+        }
+    }
+
+    public static void serializeProperties(
+        @NotNull JsonWriter json,
+        @NotNull String tagName,
+        @Nullable Map<String, ?> properties, boolean allowEmptyValues) throws IOException
+    {
+        if (!CommonUtils.isEmpty(properties)) {
+            json.name(tagName);
+            serializeMap(json, properties, allowEmptyValues);
         }
     }
 
@@ -209,6 +239,11 @@ public class JSONUtils {
     }
 
     public static void serializeMap(@NotNull JsonWriter json, @NotNull Map<String, ?> map) throws IOException {
+        serializeMap(json, map, false);
+    }
+
+    public static void serializeMap(@NotNull JsonWriter json, @NotNull Map<String, ?> map,
+                                    boolean allowsEmptyValue) throws IOException {
         json.beginObject();
         for (Map.Entry<String, ?> entry : map.entrySet()) {
             Object propValue = entry.getValue();
@@ -222,6 +257,8 @@ public class JSONUtils {
                 String strValue = (String) propValue;
                 if (!strValue.isEmpty()) {
                     field(json, fieldName, strValue);
+                } else if (allowsEmptyValue) {
+                    field(json, fieldName, strValue);
                 }
             } else if (propValue instanceof Boolean) {
                 field(json, fieldName, (Boolean) propValue);
@@ -229,6 +266,8 @@ public class JSONUtils {
                 serializeObjectList(json, fieldName, (Collection<?>) propValue);
             } else if (propValue instanceof Map) {
                 serializeProperties(json, fieldName, (Map<String, ?>) propValue);
+            } else if (propValue instanceof Enum) {
+                field(json, fieldName, ((Enum) propValue).name());
             } else {
                 log.debug("Unsupported property type: " + propValue.getClass().getName());
                 field(json, fieldName, propValue.toString());
@@ -237,36 +276,19 @@ public class JSONUtils {
         json.endObject();
     }
 
-    public static <OBJECT_CONTEXT, OBJECT_TYPE> Map<String, Object> serializeObject(DBRRunnableContext runnableContext, OBJECT_CONTEXT context, @NotNull OBJECT_TYPE object) {
-        DBPObjectSerializer<OBJECT_CONTEXT, OBJECT_TYPE> serializer = SerializerRegistry.getInstance().createSerializer(object);
-        if (serializer == null) {
-            log.error("No serializer found for object " + object.getClass().getName());
-            return null;
-        }
-        Map<String, Object> state = new LinkedHashMap<>();
-
-        Map<String, Object> location = new LinkedHashMap<>();
-        serializer.serializeObject(runnableContext, context, object, location);
-        state.put("type", SerializerRegistry.getInstance().getObjectType(object));
-        state.put("location", location);
-
-        return state;
-    }
-
-    public static <OBJECT_CONTEXT, OBJECT_TYPE> Object deserializeObject(@NotNull DBRRunnableContext runnableContext,  OBJECT_CONTEXT objectContext, @NotNull Map<String, Object> objectConfig) throws DBCException {
-        String typeID = CommonUtils.toString(objectConfig.get("type"));
-        DBPObjectSerializer<OBJECT_CONTEXT, OBJECT_TYPE> serializer = SerializerRegistry.getInstance().createSerializerByType(typeID);
-        if (serializer == null) {
-            log.error("No deserializer found for type " + typeID);
-            return null;
-        }
-        Map<String, Object> location = getObject(objectConfig, "location");
-        return serializer.deserializeObject(runnableContext, objectContext, location);
+    public static <OBJECT_TYPE> OBJECT_TYPE deserializeObject(Map<String, Object> map, @NotNull Class<OBJECT_TYPE> type) throws DBCException {
+        Gson gson = new Gson();
+        String json = gson.toJson(map);
+        return gson.fromJson(json, type);
     }
 
     @NotNull
     public static Map<String, Object> parseMap(@NotNull Gson gson, @NotNull Reader reader) {
-        return gson.fromJson(reader, new TypeToken<Map<String, Object>>(){}.getType());
+        Map<String, Object> result = gson.fromJson(reader, new TypeToken<Map<String, Object>>() {}.getType());
+        if (result == null) {
+            return new LinkedHashMap<>();
+        }
+        return result;
     }
 
     @NotNull
@@ -312,6 +334,28 @@ public class JSONUtils {
         return value == null ? defValue : value.toString();
     }
 
+    /**
+     * Returns timestamp value from the attributes map, if map contains key
+     *
+     * @param attributes Attributes map
+     * @param name Name of the attribute
+     * @return timestamp from the given string value
+     */
+    @NotNull
+    public static Timestamp getTimestamp(@NotNull Map<String, Object> attributes, @NotNull String name) {
+        if (attributes.containsKey(name)) {
+            try {
+                long inst = getLong(attributes, name, 0);
+                if (inst != 0) {
+                    return Timestamp.from(Instant.ofEpochMilli(inst));
+                }
+            } catch (Exception e) {
+                log.debug("Can't parse timestamp value from " + name);
+            }
+        }
+        return new Timestamp(0);
+    }
+
     public static boolean getBoolean(Map<String, Object> map, String name) {
         return CommonUtils.toBoolean(map.get(name));
     }
@@ -330,6 +374,10 @@ public class JSONUtils {
 
     public static long getLong(Map<String, Object> map, String name, long defaultValue) {
         return CommonUtils.toLong(map.get(name), defaultValue);
+    }
+
+    public static Double getDouble(@NotNull Map<String, Object> map, String name) {
+        return CommonUtils.toDouble(map.get(name));
     }
 
     @NotNull
@@ -394,7 +442,7 @@ public class JSONUtils {
         List<String> result = new ArrayList<>();
         Object propMap = map.get(name);
         if (propMap instanceof Collection) {
-            for (Object pe : (Collection) propMap) {
+            for (Object pe : (Collection<?>) propMap) {
                 result.add(CommonUtils.toString(pe));
             }
         }

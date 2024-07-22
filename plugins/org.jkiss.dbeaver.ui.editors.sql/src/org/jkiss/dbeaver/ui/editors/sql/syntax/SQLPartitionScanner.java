@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,6 +53,7 @@ public class SQLPartitionScanner extends RuleBasedPartitionScanner implements TP
     private final IToken multilineCommentToken = new Token(SQLParserPartitions.CONTENT_TYPE_SQL_MULTILINE_COMMENT);
     private final IToken sqlStringToken = new Token(SQLParserPartitions.CONTENT_TYPE_SQL_STRING);
     private final IToken sqlQuotedToken = new Token(SQLParserPartitions.CONTENT_TYPE_SQL_QUOTED);
+    private final IToken controlToken = new Token(SQLParserPartitions.CONTENT_TYPE_SQL_CONTROL);
 
     private void setupRules() {
         IPredicateRule[] result = new IPredicateRule[rules.size()];
@@ -63,10 +64,8 @@ public class SQLPartitionScanner extends RuleBasedPartitionScanner implements TP
     private void initRules(SQLDialect dialect, SQLRuleManager ruleManager) {
         TPRuleProvider ruleProvider = GeneralUtils.adapt(dialect, TPRuleProvider.class);
         if (ruleProvider != null) {
-            List<TPRule> partRules = new ArrayList<>();
-            ruleProvider.extendRules(
+            TPRule[] partRules = ruleProvider.extendRules(
                 dataSource == null ? null : dataSource.getContainer(),
-                partRules,
                 TPRuleProvider.RulePosition.PARTITION);
             for (TPRule pr : partRules) {
                 if (pr instanceof TPPredicateRule) {
@@ -75,6 +74,7 @@ public class SQLPartitionScanner extends RuleBasedPartitionScanner implements TP
             }
         }
 
+        adaptRules(ruleManager.getRulesByType(SQLTokenType.T_CONTROL));
         adaptRules(ruleManager.getRulesByType(SQLTokenType.T_COMMENT));
         adaptRules(ruleManager.getRulesByType(SQLTokenType.T_QUOTED));
         adaptRules(ruleManager.getRulesByType(SQLTokenType.T_STRING));
@@ -129,6 +129,11 @@ public class SQLPartitionScanner extends RuleBasedPartitionScanner implements TP
         return regions;
     }
 
+    @Override
+    public int getOffset() {
+        return fOffset;
+    }
+
     private class PredicateRuleAdapter implements IPredicateRule {
         private final TPPredicateRule rule;
 
@@ -162,6 +167,8 @@ public class SQLPartitionScanner extends RuleBasedPartitionScanner implements TP
                         return sqlQuotedToken;
                     case T_COMMENT:
                         return token instanceof SQLMultilineCommentToken ? multilineCommentToken : commentToken;
+                    case T_CONTROL:
+                        return controlToken;
                 }
             }
         }

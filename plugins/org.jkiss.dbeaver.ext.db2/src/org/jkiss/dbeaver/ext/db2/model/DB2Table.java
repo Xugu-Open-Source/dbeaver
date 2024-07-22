@@ -1,7 +1,7 @@
 /*
  * DBeaver - Universal Database Manager
  * Copyright (C) 2013-2016 Denis Forveille (titou10.titou10@gmail.com)
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,8 +36,10 @@ import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
 import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
+import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectLookupCache;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectSimpleCache;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCStructCache;
 import org.jkiss.dbeaver.model.meta.Association;
@@ -78,6 +80,7 @@ public class DB2Table extends DB2TableBase
     private DBSObjectCache<DB2Table, DB2TablePartition> partitionCache;
     private DBSObjectCache<DB2Table, DB2TablePeriod> periodCache;
     private volatile List<DB2TableForeignKey> referenceCache = null;
+    private ColumnMaskCache columnMaskCache = new ColumnMaskCache();
 
     private DB2TableStatus status;
     private DB2TableType type;
@@ -94,6 +97,7 @@ public class DB2Table extends DB2TableBase
     private String volatileMode;
     private DB2TableCompressionMode compression;
     private DB2TableAccessMode accessMode;
+    private DB2TableOrganizationMode organizationMode;
     private Boolean mdcClustered;
     private DB2TableDropRule dropRule;
     private DB2TableTemporalType temporalType;
@@ -126,6 +130,7 @@ public class DB2Table extends DB2TableBase
         this.volatileMode = JDBCUtils.safeGetString(dbResult, "VOLATILE");
         this.compression = CommonUtils.valueOf(DB2TableCompressionMode.class, JDBCUtils.safeGetString(dbResult, "COMPRESSION"));
         this.accessMode = CommonUtils.valueOf(DB2TableAccessMode.class, JDBCUtils.safeGetString(dbResult, "ACCESS_MODE"));
+        this.organizationMode = CommonUtils.valueOf(DB2TableOrganizationMode.class, JDBCUtils.safeGetString(dbResult, "TABLEORG"));
         this.mdcClustered = JDBCUtils.safeGetBoolean(dbResult, "CLUSTERED", DB2YesNo.Y.name());
         this.dropRule = CommonUtils.valueOf(DB2TableDropRule.class, JDBCUtils.safeGetString(dbResult, "DROPRULE"));
 
@@ -137,7 +142,7 @@ public class DB2Table extends DB2TableBase
         this.invalidateTime = JDBCUtils.safeGetTimestamp(dbResult, "INVALIDATE_TIME");
         this.lastRegenTime = JDBCUtils.safeGetTimestamp(dbResult, "LAST_REGEN_TIME");
         if (getDataSource().isAtLeastV9_5()) {
-            this.alterTime = JDBCUtils.safeGetTimestamp(dbResult, "ALTER_TIME");
+            this.alterTime = JDBCUtils.safeGetTimestamp(dbResult, DB2Constants.SYSCOLUMN_ALTER_TIME);
         }
         if (getDataSource().isAtLeastV10_1()) {
             this.temporalType = CommonUtils.valueOf(DB2TableTemporalType.class, JDBCUtils.safeGetString(dbResult, "TEMPORALTYPE"));
@@ -206,9 +211,9 @@ public class DB2Table extends DB2TableBase
     }
 
     @Override
-    public String getObjectDefinitionText(DBRProgressMonitor monitor, Map<String, Object> options) throws DBException
-    {
-        return DB2Utils.generateDDLforTable(monitor, LINE_SEPARATOR, getDataSource(), this);
+    public String getObjectDefinitionText(DBRProgressMonitor monitor, Map<String, Object> options) throws DBException {
+        boolean includeViews = CommonUtils.getOption(options, OPTION_SCRIPT_INCLUDE_VIEWS);
+        return DB2Utils.generateDDLforTable(monitor, LINE_SEPARATOR, getDataSource(), this, includeViews);
     }
 
     // -----------------
@@ -315,6 +320,16 @@ public class DB2Table extends DB2TableBase
     public DB2TableCheckConstraint getCheckConstraint(DBRProgressMonitor monitor, String ukName) throws DBException
     {
         return getContainer().getCheckCache().getObject(monitor, getContainer(), this, ukName);
+    }
+
+    @Association
+    public Collection<DB2ColumnMask> getColumnMasks(@NotNull DBRProgressMonitor monitor) throws DBException {
+        return columnMaskCache.getAllObjects(monitor, this);
+    }
+
+    @Association
+    public DB2ColumnMask getColumnMask(@NotNull DBRProgressMonitor monitor, @NotNull String maskName) throws DBException {
+        return columnMaskCache.getObject(monitor, this, maskName);
     }
 
     // -----------------
@@ -434,31 +449,36 @@ public class DB2Table extends DB2TableBase
         return accessMode;
     }
 
-    @Property(viewable = false, editable = false, order = 107)
+    @Property(specific = true, order = 107)
+    public DB2TableOrganizationMode getOrganizationMode() {
+        return organizationMode;
+    }
+
+    @Property(viewable = false, editable = false, order = 108)
     public Boolean getMdcClustered()
     {
         return mdcClustered;
     }
 
-    @Property(viewable = false, editable = false, order = 108)
+    @Property(viewable = false, editable = false, order = 109)
     public DB2TableDropRule getDropRule()
     {
         return dropRule;
     }
 
-    @Property(viewable = false, editable = false, specific = true, order = 109)
+    @Property(viewable = false, editable = false, specific = true, order = 110)
     public String getDataCapture()
     {
         return dataCapture;
     }
 
-    @Property(viewable = false, editable = false, specific = true, order = 110)
+    @Property(viewable = false, editable = false, specific = true, order = 111)
     public DB2TablePartitionMode getPartitionMode()
     {
         return partitionMode;
     }
 
-    @Property(viewable = false, editable = false, order = 111)
+    @Property(viewable = false, editable = false, order = 112)
     public String getConstChecked()
     {
         return constChecked;
@@ -491,10 +511,65 @@ public class DB2Table extends DB2TableBase
     @Override
     public DBDPseudoAttribute[] getPseudoAttributes() throws DBException
     {
-        if (getDataSource().isAtLeastV9_5()) {
+        // In BigSQL, calling RID_BIT results in a results in an error message indicating that
+        // RID_BIT is not supported.
+        //
+        //   The command or statement was not executed because the following functionality is not
+        //   supported in the current environment: "RID functions".. SQLCODE=-5115, 
+        //   SQLSTATE=56038, DRIVER=4.31.10
+
+        if (getDataSource().isAtLeastV9_5() && !getDataSource().isBigSQL()) {
             return new DBDPseudoAttribute[] { DB2Constants.PSEUDO_ATTR_RID_BIT };
         } else {
             return null;
+        }
+    }
+
+    public class ColumnMaskCache extends JDBCObjectLookupCache<DB2Table, DB2ColumnMask> {
+
+        @NotNull
+        @Override
+        public JDBCStatement prepareLookupStatement(
+            @NotNull JDBCSession session,
+            @NotNull DB2Table db2Table,
+            @Nullable DB2ColumnMask object,
+            @Nullable String objectName
+        ) throws SQLException {
+            String sql = "SELECT * FROM SYSCAT.CONTROLS\n" +
+                "WHERE CONTROLTYPE = 'C' AND TABSCHEMA = ? AND TABNAME = ?" +
+                (object != null || objectName != null ? " AND CONTROLNAME = ?" : "");
+            JDBCPreparedStatement statement = session.prepareStatement(sql);
+            statement.setString(1, db2Table.getSchema().getName());
+            statement.setString(2, db2Table.getName());
+            if (object != null || objectName != null) {
+                statement.setString(3, object != null ? object.getName() : objectName);
+            }
+            return statement;
+        }
+
+        @Nullable
+        @Override
+        protected DB2ColumnMask fetchObject(
+            @NotNull JDBCSession session,
+            @NotNull DB2Table db2Table,
+            @NotNull JDBCResultSet resultSet
+        ) throws SQLException, DBException {
+            String maskName = JDBCUtils.safeGetString(resultSet, "CONTROLNAME");
+            if (CommonUtils.isEmpty(maskName)) {
+                log.debug("Skip column mask without name in table " + db2Table.getName());
+                return null;
+            }
+            String colName = JDBCUtils.safeGetString(resultSet, "COLNAME");
+            if (CommonUtils.isEmpty(colName)) {
+                log.debug("Skip column mask without column name in table " + db2Table.getName());
+                return null;
+            }
+            DB2TableColumn attribute = db2Table.getAttribute(session.getProgressMonitor(), colName);
+            if (attribute == null) {
+                log.debug("Can't find column " + colName + " in table " + db2Table.getName());
+                return null;
+            }
+            return new DB2ColumnMask(db2Table, attribute, maskName, resultSet);
         }
     }
 }

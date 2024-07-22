@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.app.DBPPlatformDesktop;
 import org.jkiss.dbeaver.model.data.DBDDataFormatterProfile;
 import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
 import org.jkiss.dbeaver.model.data.json.JSONUtils;
@@ -29,11 +30,15 @@ import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.tools.transfer.*;
 import org.jkiss.dbeaver.tools.transfer.internal.DTMessages;
+import org.jkiss.dbeaver.tools.transfer.processor.ExecuteCommandEventProcessor;
+import org.jkiss.dbeaver.tools.transfer.processor.ShowInExplorerEventProcessor;
+import org.jkiss.dbeaver.tools.transfer.registry.DataTransferEventProcessorDescriptor;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.StandardConstants;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,9 +46,32 @@ import java.util.Map;
 /**
  * Stream transfer settings
  */
-public class StreamConsumerSettings implements IDataTransferSettings {
+public class StreamConsumerSettings implements IDataTransferConsumerSettings {
 
     private static final Log log = Log.getLog(StreamConsumerSettings.class);
+
+    public class ConsumerRuntimeParameters {
+        public DataFileConflictBehavior dataFileConflictBehavior;
+        public Integer dataFileConflictPreviousChoice = null;
+        public BlobFileConflictBehavior blobFileConflictBehavior;
+        public Integer blobFileConflictPreviousChoice = null;
+        public boolean dontDropBlobFileConflictBehavior = false;
+        public String outputFileNameToReuse = null;
+        
+        public ConsumerRuntimeParameters() {
+            this.dataFileConflictBehavior = StreamConsumerSettings.this.dataFileConflictBehavior;
+            this.blobFileConflictBehavior = StreamConsumerSettings.this.blobFileConflictBehavior;
+        }
+
+        /**
+         * Initialize non-persistent parameters for data transfer execution which is shared between consumers of the task
+         */
+        public void initForConsumer() {
+            if (!this.dontDropBlobFileConflictBehavior) {
+                this.blobFileConflictBehavior = StreamConsumerSettings.this.blobFileConflictBehavior;
+            }
+        }
+    }
 
     public enum LobExtractType {
         SKIP,
@@ -57,11 +85,38 @@ public class StreamConsumerSettings implements IDataTransferSettings {
         BINARY,
         NATIVE
     }
+    
+    public enum DataFileConflictBehavior {
+        ASK(DTMessages.data_transfer_file_conflict_ask),
+        APPEND(DTMessages.data_transfer_file_conflict_append),
+        PATCHNAME(DTMessages.data_transfer_file_conflict_fix_name),
+        OVERWRITE(DTMessages.data_transfer_file_conflict_override);
+        
+        public final String title; 
+        
+        DataFileConflictBehavior(String title) {
+            this.title = title;
+        }
+    }
+    
+    public enum BlobFileConflictBehavior {
+        ASK(DTMessages.data_transfer_file_conflict_ask),
+        PATCHNAME(DTMessages.data_transfer_file_conflict_fix_name),
+        OVERWRITE(DTMessages.data_transfer_file_conflict_override);
+        
+        public final String title; 
+        
+        BlobFileConflictBehavior(String title) {
+            this.title = title;
+        }
+    }
 
     public static final String PROP_EXTRACT_IMAGES = "extractImages";
     public static final String PROP_FILE_EXTENSION = "extension";
 
     private static final String SETTING_VALUE_FORMAT = "valueFormat"; //$NON-NLS-1$
+    private static final String DATA_FILE_CONFLICT_BEHAVIOR = "dataFileConflictBehavior"; //$NON-NLS-1$
+    private static final String BLOB_FILE_CONFLICT_BEHAVIOR = "blobFileConflictBehavior"; //$NON-NLS-1$
 
     private LobExtractType lobExtractType = LobExtractType.INLINE;
     private LobEncoding lobEncoding = LobEncoding.BINARY;
@@ -75,16 +130,39 @@ public class StreamConsumerSettings implements IDataTransferSettings {
     private DBDDataFormatterProfile formatterProfile;
     @NotNull
     private DBDDisplayFormat valueFormat = DBDDisplayFormat.UI;
-
+    private DataFileConflictBehavior dataFileConflictBehavior = DataFileConflictBehavior.ASK;
+    private BlobFileConflictBehavior blobFileConflictBehavior = BlobFileConflictBehavior.ASK;
     private boolean outputClipboard = false;
     private boolean useSingleFile = false;
     private boolean compressResults = false;
     private boolean splitOutFiles = false;
     private long maxOutFileSize = 10 * 1000 * 1000;
-    private boolean openFolderOnFinish = true;
-    private boolean executeProcessOnFinish = false;
-    private String finishProcessCommand = null;
     private final Map<DBSDataContainer, StreamMappingContainer> dataMappings = new LinkedHashMap<>();
+    private final Map<String, Map<String, Object>> eventProcessors = new HashMap<>();
+
+
+    public void setDataFileConflictBehavior(@NotNull DataFileConflictBehavior dataFileConflictBehavior) {
+        this.dataFileConflictBehavior = dataFileConflictBehavior;
+    }
+    
+    @NotNull
+    public DataFileConflictBehavior getDataFileConflictBehavior() {
+        return dataFileConflictBehavior;
+    }
+
+    public void setBlobFileConflictBehavior(@NotNull BlobFileConflictBehavior blobFileConflictBehavior) {
+        this.blobFileConflictBehavior = blobFileConflictBehavior;
+    }
+    
+    @NotNull
+    public BlobFileConflictBehavior getBlobFileConflictBehavior() {
+        return blobFileConflictBehavior;
+    }
+    
+    @Override
+    public ConsumerRuntimeParameters prepareRuntimeParameters() {
+        return new ConsumerRuntimeParameters();
+    }
 
     public LobExtractType getLobExtractType() {
         return lobExtractType;
@@ -182,30 +260,6 @@ public class StreamConsumerSettings implements IDataTransferSettings {
         this.maxOutFileSize = maxOutFileSize;
     }
 
-    public boolean isOpenFolderOnFinish() {
-        return openFolderOnFinish;
-    }
-
-    public void setOpenFolderOnFinish(boolean openFolderOnFinish) {
-        this.openFolderOnFinish = openFolderOnFinish;
-    }
-
-    public boolean isExecuteProcessOnFinish() {
-        return executeProcessOnFinish;
-    }
-
-    public void setExecuteProcessOnFinish(boolean executeProcessOnFinish) {
-        this.executeProcessOnFinish = executeProcessOnFinish;
-    }
-
-    public String getFinishProcessCommand() {
-        return finishProcessCommand;
-    }
-
-    public void setFinishProcessCommand(String finishProcessCommand) {
-        this.finishProcessCommand = finishProcessCommand;
-    }
-
     @NotNull
     public Map<DBSDataContainer, StreamMappingContainer> getDataMappings() {
         return dataMappings;
@@ -218,6 +272,30 @@ public class StreamConsumerSettings implements IDataTransferSettings {
 
     public void addDataMapping(@NotNull StreamMappingContainer container) {
         dataMappings.put(container.getSource(), container);
+    }
+
+    @NotNull
+    public Map<String, Object> getEventProcessorSettings(@NotNull String id) {
+        return eventProcessors.computeIfAbsent(id, x -> new HashMap<>());
+    }
+
+    @Override
+    public void addEventProcessor(@NotNull DataTransferEventProcessorDescriptor descriptor) {
+        eventProcessors.putIfAbsent(descriptor.getId(), new HashMap<>());
+    }
+
+    @Override
+    public void removeEventProcessor(@NotNull DataTransferEventProcessorDescriptor descriptor) {
+        eventProcessors.remove(descriptor.getId());
+    }
+
+    public boolean hasEventProcessor(@NotNull String id) {
+        return eventProcessors.containsKey(id);
+    }
+
+    @NotNull
+    public Map<String, Map<String, Object>> getEventProcessors() {
+        return eventProcessors;
     }
 
     public DBDDataFormatterProfile getFormatterProfile() {
@@ -239,22 +317,28 @@ public class StreamConsumerSettings implements IDataTransferSettings {
         outputTimestampPattern = CommonUtils.toString(settings.get("outputTimestampPattern"), outputTimestampPattern);
         outputEncodingBOM = CommonUtils.getBoolean(settings.get("outputEncodingBOM"), outputEncodingBOM);
         outputClipboard = CommonUtils.getBoolean(settings.get("outputClipboard"), outputClipboard);
-        if (dataTransferSettings.getDataPipes().size() > 1) {
-            useSingleFile = CommonUtils.getBoolean(settings.get("useSingleFile"), useSingleFile);
-        } else {
-            useSingleFile = false;
-        }
+        dataFileConflictBehavior = CommonUtils.valueOf(
+            DataFileConflictBehavior.class,
+            CommonUtils.toString(settings.get(DATA_FILE_CONFLICT_BEHAVIOR)),
+            DataFileConflictBehavior.PATCHNAME
+        );
+        blobFileConflictBehavior = CommonUtils.valueOf(
+            BlobFileConflictBehavior.class,
+            CommonUtils.toString(settings.get(BLOB_FILE_CONFLICT_BEHAVIOR)),
+            BlobFileConflictBehavior.PATCHNAME
+        );
 
         compressResults = CommonUtils.getBoolean(settings.get("compressResults"), compressResults);
         splitOutFiles = CommonUtils.getBoolean(settings.get("splitOutFiles"), splitOutFiles);
         maxOutFileSize = CommonUtils.toLong(settings.get("maxOutFileSize"), maxOutFileSize);
-        openFolderOnFinish = CommonUtils.getBoolean(settings.get("openFolderOnFinish"), openFolderOnFinish);
-        executeProcessOnFinish = CommonUtils.getBoolean(settings.get("executeProcessOnFinish"), executeProcessOnFinish);
-        finishProcessCommand = CommonUtils.toString(settings.get("finishProcessCommand"), finishProcessCommand);
+
+        final boolean openFolderOnFinish = CommonUtils.getBoolean(settings.get("openFolderOnFinish"), false);
+        final boolean executeProcessOnFinish = CommonUtils.getBoolean(settings.get("executeProcessOnFinish"), false);
+        final String finishProcessCommand = CommonUtils.toString(settings.get("finishProcessCommand"));
 
         String formatterProfile = CommonUtils.toString(settings.get("formatterProfile"));
         if (!CommonUtils.isEmpty(formatterProfile)) {
-            this.formatterProfile = DBWorkbench.getPlatform().getDataFormatterRegistry().getCustomProfile(formatterProfile);
+            this.formatterProfile = DBPPlatformDesktop.getInstance().getDataFormatterRegistry().getCustomProfile(formatterProfile);
         }
         valueFormat = DBDDisplayFormat.safeValueOf(CommonUtils.toString(settings.get(SETTING_VALUE_FORMAT)));
 
@@ -289,13 +373,35 @@ public class StreamConsumerSettings implements IDataTransferSettings {
                 log.debug("Canceled by user", e);
             }
         }
+
+        final Map<String, Object> processors = JSONUtils.getObject(settings, "eventProcessors");
+        for (String processor : processors.keySet()) {
+            eventProcessors.put(processor, JSONUtils.getObject(processors, processor));
+        }
+
+        if (openFolderOnFinish && !eventProcessors.containsKey(ShowInExplorerEventProcessor.ID)) {
+            eventProcessors.put(ShowInExplorerEventProcessor.ID, new HashMap<>());
+        }
+
+        if (executeProcessOnFinish && !eventProcessors.containsKey(ExecuteCommandEventProcessor.ID)) {
+            final Map<String, Object> config = new HashMap<>();
+            config.put(ExecuteCommandEventProcessor.PROP_COMMAND, finishProcessCommand);
+            config.put(ExecuteCommandEventProcessor.PROP_WORKING_DIRECTORY, null);
+            eventProcessors.put(ExecuteCommandEventProcessor.ID, config);
+        }
+
+        useSingleFile = CommonUtils.getBoolean(settings.get("useSingleFile"), useSingleFile)
+            && dataTransferSettings.getDataPipes().size() > 1
+            && dataTransferSettings.getProcessor().isAppendable();
     }
 
     @Override
     public void saveSettings(Map<String, Object> settings) {
         settings.put("lobExtractType", lobExtractType.name());
         settings.put("lobEncoding", lobEncoding.name());
-
+        // settings.put("appendToFile", appendToFileEnd);
+        settings.put(DATA_FILE_CONFLICT_BEHAVIOR, dataFileConflictBehavior.name());
+        settings.put(BLOB_FILE_CONFLICT_BEHAVIOR, blobFileConflictBehavior.name());
         settings.put("outputFolder", outputFolder);
         settings.put("outputFilePattern", outputFilePattern);
         settings.put("outputEncoding", outputEncoding);
@@ -307,10 +413,6 @@ public class StreamConsumerSettings implements IDataTransferSettings {
         settings.put("compressResults", compressResults);
         settings.put("splitOutFiles", splitOutFiles);
         settings.put("maxOutFileSize", maxOutFileSize);
-
-        settings.put("openFolderOnFinish", openFolderOnFinish);
-        settings.put("executeProcessOnFinish", executeProcessOnFinish);
-        settings.put("finishProcessCommand", finishProcessCommand);
 
         if (formatterProfile != null) {
             settings.put("formatterProfile", formatterProfile.getProfileName());
@@ -328,8 +430,12 @@ public class StreamConsumerSettings implements IDataTransferSettings {
             }
             settings.put("mappings", mappings);
         }
-    }
 
+        if (!eventProcessors.isEmpty()) {
+            settings.put("eventProcessors", eventProcessors);
+        }
+    }
+    
     @Override
     public String getSettingsSummary() {
         StringBuilder summary = new StringBuilder();
@@ -338,17 +444,16 @@ public class StreamConsumerSettings implements IDataTransferSettings {
             DTUtils.addSummary(summary, DTMessages.data_transfer_wizard_output_label_use_single_file, useSingleFile);
             DTUtils.addSummary(summary, DTMessages.data_transfer_wizard_output_label_directory, outputFolder);
             DTUtils.addSummary(summary, DTMessages.data_transfer_wizard_output_label_file_name_pattern, outputFilePattern);
+            DTUtils.addSummary(summary, DTMessages.data_transfer_file_conflict_behavior_setting, dataFileConflictBehavior.title);
+            DTUtils.addSummary(summary, DTMessages.data_transfer_blob_file_conflict_behavior_setting, blobFileConflictBehavior.title);
             DTUtils.addSummary(summary, DTMessages.data_transfer_wizard_output_label_encoding, outputEncoding);
             DTUtils.addSummary(summary, DTMessages.data_transfer_wizard_output_label_timestamp_pattern, outputTimestampPattern);
             DTUtils.addSummary(summary, DTMessages.data_transfer_wizard_output_label_insert_bom, outputEncodingBOM);
         } else {
-            DTUtils.addSummary(summary, "Copy to clipboard", outputClipboard);
+            DTUtils.addSummary(summary, DTMessages.data_transfer_wizard_output_label_copy_to_clipboard, outputClipboard);
         }
 
         DTUtils.addSummary(summary, DTMessages.data_transfer_wizard_output_checkbox_compress, compressResults);
-        if (executeProcessOnFinish) {
-            DTUtils.addSummary(summary, "Execute process on finish", finishProcessCommand);
-        }
 
         DTUtils.addSummary(summary, DTMessages.data_transfer_wizard_settings_label_binaries, lobExtractType);
         DTUtils.addSummary(summary, DTMessages.data_transfer_wizard_settings_label_encoding, lobEncoding);

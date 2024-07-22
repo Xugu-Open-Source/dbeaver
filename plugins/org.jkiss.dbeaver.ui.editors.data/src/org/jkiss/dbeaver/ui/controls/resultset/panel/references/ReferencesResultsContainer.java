@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@ import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.ToolBar;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
@@ -37,6 +39,8 @@ import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
 import org.jkiss.dbeaver.model.data.DBDDataFilter;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
+import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
+import org.jkiss.dbeaver.model.navigator.DBNUtils;
 import org.jkiss.dbeaver.model.runtime.AbstractJob;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.*;
@@ -47,6 +51,8 @@ import org.jkiss.dbeaver.ui.UIIcon;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.CSmartCombo;
 import org.jkiss.dbeaver.ui.controls.resultset.*;
+import org.jkiss.dbeaver.ui.controls.resultset.internal.ResultSetMessages;
+import org.jkiss.dbeaver.ui.navigator.NavigatorUtils;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
 
@@ -84,11 +90,11 @@ class ReferencesResultsContainer implements IResultSetContainer {
 
         this.mainComposite = UIUtils.createComposite(parent, 1);
 
-        Composite keySelectorPanel = UIUtils.createComposite(this.mainComposite, 2);
+        Composite keySelectorPanel = UIUtils.createComposite(this.mainComposite, 3);
         GridData gd = new GridData(GridData.FILL_HORIZONTAL);
         gd.verticalIndent = 5;
         keySelectorPanel.setLayoutData(gd);
-        UIUtils.createControlLabel(keySelectorPanel, "Reference");
+        UIUtils.createControlLabel(keySelectorPanel, ResultSetMessages.refs_label);
         fkCombo = new CSmartCombo<>(keySelectorPanel, SWT.BORDER | SWT.DROP_DOWN | SWT.READ_ONLY, new RefKeyLabelProvider());
         fkCombo.addItem(null);
         fkCombo.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
@@ -115,6 +121,30 @@ class ReferencesResultsContainer implements IResultSetContainer {
 
             }
         });
+
+        final ToolBar toolbar = new ToolBar(keySelectorPanel, SWT.HORIZONTAL | SWT.FLAT | SWT.RIGHT);
+        UIUtils.createToolItem(
+            toolbar,
+            ResultSetMessages.refs_open_target,
+            ResultSetMessages.refs_open_target_tip,
+            DBIcon.TREE_TABLE,
+            new SelectionAdapter() {
+                @Override
+                public void widgetSelected(SelectionEvent e) {
+                    if (activeReferenceKey == null || activeReferenceKey.targetEntity == null) {
+                        return;
+                    }
+                    UIUtils.runUIJob("Open object editor", monitor -> {
+                        final DBNDatabaseNode node = DBNUtils.getNodeByObject(monitor, activeReferenceKey.targetEntity, true);
+                        if (node != null) {
+                            NavigatorUtils.openNavigatorNode(node, UIUtils.getActiveWorkbenchWindow());
+                        }
+                    });
+                }
+            });
+
+        final Label separator = new Label(keySelectorPanel, SWT.SEPARATOR | SWT.HORIZONTAL);
+        separator.setLayoutData(new GridData(SWT.FILL, SWT.BEGINNING, true, false, 3, 1));
 
         {
             Composite viewerContainer = new Composite(mainComposite, SWT.NONE);
@@ -173,13 +203,13 @@ class ReferencesResultsContainer implements IResultSetContainer {
         return mainComposite;
     }
 
-    void refreshReferences() {
+    void refreshReferences(boolean force) {
         dataViewer.resetHistory();
         DBSDataContainer newParentContainer = parentController.getDataContainer();
         if (newParentContainer != parentDataContainer || !Objects.equals(getDataContainerFullName(newParentContainer), parentContainerFullName)) {
             refreshReferenceKeyList();
         } else if (dataContainer != null) {
-            refreshKeyValues(false);
+            refreshKeyValues(force);
         }
     }
 
@@ -199,7 +229,7 @@ class ReferencesResultsContainer implements IResultSetContainer {
         referenceKeys.clear();
 
         UIUtils.syncExec(() -> {
-            dataViewer.clearData();
+            dataViewer.clearData(false);
             fkCombo.removeAll();
             dataViewer.showEmptyPresentation();
         });
@@ -233,7 +263,7 @@ class ReferencesResultsContainer implements IResultSetContainer {
             if (vEntityOwner != null) {
                 Object activeAssociations = vEntityOwner.getProperty(V_PROP_ACTIVE_ASSOCIATIONS);
                 if (activeAssociations instanceof Collection) {
-                    for (Object refKeyMemoMap : (Collection)activeAssociations) {
+                    for (Object refKeyMemoMap : (Collection<?>)activeAssociations) {
                         if (refKeyMemoMap instanceof Map) {
                             refKeyMemos.add(new ReferenceKeyMemo((Map) refKeyMemoMap));
                         }
@@ -384,7 +414,7 @@ class ReferencesResultsContainer implements IResultSetContainer {
                     lastSelectedRows = selectedRows;
                     if (selectedRows.isEmpty()) {
                         UIUtils.asyncExec(() -> {
-                            dataViewer.clearData();
+                            dataViewer.clearData(false);
                             dataViewer.showEmptyPresentation();
                         });
                     } else {
@@ -493,7 +523,7 @@ class ReferencesResultsContainer implements IResultSetContainer {
         @Override
         public String getText(Object element) {
             if (element == null) {
-                return "<No references>";
+                return ResultSetMessages.refs_no_refs_text;
             }
             ReferenceKey key = (ReferenceKey) element;
             String title = "";

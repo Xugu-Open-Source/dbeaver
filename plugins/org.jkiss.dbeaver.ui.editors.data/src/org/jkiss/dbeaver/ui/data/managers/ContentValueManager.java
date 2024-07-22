@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,16 @@
  */
 package org.jkiss.dbeaver.ui.data.managers;
 
+import org.eclipse.core.filesystem.EFS;
+import org.eclipse.core.filesystem.IFileStore;
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IContributionManager;
 import org.eclipse.jface.action.Separator;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.ide.IDE;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
@@ -37,10 +42,13 @@ import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.preferences.DBPPropertyManager;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
+import org.jkiss.dbeaver.ui.ShellUtils;
 import org.jkiss.dbeaver.ui.UIIcon;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.resultset.ResultSetPreferences;
 import org.jkiss.dbeaver.ui.controls.resultset.internal.ResultSetMessages;
+import org.jkiss.dbeaver.ui.data.IStreamValueEditor;
+import org.jkiss.dbeaver.ui.data.IStreamValueEditorPersistent;
 import org.jkiss.dbeaver.ui.data.IValueController;
 import org.jkiss.dbeaver.ui.data.IValueEditor;
 import org.jkiss.dbeaver.ui.data.dialogs.TextViewDialog;
@@ -51,10 +59,12 @@ import org.jkiss.dbeaver.ui.dialogs.DialogUtils;
 import org.jkiss.dbeaver.ui.editors.content.ContentEditor;
 import org.jkiss.dbeaver.utils.ContentUtils;
 import org.jkiss.dbeaver.utils.GeneralUtils;
+import org.jkiss.dbeaver.utils.RuntimeUtils;
 
-import java.awt.*;
 import java.io.*;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 
 /**
@@ -81,8 +91,7 @@ public class ContentValueManager extends BaseValueManager {
                     }
                 });
             }
-            // Logo can be changed
-            manager.add(new Action("Open in external editor", DBeaverIcons.getImageDescriptor(UIIcon.DOTS_BUTTON)) {
+            manager.add(new Action("Open in external editor", DBeaverIcons.getImageDescriptor(UIIcon.FILE)) {
                 @Override
                 public void run() {
                     try {
@@ -91,7 +100,19 @@ public class ContentValueManager extends BaseValueManager {
                             DBWorkbench.getPlatformUI().showError("Data is empty", "Can not save null data value");
                         }
                         if (value instanceof DBDContent) {
-                            getDBDContent(value);
+                            boolean isExternalFileOpened = false;
+                            if (activeEditor != null) {
+                                IStreamValueEditor<Control> streamEditor = ((ContentPanelEditor) activeEditor).getStreamEditor();
+                                if (streamEditor instanceof IStreamValueEditorPersistent) {
+                                    Path externalFilePath = ((IStreamValueEditorPersistent) streamEditor).getExternalFilePath(activeEditor.getControl());
+                                    if (externalFilePath != null) {
+                                        isExternalFileOpened = openExternalFile(externalFilePath);
+                                    }
+                                }
+                            }
+                            if (!isExternalFileOpened) {
+                                getDBDContent(value);
+                            }
                         } else {
                             String str = controller.getValueHandler()
                                     .getValueDisplayString(controller.getValueType(), 
@@ -125,6 +146,10 @@ public class ContentValueManager extends BaseValueManager {
             });
             manager.add(new Separator());
         }
+    }
+
+    private static boolean openExternalFile(@NotNull Path path) {
+        return Files.exists(path) && ShellUtils.openExternalFile(path);
     }
 
     private static void getDBDContent(Object value) throws IOException, DBCException {
@@ -173,8 +198,20 @@ public class ContentValueManager extends BaseValueManager {
         } else {
             fos.write(data);
             fos.close();
-            // use OS to open the file
-            Desktop.getDesktop().open(tmpFile);
+            if (RuntimeUtils.isWindows()) {
+                UIUtils.syncExec(() -> {
+                    try {
+                        IFileStore store = EFS.getLocalFileSystem().getStore(tmpFile.toURI());
+                        IDE.openEditorOnFileStore(UIUtils.getActiveWorkbenchWindow().getActivePage(), store);
+                    } catch (CoreException e) {
+                        log.error("Error while opening octet stream", e);
+                    }
+                });
+            } else {
+                ShellUtils.openExternalFile(tmpFile.toPath());
+            }
+
+
             // delete the file when the user closes the DBeaver application
             tmpFile.deleteOnExit();
         }
@@ -216,9 +253,9 @@ public class ContentValueManager extends BaseValueManager {
             try {
                 DBDContentStorage storage;
                 if (ContentUtils.isTextContent(value)) {
-                    storage = new ExternalContentStorage(DBWorkbench.getPlatform(), openFile, GeneralUtils.UTF8_ENCODING);
+                    storage = new ExternalContentStorage(DBWorkbench.getPlatform(), openFile.toPath(), GeneralUtils.UTF8_ENCODING);
                 } else {
-                    storage = new ExternalContentStorage(DBWorkbench.getPlatform(), openFile);
+                    storage = new ExternalContentStorage(DBWorkbench.getPlatform(), openFile.toPath());
                 }
                 value.updateContents(monitor, storage);
                 controller.updateValue(value, true);

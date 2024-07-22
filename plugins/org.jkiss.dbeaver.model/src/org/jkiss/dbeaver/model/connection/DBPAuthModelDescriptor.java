@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,8 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBPImage;
 import org.jkiss.dbeaver.model.DBPNamedObject;
-import org.jkiss.dbeaver.model.auth.DBAAuthModel;
+import org.jkiss.dbeaver.model.access.DBAAuthCredentials;
+import org.jkiss.dbeaver.model.access.DBAAuthModel;
 import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
 
 /**
@@ -41,6 +42,15 @@ public interface DBPAuthModelDescriptor extends DBPNamedObject {
 
     boolean isDefaultModel();
 
+    // Model works in desktop application only
+    boolean isDesktopModel();
+
+    // Model works in cloud mode only
+    boolean isCloudModel();
+
+    // Model needs a configuration on a local FS
+    boolean requiresLocalConfiguration();
+
     boolean isApplicableTo(DBPDriver driver);
 
     // Auth model which replaced this one. Usually null
@@ -48,9 +58,15 @@ public interface DBPAuthModelDescriptor extends DBPNamedObject {
     DBPAuthModelDescriptor getReplacedBy(@NotNull DBPDriver driver);
 
     @NotNull
-    DBAAuthModel<?> getInstance();
+    <T extends DBAAuthCredentials> DBAAuthModel<T> getInstance();
 
     @NotNull
     DBPPropertySource createCredentialsSource(@Nullable DBPDataSourceContainer dataSource, @Nullable DBPConnectionConfiguration configuration);
 
+    /**
+     * Returns id of required external authorization.
+     * Null - if additional authorization is not required
+     */
+    @Nullable
+    String getRequiredAuthProviderId();
 }

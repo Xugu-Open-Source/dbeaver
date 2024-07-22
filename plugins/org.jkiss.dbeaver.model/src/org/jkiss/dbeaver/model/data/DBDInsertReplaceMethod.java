@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@ import org.jkiss.dbeaver.model.struct.rdb.DBSTable;
 public interface DBDInsertReplaceMethod {
 
     @NotNull
-    String getOpeningClause(DBSTable table, DBRProgressMonitor monitor);
+    String getOpeningClause(@NotNull DBSTable table, @NotNull DBRProgressMonitor monitor);
 
-    String getTrailingClause(DBSTable table, DBRProgressMonitor monitor, DBSAttributeBase[] attributes);
+    String getTrailingClause(@NotNull DBSTable table, @NotNull DBRProgressMonitor monitor, DBSAttributeBase[] attributes);
 
 }

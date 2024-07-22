@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,10 +36,14 @@ import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.DBValueFormatting;
 import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
 import org.jkiss.dbeaver.model.data.DBDAttributeConstraint;
+import org.jkiss.dbeaver.model.data.DBDAttributeConstraintBase;
 import org.jkiss.dbeaver.model.data.DBDDataFilter;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
-import org.jkiss.dbeaver.ui.*;
+import org.jkiss.dbeaver.ui.DBeaverIcons;
+import org.jkiss.dbeaver.ui.IHelpContextIds;
+import org.jkiss.dbeaver.ui.UIIcon;
+import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.*;
 import org.jkiss.dbeaver.ui.controls.resultset.internal.ResultSetMessages;
 import org.jkiss.dbeaver.ui.controls.resultset.spreadsheet.SpreadsheetPresentation;
@@ -62,7 +66,6 @@ class FilterSettingsDialog extends HelpEnabledDialog {
 
     private final ResultSetViewer resultSetViewer;
     private final List<DBDAttributeBinding> attributes;
-
     private TreeViewer columnsViewer;
     private ViewerColumnController<Object, Object> columnsController;
     private DBDDataFilter dataFilter;
@@ -83,10 +86,11 @@ class FilterSettingsDialog extends HelpEnabledDialog {
         this.resultSetViewer = resultSetViewer;
         this.dataFilter = new DBDDataFilter(resultSetViewer.getModel().getDataFilter());
         this.constraints = new ArrayList<>(dataFilter.getConstraints());
-
+        this.constraints.sort(Comparator.comparingInt(DBDAttributeConstraintBase::getVisualPosition));
         DBDAttributeBinding[] modelAttrs = resultSetViewer.getModel().getAttributes();
         this.attributes = new ArrayList<>(modelAttrs.length);
         Collections.addAll(this.attributes, modelAttrs);
+
     }
 
     @Override
@@ -96,12 +100,12 @@ class FilterSettingsDialog extends HelpEnabledDialog {
     }
 
     @Override
-    protected Control createDialogArea(Composite parent)
+    protected Composite createDialogArea(Composite parent)
     {
         getShell().setText(ResultSetMessages.controls_resultset_filter_title);
         getShell().setImage(DBeaverIcons.getImage(UIIcon.FILTER));
 
-        Composite composite = (Composite) super.createDialogArea(parent);
+        Composite composite = super.createDialogArea(parent);
 
         TabFolder tabFolder = new TabFolder(composite, SWT.NONE);
         tabFolder.setLayoutData(new GridData(GridData.FILL_BOTH));
@@ -109,7 +113,7 @@ class FilterSettingsDialog extends HelpEnabledDialog {
         {
             Composite columnsGroup = UIUtils.createPlaceholder(tabFolder, 1);
 
-            new FilteredTree(columnsGroup, SWT.SINGLE | SWT.FULL_SELECTION, new NamedObjectPatternFilter(), true, false) {
+            new FilteredTree(columnsGroup, SWT.MULTI | SWT.FULL_SELECTION, new NamedObjectPatternFilter(), true, false) {
                 @Override
                 protected TreeViewer doCreateTreeViewer(Composite parent, int style) {
                     columnsViewer = new TreeViewer(parent, style);
@@ -144,7 +148,7 @@ class FilterSettingsDialog extends HelpEnabledDialog {
             }, new EditingSupport(columnsViewer) {
                 @Override
                 protected CellEditor getCellEditor(Object element) {
-                    return new CustomCheckboxCellEditor(((TreeViewer) getViewer()).getTree());
+                    return new CustomCheckboxCellEditor(((TreeViewer) getViewer()).getTree(), true);
                 }
 
                 @Override
@@ -169,15 +173,12 @@ class FilterSettingsDialog extends HelpEnabledDialog {
 
             columnsController.addBooleanColumn(ResultSetMessages.controls_resultset_filter_column_pinned, null, SWT.LEFT, true, false, item -> {
                 final DBDAttributeBinding binding = (DBDAttributeBinding) item;
-                if (binding.getTopParent() != binding) {
-                    return null;
-                }
                 final DBDAttributeConstraint constraint = getBindingConstraint(binding);
-                return constraint.hasOption(SpreadsheetPresentation.ATTR_OPTION_PINNED);
+                return constraint.hasOption(DBDAttributeConstraintBase.ATTR_OPTION_PINNED);
             }, new EditingSupport(columnsViewer) {
                 @Override
                 protected CellEditor getCellEditor(Object element) {
-                    return new CustomCheckboxCellEditor(((TreeViewer) getViewer()).getTree());
+                    return new CustomCheckboxCellEditor(((TreeViewer) getViewer()).getTree(), true);
                 }
 
                 @Override
@@ -190,7 +191,7 @@ class FilterSettingsDialog extends HelpEnabledDialog {
                 protected Object getValue(Object element) {
                     final DBDAttributeBinding binding = (DBDAttributeBinding) element;
                     final DBDAttributeConstraint constraint = getBindingConstraint(binding);
-                    return constraint.hasOption(SpreadsheetPresentation.ATTR_OPTION_PINNED);
+                    return constraint.hasOption(DBDAttributeConstraintBase.ATTR_OPTION_PINNED);
                 }
 
                 @Override
@@ -198,27 +199,29 @@ class FilterSettingsDialog extends HelpEnabledDialog {
                     final DBDAttributeBinding binding = (DBDAttributeBinding) element;
                     final DBDAttributeConstraint constraint = getBindingConstraint(binding);
                     if (CommonUtils.getBoolean(value, false)) {
-                        constraint.setOption(SpreadsheetPresentation.ATTR_OPTION_PINNED, SpreadsheetPresentation.getNextPinIndex(dataFilter));
+                        constraint.setOption(DBDAttributeConstraintBase.ATTR_OPTION_PINNED, SpreadsheetPresentation.getNextPinIndex(dataFilter));
                     } else {
-                        constraint.removeOption(SpreadsheetPresentation.ATTR_OPTION_PINNED);
+                        constraint.removeOption(DBDAttributeConstraintBase.ATTR_OPTION_PINNED);
                     }
                 }
             });
 
-            columnsController.addColumn(ResultSetMessages.controls_resultset_filter_column_order, null, SWT.LEFT, true, false, new CellLabelProvider() {
-                @Override
-                public void update(ViewerCell cell) {
-                    final DBDAttributeBinding binding = (DBDAttributeBinding) cell.getElement();
-                    final DBDAttributeConstraint constraint = getBindingConstraint(binding);
-                    if (constraint.getOrderPosition() > 0) {
-                        cell.setText(" " + constraint.getOrderPosition());
-                        cell.setImage(DBeaverIcons.getImage(constraint.isOrderDescending() ? UIIcon.SORT_INCREASE : UIIcon.SORT_DECREASE));
-                    } else {
-                        cell.setText(null);
-                        cell.setImage(null);
+            if (resultSetViewer.getDataSource() != null && resultSetViewer.getDataSource().getInfo().supportsResultSetOrdering()) {
+                columnsController.addColumn(ResultSetMessages.controls_resultset_filter_column_order, null, SWT.LEFT, true, false, new CellLabelProvider() {
+                    @Override
+                    public void update(ViewerCell cell) {
+                        final DBDAttributeBinding binding = (DBDAttributeBinding) cell.getElement();
+                        final DBDAttributeConstraint constraint = getBindingConstraint(binding);
+                        if (constraint.getOrderPosition() > 0) {
+                            cell.setText(" " + constraint.getOrderPosition());
+                            cell.setImage(DBeaverIcons.getImage(constraint.isOrderDescending() ? UIIcon.SORT_INCREASE : UIIcon.SORT_DECREASE));
+                        } else {
+                            cell.setText(null);
+                            cell.setImage(null);
+                        }
                     }
-                }
-            });
+                });
+            }
 
             columnsController.addColumn(ResultSetMessages.controls_resultset_filter_column_criteria, null, SWT.LEFT, true, false, new CellLabelProvider() {
                 @Override
@@ -271,23 +274,19 @@ class FilterSettingsDialog extends HelpEnabledDialog {
                 toolbar.setLayoutData(gd);
                 toolbar.setLayout(new FillLayout());
                 moveTopButton = createToolItem(toolbar, ResultSetMessages.dialog_toolbar_move_to_top, UIIcon.ARROW_TOP, () -> {
-                    int selectionIndex = getSelectionIndex(columnsViewer.getTree());
-                    moveColumns(selectionIndex, 0);
+                    moveSelectedItems(false, false);
                 });
                 moveTopButton.setEnabled(false);
                 moveUpButton = createToolItem(toolbar, ResultSetMessages.dialog_toolbar_move_up, UIIcon.ARROW_UP, () -> {
-                    int selectionIndex = getSelectionIndex(columnsViewer.getTree());
-                    swapColumns(selectionIndex, selectionIndex - 1);
+                    moveSelectedItems(false, true);
                 });
                 moveUpButton.setEnabled(false);
                 moveDownButton = createToolItem(toolbar, ResultSetMessages.dialog_toolbar_move_down, UIIcon.ARROW_DOWN, () -> {
-                    int selectionIndex = getSelectionIndex(columnsViewer.getTree());
-                    swapColumns(selectionIndex, selectionIndex + 1);
+                    moveSelectedItems(true, true);
                 });
                 moveDownButton.setEnabled(false);
                 moveBottomButton = createToolItem(toolbar, ResultSetMessages.dialog_toolbar_move_to_bottom, UIIcon.ARROW_BOTTOM, () -> {
-                    int selectionIndex = getSelectionIndex(columnsViewer.getTree());
-                    moveColumns(selectionIndex, getItemsCount() - 1);
+                    moveSelectedItems(true, false);
                 });
                 moveBottomButton.setEnabled(false);
                 UIUtils.createToolBarSeparator(toolbar, SWT.VERTICAL);
@@ -322,19 +321,12 @@ class FilterSettingsDialog extends HelpEnabledDialog {
                     orderText.setText(""); //$NON-NLS-1$
                     whereText.setText(""); //$NON-NLS-1$
                 });
-
-                columnsViewer.addSelectionChangedListener(event -> {
-                    int selectionIndex = getSelectionIndex(columnsViewer.getTree());
-                    moveTopButton.setEnabled(selectionIndex > 0);
-                    moveUpButton.setEnabled(selectionIndex > 0);
-                    moveDownButton.setEnabled(selectionIndex >= 0 && selectionIndex < getItemsCount() - 1);
-                    moveBottomButton.setEnabled(selectionIndex >= 0 && selectionIndex < getItemsCount() - 1);
-                });
+                columnsViewer.addSelectionChangedListener(event -> updateButtons());
 
             }
             TabItem libsTab = new TabItem(tabFolder, SWT.NONE);
             libsTab.setText(ResultSetMessages.controls_resultset_filter_group_columns);
-            libsTab.setToolTipText("Set criteria and order for individual column(s)");
+            libsTab.setToolTipText(ResultSetMessages.controls_resultset_filter_group_columns_tooltip_text);
             libsTab.setControl(columnsGroup);
         }
 
@@ -368,26 +360,35 @@ class FilterSettingsDialog extends HelpEnabledDialog {
         columnsViewer.expandAll();
     }
 
-    private int getSelectionIndex(Tree tree) {
-        final TreeItem[] selection = tree.getSelection();
-        if (selection.length == 0) {
-            return 0;
+    private void moveColumns(TreeItem curItem, int newIndex, boolean reverse)
+    {
+
+        DBDAttributeConstraint start = getBindingConstraint((DBDAttributeBinding) curItem.getData());
+        DBDAttributeConstraint end = getBindingConstraint((DBDAttributeBinding) columnsViewer.getTree().getItem(newIndex).getData());
+        final int startingVisualPosition = start.getVisualPosition();
+        final int endingVisualPosition = end.getVisualPosition();
+        int currentVisualPosition = startingVisualPosition;
+        if (!reverse) {
+            for (int i = startingVisualPosition - 1; i >= endingVisualPosition; i--) {
+                currentVisualPosition = swapVisualPositions(currentVisualPosition, i);
+            }
+        } else {
+            for (int i = startingVisualPosition + 1; i <= endingVisualPosition; i++) {
+                currentVisualPosition = swapVisualPositions(currentVisualPosition, i);
+            }
         }
-        return tree.indexOf(selection[0]);
+        refreshData();
     }
 
-    private void swapColumns(int curIndex, int newIndex)
-    {
-        final DBDAttributeConstraint c1 = getBindingConstraint((DBDAttributeBinding) columnsViewer.getTree().getItem(curIndex).getData());
-        final DBDAttributeConstraint c2 = getBindingConstraint((DBDAttributeBinding) columnsViewer.getTree().getItem(newIndex).getData());
-        final int vp2 = c2.getVisualPosition();
-        c2.setVisualPosition(c1.getVisualPosition());
-        c1.setVisualPosition(vp2);
-        refreshData();
-        moveTopButton.setEnabled(newIndex > 0);
-        moveUpButton.setEnabled(newIndex > 0);
-        moveDownButton.setEnabled(newIndex < getItemsCount() - 1);
-        moveBottomButton.setEnabled(newIndex < getItemsCount() - 1);
+    private int swapVisualPositions(int currentVisualPosition, int i) {
+        final DBDAttributeConstraint currentConstraint = constraints.get(currentVisualPosition);
+        currentVisualPosition = currentConstraint.getVisualPosition();
+        final DBDAttributeConstraint swappingConstraint = constraints.get(i);
+        final int swappingConstraintVisualPosition = swappingConstraint.getVisualPosition();
+        currentConstraint.setVisualPosition(swappingConstraintVisualPosition);
+        swappingConstraint.setVisualPosition(currentVisualPosition);
+        Collections.swap(constraints, i, currentVisualPosition);
+        return swappingConstraintVisualPosition;
     }
 
     private void moveColumns(int curIndex, int newIndex)
@@ -443,7 +444,7 @@ class FilterSettingsDialog extends HelpEnabledDialog {
 
         TabItem libsTab = new TabItem(tabFolder, SWT.NONE);
         libsTab.setText(ResultSetMessages.controls_resultset_filter_group_custom);
-        libsTab.setToolTipText("Set custom criteria and order for whole query");
+        libsTab.setToolTipText(ResultSetMessages.controls_resultset_filter_group_custom_tooltip_text);
         libsTab.setControl(filterGroup);
     }
 
@@ -469,6 +470,7 @@ class FilterSettingsDialog extends HelpEnabledDialog {
     @Override
     protected void okPressed()
     {
+        columnsViewer.applyEditorValue();
         treeEditor.okPressed();
         boolean hasVisibleColumns = false;
         for (DBDAttributeConstraint constraint : dataFilter.getConstraints()) {
@@ -476,6 +478,7 @@ class FilterSettingsDialog extends HelpEnabledDialog {
 //            constraint.setVisualPosition(this.constraints.indexOf(constraint));
             if (constraint.isVisible()) {
                 hasVisibleColumns = true;
+                break;
             }
         }
         if (!hasVisibleColumns) {
@@ -504,6 +507,43 @@ class FilterSettingsDialog extends HelpEnabledDialog {
         super.okPressed();
     }
 
+    private void updateButtons() {
+        final Tree tree = columnsViewer.getTree();
+        final TreeItem[] selection = tree.getSelection();
+        final boolean moveDownEnabled = selection.length > 0 && tree.indexOf(selection[selection.length - 1]) != tree.getItemCount() - 1;
+        final boolean moveUpEnabled = selection.length > 0 && tree.indexOf(selection[0]) != 0;
+        final boolean moveToBottomEnabled = selection.length > 0 && tree.indexOf(selection[0]) != tree.getItemCount() - selection.length;
+        final boolean moveToTopEnabled = selection.length > 0 && tree.indexOf(selection[selection.length - 1]) != selection.length - 1;
+        moveBottomButton.setEnabled(moveToBottomEnabled);
+        moveDownButton.setEnabled(moveDownEnabled);
+
+        moveTopButton.setEnabled(moveToTopEnabled);
+        moveUpButton.setEnabled(moveUpEnabled);
+    }
+
+    private void moveSelectedItems(boolean reverse, boolean singleStep) {
+        Tree tree = columnsViewer.getTree();
+        TreeItem[] selection = tree.getSelection();
+        int j = 0;
+        if (reverse) {
+            for (int i = selection.length - 1; i >= 0; i--) {
+                if (singleStep && tree.indexOf(selection[i]) == tree.getItemCount() - 1 - j) {
+                    continue;
+                }
+                moveColumns(selection[i], !singleStep ? getItemsCount() - 1 - j++ : tree.indexOf(selection[i]) + 1, true);
+                updateButtons();
+            }
+        } else {
+            for (TreeItem treeItem : selection) {
+                if (singleStep && tree.indexOf(treeItem) == j) {
+                    continue;
+                }
+                moveColumns(treeItem, !singleStep ? j++ : tree.indexOf(treeItem) - 1, false);
+                updateButtons();
+            }
+        }
+    }
+
     class ColumnLabelProvider extends LabelProvider implements ITableLabelProvider
     {
         @Nullable
@@ -525,8 +565,7 @@ class FilterSettingsDialog extends HelpEnabledDialog {
         }
 
         @Override
-        public String getColumnText(Object element, int columnIndex)
-        {
+        public String getColumnText(Object element, int columnIndex) {
             DBDAttributeBinding binding = (DBDAttributeBinding) element;
             DBDAttributeConstraint constraint = getBindingConstraint(binding);
             switch (columnIndex) {
@@ -593,8 +632,7 @@ class FilterSettingsDialog extends HelpEnabledDialog {
         }
         item.addSelectionListener(new SelectionAdapter() {
             @Override
-            public void widgetSelected(SelectionEvent e)
-            {
+            public void widgetSelected(SelectionEvent e) {
                 action.run();
             }
         });
@@ -662,8 +700,7 @@ class FilterSettingsDialog extends HelpEnabledDialog {
             }
         }
 
-        private void toggleColumnOrder(TreeItem item)
-        {
+        private void toggleColumnOrder(TreeItem item) {
             DBDAttributeConstraint constraint = getBindingConstraint((DBDAttributeBinding) item.getData());
             if (constraint.getOrderPosition() == 0) {
                 // Add new ordered column

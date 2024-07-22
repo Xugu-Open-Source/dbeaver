@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,20 @@
  */
 package org.jkiss.dbeaver.ui.controls.resultset;
 
-import org.eclipse.core.runtime.IAdaptable;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBPAdaptable;
 import org.jkiss.dbeaver.model.DBPContextProvider;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.data.*;
 import org.jkiss.dbeaver.model.exec.*;
+import org.jkiss.dbeaver.model.impl.data.AttributeMetaDataProxy;
 import org.jkiss.dbeaver.model.impl.local.LocalResultSetMeta;
 import org.jkiss.dbeaver.model.struct.DBSDataContainer;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.ArrayList;
@@ -37,7 +39,7 @@ import java.util.List;
  * Client-side data container.
  * Wraps RSV model and original data container.
  */
-public class ResultSetDataContainer implements DBSDataContainer, DBPContextProvider, IAdaptable, DBDAttributeFilter {
+public class ResultSetDataContainer implements DBSDataContainer, DBPContextProvider, DBPAdaptable, DBDAttributeFilter {
 
     private static final Log log = Log.getLog(ResultSetDataContainer.class);
 
@@ -70,8 +72,8 @@ public class ResultSetDataContainer implements DBSDataContainer, DBPContextProvi
     }
 
     @Override
-    public int getSupportedFeatures() {
-        return DATA_SELECT | DATA_COUNT;
+    public String[] getSupportedFeatures() {
+        return new String[] {FEATURE_DATA_SELECT, FEATURE_DATA_COUNT};
     }
 
     public ResultSetDataContainerOptions getOptions() {
@@ -103,7 +105,7 @@ public class ResultSetDataContainer implements DBSDataContainer, DBPContextProvi
             try {
                 dataReceiver.fetchStart(session, resultSet, firstRow, maxRows);
                 while (!session.getProgressMonitor().isCanceled() && resultSet.nextRow()) {
-                    if (!proceedSelectedRowsOnly(flags) || options.getSelectedRows().contains(resultCount)) {
+                    if (!proceedSelectedRowsOnly(flags) || options.getSelectedRows().contains(resultSet.curRow.getRowNumber())) {
                         dataReceiver.fetchRow(session, resultSet);
                     }
                     resultCount++;
@@ -134,7 +136,7 @@ public class ResultSetDataContainer implements DBSDataContainer, DBPContextProvi
     }
 
     @Override
-    public long countData(DBCExecutionSource source, DBCSession session, DBDDataFilter dataFilter, long flags) throws DBCException {
+    public long countData(@NotNull DBCExecutionSource source, @NotNull DBCSession session, @Nullable DBDDataFilter dataFilter, long flags) throws DBCException {
         if (proceedSelectedRowsOnly(flags)) {
             return options.getSelectedRows().size();
         } else if (proceedSelectedColumnsOnly(flags)) {
@@ -156,10 +158,14 @@ public class ResultSetDataContainer implements DBSDataContainer, DBPContextProvi
 
     @Override
     public <T> T getAdapter(Class<T> adapter) {
-        if (adapter.isInstance(dataContainer)) {
-            return adapter.cast(dataContainer);
+        Object result = GeneralUtils.adapt(dataContainer, adapter);
+        if (result == null) {
+            result = GeneralUtils.adapt(controller, adapter);
         }
-        return null;
+        if (result == null) {
+            result = GeneralUtils.adapt(controller.getDecorator(), adapter);
+        }
+        return adapter.cast(result);
     }
 
     @Nullable
@@ -172,15 +178,32 @@ public class ResultSetDataContainer implements DBSDataContainer, DBPContextProvi
     public DBDAttributeBinding[] filterAttributeBindings(DBDAttributeBinding[] attributes) {
         DBDDataFilter dataFilter = model.getDataFilter();
         List<DBDAttributeBinding> filtered = new ArrayList<>();
-        for (DBDAttributeBinding attr : attributes) {
+        DBDAttributeBinding[] preFiltered;
+        if (filterAttributes && !options.getSelectedColumns().isEmpty()) {
+            preFiltered = options.getSelectedColumns().toArray(new DBDAttributeBinding[0]);
+            // Replace pre-filtered attributes with originally passed attributes
+            // This is important because they may be wrappers
+            for (int i = 0; i < preFiltered.length; i++) {
+                DBDAttributeBinding pfa = preFiltered[i];
+                for (DBDAttributeBinding oa : attributes) {
+                    if (oa.getMetaAttribute() instanceof ModelMetaAttribute &&
+                        ((ModelMetaAttribute) oa.getMetaAttribute()).getProxyAttribute() == pfa.getMetaAttribute()) {
+                        preFiltered[i] = oa;
+                        break;
+                    }
+                }
+            }
+        } else {
+            preFiltered = attributes;
+        }
+        for (DBDAttributeBinding attr : preFiltered) {
             DBDAttributeConstraint ac = dataFilter.getConstraint(attr);
             if (ac != null && !ac.isVisible()) {
                 continue;
             }
-            if (!filterAttributes || options.getSelectedColumns().contains(attr)) {
-                filtered.add(attr);
-            }
+            filtered.add(attr);
         }
+
         filtered.sort((o1, o2) -> {
             DBDAttributeConstraint c1 = dataFilter.getConstraint(o1, true);
             DBDAttributeConstraint c2 = dataFilter.getConstraint(o2, true);
@@ -192,11 +215,12 @@ public class ResultSetDataContainer implements DBSDataContainer, DBPContextProvi
         return filtered.toArray(new DBDAttributeBinding[0]);
     }
 
-    private class ModelResultSet implements DBCResultSet {
+    private class ModelResultSet implements DBCResultSet, DBCResultFiltered {
 
         private final DBCSession session;
         private final long flags;
         private ResultSetRow curRow;
+        private CustomResultSetMeta meta;
 
         ModelResultSet(DBCSession session, long flags) {
             this.session = session;
@@ -265,15 +289,19 @@ public class ResultSetDataContainer implements DBSDataContainer, DBPContextProvi
         @NotNull
         @Override
         public DBCResultSetMetaData getMeta() throws DBCException {
-            List<DBDAttributeBinding> attributes = model.getVisibleAttributes();
-            List<DBCAttributeMetaData> meta = new ArrayList<>(attributes.size());
-            for (DBDAttributeBinding attribute : attributes) {
-                DBCAttributeMetaData metaAttribute = attribute.getMetaAttribute();
-                if (metaAttribute != null) {
-                    meta.add(metaAttribute);
+            if (this.meta == null) {
+                List<DBDAttributeBinding> attributes = model.getVisibleAttributes();
+                List<DBCAttributeMetaData> meta = new ArrayList<>(attributes.size());
+                for (int i = 0; i < attributes.size(); i++) {
+                    DBDAttributeBinding attribute = attributes.get(i);
+                    DBCAttributeMetaData metaAttribute = attribute.getMetaAttribute();
+                    if (metaAttribute != null) {
+                        meta.add(new ModelMetaAttribute(metaAttribute, i));
+                    }
                 }
+                this.meta = new CustomResultSetMeta(meta);
             }
-            return new CustomResultSetMeta(meta);
+            return this.meta;
         }
 
         @Override
@@ -302,4 +330,16 @@ public class ResultSetDataContainer implements DBSDataContainer, DBPContextProvi
 
     }
 
+    private static class ModelMetaAttribute extends AttributeMetaDataProxy {
+        private final int position;
+        public ModelMetaAttribute(DBCAttributeMetaData metaAttribute, int position) {
+            super(metaAttribute);
+            this.position = position;
+        }
+
+        @Override
+        public int getOrdinalPosition() {
+            return position;
+        }
+    }
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2019 Andrew Khitrin (ahitrin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,11 +27,13 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.ui.UITask;
 import org.jkiss.dbeaver.ui.UIUtils;
 
+import java.util.Map;
+
 
 public class PostgreTablespaceConfigurator implements DBEObjectConfigurator<PostgreTablespace> {
 
     @Override
-    public PostgreTablespace configureObject(DBRProgressMonitor monitor, Object container, PostgreTablespace tablespace) {
+    public PostgreTablespace configureObject(DBRProgressMonitor monitor, Object container, PostgreTablespace tablespace, Map<String, Object> options) {
         return new UITask<PostgreTablespace>() {
             @Override
             protected PostgreTablespace runTask() {

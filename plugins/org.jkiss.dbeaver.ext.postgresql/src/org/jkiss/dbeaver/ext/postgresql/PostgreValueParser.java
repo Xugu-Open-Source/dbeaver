@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,23 @@
  */
 package org.jkiss.dbeaver.ext.postgresql;
 
+import org.jkiss.code.NotNull;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataType;
+import org.jkiss.dbeaver.ext.postgresql.model.PostgreDataTypeAttribute;
 import org.jkiss.dbeaver.ext.postgresql.model.PostgreTypeType;
 import org.jkiss.dbeaver.model.DBPDataKind;
 import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.data.DBDCollection;
 import org.jkiss.dbeaver.model.data.DBDValueHandler;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCSession;
+import org.jkiss.dbeaver.model.impl.jdbc.JDBCStructImpl;
 import org.jkiss.dbeaver.model.impl.jdbc.data.JDBCCollection;
+import org.jkiss.dbeaver.model.impl.jdbc.data.JDBCComposite;
+import org.jkiss.dbeaver.model.impl.jdbc.data.JDBCCompositeStatic;
+import org.jkiss.dbeaver.model.sql.SQLConstants;
 import org.jkiss.dbeaver.model.struct.DBSDataType;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import org.jkiss.dbeaver.model.struct.DBSTypedObjectEx;
@@ -36,10 +44,13 @@ import org.jkiss.utils.csv.CSVWriter;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.sql.Struct;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Function;
+import java.util.function.IntFunction;
 
 public class PostgreValueParser {
 
@@ -47,9 +58,7 @@ public class PostgreValueParser {
 
     public static Object convertStringToValue(DBCSession session, DBSTypedObject arrayType, String string) throws DBCException {
         if (arrayType.getDataKind() == DBPDataKind.ARRAY) {
-            if (CommonUtils.isEmpty(string)) {
-                return new Object[0];
-            } else if (string.startsWith("{") && string.endsWith("}")) {
+            if (string != null && string.startsWith("{") && string.endsWith("}")) {
                 try {
                     return prepareToParseArray(session, arrayType, string);
                 } catch (Exception e) {
@@ -109,85 +118,106 @@ public class PostgreValueParser {
                 return string;
             } else {
                 if (componentType instanceof PostgreDataType) {
-                    checkAmountOfBrackets(string);
-                    List<Object> itemStrings = parseArrayString(string, ",");
-                    return startTransformListOfValuesIntoArray(session, (PostgreDataType)componentType, itemStrings);
+                    List<Object> itemStrings = parseArrayString(string, PostgreUtils.getArrayDelimiter(arrayDataType));
+                    return startTransformListOfValuesIntoArray(session, (PostgreDataType) componentType, itemStrings);
                 } else {
                     log.error("Incorrect type '" + arrayType.getFullTypeName() + "'");
                     return string;
                 }
             }
         } catch (Exception e) {
-            throw new DBCException("Error extracting array '" + arrayType.getFullTypeName() + "' items", e);
+            if (e instanceof DBCException) {
+                throw (DBCException) e;
+            }
+            throw new DBCException("Error parsing array '" + arrayType.getFullTypeName() + "' items", e);
         }
     }
 
-    private static void checkAmountOfBrackets(String string) throws DBCException {
-        int mostLeftMustacheCount = 0;
-        for (int i = 0; i < string.length(); i++) {
-            if (string.charAt(i) == '{') {
-                mostLeftMustacheCount++;
-            } else {
-                break;
-            }
-        }
-        int mostRightMustacheCount = 0;
-        for (int i = string.length() - 1; i > string.length() - 1 - mostLeftMustacheCount; i--) {
-            if (string.charAt(i) == '}') {
-                mostRightMustacheCount++;
-            } else {
-                break;
-            }
-        }
-        if (mostLeftMustacheCount != mostRightMustacheCount) {
-            throw new DBCException("Amount of most left and most right array's brackets is not equal");
-        }
-
-        int leftMustacheCount = 0;
-        for (int i = 0; i < string.length(); i++) {
-            if (string.charAt(i) == '{') {
-                leftMustacheCount++;
-            }
-        }
-        int rightMustacheCount = 0;
-        for (int i = 0; i < string.length(); i++) {
-            if (string.charAt(i) == '}') {
-                rightMustacheCount++;
-            }
-        }
-        if (leftMustacheCount != rightMustacheCount) {
-            throw new DBCException("Amount of array's brackets is not equal");
-        }
-    }
-
-    private static Object startTransformListOfValuesIntoArray(DBCSession session, PostgreDataType itemType, List list) throws DBCException {
+    private static Object startTransformListOfValuesIntoArray(
+        DBCSession session,
+        PostgreDataType itemType,
+        List<?> list) throws DBException
+    {
         //If array is one dimensional, we will return array of that type. If array is multidimensional we will return array of JDBCCollections.
         return transformListOfValuesIntoArray(session, itemType, list, true);
     }
 
-    private static Object transformListOfValuesIntoArray(DBCSession session, PostgreDataType itemType, List list, boolean firstAttempt) throws DBCException { //transform into array
+    private static Object transformListOfValuesIntoArray(
+        DBCSession session,
+        PostgreDataType itemType,
+        List<?> list,
+        boolean firstAttempt)
+        throws DBException
+    { //transform into array
         Object[] values = new Object[list.size()];
         for (int index = 0; index < list.size(); index++) {
-            if (list.get(index) instanceof List) {
-                values[index] = transformListOfValuesIntoArray(session, itemType, (List) list.get(index), false);
+            Object item = list.get(index);
+            if (item instanceof List) {
+                Object parsedValue;
+                if (itemType.getDataKind() == DBPDataKind.STRUCT) {
+                    parsedValue = transformListOfValuesIntoStruct(session, itemType, (List<?>) item);
+                } else {
+                    parsedValue = transformListOfValuesIntoArray(session, itemType, (List<?>) item, false);
+                }
+                values[index] = parsedValue;
             } else {
                 Object[] itemValues = new Object[list.size()];
                 for (int i = 0; i < list.size(); i++) {
                     itemValues[i] = convertStringToValue(session, itemType, (String) list.get(i));
                 }
-                if(firstAttempt){
+                if (firstAttempt){
                     return itemValues;
                 } else {
-                    return new JDBCCollection(itemType, DBUtils.findValueHandler(session, itemType), itemValues);
+                    return new JDBCCollection(
+                        session.getProgressMonitor(),
+                        itemType,
+                        DBUtils.findValueHandler(session, itemType),
+                        itemValues);
                 }
             }
         }
         if (firstAttempt) {
             return values;
         } else {
-            return new JDBCCollection(itemType, DBUtils.findValueHandler(session, itemType), values);
-
+            return new JDBCCollection(session.getProgressMonitor(), itemType, DBUtils.findValueHandler(session, itemType), values);
         }
+    }
+
+    private static Object transformListOfValuesIntoStruct(
+        DBCSession session,
+        PostgreDataType itemType,
+        List<?> list)
+        throws DBException
+    { //transform into struct
+        List<PostgreDataTypeAttribute> attributes = CommonUtils.safeList(itemType.getAttributes(session.getProgressMonitor()));
+        Object[] itemValues = new Object[attributes.size()];
+
+        if (list.size() == 1 && list.get(0) instanceof List) {
+            // Structs are represented as an array with one element
+            list = (List<?>) list.get(0);
+        }
+        for (int i = 0; i < list.size(); i++) {
+            Object item = list.get(i);
+            if (item instanceof String) {
+                itemValues[i] = convertStringToValue(session, itemType, (String) item);
+            } else if (item instanceof List) {
+                // Structs are represented as an array with one element
+                if (((List<?>) item).size() == 1) {
+                    Object subItem = ((List<?>) item).get(0);
+                    if (subItem instanceof String) {
+                        itemValues[i] = convertStringToValue(session, itemType, (String) subItem);
+                    } else {
+                        log.debug("Invalid sub item type: " + subItem.getClass().getName());
+                    }
+                } else {
+                    log.debug("Invalid struct list size: " + ((List<?>) item).size());
+                }
+            } else {
+                log.debug("Invalid struct item type: " + item);
+            }
+        }
+        Struct contents = new JDBCStructImpl(itemType.getTypeName(), itemValues, list.toString());
+        return new JDBCCompositeStatic(session, itemType, contents);
     }
 
     private static Object convertStringToSimpleValue(DBCSession session, DBSTypedObject itemType, String string) throws DBCException {
@@ -218,13 +248,18 @@ public class PostgreValueParser {
     public static String generateObjectString(Object[] values) {
         String[] line = new String[values.length];
         for (int i = 0; i < values.length; i++) {
-            final Object value = values[i];
+            Object value = values[i];
+            if (value instanceof DBDCollection) {
+                value = ((DBDCollection) value).getRawValue();
+            }
             if (value instanceof Object[]) {
                 String arrayPostgreStyle = Arrays.deepToString((Object[]) value)
                         .replace("[", "{")
                         .replace("]", "}")
                         .replace(" ", "");
                 line[i] = arrayPostgreStyle; //Strings are not quoted
+            } else if (value instanceof JDBCComposite) {
+                line[i] = generateObjectString(((JDBCComposite) value).getValues());
             } else if (value != null) {
                 // Values are simply skipped if they're NULL.
                 // https://www.postgresql.org/docs/current/rowtypes.html#id-1.5.7.24.6
@@ -244,7 +279,7 @@ public class PostgreValueParser {
 
     // Copied from pgjdbc array parser class
     // https://github.com/pgjdbc/pgjdbc/blob/master/pgjdbc/src/main/java/org/postgresql/jdbc/PgArray.java
-    public static List<Object> parseArrayString(String fieldString, String delimiter) {
+    public static List<Object> parseArrayString(String fieldString, String delimiter) throws DBCException {
         List<Object> arrayList = new ArrayList<>();
         if (CommonUtils.isEmpty(fieldString)) {
             return arrayList;
@@ -254,7 +289,7 @@ public class PostgreValueParser {
         char delim = delimiter.charAt(0);//connection.getTypeInfo().getArrayDelimiter(oid);
 
         if (fieldString != null) {
-
+            int bracePairsCount = 0;
             char[] chars = fieldString.toCharArray();
             StringBuilder buffer = null;
             boolean insideString = false;
@@ -298,6 +333,7 @@ public class PostgreValueParser {
                         p.add(a);
                         dims.add(a);
                     }
+                    bracePairsCount++;
                     curArray = dims.get(dims.size() - 1);
 
                     // number of dimensions
@@ -343,7 +379,11 @@ public class PostgreValueParser {
 
                     // when end of an array
                     if (chars[i] == '}') {
+                        if (dims.isEmpty()) {
+                            throw new DBCException("Redundant trailing bracket in " + fieldString);
+                        }
                         dims.remove(dims.size() - 1);
+                        bracePairsCount--;
 
                         // when multi-dimension
                         if (!dims.isEmpty()) {
@@ -360,7 +400,129 @@ public class PostgreValueParser {
                     buffer.append(chars[i]);
                 }
             }
+            if (bracePairsCount != 0) {
+                throw new DBCException("Amount of array's braces is not equal");
+            }
         }
         return arrayList;
+    }
+
+    @NotNull
+    public static <T> T[] parsePrimitiveArray(
+        @NotNull String value,
+        @NotNull Function<String, T> converter,
+        @NotNull IntFunction<T[]> generator
+    ) {
+        return parsePrimitiveArray(value, converter, generator, ',');
+    }
+
+    /**
+     * A simple implementation of a parser for primitive arrays.
+     *
+     * @param value     an input array, e.g. <code>{abc,def,NULL}</code>
+     * @param converter a function that takes string representation of an element and returns {@code T}
+     * @param generator a function that takes a length and creates array of {@code T}
+     * @param delimiter a delimiter that separates elements
+     * @return array elements
+     * @throws IllegalArgumentException if the {@code value} can't be parsed
+     */
+    @NotNull
+    public static <T> T[] parsePrimitiveArray(
+        @NotNull String value,
+        @NotNull Function<String, T> converter,
+        @NotNull IntFunction<T[]> generator,
+        char delimiter
+    ) {
+        final int length = value.length();
+
+        if (value.equals("{}")) {
+            // Fast path for empty arrays
+            return generator.apply(0);
+        }
+
+        final List<T> result = new ArrayList<>();
+        final StringBuilder buffer = new StringBuilder();
+        int offset = 0;
+        State state = State.EXPECT_START;
+        boolean wasQuoted = false;
+
+        while (offset < length) {
+            final char ch = value.charAt(offset++);
+
+            if (state == State.EXPECT_START) {
+                if (ch != '{') {
+                    throw new IllegalArgumentException("Array value must start with \"{\"");
+                } else {
+                    state = State.MAYBE_VALUE;
+                }
+            } else if (state == State.MAYBE_VALUE || state == State.EXPECT_VALUE) {
+                if (ch == '"') {
+                    state = State.INSIDE_QUOTES;
+                    wasQuoted = true;
+                } else if (ch == '\\') {
+                    buffer.append(value.charAt(offset++));
+                } else if (ch == '}') {
+                    if (state == State.EXPECT_VALUE) {
+                        throw new IllegalArgumentException("Unexpected \"}\" character");
+                    }
+                    final String element = buffer.toString();
+                    if (!element.isEmpty()) {
+                        if (!wasQuoted && element.equalsIgnoreCase(SQLConstants.NULL_VALUE)) {
+                            result.add(null);
+                        } else {
+                            result.add(converter.apply(element));
+                        }
+                    }
+                    buffer.setLength(0);
+                    state = State.AFTER_END;
+                    break;
+                } else if (ch == delimiter) {
+                    final String element = buffer.toString();
+                    if (!element.isEmpty()) {
+                        if (!wasQuoted && element.equalsIgnoreCase(SQLConstants.NULL_VALUE)) {
+                            result.add(null);
+                        } else {
+                            result.add(converter.apply(element));
+                        }
+                    } else {
+                        throw new IllegalArgumentException("Unexpected \",\" character");
+                    }
+                    buffer.setLength(0);
+                    state = State.EXPECT_VALUE;
+                    wasQuoted = false;
+                } else {
+                    if (!Character.isWhitespace(ch)) {
+                        buffer.append(ch);
+                    }
+                    state = State.MAYBE_VALUE;
+                }
+            } else {
+                if (ch == '\\') {
+                    buffer.append(value.charAt(offset++));
+                } else if (ch == '"') {
+                    state = State.MAYBE_VALUE;
+                } else {
+                    buffer.append(ch);
+                }
+            }
+        }
+
+        if (state != State.AFTER_END) {
+            throw new IllegalArgumentException("Unexpected end of input");
+        }
+
+        if (offset < length) {
+            throw new IllegalArgumentException("Junk after closing right brace");
+        }
+
+        return result.toArray(generator);
+    }
+
+    private enum State {
+        EXPECT_START,
+        EXPECT_VALUE,
+        MAYBE_VALUE,
+        INSIDE_QUOTES,
+        AFTER_END
     }
 }

@@ -20,6 +20,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource.UserRoleFlag;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
+import org.jkiss.dbeaver.model.DBPRefreshableObject;
 import org.jkiss.dbeaver.model.DBPScriptObject;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
@@ -42,7 +43,7 @@ import java.util.Map;
 /**
  * 同义词信息类，包含同义词相关的基本信息
  */
-public class Synonym extends BaseSchemaObject implements DBSAlias, DBPScriptObject {
+public class Synonym extends BaseSchemaObject implements DBSAlias, DBPScriptObject, DBPRefreshableObject {
 	private int objectDbId;
 	private int objectSchemaId;
 	private String objectSchemaName;
@@ -217,6 +218,20 @@ public class Synonym extends BaseSchemaObject implements DBSAlias, DBPScriptObje
 			return parsing.loadSynonymDDL(conn, this.objectSchemaName, getName(), tableType);
 		} catch (SQLException e) {
 			throw new DBException("Close connection of DDL failed", e);
+		}
+	}
+
+
+	@Override
+	public DBSObject refreshObject(DBRProgressMonitor monitor) throws DBException {
+		Schema schema = this.getParentObject();
+		if (this.isPublic) {
+			DataSource dataSource = schema.getDataSource();
+			dataSource.publicSynonymCache.clearCache();
+			return dataSource.publicSynonymCache.refreshObject(monitor, schema, this);
+		} else {
+			schema.synonymCache.clearCache();
+			return schema.synonymCache.refreshObject(monitor, schema, this);
 		}
 	}
 }

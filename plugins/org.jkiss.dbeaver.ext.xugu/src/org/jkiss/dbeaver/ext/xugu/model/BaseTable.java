@@ -38,9 +38,11 @@ import org.jkiss.dbeaver.model.meta.IPropertyCacheValidator;
 import org.jkiss.dbeaver.model.meta.LazyProperty;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectState;
+import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableForeignKey;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTrigger;
@@ -109,6 +111,21 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 		this.createTime = JDBCUtils.safeGetTimestamp(dbResult, "CREATE_TIME");
 		this.comment = JDBCUtils.safeGetString(dbResult, "COMMENTS");
 		this.tableType = type;
+	}
+
+	// 复制构造函数
+	public BaseTable(DBRProgressMonitor monitor, Schema schema, DBSEntity source) throws DBException {
+		super(schema, source, false);
+		
+        DBSObjectCache<BaseTable, TableColumn> colCache = getContainer().tableCache.getChildrenCache(this);
+        // 复制列
+        for (DBSEntityAttribute srcColumn : CommonUtils.safeCollection(source.getAttributes(monitor))) {
+            if (DBUtils.isHiddenObject(srcColumn)) {
+                continue;
+            }
+            TableColumn column = new TableColumn(monitor, this, srcColumn);
+            colCache.cacheObject(column);
+        }
 	}
 
 	/**
@@ -262,7 +279,7 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 	}
 
 	@Association
-	public List<? extends DBSTrigger> getTriggers(DBRProgressMonitor monitor) throws DBException {
+	public List<Trigger> getTriggers(DBRProgressMonitor monitor) throws DBException {
 		if (this.isPersisted()) {
 			return triggerCache.getAllObjects(monitor, this);
 		}

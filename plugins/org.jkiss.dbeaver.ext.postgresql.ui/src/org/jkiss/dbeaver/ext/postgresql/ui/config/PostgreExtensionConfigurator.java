@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2019 Andrew Khitrin (ahitrin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,10 +26,12 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.ui.UITask;
 import org.jkiss.dbeaver.ui.UIUtils;
 
+import java.util.Map;
 
-    public class PostgreExtensionConfigurator implements DBEObjectConfigurator<PostgreExtension> {
+
+public class PostgreExtensionConfigurator implements DBEObjectConfigurator<PostgreExtension> {
         @Override
-        public PostgreExtension configureObject(DBRProgressMonitor monitor, Object parent, PostgreExtension extension) {
+        public PostgreExtension configureObject(DBRProgressMonitor monitor, Object parent, PostgreExtension extension, Map<String, Object> options) {
             return new UITask<PostgreExtension>() {
                 @Override
                 protected PostgreExtension runTask() {

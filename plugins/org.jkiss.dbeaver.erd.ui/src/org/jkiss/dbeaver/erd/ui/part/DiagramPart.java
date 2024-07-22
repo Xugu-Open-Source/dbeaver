@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,14 @@
  */
 package org.jkiss.dbeaver.erd.ui.part;
 
-import org.eclipse.draw2dl.ConnectionLayer;
-import org.eclipse.draw2dl.FanRouter;
-import org.eclipse.draw2dl.IFigure;
-import org.eclipse.draw2dl.ShortestPathConnectionRouter;
-import org.eclipse.draw2dl.geometry.Point;
-import org.eclipse.draw2dl.geometry.Rectangle;
-import org.eclipse.gef3.*;
-import org.eclipse.gef3.commands.Command;
-import org.eclipse.gef3.commands.CommandStackEvent;
-import org.eclipse.gef3.commands.CommandStackEventListener;
+import org.eclipse.draw2d.*;
+import org.eclipse.draw2d.geometry.Point;
+import org.eclipse.draw2d.geometry.Rectangle;
+import org.eclipse.gef.*;
+import org.eclipse.gef.commands.Command;
+import org.eclipse.gef.commands.CommandStackEvent;
+import org.eclipse.gef.commands.CommandStackEventListener;
+import org.eclipse.gef.editparts.AbstractConnectionEditPart;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.widgets.Control;
@@ -44,8 +42,10 @@ import org.jkiss.dbeaver.erd.ui.layout.GraphAnimation;
 import org.jkiss.dbeaver.erd.ui.layout.GraphLayoutAuto;
 import org.jkiss.dbeaver.erd.ui.model.EntityDiagram;
 import org.jkiss.dbeaver.erd.ui.policy.DiagramContainerEditPolicy;
+import org.jkiss.dbeaver.erd.ui.router.MikamiTabuchiConnectionRouter;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.utils.CommonUtils;
 
 import java.beans.PropertyChangeEvent;
 import java.util.ArrayList;
@@ -144,9 +144,15 @@ public class DiagramPart extends PropertyAwarePart {
 
         FanRouter router = new FanRouter();
         router.setSeparation(15);
+        final DBPPreferenceStore store = ERDUIActivator.getDefault().getPreferences();
         //router.setNextRouter(new BendpointConnectionRouter());
-        router.setNextRouter(new ShortestPathConnectionRouter(figure));
-        //router.setNextRouter(new ManhattanConnectionRouter());
+        if (store.getString(ERDUIConstants.PREF_ROUTING_TYPE).equals(ERDUIConstants.ROUTING_MIKAMI)) {
+            router.setNextRouter(new MikamiTabuchiConnectionRouter(figure));
+        } else {
+            router.setNextRouter(new ShortestPathConnectionRouter(figure));
+        }
+
+//        router.setNextRouter(new ManhattanConnectionRouter());
         //router.setNextRouter(new BendpointConnectionRouter());
         cLayer.setConnectionRouter(router);
 
@@ -193,12 +199,31 @@ public class DiagramPart extends PropertyAwarePart {
 
     public void rearrangeDiagram()
     {
+        for (Object part : getChildren()) {
+            if (part instanceof NodePart) {
+                resetConnectionConstraints(((NodePart) part).getSourceConnections());
+            }
+        }
         //delegatingLayoutManager.set
         delegatingLayoutManager.rearrange(getFigure());
 
         //getFigure().setLayoutManager(delegatingLayoutManager);
         //getFigure().getLayoutManager().layout(getFigure());
         getFigure().repaint();
+    }
+
+    private void resetConnectionConstraints(List sourceConnections) {
+        if (!CommonUtils.isEmpty(sourceConnections)) {
+            for (Object sc : sourceConnections) {
+                if (sc instanceof AbstractConnectionEditPart) {
+                    ((AbstractConnectionEditPart) sc).getConnectionFigure().setRoutingConstraint(null);
+                    if (sc instanceof AssociationPart) {
+                        ((AssociationPart) sc).getAssociation().setInitBends(null);
+                        ((AssociationPart) sc).setConnectionRouting((PolylineConnection) ((AbstractConnectionEditPart) sc).getConnectionFigure());
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -211,7 +236,7 @@ public class DiagramPart extends PropertyAwarePart {
     }
 
     /**
-     * @see org.eclipse.gef3.editparts.AbstractEditPart#isSelectable()
+     * @see org.eclipse.gef.editparts.AbstractEditPart#isSelectable()
      */
     @Override
     public boolean isSelectable()
@@ -226,11 +251,13 @@ public class DiagramPart extends PropertyAwarePart {
     @Override
     protected void createEditPolicies()
     {
-        installEditPolicy(EditPolicy.CONTAINER_ROLE, new DiagramContainerEditPolicy());
-        installEditPolicy(EditPolicy.LAYOUT_ROLE, null);
-
-        getDiagram().getModelAdapter().installPartEditPolicies(this);
+        if (!getEditor().isReadOnly()) {
+            installEditPolicy(EditPolicy.CONTAINER_ROLE, new DiagramContainerEditPolicy());
+            installEditPolicy(EditPolicy.LAYOUT_ROLE, null);
+            getDiagram().getModelAdapter().installPartEditPolicies(this);
+        }
     }
+
 
     /**
      * Updates the table bounds in the model so that the same bounds can be

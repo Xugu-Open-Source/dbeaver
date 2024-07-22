@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,12 +51,12 @@ import java.util.Map;
  */
 public class GenericTableManager extends SQLTableManager<GenericTableBase, GenericStructContainer> {
 
-    private static final Class<?>[] CHILD_TYPES = {
+    private static final Class<? extends DBSObject>[] CHILD_TYPES = CommonUtils.array(
         GenericTableColumn.class,
         GenericUniqueKey.class,
         GenericTableForeignKey.class,
         GenericTableIndex.class
-    };
+    );
 
     @Nullable
     @Override
@@ -67,7 +67,7 @@ public class GenericTableManager extends SQLTableManager<GenericTableBase, Gener
 
     @NotNull
     @Override
-    public Class<?>[] getChildTypes()
+    public Class<? extends DBSObject>[] getChildTypes()
     {
         return CHILD_TYPES;
     }
@@ -91,7 +91,7 @@ public class GenericTableManager extends SQLTableManager<GenericTableBase, Gener
             }
         }
         String tableName = getNewChildName(monitor, structContainer, isView ? BASE_VIEW_NAME : BASE_TABLE_NAME);
-        return structContainer.getDataSource().getMetaModel().createTableImpl(structContainer, tableName,
+        return structContainer.getDataSource().getMetaModel().createTableOrViewImpl(structContainer, tableName,
             isView ? GenericConstants.TABLE_TYPE_VIEW : GenericConstants.TABLE_TYPE_TABLE,
             null);
     }

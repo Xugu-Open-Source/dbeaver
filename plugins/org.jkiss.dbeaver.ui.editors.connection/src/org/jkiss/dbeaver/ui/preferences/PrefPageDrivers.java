@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,6 +26,7 @@ import org.eclipse.swt.widgets.*;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchPreferencePage;
 import org.eclipse.ui.IWorkbenchPropertyPage;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
@@ -75,9 +76,9 @@ public class PrefPageDrivers extends AbstractPrefPage implements IWorkbenchPrefe
         }
     }
 
+    @NotNull
     @Override
-    protected Control createContents(Composite parent)
-    {
+    protected Control createPreferenceContent(@NotNull Composite parent) {
         Composite composite = UIUtils.createPlaceholder(parent, 1, 5);
 
         {
@@ -138,6 +139,8 @@ public class PrefPageDrivers extends AbstractPrefPage implements IWorkbenchPrefe
                     }
                 }
             });
+            Control tip = UIUtils.createInfoLabel(repoGroup, UIConnectionMessages.pref_page_drivers_repo_info);
+            tip.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING, GridData.VERTICAL_ALIGN_BEGINNING, false, false, 2, 1));
         }
 
         performDefaults();
@@ -165,7 +168,7 @@ public class PrefPageDrivers extends AbstractPrefPage implements IWorkbenchPrefe
             }
         }
         proxyPasswordText.setText(passwordString);
-        customDriversHome.setText(DriverDescriptor.getCustomDriversHome().getAbsolutePath());
+        customDriversHome.setText(DriverDescriptor.getCustomDriversHome().toAbsolutePath().toString());
 
         sourceList.removeAll();
         for (String source : DriverDescriptor.getDriversSources()) {

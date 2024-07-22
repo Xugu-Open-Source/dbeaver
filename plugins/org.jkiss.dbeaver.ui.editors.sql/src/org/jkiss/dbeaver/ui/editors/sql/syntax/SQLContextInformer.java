@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.app.DBPDataSourceRegistry;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContextDefaults;
+import org.jkiss.dbeaver.model.exec.DBExecUtils;
 import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.struct.DirectObjectReference;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
@@ -44,6 +45,7 @@ import org.jkiss.dbeaver.ui.editors.sql.SQLEditorBase;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
 
@@ -124,7 +126,7 @@ public class SQLContextInformer
         }
 
         SQLWordPartDetector wordDetector = new SQLWordPartDetector(document, syntaxManager, region.getOffset());
-        wordRegion = wordDetector.detectIdentifier(document, region);
+        wordRegion = wordDetector.extractIdentifier(document, region, editor.getRuleManager());
 
         if (wordRegion.word.length() == 0) {
             return;
@@ -274,6 +276,28 @@ public class SQLContextInformer
         @Override
         protected IStatus run(DBRProgressMonitor monitor)
         {
+            boolean[] result = new boolean[1];
+            try {
+                DBExecUtils.tryExecuteRecover(monitor, getExecutionContext().getDataSource(), param -> {
+                    try {
+                        result[0] = findTables(monitor);
+                    } catch (Exception e) {
+                        throw new InvocationTargetException(e);
+                    }
+                });
+            } catch (DBException e) {
+                log.warn(e);
+                return Status.CANCEL_STATUS;
+            }
+
+            if (!result[0]) {
+                return Status.CANCEL_STATUS;
+            }
+            return Status.OK_STATUS;
+        }
+
+        @Nullable
+        private boolean findTables(DBRProgressMonitor monitor) throws DBException {
             monitor.beginTask("Read metadata information", 1);
             cache.references = new ArrayList<>();
             try {
@@ -310,9 +334,10 @@ public class SQLContextInformer
                                     if (objReferences.size() == 1) {
                                         childContainer = objReferences.get(0).resolveObject(monitor);
                                     }
-                                    if (childContainer == null) {
-                                        return Status.CANCEL_STATUS;
-                                    }
+                                    // We still can find it, unless search for schema_name.table_name doesn't work
+                                    // if (childContainer == null) {
+                                    //     return false;
+                                    // }
                                 }
                             }
                             if (childContainer instanceof DBSObjectContainer) {
@@ -369,14 +394,12 @@ public class SQLContextInformer
                         }
                     }
                 }
-            } catch (DBException e) {
-                log.warn(e);
             }
             finally {
                 cache.loading = false;
                 monitor.done();
             }
-            return Status.OK_STATUS;
+            return true;
         }
     }
 }

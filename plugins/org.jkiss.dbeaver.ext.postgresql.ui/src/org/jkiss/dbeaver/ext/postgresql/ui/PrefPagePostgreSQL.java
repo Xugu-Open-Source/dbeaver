@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,6 +25,7 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.*;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchPreferencePage;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.ext.postgresql.PostgreConstants;
 import org.jkiss.dbeaver.ext.postgresql.PostgreMessages;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
@@ -45,6 +46,8 @@ public class PrefPagePostgreSQL extends AbstractPrefPage implements IWorkbenchPr
     private Button showUnavailable;
     private Button showDatabaseStatistics;
     private Button readAllDataTypes;
+    private Button readKeysWithColumns;
+
     private Combo ddPlainBehaviorCombo;
     private Combo ddTagBehaviorCombo;
 
@@ -54,8 +57,9 @@ public class PrefPagePostgreSQL extends AbstractPrefPage implements IWorkbenchPr
         setPreferenceStore(new PreferenceStoreDelegate(DBWorkbench.getPlatform().getPreferenceStore()));
     }
 
+    @NotNull
     @Override
-    protected Control createContents(Composite parent) {
+    protected Control createPreferenceContent(@NotNull Composite parent) {
         Composite cfgGroup = new Composite(parent, SWT.NONE);
         GridLayout gl = new GridLayout(1, false);
         gl.marginHeight = 10;
@@ -107,6 +111,12 @@ public class PrefPagePostgreSQL extends AbstractPrefPage implements IWorkbenchPr
                     PostgreMessages.dialog_setting_connection_read_all_data_types_tip,
                     globalPrefs.getBoolean(PostgreConstants.PROP_READ_ALL_DATA_TYPES),
                     2);
+
+            readKeysWithColumns = UIUtils.createCheckbox(secureGroup,
+                PostgreMessages.dialog_setting_connection_read_keys_with_columns,
+                PostgreMessages.dialog_setting_connection_read_keys_with_columns_tip,
+                globalPrefs.getBoolean(PostgreConstants.PROP_READ_KEYS_WITH_COLUMNS),
+                2);
         }
 
         {
@@ -147,6 +157,7 @@ public class PrefPagePostgreSQL extends AbstractPrefPage implements IWorkbenchPr
         preferenceStore.setValue(PostgreConstants.PROP_SHOW_UNAVAILABLE_DB, String.valueOf(showUnavailable.getSelection()));
         preferenceStore.setValue(PostgreConstants.PROP_SHOW_DATABASE_STATISTICS, String.valueOf(showDatabaseStatistics.getSelection()));
         preferenceStore.setValue(PostgreConstants.PROP_READ_ALL_DATA_TYPES, String.valueOf(readAllDataTypes.getSelection()));
+        preferenceStore.setValue(PostgreConstants.PROP_READ_KEYS_WITH_COLUMNS, String.valueOf(readKeysWithColumns.getSelection()));
 
         preferenceStore.setValue(PostgreConstants.PROP_DD_PLAIN_STRING, ddPlainBehaviorCombo.getSelectionIndex() == 0);
         preferenceStore.setValue(PostgreConstants.PROP_DD_TAG_STRING, ddTagBehaviorCombo.getSelectionIndex() == 0);

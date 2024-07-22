@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,14 +44,21 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSource;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.exec.JDBCColumnMetaData;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.dbeaver.model.struct.cache.AbstractObjectCache;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
+import org.jkiss.utils.Pair;
 
 import java.lang.reflect.Array;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.util.*;
+import java.util.function.Function;
+import java.util.function.IntFunction;
 
 /**
  * postgresql utils
@@ -113,7 +120,8 @@ public class PostgreUtils {
         }
         String className = object.getClass().getName();
         return className.equals(PostgreConstants.PG_OBJECT_CLASS) ||
-            className.equals(PostgreConstants.RS_OBJECT_CLASS);
+            className.equals(PostgreConstants.RS_OBJECT_CLASS) ||
+            className.equals(PostgreConstants.EDB_OBJECT_CLASS);
     }
 
     public static Object extractPGObjectValue(Object pgObject) {
@@ -391,13 +399,14 @@ public class PostgreUtils {
         } else if (type instanceof PostgreAttribute) {
             return ((PostgreAttribute) type).getDataType();
         } else {
+            DBRProgressMonitor monitor = session.getProgressMonitor();
             if (type instanceof JDBCColumnMetaData) {
                 try {
                     DBCEntityMetaData entityMetaData = ((DBCAttributeMetaData) type).getEntityMetaData();
                     if (entityMetaData != null) {
-                        DBSEntity docEntity = DBUtils.getEntityFromMetaData(session.getProgressMonitor(), session.getExecutionContext(), entityMetaData);
+                        DBSEntity docEntity = DBUtils.getEntityFromMetaData(monitor, session.getExecutionContext(), entityMetaData);
                         if (docEntity != null) {
-                            DBSEntityAttribute attribute = docEntity.getAttribute(session.getProgressMonitor(), ((DBCAttributeMetaData) type).getName());
+                            DBSEntityAttribute attribute = docEntity.getAttribute(monitor, ((DBCAttributeMetaData) type).getName());
                             if (attribute instanceof DBSTypedObjectEx) {
                                 DBSDataType dataType = ((DBSTypedObjectEx) attribute).getDataType();
                                 if (dataType instanceof PostgreDataType) {
@@ -409,7 +418,28 @@ public class PostgreUtils {
                         String databaseName = ((JDBCColumnMetaData) type).getCatalogName();
                         PostgreDatabase database = dataSource.getDatabase(databaseName);
                         if (database != null) {
-                            PostgreDataType dataType = database.getDataType(session.getProgressMonitor(), type.getTypeName());
+                            String typeName = type.getTypeName();
+                            if (PostgreUtils.isCompositeTypeName(typeName)) {
+                                // Type name in JDBCColumnMetaData can be fully qualified and quoted. Let's fix it for the better search in the getDataType() method
+                                String[] identifiers = SQLUtils.splitFullIdentifier(typeName, ".", dataSource.getSQLDialect().getIdentifierQuoteStrings(), false);
+                                if (!ArrayUtils.isEmpty(identifiers)) {
+                                    typeName = identifiers[identifiers.length - 1];
+                                    if (identifiers.length == 2) {
+                                        // Most likely, in the identifiers array we have the name of the scheme and the name of the data type in this case
+                                        // Try to find data type in the schema data type cache
+                                        // Do not forget to turn on the PG connection setting "Read all data types" to have arrays, tables, etc. types in the data type cache
+                                        String schemaName = identifiers[0];
+                                        PostgreSchema schema = database.getSchema(monitor, schemaName);
+                                        if (schema != null) {
+                                            PostgreDataType dataType = schema.getDataTypeCache().getObject(monitor, schema, typeName);
+                                            if (dataType != null) {
+                                                return dataType;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            PostgreDataType dataType = database.getDataType(monitor, typeName);
                             if (dataType != null) {
                                 return dataType;
                             }
@@ -423,7 +453,7 @@ public class PostgreUtils {
             String typeName = type.getTypeName();
             DBSInstance ownerInstance = session.getExecutionContext().getOwnerInstance();
             if (ownerInstance instanceof PostgreDatabase) {
-                PostgreDataType localDataType = ((PostgreDatabase) ownerInstance).getDataType(session.getProgressMonitor(), typeName);
+                PostgreDataType localDataType = ((PostgreDatabase) ownerInstance).getDataType(monitor, typeName);
                 if (localDataType != null) {
                     return localDataType;
                 }
@@ -432,6 +462,124 @@ public class PostgreUtils {
         }
     }
 
+    @Nullable
+    public static PostgreDataType resolveTypeFullName(
+        @NotNull DBRProgressMonitor monitor, @NotNull PostgreSchema schema, @NotNull String fullTypeName
+    ) throws DBException {
+        return resolveTypeFullName(monitor, schema.getDataSource(), schema.getDatabase(), schema, fullTypeName);
+    }
+
+    @Nullable
+    public static PostgreDataType resolveTypeFullName(
+        @NotNull DBRProgressMonitor monitor, @NotNull PostgreDatabase database, @NotNull String fullTypeName
+    ) throws DBException {
+        return resolveTypeFullName(monitor, database.getDataSource(), database, database.getMetaContext().getDefaultSchema(), fullTypeName);
+    }
+
+    @Nullable
+    public static PostgreDataType resolveTypeFullName(
+        @NotNull DBRProgressMonitor monitor, @NotNull PostgreDataSource dataSource, @NotNull String fullTypeName
+    ) throws DBException {
+        return resolveTypeFullName(
+            monitor, dataSource, dataSource.getDefaultInstance(),
+            dataSource.getDefaultInstance().getMetaContext().getDefaultSchema(), fullTypeName
+        );
+    }
+
+    @Nullable
+    private static PostgreDataType resolveTypeFullName(
+        @NotNull DBRProgressMonitor monitor, @NotNull PostgreDataSource dataSource, @NotNull PostgreDatabase database,
+        @NotNull PostgreSchema schema, @NotNull String fullTypeName
+    ) throws DBException {
+        final String identifier = DBUtils.getTypeModifiers(fullTypeName).getFirst();
+        String[] parts = splitTypeNameIdentifier(dataSource, fullTypeName);
+
+        // Try to get cashed data type from specified schema
+        PostgreDataType dataType = schema.getDataTypeCache().getObject(monitor, schema, identifier);
+        if (dataType != null) {
+            return dataType;
+        }
+        // Try to resolve local data type in specified database
+        dataType = database.getLocalDataType(identifier);
+        if (dataType != null) {
+            return dataType;
+        } else if (parts.length > 1) {
+            // Search data type in schema from fullTypeName part
+            PostgreSchema resolvedSchema = database.getSchema(monitor, parts[0]);
+            if (resolvedSchema != null) {
+                String schemaTypeName;
+                if (parts.length == 2) {
+                    schemaTypeName = parts[1];
+                } else {
+                    schemaTypeName = DBUtils.getFullyQualifiedName(dataSource, Arrays.copyOfRange(parts, 1, parts.length));
+                }
+
+                dataType = resolvedSchema.getDataTypeCache().getObject(monitor, resolvedSchema, schemaTypeName);
+                if (dataType != null) {
+                    return dataType;
+                }
+            }
+        }
+
+        // Try to resolve local data type in specified data source
+        dataType = dataSource.getLocalDataType(identifier);
+        if (dataType != null) {
+            return dataType;
+        } else if (parts.length > 1) {
+            // Search data type in database from fullTypeName part
+            PostgreDatabase resolvedDatabase = dataSource.getDatabase(parts[0]);
+            if (resolvedDatabase != null) {
+                String dbTypeName;
+                if (parts.length == 2) {
+                    dbTypeName = parts[1];
+                } else {
+                    dbTypeName = DBUtils.getFullyQualifiedName(dataSource, Arrays.copyOfRange(parts, 1, parts.length));
+                }
+                // Try to resolve local data type in database from fullTypeName part
+                dataType = resolvedDatabase.getLocalDataType(dbTypeName);
+                if (dataType != null) {
+                    return dataType;
+                } else if (parts.length > 2) {
+                    // Search data type in database and schema from fullTypeName part
+                    PostgreSchema resolvedSchema = resolvedDatabase.getSchema(monitor, parts[1]);
+                    if (resolvedSchema != null) {
+                        String dbSchemaTypeName;
+                        if (parts.length == 3) {
+                            dbSchemaTypeName = parts[2];
+                        } else {
+                            dbSchemaTypeName = DBUtils.getFullyQualifiedName(dataSource, Arrays.copyOfRange(parts, 2, parts.length));
+                        }
+                        dataType = resolvedSchema.getDataTypeCache().getObject(monitor, resolvedSchema, dbSchemaTypeName);
+                        if (dataType != null) {
+                            return dataType;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    @NotNull
+    private static String[] splitTypeNameIdentifier(
+        @NotNull PostgreDataSource dataSource, @NotNull String fullTypeName
+    ) throws DBException {
+        final Pair<String, String[]> typeNameInfo = DBUtils.getTypeModifiers(fullTypeName);
+        final String identifier = typeNameInfo.getFirst();
+
+        String[] parts;
+        if (PostgreUtils.isCompositeTypeName(identifier)) {
+            parts = SQLUtils.splitFullIdentifier(identifier, ".", dataSource.getSQLDialect().getIdentifierQuoteStrings(), false);
+        } else {
+            parts = new String[]{identifier};
+        }
+
+        return parts;
+    }
+    
+    private static boolean isCompositeTypeName(@NotNull String typeName) {
+        return typeName.startsWith("\"") || typeName.contains(".");
+    }
 
     public static void setArrayParameter(JDBCPreparedStatement dbStat, int index, List<? extends PostgreObject> objectList) throws SQLException {
         for (int i = 0; i < objectList.size(); i++) {
@@ -447,7 +595,7 @@ public class PostgreUtils {
         StringBuilder sql = new StringBuilder(view instanceof PostgreView ? "CREATE OR REPLACE " : "CREATE ");
         sql.append(view.getTableTypeName()).append(" ").append(view.getFullyQualifiedName(DBPEvaluationContext.DDL));
 
-        final DBERegistry editorsRegistry = view.getDataSource().getContainer().getPlatform().getEditorsRegistry();
+        final DBERegistry editorsRegistry = DBWorkbench.getPlatform().getEditorsRegistry();
         final PostgreViewManager entityEditor = editorsRegistry.getObjectManager(view.getClass(), PostgreViewManager.class);
         if (entityEditor != null) {
             entityEditor.appendViewDeclarationPrefix(monitor, sql, view);
@@ -668,4 +816,134 @@ public class PostgreUtils {
         return name.replace(PostgreConstants.USER_VARIABLE, database.getMetaContext().getActiveUser());
     }
 
+    /**
+     * Usually, we can check the info about system columns (whether existing or not, depending on the server version) in the documentation.
+     * But sometimes, this approach is not working.
+     * In this case, we can directly check the existing system column on the database.
+     * If the column doesn't exist, then there will be an exception
+     *
+     * @param tableName name of the system table
+     * @param columnName name of the system column. Use "*" param, if you need to check access to the full table/view.
+     * @return query for the system column checking
+     */
+    @NotNull
+    public static String getQueryForSystemColumnChecking(@NotNull String tableName, @NotNull String columnName) {
+        return "SELECT " + columnName + " FROM pg_catalog." + tableName + " WHERE 1<>1 LIMIT 1";
+    }
+
+    /**
+     * Returns state of the meta object existence from the system catalogs.
+     *
+     * @param session to execute a query
+     * @param tableName name of the required table
+     * @param columnName name of the required column or symbol *
+     * @return state of the meta object existence in the system data
+     */
+    public static boolean isMetaObjectExists(@NotNull JDBCSession session, @NotNull String tableName, @NotNull String columnName) {
+        try {
+            JDBCUtils.queryString(session, getQueryForSystemColumnChecking(tableName, columnName));
+            return true;
+        } catch (SQLException e) {
+            log.debug("Error reading system information from the " + tableName + " table", e);
+        }
+        return false;
+    }
+
+    /**
+     * Retrieves delimiter used for separating array elements of the given type.
+     *
+     * @param type type to get array delimiter for
+     * @return a type-specific array delimiter, or {@code ","} if the given type is not a postgres data type.
+     */
+    @NotNull
+    public static String getArrayDelimiter(@NotNull DBSTypedObject type) {
+        if (type instanceof PostgreDataType) {
+            return ((PostgreDataType) type).getArrayDelimiter();
+        } else {
+            return ",";
+        }
+    }
+
+    /**
+     * Attempts to retrieve an array using {@link ResultSet#getArray(String)}, and if it can't
+     * be done due to an exception, falls back to manually parsing the string representation
+     * of an array retrieved using {@link ResultSet#getString(String)}.
+     *
+     * @param dbResult   a result set to retrieve data from
+     * @param columnName a name of a column to retrieve data from
+     * @param converter  a function that takes string representation of an element and returns {@code T}
+     * @param generator  a function that takes a length and creates array of {@code T}
+     * @return array elements
+     * @see PostgreValueParser#parsePrimitiveArray(String, Function, IntFunction)
+     */
+    @SuppressWarnings("unchecked")
+    @Nullable
+    public static <T> T[] safeGetArray(
+        @NotNull ResultSet dbResult,
+        @NotNull String columnName,
+        @NotNull Function<String, T> converter,
+        @NotNull IntFunction<T[]> generator
+    ) {
+        Exception exception = null;
+
+        try {
+            final java.sql.Array value = dbResult.getArray(columnName);
+            return value != null ? (T[]) value.getArray() : null;
+        } catch (SQLFeatureNotSupportedException ignored) {
+            // Some drivers (ODBC) might not have an implementation for that API, just ignore and try with a string
+        } catch (Exception e) {
+            exception = e;
+        }
+
+        try {
+            final String value = dbResult.getString(columnName);
+            return value != null ? PostgreValueParser.parsePrimitiveArray(value, converter, generator) : null;
+        } catch (Exception e) {
+            if (exception == null) {
+                exception = e;
+            }
+        }
+
+        log.debug("Can't get column '" + columnName + "': " + exception.getMessage());
+        return null;
+    }
+
+    /**
+     * Attempts to retrieve an array of strings from the result set under the given {@code columnName}.
+     *
+     * @see #safeGetArray(ResultSet, String, Function, IntFunction)
+     */
+    @Nullable
+    public static String[] safeGetStringArray(@NotNull ResultSet dbResult, @NotNull String columnName) {
+        return safeGetArray(dbResult, columnName, Function.identity(), String[]::new);
+    }
+
+    /**
+     * Attempts to retrieve an array of shorts from the result set under the given {@code columnName}.
+     *
+     * @see #safeGetArray(ResultSet, String, Function, IntFunction)
+     */
+    @Nullable
+    public static Number[] safeGetNumberArray(@NotNull ResultSet dbResult, @NotNull String columnName) {
+        return safeGetArray(dbResult, columnName, PostgreUtils::parseNumber, Number[]::new);
+    }
+
+    /**
+     * Attempts to retrieve an array of booleans from the result set under the given {@code columnName}.
+     *
+     * @see #safeGetArray(ResultSet, String, Function, IntFunction)
+     */
+    @Nullable
+    public static Boolean[] safeGetBooleanArray(@NotNull ResultSet dbResult, @NotNull String columnName) {
+        return safeGetArray(dbResult, columnName, Boolean::valueOf, Boolean[]::new);
+    }
+
+    @NotNull
+    private static Number parseNumber(@NotNull String str) {
+        try {
+            return Long.parseLong(str);
+        } catch (NumberFormatException e) {
+            return Double.parseDouble(str);
+        }
+    }
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.ModelPreferences.SeparateConnectionBehavior;
 import org.jkiss.dbeaver.model.DBPContextProvider;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBPImage;
@@ -137,7 +138,12 @@ public class UIServiceSQLImpl implements UIServiceSQL {
 
     @Override
     public Object openSQLConsole(@NotNull DBPDataSourceContainer dataSourceContainer, DBCExecutionContext executionContext, DBSObject selectedObject, String name, String sqlText) {
-        SQLNavigatorContext navigatorContext = executionContext != null ? new SQLNavigatorContext(executionContext) : new SQLNavigatorContext(dataSourceContainer);
+        SQLNavigatorContext navigatorContext;
+        if (executionContext == null || SQLEditorUtils.isOpenSeparateConnection(dataSourceContainer)) {
+            navigatorContext = new SQLNavigatorContext(dataSourceContainer);
+        } else {
+            navigatorContext = new SQLNavigatorContext(executionContext);
+        }
         if (selectedObject != null) {
             navigatorContext.setSelectedObject(selectedObject);
         }
@@ -256,6 +262,18 @@ public class UIServiceSQLImpl implements UIServiceSQL {
 
     @Override
     public boolean useIsolatedConnections(DBPContextProvider contextProvider) {
-        return contextProvider.getExecutionContext().getDataSource().getContainer().getPreferenceStore().getBoolean(SQLPreferenceConstants.EDITOR_SEPARATE_CONNECTION);
+        DBPDataSourceContainer container = contextProvider.getExecutionContext().getDataSource().getContainer();
+        SeparateConnectionBehavior behavior = SeparateConnectionBehavior.parse(
+            container.getPreferenceStore().getString(SQLPreferenceConstants.EDITOR_SEPARATE_CONNECTION)
+        );
+        switch (behavior) {
+            case ALWAYS:
+                return true;
+            case NEVER:
+                return false;
+            case DEFAULT:
+            default: 
+                return !container.isForceUseSingleConnection();
+        }
     }
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,10 +27,10 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Matchers;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -81,7 +81,7 @@ public class GreenplumExternalTableTest {
         Mockito.when(mockSchema.getTableCache()).thenReturn(mockTableCache);
         Mockito.when(mockDataSource.getSQLDialect()).thenReturn(new PostgreDialect());
         Mockito.when(mockDataSource.getServerType()).thenReturn(mockServerGreenplum);
-        Mockito.when(mockDataSource.isServerVersionAtLeast(Matchers.anyInt(), Matchers.anyInt())).thenReturn(false);
+        Mockito.when(mockDataSource.isServerVersionAtLeast(ArgumentMatchers.anyInt(), ArgumentMatchers.anyInt())).thenReturn(false);
 
         Mockito.when(mockResults.getString("relname")).thenReturn(exampleTableName);
         Mockito.when(mockResults.getString("fmttype")).thenReturn(exampleFormatType);
@@ -621,7 +621,7 @@ public class GreenplumExternalTableTest {
     @Test
     public void generateChangeOwnerQuery_whenProvidedAValidOwner_thenShouldGenerateQuerySuccessfully() {
         GreenplumExternalTable table = new GreenplumExternalTable(mockSchema, mockResults);
-        Assert.assertEquals("ALTER EXTERNAL TABLE sampleSchema.sampleTable OWNER TO someOwner",
+        Assert.assertEquals("ALTER EXTERNAL TABLE \"sampleSchema\".\"sampleTable\" OWNER TO someOwner",
                 table.generateChangeOwnerQuery("someOwner"));
     }
 

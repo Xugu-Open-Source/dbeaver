@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,12 +25,13 @@ import org.jkiss.utils.CommonUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Opcodes;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -65,12 +66,12 @@ public class DriverClassFindJob implements DBRRunnableWithProgress {
     }
 
     private void findDriverClasses(DBRProgressMonitor monitor) {
-        java.util.List<File> libFiles = driver.getAllLibraryFiles();
+        java.util.List<Path> libFiles = driver.getAllLibraryFiles(monitor);
         java.util.List<URL> libURLs = new ArrayList<>();
-        for (File libFile : libFiles) {
-            if (libFile != null && libFile.exists() && !libFile.isDirectory()) {
+        for (Path libFile : libFiles) {
+            if (libFile != null && Files.exists(libFile) && !Files.isDirectory(libFile)) {
                 try {
-                    libURLs.add(libFile.toURI().toURL());
+                    libURLs.add(libFile.toUri().toURL());
                 } catch (MalformedURLException e) {
                     log.debug(e);
                 }
@@ -78,20 +79,24 @@ public class DriverClassFindJob implements DBRRunnableWithProgress {
         }
         ClassLoader findCL = new URLClassLoader(libURLs.toArray(new URL[0]));
 
-        for (File libFile : libFiles) {
+        for (Path libFile : libFiles) {
             if (monitor.isCanceled()) {
                 break;
             }
-            if (!libFile.isDirectory()) {
+            if (!Files.isDirectory(libFile)) {
                 findDriverClasses(monitor, findCL, libFile);
             }
         }
     }
 
-    private void findDriverClasses(DBRProgressMonitor monitor, ClassLoader findCL, File libFile) {
-        try {
-            JarFile currentFile = new JarFile(libFile, false);
-            monitor.beginTask(libFile.getName(), currentFile.size());
+    private void findDriverClasses(DBRProgressMonitor monitor, ClassLoader findCL, Path libFile) {
+        String jarName = libFile.getFileName().toString();
+        if (!jarName.endsWith(".jar") && !jarName.endsWith(".zip")) {
+            // Dummy file type validation
+            return;
+        }
+        try (JarFile currentFile = new JarFile(libFile.toFile(), false)) {
+            monitor.beginTask(jarName, currentFile.size());
 
             for (Enumeration<?> e = currentFile.entries(); e.hasMoreElements(); ) {
                 {

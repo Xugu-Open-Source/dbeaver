@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
+import org.jkiss.dbeaver.model.impl.sql.QueryTransformerTop;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectFilter;
@@ -254,7 +255,7 @@ public class SQLServerMetaModel extends GenericMetaModel implements DBCQueryTran
     @Override
     public DBCQueryTransformer createQueryTransformer(@NotNull DBCQueryTransformType type) {
         if (type == DBCQueryTransformType.RESULT_SET_LIMIT) {
-            //return new QueryTransformerTop();
+            return new QueryTransformerTop();
         }
         return null;
     }
@@ -265,8 +266,12 @@ public class SQLServerMetaModel extends GenericMetaModel implements DBCQueryTran
         try (JDBCSession session = DBUtils.openMetaSession(monitor, dataSource, "Read source code")) {
             String mdQuery;
             if (serverType == ServerType.SQL_SERVER) {
-                mdQuery = systemSchema + ".sp_helptext '" +
-                    DBUtils.getQuotedIdentifier(dataSource, schema) + "." + DBUtils.getQuotedIdentifier(dataSource, name) + "'";
+                final String objectFQN = DBUtils.getQuotedIdentifier(dataSource, schema) + "." + DBUtils.getQuotedIdentifier(dataSource, name);
+                if (SQLServerUtils.isDriverBabelfish(dataSource.getContainer().getDriver())) {
+                    mdQuery = "SELECT definition FROM sys.sql_modules WHERE object_id = (OBJECT_ID(N'" + objectFQN + "'))";
+                } else {
+                    mdQuery = systemSchema + ".sp_helptext '" + objectFQN + "'";
+                }
             } else {
                 if (isSapIQ(dataSource)) {
                     mdQuery = "SELECT s.source\n" +
@@ -421,38 +426,31 @@ public class SQLServerMetaModel extends GenericMetaModel implements DBCQueryTran
     }
 
     @Override
-    public List<GenericSequence> loadSequences(@NotNull DBRProgressMonitor monitor, GenericStructContainer container) throws DBException {
-        try (JDBCSession session = DBUtils.openMetaSession(monitor, container, "Read system sequences")) {
-            try (JDBCPreparedStatement dbStat = session.prepareStatement(
-                "SELECT * FROM " + SQLServerUtils.getSystemSchemaFQN(container.getDataSource(), container.getCatalog().getName(), getSystemSchema()) + ".sequences WHERE schema_name(schema_id)=?")) {
-                dbStat.setString(1, container.getSchema().getName());
-                List<GenericSequence> result = new ArrayList<>();
+    public JDBCStatement prepareSequencesLoadStatement(@NotNull JDBCSession session, @NotNull GenericStructContainer container) throws SQLException {
+        JDBCPreparedStatement dbStat = session.prepareStatement(
+            "SELECT * FROM " +
+                SQLServerUtils.getSystemSchemaFQN(container.getDataSource(), container.getCatalog().getName(), getSystemSchema()) +
+                ".sequences WHERE schema_name(schema_id)=?");
+        dbStat.setString(1, container.getSchema().getName());
+        return dbStat;
+    }
 
-                try (JDBCResultSet dbResult = dbStat.executeQuery()) {
-                    while (dbResult.next()) {
-                        String name = JDBCUtils.safeGetString(dbResult, "name");
-                        if (name == null) {
-                            continue;
-                        }
-                        name = name.trim();
-                        GenericSequence sequence = new GenericSequence(
-                            container,
-                            name,
-                            null,
-                            CommonUtils.toLong(JDBCUtils.safeGetObject(dbResult, "current_value")),
-                            CommonUtils.toLong(JDBCUtils.safeGetObject(dbResult, "minimum_value")),
-                            CommonUtils.toLong(JDBCUtils.safeGetObject(dbResult, "maximum_value")),
-                            CommonUtils.toLong(JDBCUtils.safeGetObject(dbResult, "increment"))
-                        );
-                        result.add(sequence);
-                    }
-                }
-                return result;
-
-            }
-        } catch (SQLException e) {
-            throw new DBException(e, container.getDataSource());
+    @Override
+    public GenericSequence createSequenceImpl(@NotNull JDBCSession session, @NotNull GenericStructContainer container, @NotNull JDBCResultSet dbResult) {
+        String name = JDBCUtils.safeGetString(dbResult, "name");
+        if (CommonUtils.isEmpty(name)) {
+            return null;
         }
+        name = name.trim();
+        return new GenericSequence(
+            container,
+            name,
+            null,
+            CommonUtils.toLong(JDBCUtils.safeGetObject(dbResult, "current_value")),
+            CommonUtils.toLong(JDBCUtils.safeGetObject(dbResult, "minimum_value")),
+            CommonUtils.toLong(JDBCUtils.safeGetObject(dbResult, "maximum_value")),
+            CommonUtils.toLong(JDBCUtils.safeGetObject(dbResult, "increment"))
+        );
     }
 
     @Override
@@ -461,38 +459,29 @@ public class SQLServerMetaModel extends GenericMetaModel implements DBCQueryTran
     }
 
     @Override
-    public List<? extends GenericSynonym> loadSynonyms(@NotNull DBRProgressMonitor monitor, GenericStructContainer container) throws DBException {
-        try (JDBCSession session = DBUtils.openMetaSession(monitor, container, "Read system synonyms")) {
-            try (JDBCPreparedStatement dbStat = session.prepareStatement(
-                "SELECT * FROM " + SQLServerUtils.getSystemSchemaFQN(container.getDataSource(), container.getCatalog().getName(), getSystemSchema()) + ".synonyms WHERE schema_name(schema_id)=?")) {
-                dbStat.setString(1, container.getSchema().getName());
-                List<GenericSynonym> result = new ArrayList<>();
-
-                try (JDBCResultSet dbResult = dbStat.executeQuery()) {
-                    while (dbResult.next()) {
-                        String name = JDBCUtils.safeGetString(dbResult, "name");
-                        if (name == null) {
-                            continue;
-                        }
-                        name = name.trim();
-                        SQLServerGenericSynonym synonym = new SQLServerGenericSynonym(
-                            container,
-                            name,
-                            null,
-                            JDBCUtils.safeGetString(dbResult, "base_object_name"));
-                        result.add(synonym);
-                    }
-                }
-                return result;
-
-            }
-        } catch (SQLException e) {
-            throw new DBException(e, container.getDataSource());
-        }
+    public JDBCStatement prepareSynonymsLoadStatement(@NotNull JDBCSession session, @NotNull GenericStructContainer container) throws SQLException {
+        JDBCPreparedStatement dbStat = session.prepareStatement(
+            "SELECT * FROM " + SQLServerUtils.getSystemSchemaFQN(container.getDataSource(), container.getCatalog().getName(), getSystemSchema()) + ".synonyms WHERE schema_name(schema_id)=?");
+        dbStat.setString(1, container.getSchema().getName());
+        return dbStat;
     }
 
     @Override
-    public GenericTableBase createTableImpl(GenericStructContainer container, String tableName, String tableType, JDBCResultSet dbResult) {
+    public GenericSynonym createSynonymImpl(@NotNull JDBCSession session, @NotNull GenericStructContainer container, @NotNull JDBCResultSet dbResult) throws DBException {
+        String name = JDBCUtils.safeGetString(dbResult, "name");
+        if (CommonUtils.isEmpty(name)) {
+            return null;
+        }
+        name = name.trim();
+        return new SQLServerGenericSynonym(
+            container,
+            name,
+            null,
+            JDBCUtils.safeGetString(dbResult, "base_object_name"));
+    }
+
+    @Override
+    public GenericTableBase createTableOrViewImpl(GenericStructContainer container, String tableName, String tableType, JDBCResultSet dbResult) {
         if (tableType != null && isView(tableType)) {
             return new SQLServerGenericView(container, tableName, tableType, dbResult);
         } else {

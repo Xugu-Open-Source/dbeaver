@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * Common utils
@@ -40,6 +41,10 @@ public class ArrayUtils {
     public static boolean isEmpty(@Nullable short[] array)
     {
         return array == null || array.length == 0;
+    }
+
+    public static boolean isArray(@Nullable Object value) {
+        return value != null && value.getClass().isArray();
     }
 
     public static boolean contains(@Nullable short[] array, short value)
@@ -129,17 +134,26 @@ public class ArrayUtils {
     }
 
     @SafeVarargs
-    public static <OBJECT_TYPE> boolean contains(OBJECT_TYPE[] array, OBJECT_TYPE... values)
-    {
-        if (isEmpty(array))
-            return false;
-        for (int i = 0; i < array.length; i++) {
-            for (int k = 0; k < values.length; k++) {
-                if (CommonUtils.equalObjects(array[i], values[k]))
+    public static <OBJECT_TYPE> boolean containsAny(OBJECT_TYPE[] array, OBJECT_TYPE... values) {
+        for (OBJECT_TYPE item : array) {
+            for (OBJECT_TYPE value : values) {
+                if (CommonUtils.equalObjects(item, value))
                     return true;
             }
         }
         return false;
+    }
+
+    @SafeVarargs
+    public static <OBJECT_TYPE> boolean containsAll(OBJECT_TYPE[] array, OBJECT_TYPE... values) {
+        if (isEmpty(array)) {
+            return false;
+        }
+        for (OBJECT_TYPE value : values) {
+            if (!ArrayUtils.contains(array, value))
+                return false;
+        }
+        return true;
     }
 
     @NotNull
@@ -158,6 +172,18 @@ public class ArrayUtils {
         } else {
             return Arrays.asList(array);
         }
+    }
+
+    /**
+     * Returns index of the first found element satisfying a given predicate in the provided array 
+     */
+    public static <T> int indexOf(@NotNull T[] array, @NotNull Predicate<T> condition) {
+        for (int i = 0; i < array.length; i++) {
+            if (condition.test(array[i])) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     public static <T> int indexOf(T[] array, T element) {
@@ -258,5 +284,28 @@ public class ArrayUtils {
     @SuppressWarnings("unchecked")
     public static <T> T[] toArray(Class<T> type, Collection<? extends T> list) {
         return list.toArray((T[]) Array.newInstance(type, list.size()));
+    }
+
+    @Nullable
+    public static boolean[] unbox(@Nullable Boolean[] source) {
+        if (source == null) {
+            return null;
+        }
+        final boolean[] result = new boolean[source.length];
+        for (int i = 0; i < source.length; i++) {
+            result[i] = source[i];
+        }
+        return result;
+    }
+
+    public static void reverse(@Nullable Object[] array) {
+        if (array == null || array.length <= 1) {
+            return;
+        }
+        for (int i = 0, j = array.length - 1; j > i; ++i, j--) {
+            final Object tmp = array[j];
+            array[j] = array[i];
+            array[i] = tmp;
+        }
     }
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,19 +24,26 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.*;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPReferentialIntegrityController;
 import org.jkiss.dbeaver.model.DBUtils;
-import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
 import org.jkiss.dbeaver.model.sql.registry.SQLDialectDescriptor;
 import org.jkiss.dbeaver.model.sql.registry.SQLDialectRegistry;
 import org.jkiss.dbeaver.model.sql.registry.SQLInsertReplaceMethodDescriptor;
 import org.jkiss.dbeaver.model.struct.DBSDataBulkLoader;
 import org.jkiss.dbeaver.model.struct.DBSDataManipulator;
+import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
+import org.jkiss.dbeaver.registry.configurator.UIPropertyConfiguratorDescriptor;
+import org.jkiss.dbeaver.registry.configurator.UIPropertyConfiguratorRegistry;
 import org.jkiss.dbeaver.tools.transfer.database.DatabaseConsumerSettings;
 import org.jkiss.dbeaver.tools.transfer.database.DatabaseMappingContainer;
 import org.jkiss.dbeaver.tools.transfer.database.DatabaseTransferConsumer;
 import org.jkiss.dbeaver.tools.transfer.internal.DTMessages;
+import org.jkiss.dbeaver.tools.transfer.registry.DataTransferEventProcessorDescriptor;
+import org.jkiss.dbeaver.tools.transfer.registry.DataTransferRegistry;
+import org.jkiss.dbeaver.tools.transfer.ui.IDataTransferEventProcessorConfigurator;
+import org.jkiss.dbeaver.tools.transfer.ui.controls.EventProcessorComposite;
 import org.jkiss.dbeaver.tools.transfer.ui.internal.DTUIMessages;
 import org.jkiss.dbeaver.tools.transfer.ui.pages.DataTransferPageNodeSettings;
 import org.jkiss.dbeaver.ui.ShellUtils;
@@ -64,11 +71,13 @@ public class DatabaseConsumerPageLoadSettings extends DataTransferPageNodeSettin
     private Text multiRowInsertBatch;
     private Button skipBindValues;
     private Button useBatchCheck;
+    private Button ignoreDuplicateRows;
     private Button useBulkLoadCheck;
     private List<SQLInsertReplaceMethodDescriptor> availableInsertMethodsDescriptors;
+    private final Map<String, EventProcessorComposite<?>> processors = new HashMap<>();
 
     public DatabaseConsumerPageLoadSettings() {
-    	super(DTUIMessages.database_consumer_wizard_name);
+        super(DTUIMessages.database_consumer_wizard_name);
         setTitle(DTUIMessages.database_consumer_wizard_title);
         setDescription(DTUIMessages.database_consumer_wizard_description);
         setPageComplete(false);
@@ -154,21 +163,34 @@ public class DatabaseConsumerPageLoadSettings extends DataTransferPageNodeSettin
         }
 
         {
-            Group generalSettings = UIUtils.createControlGroup(composite, DTUIMessages.database_consumer_wizard_general_group_label, 4, GridData.VERTICAL_ALIGN_BEGINNING | GridData.HORIZONTAL_ALIGN_BEGINNING, 0);
-            final Button showTableCheckbox = UIUtils.createCheckbox(generalSettings, DTUIMessages.database_consumer_wizard_table_checkbox_label, null, settings.isOpenTableOnFinish(), 4);
+            Group generalSettings = UIUtils.createControlGroup(composite, DTUIMessages.database_consumer_wizard_general_group_label, 1, GridData.VERTICAL_ALIGN_BEGINNING | GridData.HORIZONTAL_ALIGN_BEGINNING, 0);
+            final Button showTableCheckbox = UIUtils.createCheckbox(generalSettings, DTUIMessages.database_consumer_wizard_table_checkbox_label, settings.isOpenTableOnFinish());
             showTableCheckbox.addSelectionListener(new SelectionAdapter() {
                 @Override
                 public void widgetSelected(SelectionEvent e) {
                     settings.setOpenTableOnFinish(showTableCheckbox.getSelection());
                 }
             });
-            final Button showFinalMessageCheckbox = UIUtils.createCheckbox(generalSettings, DTUIMessages.database_consumer_wizard_final_message_checkbox_label, null, getWizard().getSettings().isShowFinalMessage(), 4);
+            final Button showFinalMessageCheckbox = UIUtils.createCheckbox(generalSettings, DTUIMessages.database_consumer_wizard_final_message_checkbox_label, getWizard().getSettings().isShowFinalMessage());
             showFinalMessageCheckbox.addSelectionListener(new SelectionAdapter() {
                 @Override
                 public void widgetSelected(SelectionEvent e) {
                     getWizard().getSettings().setShowFinalMessage(showFinalMessageCheckbox.getSelection());
                 }
             });
+
+            final DataTransferRegistry dataTransferRegistry = DataTransferRegistry.getInstance();
+            final UIPropertyConfiguratorRegistry configuratorRegistry = UIPropertyConfiguratorRegistry.getInstance();
+
+            for (DataTransferEventProcessorDescriptor descriptor : dataTransferRegistry.getEventProcessors(DatabaseTransferConsumer.NODE_ID)) {
+                try {
+                    final UIPropertyConfiguratorDescriptor configuratorDescriptor = configuratorRegistry.getDescriptor(descriptor.getType().getImplName());
+                    final IDataTransferEventProcessorConfigurator<DatabaseConsumerSettings> configurator = configuratorDescriptor.createConfigurator();
+                    this.processors.put(descriptor.getId(), new EventProcessorComposite<>(this::updatePageCompletion, generalSettings, settings, descriptor, configurator));
+                } catch (Exception e) {
+                    log.error("Can't create event processor", e);
+                }
+            }
         }
 
         {
@@ -206,7 +228,7 @@ public class DatabaseConsumerPageLoadSettings extends DataTransferPageNodeSettin
                 (!useBatchCheck.isDisposed() && useBatchCheck.getSelection()) ||
                 (useBatchCheck.isDisposed() && settings.isDisableUsingBatches())))
             {
-                useMultiRowInsert.setEnabled(false);
+                disableButton(useMultiRowInsert);
             }
             useMultiRowInsert.addSelectionListener(new SelectionAdapter() {
                 @Override
@@ -228,19 +250,22 @@ public class DatabaseConsumerPageLoadSettings extends DataTransferPageNodeSettin
             gd.horizontalSpan = 3;
             multiRowInsertBatch.setLayoutData(gd);
             multiRowInsertBatch.setText(String.valueOf(settings.getMultiRowInsertBatch()));
-            if (!useMultiRowInsert.getSelection() || useBatchCheck != null && !useBatchCheck.isDisposed() && useBatchCheck.getSelection()) {
+            if (!useMultiRowInsert.getSelection() || buttonIsAvailable(useBatchCheck) && useBatchCheck.getSelection()) {
                 multiRowInsertBatch.setEnabled(false);
             }
             multiRowInsertBatch.addModifyListener(e -> settings.setMultiRowInsertBatch(CommonUtils.toInt(multiRowInsertBatch.getText())));
-
-            skipBindValues = UIUtils.createCheckbox(performanceSettings, DTUIMessages.database_consumer_wizard_checkbox_multi_insert_skip_bind_values_label, DTUIMessages.database_consumer_wizard_checkbox_multi_insert_skip_bind_values_description, settings.isSkipBindValues(), 4);
-            skipBindValues.addSelectionListener(new SelectionAdapter() {
-                @Override
-                public void widgetSelected(SelectionEvent e) {
-                    settings.setSkipBindValues(skipBindValues.getSelection());
-                }
-            });
-
+            //This settings may break import for drivers that does not support this feature, so it is disabled for non-JDBC drivers
+            if (settings.getContainer() != null && settings.getContainer().getDataSource().getInfo().supportsStatementBinding()) {
+                skipBindValues = UIUtils.createCheckbox(performanceSettings, DTUIMessages.database_consumer_wizard_checkbox_multi_insert_skip_bind_values_label, DTUIMessages.database_consumer_wizard_checkbox_multi_insert_skip_bind_values_description, settings.isSkipBindValues(), 4);
+                skipBindValues.addSelectionListener(new SelectionAdapter() {
+                    @Override
+                    public void widgetSelected(SelectionEvent e) {
+                        settings.setSkipBindValues(skipBindValues.getSelection());
+                    }
+                });
+            } else {
+                settings.setSkipBindValues(false);
+            }
             useBatchCheck = UIUtils.createCheckbox(
                 performanceSettings,
                 DTUIMessages.database_consumer_wizard_disable_import_batches_label,
@@ -252,13 +277,51 @@ public class DatabaseConsumerPageLoadSettings extends DataTransferPageNodeSettin
                 public void widgetSelected(SelectionEvent e) {
                     settings.setDisableUsingBatches(useBatchCheck.getSelection());
                     if (useBatchCheck.getSelection()) {
-                        useMultiRowInsert.setSelection(false);
-                        useMultiRowInsert.setEnabled(false);
+                        disableButton(useMultiRowInsert);
                         settings.setUseMultiRowInsert(false);
                         multiRowInsertBatch.setEnabled(false);
-                    } else if (!useBatchCheck.getSelection() && !useMultiRowInsert.getEnabled()) {
-                        useMultiRowInsert.setEnabled(true);
+                        if (buttonIsAvailable(ignoreDuplicateRows)) {
+                            // ignoreDuplicateRows can be enabled only if useBatchCheck is checked and bulk load - not
+                            if (buttonIsAvailable(useBulkLoadCheck)) {
+                                if (!useBulkLoadCheck.getSelection()) {
+                                    ignoreDuplicateRows.setEnabled(true);
+                                }
+                            } else {
+                                ignoreDuplicateRows.setEnabled(true);
+                            }
+                        }
+                    } else if (!useBatchCheck.getSelection()) {
+                        if (!useMultiRowInsert.getEnabled()) {
+                            useMultiRowInsert.setEnabled(true);
+                        }
+                        if (buttonIsAvailable(ignoreDuplicateRows) && ignoreDuplicateRows.getEnabled()) {
+                            // ignoreDuplicateRows doesn't work with batches
+                            disableButton(ignoreDuplicateRows);
+                            settings.setIgnoreDuplicateRows(false);
+                        }
                     }
+                }
+            });
+
+            ignoreDuplicateRows = UIUtils.createCheckbox(
+                performanceSettings,
+                DTUIMessages.database_consumer_wizard_ignore_duplicate_rows_label,
+                DTUIMessages.database_consumer_wizard_ignore_duplicate_rows_tip,
+                settings.isIgnoreDuplicateRows(),
+                4
+            );
+            if (buttonIsAvailable(useBatchCheck)) {
+                boolean canIgnoreDuplicateRows = useBatchCheck.getSelection() && !settings.isUseBulkLoad();
+                ignoreDuplicateRows.setEnabled(canIgnoreDuplicateRows);
+                if (!canIgnoreDuplicateRows) {
+                    ignoreDuplicateRows.setSelection(false);
+                    settings.setIgnoreDuplicateRows(false);
+                }
+            }
+            ignoreDuplicateRows.addSelectionListener(new SelectionAdapter() {
+                @Override
+                public void widgetSelected(SelectionEvent e) {
+                    settings.setIgnoreDuplicateRows(ignoreDuplicateRows.getSelection());
                 }
             });
 
@@ -271,12 +334,31 @@ public class DatabaseConsumerPageLoadSettings extends DataTransferPageNodeSettin
             useBulkLoadCheck.addSelectionListener(new SelectionAdapter() {
                 @Override
                 public void widgetSelected(SelectionEvent e) {
-                    settings.setUseBulkLoad(useBulkLoadCheck.getSelection());
+                    boolean checkSelection = useBulkLoadCheck.getSelection();
+                    settings.setUseBulkLoad(checkSelection);
+                    if (buttonIsAvailable(ignoreDuplicateRows)) {
+                        if (checkSelection) {
+                            disableButton(ignoreDuplicateRows);
+                            settings.setIgnoreDuplicateRows(false);
+                        } else if (buttonIsAvailable(useBatchCheck) && useBatchCheck.getSelection()) {
+                            ignoreDuplicateRows.setEnabled(true);
+                        }
+                    }
+                    onDuplicateKeyInsertMethods.setEnabled(!checkSelection);
                 }
             });
         }
 
         setControl(composite);
+    }
+
+    private boolean buttonIsAvailable(Button button) {
+        return button != null && !button.isDisposed();
+    }
+
+    private void disableButton(Button button) {
+        button.setEnabled(false);
+        button.setSelection(false);
     }
 
     private void loadUISettingsForDisableReferentialIntegrityCheckbox() {
@@ -329,8 +411,15 @@ public class DatabaseConsumerPageLoadSettings extends DataTransferPageNodeSettin
 
     @Override
     public void activatePage() {
+        final DatabaseConsumerSettings settings = getSettings();
+
+        for (Map.Entry<String, EventProcessorComposite<?>> processor : processors.entrySet()) {
+            processor.getValue().setProcessorEnabled(settings.hasEventProcessor(processor.getKey()));
+            processor.getValue().loadSettings(settings.getEventProcessorSettings(processor.getKey()));
+        }
 
         updatePageCompletion();
+        updateControlsEnablement();
 
         UIUtils.asyncExec(this::loadSettings);
     }
@@ -342,12 +431,17 @@ public class DatabaseConsumerPageLoadSettings extends DataTransferPageNodeSettin
             settings.setTruncateBeforeLoad(false);
         }
 
-        if (useBulkLoadCheck != null && !useBulkLoadCheck.isDisposed()) {
-            DBPDataSource dataSource = settings.getContainerNode() == null ? null : settings.getContainerNode().getDataSource();
-            useBulkLoadCheck.setEnabled(DBUtils.getAdapter(DBSDataBulkLoader.class, dataSource) != null);
+        if (buttonIsAvailable(useBulkLoadCheck)) {
+            final DBPDataSource dataSource = settings.getContainer() == null ? null : settings.getContainer().getDataSource();
+            if (DBUtils.getAdapter(DBSDataBulkLoader.class, dataSource) == null) {
+                disableButton(useBulkLoadCheck);
+                settings.setUseBulkLoad(false);
+            }
         }
 
         loadInsertMethods();
+
+        onDuplicateKeyInsertMethods.setEnabled(!useBulkLoadCheck.getSelection());
     }
 
     private boolean confirmDataTruncate() {
@@ -358,27 +452,31 @@ public class DatabaseConsumerPageLoadSettings extends DataTransferPageNodeSettin
         if (shell.isVisible() || getSettings().isTruncateBeforeLoad()) {
             String tableNames = getWizard().getSettings().getDataPipes().stream().map(pipe -> pipe.getConsumer() == null ? "" : pipe.getConsumer().getObjectName()).collect(Collectors.joining(","));
             String checkbox_question = NLS.bind(DTUIMessages.database_consumer_wizard_truncate_checkbox_question, tableNames);
-            if (!UIUtils.confirmAction(shell, DTUIMessages.database_consumer_wizard_truncate_checkbox_title, checkbox_question))
-            {
-                return false;
-            }
+            return UIUtils.confirmAction(
+                shell,
+                DTUIMessages.database_consumer_wizard_truncate_checkbox_title,
+                checkbox_question,
+                DBIcon.STATUS_WARNING
+            );
         }
         return true;
     }
 
     private void loadInsertMethods() {
         DatabaseConsumerSettings settings = getSettings();
-        DBNDatabaseNode containerNode = settings.getContainerNode();
-        if (containerNode == null) {
+        DBSObjectContainer container = settings.getContainer();
+        if (container == null) {
             return;
         }
 
-        DBPDataSource dataSource = containerNode.getDataSource();
+        DBPDataSource dataSource = container.getDataSource();
 
         List<SQLInsertReplaceMethodDescriptor> insertMethodsDescriptors = null;
         if (dataSource != null) {
             SQLDialectDescriptor dialectDescriptor = SQLDialectRegistry.getInstance().getDialect(dataSource.getSQLDialect().getDialectId());
-            insertMethodsDescriptors = dialectDescriptor.getSupportedInsertReplaceMethodsDescriptors();
+            if (dialectDescriptor != null) {
+                insertMethodsDescriptors = dialectDescriptor.getSupportedInsertReplaceMethodsDescriptors();
+            }
         }
 
         onDuplicateKeyInsertMethods.removeAll();
@@ -409,11 +507,27 @@ public class DatabaseConsumerPageLoadSettings extends DataTransferPageNodeSettin
 
     @Override
     public void deactivatePage() {
+        final DatabaseConsumerSettings settings = getSettings();
+
+        for (Map.Entry<String, EventProcessorComposite<?>> processor : processors.entrySet()) {
+            final EventProcessorComposite<?> configurator = processor.getValue();
+            if (configurator.isProcessorEnabled() && configurator.isProcessorApplicable() && configurator.isProcessorComplete()) {
+                configurator.saveSettings(settings.getEventProcessorSettings(processor.getKey()));
+            }
+        }
+
         super.deactivatePage();
     }
 
     @Override
     protected boolean determinePageCompletion() {
+        for (EventProcessorComposite<?> processor : processors.values()) {
+            if (processor.isProcessorApplicable() && processor.isProcessorEnabled() && !processor.isProcessorComplete()) {
+                setErrorMessage(NLS.bind(DTMessages.data_transfer_wizard_output_event_processor_error_incomplete_configuration, processor.getDescriptor().getLabel()));
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -422,4 +536,9 @@ public class DatabaseConsumerPageLoadSettings extends DataTransferPageNodeSettin
         return isConsumerOfType(DatabaseTransferConsumer.class);
     }
 
+    private void updateControlsEnablement() {
+        for (EventProcessorComposite<?> processor : processors.values()) {
+            processor.setProcessorAvailable(processor.isProcessorApplicable());
+        }
+    }
 }

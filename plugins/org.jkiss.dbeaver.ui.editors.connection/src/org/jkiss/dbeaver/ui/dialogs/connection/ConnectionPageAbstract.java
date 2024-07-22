@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,34 +17,54 @@
 package org.jkiss.dbeaver.ui.dialogs.connection;
 
 import org.eclipse.jface.dialogs.DialogPage;
+import org.eclipse.jface.layout.GridDataFactory;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.jface.resource.ResourceLocator;
+import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.*;
+import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
+import org.jkiss.dbeaver.model.connection.DBPDriverSubstitutionDescriptor;
 import org.jkiss.dbeaver.model.connection.DataSourceVariableResolver;
+import org.jkiss.dbeaver.model.rm.RMConstants;
 import org.jkiss.dbeaver.registry.DataSourceDescriptor;
+import org.jkiss.dbeaver.registry.DataSourceProviderRegistry;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.ui.UIServiceSecurity;
 import org.jkiss.dbeaver.ui.*;
 import org.jkiss.dbeaver.ui.controls.VariablesHintLabel;
+import org.jkiss.dbeaver.ui.dialogs.AcceptLicenseDialog;
+import org.jkiss.dbeaver.ui.dialogs.IConnectionWizard;
 import org.jkiss.dbeaver.ui.internal.UIConnectionMessages;
+import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
+
+import java.util.List;
+import java.util.*;
 
 /**
  * ConnectionPageAbstract
  */
+public abstract class ConnectionPageAbstract extends DialogPage implements IDataSourceConnectionEditor {
+    public static final String PROP_DRIVER_SUBSTITUTION = "driver-substitution";
 
-public abstract class ConnectionPageAbstract extends DialogPage implements IDataSourceConnectionEditor
-{
+    protected static final String GROUP_CONNECTION_MODE = "connectionMode"; //$NON-NLS-1$
+    protected static final String GROUP_CONNECTION = "connection"; //$NON-NLS-1$
+    protected static final List<String> GROUP_CONNECTION_ARR = List.of(GROUP_CONNECTION);
+    @NotNull
+    protected final Map<String, List<Control>> propGroupMap = new HashMap<>();
+
     protected IDataSourceConnectionEditorSite site;
     // Driver name
     protected Text driverText;
@@ -52,8 +72,14 @@ public abstract class ConnectionPageAbstract extends DialogPage implements IData
     protected Button savePasswordCheck;
     protected ToolBar userManagementToolbar;
     private VariablesHintLabel variablesHintLabel;
+    @Nullable
+    protected Button typeManualRadio;
+    @Nullable
+    protected Button typeURLRadio;
+    private Combo driverSubstitutionCombo;
 
     private ImageDescriptor curImageDescriptor;
+    private Button licenseButton;
 
     public IDataSourceConnectionEditorSite getSite() {
         return site;
@@ -70,9 +96,8 @@ public abstract class ConnectionPageAbstract extends DialogPage implements IData
         this.site = site;
     }
 
-    protected boolean isCustomURL()
-    {
-        return false;
+    protected boolean isCustomURL() {
+        return typeURLRadio != null && typeURLRadio.getSelection();
     }
 
     @Override
@@ -80,6 +105,9 @@ public abstract class ConnectionPageAbstract extends DialogPage implements IData
         DBPDriver driver = site.getDriver();
         if (driver != null && driverText != null) {
             driverText.setText(CommonUtils.toString(driver.getFullName()));
+        }
+        if (licenseButton != null) {
+            UIUtils.setControlVisible(licenseButton, driver != null && !CommonUtils.isEmpty(driver.getLicense()));
         }
 
         DataSourceDescriptor dataSource = (DataSourceDescriptor) getSite().getActiveDataSource();
@@ -94,9 +122,21 @@ public abstract class ConnectionPageAbstract extends DialogPage implements IData
 
         if (variablesHintLabel != null) {
             if (dataSource != null) {
-                variablesHintLabel.setResolver(new DataSourceVariableResolver(dataSource, dataSource.getConnectionConfiguration()));
+                variablesHintLabel.setResolver(new DataSourceVariableResolver(dataSource,
+                    dataSource.getConnectionConfiguration()));
             } else {
                 variablesHintLabel.setResolver(null);
+            }
+        }
+
+        if (driverSubstitutionCombo != null) {
+            final DBPDriverSubstitutionDescriptor driverSubstitution = dataSource.getDriverSubstitution();
+            if (driverSubstitution != null) {
+                final DBPDriverSubstitutionDescriptor[] substitutions
+                    = DataSourceProviderRegistry.getInstance().getAllDriverSubstitutions();
+                driverSubstitutionCombo.select(ArrayUtils.indexOf(substitutions, driverSubstitution) + 1);
+            } else {
+                driverSubstitutionCombo.select(0);
             }
         }
     }
@@ -113,21 +153,30 @@ public abstract class ConnectionPageAbstract extends DialogPage implements IData
                 descriptor.resetPassword();
             }
         }
+
+        if (driverSubstitutionCombo != null) {
+            final int substitutionIndex = driverSubstitutionCombo.getSelectionIndex();
+            if (substitutionIndex > 0) {
+                final DBPDriverSubstitutionDescriptor[] substitutions
+                    = DataSourceProviderRegistry.getInstance().getAllDriverSubstitutions();
+                dataSource.setDriverSubstitution(substitutions[substitutionIndex - 1]);
+            } else {
+                dataSource.setDriverSubstitution(null);
+            }
+        }
     }
 
     protected void saveConnectionURL(DBPConnectionConfiguration connectionInfo)
     {
         if (!isCustomURL()) {
             connectionInfo.setUrl(
-                site.getDriver().getDataSourceProvider().getConnectionURL(
-                    site.getDriver(),
-                    connectionInfo));
+                site.getDriver().getConnectionURL(connectionInfo));
         }
     }
 
     protected void createDriverPanel(Composite parent) {
 
-        Composite panel = UIUtils.createComposite(parent, 4);
+        Composite panel = UIUtils.createComposite(parent, 5);
         GridData gd = new GridData(GridData.FILL_HORIZONTAL | GridData.VERTICAL_ALIGN_END);
         gd.horizontalSpan = ((GridLayout) parent.getLayout()).numColumns;
         gd.grabExcessHorizontalSpace = true;
@@ -138,11 +187,11 @@ public abstract class ConnectionPageAbstract extends DialogPage implements IData
             variablesHintLabel = new VariablesHintLabel(panel,
                 UIConnectionMessages.dialog_connection_edit_connection_settings_variables_hint_label,
                 UIConnectionMessages.dialog_connection_edit_connection_settings_variables_hint_label,
-                DataSourceDescriptor.CONNECT_VARIABLES,
+                DBPConnectionConfiguration.INTERNAL_CONNECT_VARIABLES,
                 false);
-            ((GridData)variablesHintLabel.getInfoLabel().getLayoutData()).horizontalSpan = site.isNew() ? 3 : 4;
+            ((GridData)variablesHintLabel.getInfoLabel().getLayoutData()).horizontalSpan = site.isNew() ? 4 : 5;
         } else {
-            UIUtils.createEmptyLabel(panel, 3, 1);
+            UIUtils.createEmptyLabel(panel, 5, 1);
         }
 
         if (site.isNew()) {
@@ -157,29 +206,56 @@ public abstract class ConnectionPageAbstract extends DialogPage implements IData
 
         Label divLabel = new Label(panel, SWT.SEPARATOR | SWT.HORIZONTAL);
         gd = new GridData(GridData.FILL_HORIZONTAL);
-        gd.horizontalSpan = 4;
+        gd.horizontalSpan = 5;
         divLabel.setLayoutData(gd);
 
-        Label driverLabel = new Label(panel, SWT.NONE);
-        driverLabel.setText(UIConnectionMessages.dialog_connection_driver);
-        driverLabel.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING));
+        {
+            Composite driverInfoComp = UIUtils.createComposite(panel, 5);
+            gd = new GridData(GridData.FILL_HORIZONTAL);
+            gd.horizontalSpan = 5;
+            driverInfoComp.setLayoutData(gd);
 
-        driverText = new Text(panel, SWT.READ_ONLY);
-        gd = new GridData(GridData.FILL_HORIZONTAL);
-        //gd.grabExcessHorizontalSpace = true;
-        gd.horizontalSpan = 2;
-        //gd.widthHint = 200;
-        driverText.setLayoutData(gd);
+            Label driverLabel = new Label(driverInfoComp, SWT.NONE);
+            driverLabel.setText(UIConnectionMessages.dialog_connection_driver);
+            driverLabel.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING));
 
-        Button driverButton = UIUtils.createDialogButton(panel, UIConnectionMessages.dialog_connection_edit_driver_button, new SelectionAdapter() {
-            @Override
-            public void widgetSelected(SelectionEvent e) {
-                if (site.openDriverEditor()) {
-                    updateDriverInfo(site.getDriver());
-                }
+            driverText = new Text(driverInfoComp, SWT.READ_ONLY);
+            gd = new GridData(GridData.FILL_HORIZONTAL);
+            //gd.grabExcessHorizontalSpace = true;
+            gd.horizontalSpan = 2;
+            //gd.widthHint = 200;
+            driverText.setLayoutData(gd);
+
+            if (DBWorkbench.getPlatform().getWorkspace().hasRealmPermission(RMConstants.PERMISSION_DRIVER_MANAGER)) {
+                Button driverButton = UIUtils.createDialogButton(driverInfoComp, UIConnectionMessages.dialog_connection_edit_driver_button, new SelectionAdapter() {
+                    @Override
+                    public void widgetSelected(SelectionEvent e) {
+                        if (site.openDriverEditor()) {
+                            updateDriverInfo(site.getDriver());
+                        }
+                    }
+                });
+                driverButton.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_END));
+            } else {
+                UIUtils.createEmptyLabel(driverInfoComp, 1, 1);
             }
-        });
-        driverButton.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_END));
+
+            {
+                licenseButton = UIUtils.createDialogButton(driverInfoComp, UIConnectionMessages.dialog_edit_driver_text_driver_license, new SelectionAdapter() {
+                    @Override
+                    public void widgetSelected(SelectionEvent e) {
+                        String driverLicense = site.getDriver().getLicense();
+                        if (CommonUtils.isEmpty(driverLicense)) {
+                            driverLicense = "N/A";
+                        }
+                        AcceptLicenseDialog licenseDialog = new AcceptLicenseDialog(getShell(), site.getDriver().getFullName(), driverLicense);
+                        licenseDialog.setViewMode(true);
+                        licenseDialog.open();
+                    }
+                });
+                licenseButton.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_END));
+            }
+        }
     }
 
     protected void updateDriverInfo(DBPDriver driver) {
@@ -223,9 +299,9 @@ public abstract class ConnectionPageAbstract extends DialogPage implements IData
 
         DataSourceDescriptor dataSource = (DataSourceDescriptor)getSite().getActiveDataSource();
         savePasswordCheck = UIUtils.createCheckbox(panel,
-            UIConnectionMessages.dialog_connection_wizard_final_checkbox_save_password_locally,
+            UIConnectionMessages.dialog_connection_wizard_final_checkbox_save_password,
             dataSource == null || dataSource.isSavePassword());
-        savePasswordCheck.setToolTipText(UIConnectionMessages.dialog_connection_wizard_final_checkbox_save_password_locally);
+        savePasswordCheck.setToolTipText(UIConnectionMessages.dialog_connection_wizard_final_checkbox_save_password);
         //savePasswordCheck.setLayoutData(gd);
 
         if (supportsPasswordView) {
@@ -244,45 +320,96 @@ public abstract class ConnectionPageAbstract extends DialogPage implements IData
     }
 
     private void showPasswordText(UIServiceSecurity serviceSecurity) {
-        Composite passContainer = passwordText.getParent();
         boolean passHidden = (passwordText.getStyle() & SWT.PASSWORD) == SWT.PASSWORD;
         if (passHidden) {
             if (!serviceSecurity.validatePassword(
-                site.getProject().getSecureStorage(),
+                site.getProject(),
                 "Enter project password",
-                "Enter project master password to unlock connection password view",
+                "Enter project password to unlock connection password view",
                 true))
             {
                 return;
             }
         }
 
-        Object layoutData = passwordText.getLayoutData();
-        String curValue = passwordText.getText();
-        passwordText.dispose();
-
-        if (passHidden) {
-            passwordText = new Text(passContainer, SWT.BORDER);
-        } else {
-            passwordText = new Text(passContainer, SWT.PASSWORD | SWT.BORDER);
-        }
-        passwordText.setLayoutData(layoutData);
-        passwordText.setText(curValue);
-        passContainer.layout(true, true);
-
-//        if (passwordText.getEchoChar() == '\0') {
-//            passwordText.setEchoChar('*');
-//            return;
-//        }
-//        if (serviceSecurity.validatePassword(site.getProject().getSecureStorage(), "Enter project password", "Enter project master password to unlock connection password view")) {
-//            passwordText.setEchoChar('\0');
-//        }
+        passwordText = UIUtils.recreateTextControl(
+            passwordText,
+            passHidden ? SWT.BORDER : SWT.BORDER | SWT.PASSWORD
+        );
     }
 
 
     protected Image createImage(String imageFilePath) {
         ImageDescriptor imageDescriptor = ResourceLocator.imageDescriptorFromBundle(getClass(), imageFilePath).orElse(null);
         return imageDescriptor == null ? null : imageDescriptor.createImage();
+    }
+
+    protected void createConnectionModeSwitcher(Composite parent, SelectionAdapter typeSwitcher) {
+        Label cnnTypeLabel = UIUtils.createControlLabel(parent, UIConnectionMessages.dialog_connection_mode_label);
+        cnnTypeLabel.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_END));
+        Composite modeGroup = UIUtils.createComposite(parent, 3);
+        typeManualRadio = UIUtils.createRadioButton(modeGroup, UIConnectionMessages.dialog_connection_host_label, false, typeSwitcher);
+        typeURLRadio = UIUtils.createRadioButton(modeGroup, UIConnectionMessages.dialog_connection_url_label, true, typeSwitcher);
+        modeGroup.setLayoutData(GridDataFactory.fillDefaults().span(3, 1).create());
+        createDriverSubstitutionControls(modeGroup);
+        addControlToGroup(GROUP_CONNECTION_MODE, cnnTypeLabel);
+        addControlToGroup(GROUP_CONNECTION_MODE, modeGroup);
+    }
+
+    protected void createDriverSubstitutionControls(@NotNull Composite parent) {
+        final DBPDriverSubstitutionDescriptor[] driverSubstitutions = DataSourceProviderRegistry.getInstance().getAllDriverSubstitutions();
+
+        if (driverSubstitutions.length > 0) {
+            final Composite substitutionGroup = UIUtils.createComposite(parent, 2);
+            substitutionGroup.setLayoutData(GridDataFactory.fillDefaults().grab(true, false).align(SWT.END, SWT.BEGINNING).create());
+
+            driverSubstitutionCombo = UIUtils.createLabelCombo(
+                substitutionGroup,
+                "Driver type",
+                NLS.bind(
+                    "Replaces the current driver ({0}) with the selected one.\nProvides all functionality of the original driver but driven by the substituting driver.",
+                    site.getActiveDataSource().getDriver().getFullName()
+                ),
+                SWT.DROP_DOWN | SWT.READ_ONLY
+            );
+            driverSubstitutionCombo.addSelectionListener(SelectionListener.widgetSelectedAdapter(e -> {
+                final int index = driverSubstitutionCombo.getSelectionIndex();
+                final DBPDriverSubstitutionDescriptor driverSubstitution = index > 0 ? driverSubstitutions[index - 1] : null;
+                final IConnectionWizard wizard = (IConnectionWizard) site.getWizard();
+                wizard.firePropertyChangeEvent(PROP_DRIVER_SUBSTITUTION, wizard.getDriverSubstitution(), driverSubstitution);
+            }));
+            driverSubstitutionCombo.add("JDBC");
+
+            for (DBPDriverSubstitutionDescriptor descriptor : driverSubstitutions) {
+                driverSubstitutionCombo.add(descriptor.getName());
+            }
+        }
+    }
+
+    protected void setupConnectionModeSelection(@NotNull Text urlText, boolean useUrl, @NotNull Collection<String> nonUrlPropGroups) {
+        if (typeURLRadio != null) typeURLRadio.setSelection(useUrl);
+        if (typeManualRadio != null) typeManualRadio.setSelection(!useUrl);
+        urlText.setEditable(useUrl);
+        urlText.setEnabled(useUrl);
+
+        boolean nonUrl = !useUrl;
+        for (String groupName : nonUrlPropGroups) {
+            List<Control> controls = propGroupMap.get(groupName);
+            if (controls != null) {
+                for (Control control : controls) {
+                    control.setEnabled(nonUrl);
+                    if (control instanceof Text) {
+                        ((Text) control).setEditable(nonUrl);
+                    }
+                }
+            }
+        }
+    }
+
+    protected void addControlToGroup(@NotNull String group, @NotNull Control control) {
+        propGroupMap
+            .computeIfAbsent(group, k -> new ArrayList<>())
+            .add(control);
     }
 
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,8 +26,8 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ModelPreferences;
+import org.jkiss.dbeaver.model.DBPDataKind;
 import org.jkiss.dbeaver.model.DBPDataSource;
-import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.data.*;
 import org.jkiss.dbeaver.model.exec.DBCAttributeMetaData;
@@ -41,6 +41,7 @@ import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.dbeaver.registry.expressions.ExpressionNamespaceDescriptor;
 import org.jkiss.dbeaver.registry.expressions.ExpressionRegistry;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
 
@@ -58,6 +59,9 @@ public abstract class DBVUtils {
 
     @Nullable
     public static DBVTransformSettings getTransformSettings(@NotNull DBDAttributeBinding binding, boolean create) {
+        if (DBUtils.isDynamicAttribute(binding.getAttribute()) && (binding.getParentObject() == null || binding.getParentObject().getDataKind() != DBPDataKind.DOCUMENT)) {
+            return null;
+        }
         DBVEntity vEntity = getVirtualEntity(binding, create);
         if (vEntity != null) {
             DBVEntityAttribute vAttr = vEntity.getVirtualAttribute(binding, create);
@@ -140,6 +144,9 @@ public abstract class DBVUtils {
 
     @NotNull
     public static Map<String, Object> getAttributeTransformersOptions(@NotNull DBDAttributeBinding binding) {
+        if (DBUtils.isDynamicAttribute(binding.getAttribute())) {
+            return Collections.emptyMap();
+        }
         Map<String, Object> options = null;
         final DBVTransformSettings transformSettings = getTransformSettings(binding, false);
         if (transformSettings != null) {
@@ -155,30 +162,31 @@ public abstract class DBVUtils {
     public static DBDAttributeTransformer[] findAttributeTransformers(@NotNull DBDAttributeBinding binding, @Nullable Boolean custom)
     {
         DBPDataSource dataSource = binding.getDataSource();
-        DBPDataSourceContainer container = dataSource.getContainer();
         List<? extends DBDAttributeTransformerDescriptor> tdList =
-            container.getPlatform().getValueHandlerRegistry().findTransformers(dataSource, binding.getAttribute(), custom);
+            DBWorkbench.getPlatform().getValueHandlerRegistry().findTransformers(dataSource, binding.getAttribute(), custom);
         if (tdList == null || tdList.isEmpty()) {
             return null;
         }
-        boolean filtered = false;
-        final DBVTransformSettings transformSettings = getTransformSettings(binding, false);
-        if (transformSettings != null) {
-            filtered = transformSettings.filterTransformers(tdList);
-        }
+        {
+            boolean filtered = false;
+            final DBVTransformSettings transformSettings = getTransformSettings(binding, false);
+            if (transformSettings != null) {
+                filtered = transformSettings.filterTransformers(tdList);
+            }
 
-        if (!filtered) {
-            // Leave only default transformers
-            for (int i = 0; i < tdList.size();) {
-                if (tdList.get(i).isCustom() || !tdList.get(i).isApplicableByDefault()) {
-                    tdList.remove(i);
-                } else {
-                    i++;
+            if (!filtered) {
+                // Leave only default transformers
+                for (int i = 0; i < tdList.size(); ) {
+                    if (tdList.get(i).isCustom() || !tdList.get(i).isApplicableByDefault()) {
+                        tdList.remove(i);
+                    } else {
+                        i++;
+                    }
                 }
             }
-        }
-        if (tdList.isEmpty()) {
-            return null;
+            if (tdList.isEmpty()) {
+                return null;
+            }
         }
         DBDAttributeTransformer[] result = new DBDAttributeTransformer[tdList.size()];
         for (int i = 0; i < tdList.size(); i++) {
@@ -234,7 +242,7 @@ public abstract class DBVUtils {
             }
             if (formatValues && keyValue instanceof Date) {
                 // Convert dates into string to avoid collisions
-                keyValue = valueHandler.getValueDisplayString(valueAttribute, keyValue, DBDDisplayFormat.NATIVE);
+                keyValue = valueHandler.getValueDisplayString(valueAttribute, keyValue, DBDDisplayFormat.UI);
             }
             String keyLabel;
             long keyCount = 0;
@@ -476,4 +484,39 @@ public abstract class DBVUtils {
         return jexlEngine.createExpression(expression);
     }
 
+    public static boolean isIdentifyingAttributes(@NotNull DBRProgressMonitor monitor, @NotNull List<DBSEntityAttribute> attributes) throws DBException {
+        if (attributes.isEmpty()) {
+            return false;
+        }
+        DBSEntity table = attributes.get(0).getParentObject();
+
+        {
+            // Check constraints
+            Collection<? extends DBSEntityConstraint> constraints = getAllConstraints(monitor, table);
+            if (constraints != null) {
+                for (DBSEntityConstraint constraint : constraints) {
+                    if (DBUtils.isIdentifierConstraint(monitor, constraint)) {
+                        List<? extends DBSEntityAttributeRef> attrRefs = ((DBSEntityReferrer) constraint).getAttributeReferences(monitor);
+                        if (attrRefs == null) {
+                            continue;
+                        }
+                        if (attributes.size() != attrRefs.size()) {
+                            continue;
+                        }
+                        boolean matches = true;
+                        for (int i = 0; i < attributes.size(); i++) {
+                            if (attributes.get(i) != attrRefs.get(i).getAttribute()) {
+                                matches = false;
+                                break;
+                            }
+                        }
+                        if (matches) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
 }

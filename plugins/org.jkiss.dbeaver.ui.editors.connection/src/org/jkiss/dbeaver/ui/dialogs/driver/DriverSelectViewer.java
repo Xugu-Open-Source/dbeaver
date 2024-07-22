@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,21 +21,16 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
-import org.eclipse.jface.resource.ImageDescriptor;
-import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.jface.viewers.*;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.KeyAdapter;
 import org.eclipse.swt.events.KeyEvent;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
-import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.*;
-import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.dialogs.PatternFilter;
-import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.eclipse.ui.progress.WorkbenchJob;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.model.DBIcon;
@@ -48,6 +43,7 @@ import org.jkiss.dbeaver.registry.driver.DriverDescriptor;
 import org.jkiss.dbeaver.registry.driver.DriverUtils;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
+import org.jkiss.dbeaver.ui.UIIcon;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.internal.UIConnectionMessages;
 import org.jkiss.utils.CommonUtils;
@@ -79,8 +75,14 @@ public class DriverSelectViewer extends Viewer {
     }
 
     public enum OrderBy {
-        name("Title", "Order by driver title"),
-        score("Score", "Order by driver usage score then by title");
+        name(
+            UIConnectionMessages.dialog_driver_select_viewer_order_by_name_label,
+            UIConnectionMessages.dialog_driver_select_viewer_order_by_name_description
+        ),
+        score(
+            UIConnectionMessages.dialog_driver_select_viewer_order_by_score_label,
+            UIConnectionMessages.dialog_driver_select_viewer_order_by_score_description
+        );
 
         private final String label;
         private final String description;
@@ -113,17 +115,6 @@ public class DriverSelectViewer extends Viewer {
     private final List<DBPDataSourceContainer> dataSources;
     private OrderBy orderBy;
     private Comparator<DBPDriver> driverComparator;
-
-    static {
-        ImageDescriptor descriptor = AbstractUIPlugin.imageDescriptorFromPlugin(PlatformUI.PLUGIN_ID, "$nl$/icons/full/etool16/clear_co.png"); //$NON-NLS-1$
-        if (descriptor != null) {
-            JFaceResources.getImageRegistry().put(CLEAR_ICON, descriptor);
-        }
-        descriptor = AbstractUIPlugin.imageDescriptorFromPlugin(PlatformUI.PLUGIN_ID, "$nl$/icons/full/dtool16/clear_co.png"); //$NON-NLS-1$
-        if (descriptor != null) {
-            JFaceResources.getImageRegistry().put(DISABLED_CLEAR_ICON, descriptor);
-        }
-    }
 
     private static SelectorViewType getCurrentSelectorViewType() {
         String viewTypeStr = DBWorkbench.getPlatform().getPreferenceStore().getString(PROP_SELECTOR_VIEW_TYPE);
@@ -172,6 +163,10 @@ public class DriverSelectViewer extends Viewer {
         selectorComposite.setBackground(filterText.getBackground());
 
         createSelectorControl();
+
+        filterText.addTraverseListener(e -> {
+            selectorViewer.getControl().traverse(e.detail, e);
+        });
 
         refreshJob = createRefreshJob();
     }
@@ -237,6 +232,8 @@ public class DriverSelectViewer extends Viewer {
         createFilterToolbar(filterComposite);
 
         createExtraFilterControlsAfter(filterGroup);
+
+        UIUtils.asyncExec(() -> filterComposite.layout(true, true));
     }
 
     protected void createExtraFilterControlsBefore(Composite filterGroup) {
@@ -248,26 +245,16 @@ public class DriverSelectViewer extends Viewer {
     }
 
     private void createFilterToolbar(Composite parent) {
-        // only create the button if the text widget doesn't support one
-        // natively
-        final Image inactiveImage = JFaceResources.getImageRegistry().getDescriptor(DISABLED_CLEAR_ICON).createImage();
-        final Image activeImage = JFaceResources.getImageRegistry().getDescriptor(CLEAR_ICON).createImage();
-
         // Create browser control toggle
         ToolBar switcherToolbar = new ToolBar(parent, SWT.RIGHT | SWT.HORIZONTAL);
         ToolItem clearItem = new ToolItem(switcherToolbar, SWT.PUSH);
-        clearItem.setImage(activeImage);
-        clearItem.setDisabledImage(inactiveImage);
+        clearItem.setImage(DBeaverIcons.getImage(UIIcon.ERASE));
         clearItem.addSelectionListener(new SelectionAdapter() {
             @Override
             public void widgetSelected(SelectionEvent e) {
                 clearText();
                 filterText.setFocus();
             }
-        });
-        clearItem.addDisposeListener(e -> {
-            inactiveImage.dispose();
-            activeImage.dispose();
         });
 
         if (forceViewType == null) {

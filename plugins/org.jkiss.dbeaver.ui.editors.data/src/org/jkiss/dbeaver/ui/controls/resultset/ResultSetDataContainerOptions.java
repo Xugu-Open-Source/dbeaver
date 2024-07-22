@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,14 +22,14 @@ import java.util.List;
 
 public class ResultSetDataContainerOptions {
 
-    private List<Long> selectedRows;
+    private List<Integer> selectedRows;
     private List<DBDAttributeBinding> selectedColumns;
 
-    public List<Long> getSelectedRows() {
+    public List<Integer> getSelectedRows() {
         return selectedRows;
     }
 
-    public void setSelectedRows(List<Long> selectedRows) {
+    public void setSelectedRows(List<Integer> selectedRows) {
         this.selectedRows = selectedRows;
     }
 

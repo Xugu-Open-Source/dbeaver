@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ public class NavigatorPreferences {
     public static final String NAVIGATOR_LONG_LIST_FETCH_SIZE = "navigator.long.list.fetch.size"; //$NON-NLS-1$
     public static final String NAVIGATOR_SHOW_STATISTICS_INFO = "navigator.show.statistics.info"; //$NON-NLS-1$
     public static final String NAVIGATOR_SHOW_CONNECTION_HOST_NAME = "navigator.show.connection.host"; //$NON-NLS-1$
+    public static final String NAVIGATOR_SHOW_OBJECTS_DESCRIPTION = "navigator.show.objects.description"; //$NON-NLS-1$
     public static final String NAVIGATOR_SHOW_NODE_ACTIONS = "navigator.show.node.actions"; //$NON-NLS-1$
 
     public static final String NAVIGATOR_SHOW_TOOLTIPS = "navigator.show.tooltips"; //$NON-NLS-1$
@@ -46,7 +47,6 @@ public class NavigatorPreferences {
     public static final String ENTITY_EDITOR_INFO_SASH_STATE = "entity.editor.info.sash.state"; //$NON-NLS-1$
 
     public static final String CONFIRM_LOCAL_FOLDER_DELETE = "local_folder_delete"; //$NON-NLS-1$
-    public static final String CONFIRM_ENTITY_DELETE = "entity_delete"; //$NON-NLS-1$
     public static final String CONFIRM_ENTITY_REJECT = "entity_reject"; //$NON-NLS-1$
     public static final String CONFIRM_ENTITY_REVERT = "entity_revert"; //$NON-NLS-1$
     //public static final String CONFIRM_ENTITY_RENAME = "entity_rename"; //$NON-NLS-1$

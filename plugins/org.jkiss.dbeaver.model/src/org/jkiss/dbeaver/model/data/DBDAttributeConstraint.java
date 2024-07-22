@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.struct.DBSAttributeBase;
+import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.Arrays;
@@ -35,6 +36,7 @@ public class DBDAttributeConstraint extends DBDAttributeConstraintBase {
 
     @Nullable
     private DBSAttributeBase attribute;
+    private String attributeLabel;
     private String attributeName;
     private int originalVisualPosition;
     private boolean plainNameReference; // Disables ordering by column index
@@ -56,8 +58,17 @@ public class DBDAttributeConstraint extends DBDAttributeConstraintBase {
     }
 
     public DBDAttributeConstraint(@NotNull String attributeName, int originalVisualPosition) {
+        this(attributeName, attributeName, originalVisualPosition);
+    }
+
+    public DBDAttributeConstraint(
+        @NotNull String attributeName,
+        @NotNull String attributeLabel,
+        int originalVisualPosition
+    ) {
         this.attribute = null;
         this.attributeName = attributeName;
+        this.attributeLabel = attributeLabel;
         this.originalVisualPosition = originalVisualPosition;
     }
 
@@ -65,6 +76,7 @@ public class DBDAttributeConstraint extends DBDAttributeConstraintBase {
         super(source);
         this.attribute = source.attribute;
         this.attributeName = source.attributeName;
+        this.attributeLabel = source.attributeLabel;
         this.originalVisualPosition = source.originalVisualPosition;
     }
 
@@ -80,12 +92,29 @@ public class DBDAttributeConstraint extends DBDAttributeConstraintBase {
     void setAttribute(@NotNull DBSAttributeBase binding) {
         this.attribute = binding;
         this.attributeName = this.attribute.getName();
+        if (this.attribute instanceof DBDAttributeBindingMeta) {
+            DBSEntityAttribute entityAttribute = ((DBDAttributeBindingMeta) this.attribute).getEntityAttribute();
+            if (entityAttribute != null) {
+                this.attributeName = entityAttribute.getName();
+            } else {
+                this.attributeName = this.attribute.getName();
+            }
+            this.attributeLabel = ((DBDAttributeBindingMeta) this.attribute).getLabel();
+            if (CommonUtils.isEmpty(this.attributeLabel)) {
+                this.attributeLabel = this.attributeName;
+            }
+        }
         this.originalVisualPosition = attribute.getOrdinalPosition();
     }
 
     @NotNull
     public String getAttributeName() {
         return attributeName;
+    }
+
+    @NotNull
+    public String getAttributeLabel() {
+        return attributeLabel;
     }
 
     @NotNull

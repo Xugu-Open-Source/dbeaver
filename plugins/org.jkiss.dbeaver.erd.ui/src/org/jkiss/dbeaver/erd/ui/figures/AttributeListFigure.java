@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
  */
 package org.jkiss.dbeaver.erd.ui.figures;
 
-import org.eclipse.draw2dl.*;
-import org.eclipse.draw2dl.geometry.Insets;
-import org.eclipse.draw2dl.geometry.Rectangle;
+import org.eclipse.draw2d.*;
+import org.eclipse.draw2d.geometry.Insets;
+import org.eclipse.draw2d.geometry.Rectangle;
 import org.eclipse.jface.resource.ColorRegistry;
 import org.jkiss.dbeaver.erd.model.ERDEntity;
 import org.jkiss.dbeaver.erd.ui.ERDUIConstants;
@@ -59,7 +59,7 @@ public class AttributeListFigure extends Figure {
 
     public List<AttributeItemFigure> getAttributes() {
         List<AttributeItemFigure> result = new ArrayList<>();
-        for (IFigure child : getChildren()) {
+        for (Object child : getChildren()) {
             if (child instanceof AttributeItemFigure) {
                 result.add((AttributeItemFigure) child);
             }

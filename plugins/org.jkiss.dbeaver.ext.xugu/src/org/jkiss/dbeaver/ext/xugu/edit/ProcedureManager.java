@@ -30,6 +30,7 @@ import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
+import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureType;
 import org.jkiss.dbeaver.ui.UITask;
@@ -65,52 +66,67 @@ public class ProcedureManager extends SQLObjectEditor<ProcedureStandalone, Schem
 
 	@Override
 	protected ProcedureStandalone createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context,
-			final Object container, Object from, Map<String, Object> options) {
-		ProcedureStandalone procedure = new ProcedureStandalone((Schema) container, "", DBSProcedureType.PROCEDURE);
-		return new UITask<ProcedureStandalone>() {
-			@Override
-			protected ProcedureStandalone runTask() {
-				CreateProcedurePage editPage = new CreateProcedurePage(procedure);
-				if (!editPage.edit()) {
-					return null;
-				}
+			final Object container, Object from, Map<String, Object> options) throws DBException {
+		final ProcedureStandalone procedure;
+		Schema schema = (Schema) container;
+		if (from instanceof ProcedureStandalone) {
+			procedure = new ProcedureStandalone(monitor, schema, (ProcedureStandalone) from);
+			procedure.setName(getNewChildName(monitor, schema, ((ProcedureStandalone) from).getName()));
+		} else if (from == null) {
+			procedure = new UITask<ProcedureStandalone>() {
+				@Override
+				protected ProcedureStandalone runTask() {
+					ProcedureStandalone newProcedure;
+					if ("存储过程".equals(options.get("container").toString())) {
+						newProcedure = new ProcedureStandalone((Schema) container, "", DBSProcedureType.PROCEDURE);
+					} else {
+						newProcedure = new ProcedureStandalone((Schema) container, "", DBSProcedureType.FUNCTION);
+					}
+					CreateProcedurePage editPage = new CreateProcedurePage(newProcedure);
+					if (!editPage.edit()) {
+						return null;
+					}
 
-				StringBuilder desc = new StringBuilder(100);
-				desc.append("CREATE OR REPLACE ");
-				desc.append(editPage.getProcedureType());
-				desc.append(" ");
-				desc.append(procedure.getSchema().getName());
-				desc.append(".");
-				desc.append(editPage.getProcedureName());
-				if (editPage.getProcedureType().equals(DBSProcedureType.PROCEDURE)) {
+					StringBuilder desc = new StringBuilder(100);
+					desc.append("CREATE OR REPLACE ");
+					desc.append(editPage.getProcedureType());
+					desc.append(" ");
+					desc.append(newProcedure.getSchema().getName());
+					desc.append(".");
+					desc.append(editPage.getProcedureName());
+					if (editPage.getProcedureType().equals(DBSProcedureType.PROCEDURE)) {
+						desc.append(GeneralUtils.getDefaultLineSeparator());
+						desc.append("IS ");
+						desc.append(GeneralUtils.getDefaultLineSeparator());
+						desc.append("BEGIN ");
+					} else {
+						desc.append(GeneralUtils.getDefaultLineSeparator());
+						desc.append("-- Return DataType --");
+						desc.append(GeneralUtils.getDefaultLineSeparator());
+						desc.append("RETURN ");
+						desc.append(GeneralUtils.getDefaultLineSeparator());
+						desc.append("AS ");
+						desc.append(GeneralUtils.getDefaultLineSeparator());
+						desc.append("-- Variable Declaration --");
+						desc.append(GeneralUtils.getDefaultLineSeparator());
+						desc.append("BEGIN ");
+					}
 					desc.append(GeneralUtils.getDefaultLineSeparator());
-					desc.append("IS ");
+					desc.append("-- Procedure/Function body --");
 					desc.append(GeneralUtils.getDefaultLineSeparator());
-					desc.append("BEGIN ");
-				} else {
-					desc.append(GeneralUtils.getDefaultLineSeparator());
-					desc.append("-- Return DataType --");
-					desc.append(GeneralUtils.getDefaultLineSeparator());
-					desc.append("RETURN ");
-					desc.append(GeneralUtils.getDefaultLineSeparator());
-					desc.append("AS ");
-					desc.append(GeneralUtils.getDefaultLineSeparator());
-					desc.append("-- Variable Declaration --");
-					desc.append(GeneralUtils.getDefaultLineSeparator());
-					desc.append("BEGIN ");
-				}
-				desc.append(GeneralUtils.getDefaultLineSeparator());
-				desc.append("-- Procedure/Function body --");
-				desc.append(GeneralUtils.getDefaultLineSeparator());
-				desc.append("END ");
-				desc.append(";");
+					desc.append("END ");
+					desc.append(";");
 
-				procedure.setName(editPage.getProcedureName());
-				procedure.setObjectDefinitionText(desc.toString());
-				procedure.setValid(true);
-				return procedure;
-			}
-		}.execute();
+					newProcedure.setName(editPage.getProcedureName());
+					newProcedure.setObjectDefinitionText(desc.toString());
+					newProcedure.setValid(true);
+					return newProcedure;
+				}
+			}.execute();
+		} else {
+			throw new DBException("无法依据 '" + from + "' 创建存储过程/存储函数");
+		}
+		return procedure;
 	}
 
 	@Override

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,13 +23,15 @@ import org.jkiss.dbeaver.model.struct.DBSEntityType;
 import org.jkiss.dbeaver.ui.UITask;
 import org.jkiss.dbeaver.ui.editors.object.struct.EntityEditPage;
 
+import java.util.Map;
+
 /**
  * OracleTableTriggerConfigurator
  */
 public class OracleTableTriggerConfigurator implements DBEObjectConfigurator<OracleTableTrigger> {
 
     @Override
-    public OracleTableTrigger configureObject(DBRProgressMonitor monitor, Object container, OracleTableTrigger newTrigger) {
+    public OracleTableTrigger configureObject(DBRProgressMonitor monitor, Object container, OracleTableTrigger newTrigger, Map<String, Object> options) {
         return UITask.run(() -> {
             EntityEditPage editPage = new EntityEditPage(newTrigger.getDataSource(), DBSEntityType.TRIGGER);
             if (!editPage.edit()) {

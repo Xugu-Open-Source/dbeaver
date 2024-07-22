@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.ui.IWorkbenchWindow;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.app.DBPProject;
@@ -108,6 +109,11 @@ public class TaskConfigurationWizardDialog extends MultiPageWizardDialog {
         return !getWizard().isCurrentTaskSaved();
     }
 
+    @Override
+    protected boolean isDisableControlsOnRun() {
+        return true;
+    }
+
     public TaskConfigurationWizard<?> getTaskWizard() {
         return (TaskConfigurationWizard) super.getWizard();
     }
@@ -144,7 +150,7 @@ public class TaskConfigurationWizardDialog extends MultiPageWizardDialog {
 
         {
             if (getWizard().isNewTaskEditor() || getNavPagesCount() > 1) {
-                Button backButton = createButton(parent, IDialogConstants.BACK_ID, IDialogConstants.BACK_LABEL, false);
+                createButton(parent, IDialogConstants.BACK_ID, IDialogConstants.BACK_LABEL, false);
                 Button nextButton = createButton(parent, IDialogConstants.NEXT_ID, IDialogConstants.NEXT_LABEL, true);
                 getShell().setDefaultButton(nextButton);
             }
@@ -166,6 +172,26 @@ public class TaskConfigurationWizardDialog extends MultiPageWizardDialog {
     }
 
     @Override
+    public void disableButtonsOnProgress() {
+        Button button = getButton(IDialogConstants.BACK_ID);
+        if (button != null) {
+            button.setEnabled(false);
+        }
+        getWizard().updateSaveTaskButton(false);
+        super.disableButtonsOnProgress();
+    }
+
+    @Override
+    public void enableButtonsAfterProgress() {
+        Button button = getButton(IDialogConstants.BACK_ID);
+        if (button != null) {
+            button.setEnabled(true);
+        }
+        getWizard().updateSaveTaskButton(true);
+        super.enableButtonsAfterProgress();
+    }
+
+    @Override
     protected void buttonPressed(int buttonId) {
         if (buttonId == IDialogConstants.NEXT_ID &&
             getWizard() instanceof NewTaskConfigurationWizard &&
@@ -181,6 +207,7 @@ public class TaskConfigurationWizardDialog extends MultiPageWizardDialog {
                     // Now we need to create real wizard, initialize it and inject in this dialog
                         nestedTaskWizard = nextTaskWizard;
                         nestedTaskWizard.addPages();
+                        nestedTaskWizard.initializeWizard(this.getShell().getParent());
                         setWizard(nestedTaskWizard);
                 }
             } catch (Exception e) {
@@ -249,6 +276,12 @@ public class TaskConfigurationWizardDialog extends MultiPageWizardDialog {
 
     public void setEditMode(boolean editMode) {
         this.editMode = editMode;
+    }
+
+    @NotNull
+    @Override
+    protected IWizardPage getStartingPage() {
+        return getWizard().getStartingPage();
     }
 
     public static int openNewTaskDialog(IWorkbenchWindow window, DBPProject project, String taskTypeId, IStructuredSelection selection) {

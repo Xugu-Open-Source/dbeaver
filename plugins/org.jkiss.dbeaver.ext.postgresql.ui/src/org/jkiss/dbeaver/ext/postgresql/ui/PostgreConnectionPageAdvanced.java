@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,6 +35,7 @@ import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.dbeaver.ui.IDataSourceConnectionEditorSite;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.dialogs.connection.ConnectionPageAbstract;
 import org.jkiss.utils.CommonUtils;
@@ -49,6 +50,7 @@ public class PostgreConnectionPageAdvanced extends ConnectionPageAbstract
     private Button showUnavailable;
     private Button showDatabaseStatistics;
     private Button readAllDataTypes;
+    private Button readKeysWithColumns;
     private Button usePreparedStatements;
     private Combo ddPlainBehaviorCombo;
     private Combo ddTagBehaviorCombo;
@@ -91,6 +93,13 @@ public class PostgreConnectionPageAdvanced extends ConnectionPageAbstract
             showUnavailable = UIUtils.createCheckbox(secureGroup, PostgreMessages.dialog_setting_connection_show_not_available_for_conn, PostgreMessages.dialog_setting_connection_show_not_available_for_conn_tip, false, 2);
             showDatabaseStatistics = UIUtils.createCheckbox(secureGroup, PostgreMessages.dialog_setting_connection_database_statistics, PostgreMessages.dialog_setting_connection_database_statistics_tip, false, 2);
             readAllDataTypes = UIUtils.createCheckbox(secureGroup, PostgreMessages.dialog_setting_connection_read_all_data_types, PostgreMessages.dialog_setting_connection_read_all_data_types_tip, false, 2);
+
+            readKeysWithColumns = UIUtils.createCheckbox(
+                secureGroup,
+                PostgreMessages.dialog_setting_connection_read_keys_with_columns,
+                PostgreMessages.dialog_setting_connection_read_keys_with_columns_tip,
+                false,
+                2);
         }
 
         {
@@ -141,6 +150,14 @@ public class PostgreConnectionPageAdvanced extends ConnectionPageAbstract
     }
 
     @Override
+    public void setSite(IDataSourceConnectionEditorSite site) {
+        super.setSite(site);
+        if (site != null && site.getDriver() != null) {
+            setTitle(site.getDriver().getName());
+        }
+    }
+
+    @Override
     public void loadSettings()
     {
         // Load values from new connection info
@@ -164,6 +181,9 @@ public class PostgreConnectionPageAdvanced extends ConnectionPageAbstract
         readAllDataTypes.setSelection(
                 CommonUtils.getBoolean(connectionInfo.getProviderProperty(PostgreConstants.PROP_READ_ALL_DATA_TYPES),
                         globalPrefs.getBoolean(PostgreConstants.PROP_READ_ALL_DATA_TYPES)));
+        readKeysWithColumns.setSelection(
+            CommonUtils.getBoolean(connectionInfo.getProviderProperty(PostgreConstants.PROP_READ_KEYS_WITH_COLUMNS),
+                globalPrefs.getBoolean(PostgreConstants.PROP_READ_KEYS_WITH_COLUMNS)));
         if (usePreparedStatements != null) {
             usePreparedStatements.setSelection(
                     CommonUtils.getBoolean(connectionInfo.getProviderProperty(PostgreConstants.PROP_USE_PREPARED_STATEMENTS), false));
@@ -187,6 +207,7 @@ public class PostgreConnectionPageAdvanced extends ConnectionPageAbstract
         connectionCfg.setProviderProperty(PostgreConstants.PROP_SHOW_UNAVAILABLE_DB, String.valueOf(showUnavailable.getSelection()));
         connectionCfg.setProviderProperty(PostgreConstants.PROP_SHOW_DATABASE_STATISTICS, String.valueOf(showDatabaseStatistics.getSelection()));
         connectionCfg.setProviderProperty(PostgreConstants.PROP_READ_ALL_DATA_TYPES, String.valueOf(readAllDataTypes.getSelection()));
+        connectionCfg.setProviderProperty(PostgreConstants.PROP_READ_KEYS_WITH_COLUMNS, String.valueOf(readKeysWithColumns.getSelection()));
         if (usePreparedStatements != null) {
             connectionCfg.setProviderProperty(PostgreConstants.PROP_USE_PREPARED_STATEMENTS, String.valueOf(usePreparedStatements.getSelection()));
         }

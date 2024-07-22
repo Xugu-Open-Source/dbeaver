@@ -76,6 +76,7 @@
     <extension point="org.jkiss.dbeaver.aggregateFunction">
         <function id="count" class="org.jkiss.dbeaver.model.data.aggregate.FunctionCount" type="simple" label="Count" description="Value count" default="true"/>
         <function id="countDistinct" class="org.jkiss.dbeaver.model.data.aggregate.FunctionCountDistinct" type="simple" label="Count Distinct" description="Value count" default="true"/>
+        <function id="countNulls" class="org.jkiss.dbeaver.model.data.aggregate.FunctionCountNulls" type="simple" label="Count Nulls" description="Value count" default="false"/>
         <function id="sum" class="org.jkiss.dbeaver.model.data.aggregate.FunctionSum" type="simple" label="Sum" description="Sum of numbers"/>
         <function id="avg" class="org.jkiss.dbeaver.model.data.aggregate.FunctionAvg" type="simple" label="Average" description="Arithmetic mean"/>
         <function id="min" class="org.jkiss.dbeaver.model.data.aggregate.FunctionMin" type="simple" label="Minimum" description="Minimum value"/>
@@ -207,7 +208,7 @@
                 class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetPropertyTester"
                 id="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetPropertyTester"
                 namespace="org.jkiss.dbeaver.core.resultset"
-                properties="active,hasData,hasMoreData,hasfilters,canCopy,canPaste,canCut,canMove,editable,changed,canToggle,canSwitchPresentation,canNavigateLink,canNavigateHistory,supportsCount"
+                properties="active,hasData,hasMoreData,hasfilters,canSaveFilters,canCopy,canPaste,canCut,canMove,editable,changed,canToggle,canSwitchPresentation,canNavigateLink,canNavigateHistory,supportsCount,canPersistData"
                 type="org.eclipse.ui.IWorkbenchPart"/>
         <propertyTester
                 class="org.jkiss.dbeaver.ui.controls.resultset.panel.valueviewer.ValueViewPropertyTester"
@@ -251,8 +252,10 @@
         <command id="org.jkiss.dbeaver.core.resultset.cell.setDefault" name="%command.org.jkiss.dbeaver.core.resultset.cell.setDefault.name" description="%command.org.jkiss.dbeaver.core.resultset.cell.setDefault.description" categoryId="org.jkiss.dbeaver.core.rs"/>
         <command id="org.jkiss.dbeaver.core.resultset.cell.reset" name="%command.org.jkiss.dbeaver.core.resultset.cell.reset.name" description="%command.org.jkiss.dbeaver.core.resultset.cell.reset.description" categoryId="org.jkiss.dbeaver.core.rs"/>
         <command id="org.jkiss.dbeaver.core.resultset.applyChanges" name="%command.org.jkiss.dbeaver.core.resultset.applyChanges.name" description="%command.org.jkiss.dbeaver.core.resultset.applyChanges.description" categoryId="org.jkiss.dbeaver.core.rs"/>
+        <command id="org.jkiss.dbeaver.core.resultset.applyAndCommitChanges" name="%command.org.jkiss.dbeaver.core.resultset.applyAndCommitChanges.name" description="%command.org.jkiss.dbeaver.core.resultset.applyAndCommitChanges.description" categoryId="org.jkiss.dbeaver.core.rs"/>
         <command id="org.jkiss.dbeaver.core.resultset.rejectChanges" name="%command.org.jkiss.dbeaver.core.resultset.rejectChanges.name" description="%command.org.jkiss.dbeaver.core.resultset.rejectChanges.description" categoryId="org.jkiss.dbeaver.core.rs"/>
         <command id="org.jkiss.dbeaver.core.resultset.generateScript" name="%command.org.jkiss.dbeaver.core.resultset.generateScript.name" description="%command.org.jkiss.dbeaver.core.resultset.generateScript.description" categoryId="org.jkiss.dbeaver.core.rs"/>
+        <command id="org.jkiss.dbeaver.core.resultset.toggleConfirmSave" name="%command.org.jkiss.dbeaver.core.resultset.toggleConfirmSave.name" description="%command.org.jkiss.dbeaver.core.resultset.toggleConfirmSave.description" categoryId="org.jkiss.dbeaver.core.rs"/>
         <command id="org.jkiss.dbeaver.core.resultset.navigateLink" name="%command.org.jkiss.dbeaver.core.resultset.navigateLink.name" description="%command.org.jkiss.dbeaver.core.resultset.navigateLink.description" categoryId="org.jkiss.dbeaver.core.rs"/>
         <command id="org.jkiss.dbeaver.core.resultset.cell.save" name="%command.org.jkiss.dbeaver.core.resultset.cell.save.name" description="%command.org.jkiss.dbeaver.core.resultset.cell.save.description" categoryId="org.jkiss.dbeaver.core.rs"/>
         <command id="org.jkiss.dbeaver.core.resultset.grid.togglePreview" name="%command.org.jkiss.dbeaver.core.resultset.grid.togglePreview.name" description="%command.org.jkiss.dbeaver.core.resultset.grid.togglePreview.description" categoryId="org.jkiss.dbeaver.core.rs"/>
@@ -264,6 +267,14 @@
                     name="%command.org.jkiss.dbeaver.core.resultset.grid.togglePanel.param.panelId.name"
                     optional="false"
                     values="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerTogglePanel$PanelIdParameterValues">
+            </commandParameter>
+        </command>
+        <command id="org.jkiss.dbeaver.core.resultset.grid.switchContentViewer" name="%command.org.jkiss.dbeaver.core.resultset.grid.switchContentViewer.name" description="%command.org.jkiss.dbeaver.core.resultset.grid.switchContentViewer.description" categoryId="org.jkiss.dbeaver.core.rs">
+            <commandParameter
+                    id="managerId"
+                    name="%command.org.jkiss.dbeaver.core.resultset.grid.switchContentViewer.param.managerId.name"
+                    optional="false"
+                    values="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerSwitchContentViewer$StreamManagerIdParameterValues">
             </commandParameter>
         </command>
         <command id="org.jkiss.dbeaver.core.resultset.openWith" name="%command.org.jkiss.dbeaver.core.resultset.openWith.name" description="%command.org.jkiss.dbeaver.core.resultset.openWith.description" categoryId="org.jkiss.dbeaver.core.rs">
@@ -289,6 +300,15 @@
         <command id="org.jkiss.dbeaver.core.resultset.grid.copyRowNames" name="%command.org.jkiss.dbeaver.core.resultset.grid.copyRowNames.name" description="%command.org.jkiss.dbeaver.core.resultset.grid.copyRowNames.description" categoryId="org.jkiss.dbeaver.core.rs"/>
         <command id="org.jkiss.dbeaver.core.resultset.grid.columnsFitValue" name="%command.org.jkiss.dbeaver.core.resultset.grid.columnsFitValue.name" description="%command.org.jkiss.dbeaver.core.resultset.grid.columnsFitValue.description" categoryId="org.jkiss.dbeaver.core.rs"/>
         <command id="org.jkiss.dbeaver.core.resultset.grid.columnsFitScreen" name="%command.org.jkiss.dbeaver.core.resultset.grid.columnsFitScreen.name" description="%command.org.jkiss.dbeaver.core.resultset.grid.columnsFitScreen.description" categoryId="org.jkiss.dbeaver.core.rs"/>
+        <command id="org.jkiss.dbeaver.core.resultset.grid.columnsHideEmpty" name="%command.org.jkiss.dbeaver.core.resultset.grid.columnsHideEmpty.name" description="%command.org.jkiss.dbeaver.core.resultset.grid.columnsHideEmpty.description" categoryId="org.jkiss.dbeaver.core.rs"/>
+        <command id="org.jkiss.dbeaver.core.resultset.grid.selectColumn" name="%command.org.jkiss.dbeaver.core.resultset.grid.selectColumn.name" description="%command.org.jkiss.dbeaver.core.resultset.grid.selectColumn.description" categoryId="org.jkiss.dbeaver.core.rs"/>
+        <command id="org.jkiss.dbeaver.core.resultset.grid.selectRow" name="%command.org.jkiss.dbeaver.core.resultset.grid.selectRow.name" description="%command.org.jkiss.dbeaver.core.resultset.grid.selectRow.description" categoryId="org.jkiss.dbeaver.core.rs"/>
+        <command id="org.jkiss.dbeaver.core.resultset.grid.moveColumnRight" name="%command.org.jkiss.dbeaver.core.resultset.grid.moveColumnRight.name" description="%command.org.jkiss.dbeaver.core.resultset.grid.moveColumnRight.description" categoryId="org.jkiss.dbeaver.core.rs"/>
+        <command id="org.jkiss.dbeaver.core.resultset.grid.moveColumnLeft" name="%command.org.jkiss.dbeaver.core.resultset.grid.moveColumnLeft.name" description="%command.org.jkiss.dbeaver.core.resultset.grid.moveColumnLeft.description" categoryId="org.jkiss.dbeaver.core.rs"/>
+        <command id="org.jkiss.dbeaver.core.resultset.grid.hideColumns" name="%command.org.jkiss.dbeaver.core.resultset.grid.hideColumns.name" description="%command.org.jkiss.dbeaver.core.resultset.grid.hideColumns.description" categoryId="org.jkiss.dbeaver.core.rs"/>
+        <command id="org.jkiss.dbeaver.core.resultset.grid.showColumns" name="%command.org.jkiss.dbeaver.core.resultset.grid.showColumns.name" description="%command.org.jkiss.dbeaver.core.resultset.grid.showColumns.description" categoryId="org.jkiss.dbeaver.core.rs"/>
+        <command id="org.jkiss.dbeaver.core.resultset.grid.showColumnContextMenu" name="%command.org.jkiss.dbeaver.core.resultset.grid.showColumnContextMenu.name" description="%command.org.jkiss.dbeaver.core.resultset.grid.showColumnContextMenu.description" categoryId="org.jkiss.dbeaver.core.rs"/>
+            
         <command id="org.jkiss.dbeaver.core.resultset.filterMenu" name="%command.org.jkiss.dbeaver.core.resultset.filterMenu.name" description="%command.org.jkiss.dbeaver.core.resultset.filterMenu.description" categoryId="org.jkiss.dbeaver.core.rs"/>
         <command id="org.jkiss.dbeaver.core.resultset.filterMenu.distinct" name="%command.org.jkiss.dbeaver.core.resultset.filterMenu.distinct.name" description="%command.org.jkiss.dbeaver.core.resultset.filterMenu.distinct.description" categoryId="org.jkiss.dbeaver.core.rs"/>
         <command id="org.jkiss.dbeaver.core.resultset.filterSettings" name="%command.org.jkiss.dbeaver.core.resultset.filterSettings.name" description="%command.org.jkiss.dbeaver.core.resultset.filterSettings.description" categoryId="org.jkiss.dbeaver.core.rs"/>
@@ -296,9 +316,12 @@
         <command id="org.jkiss.dbeaver.core.resultset.filterClear" name="%command.org.jkiss.dbeaver.core.resultset.filterClear.name" description="%command.org.jkiss.dbeaver.core.resultset.filterClear.description" categoryId="org.jkiss.dbeaver.core.rs"/>
         <command id="org.jkiss.dbeaver.core.resultset.referencesMenu" name="%command.org.jkiss.dbeaver.core.resultset.referencesMenu.name" description="%command.org.jkiss.dbeaver.core.resultset.referencesMenu.description" categoryId="org.jkiss.dbeaver.core.rs"/>
         <command id="org.jkiss.dbeaver.core.resultset.toggleOrder" name="%command.org.jkiss.dbeaver.core.resultset.toggleOrder.name" description="%command.org.jkiss.dbeaver.core.resultset.toggleOrder.description" categoryId="org.jkiss.dbeaver.core.rs"/>
-        <command id="org.jkiss.dbeaver.core.resultset.export" name="%command.org.jkiss.dbeaver.core.resultset.export.name" description="%command.org.jkiss.dbeaver.core.resultset.export.description" categoryId="org.jkiss.dbeaver.core.rs"/>
+        <command id="org.jkiss.dbeaver.core.resultset.export" name="%command.org.jkiss.dbeaver.core.resultset.export.name" description="%command.org.jkiss.dbeaver.core.resultset.export.description" categoryId="org.jkiss.dbeaver.core.rs">
+            <commandParameter id="exportWithParameter" name="exportWithParameter" optional="true"/>
+        </command>
 
         <command id="org.jkiss.dbeaver.ui.editors.data.forSelection" name="%command.org.jkiss.dbeaver.ui.editors.data.forSelection.name" description="%command.org.jkiss.dbeaver.ui.editors.data.forSelection.description" categoryId="org.jkiss.dbeaver.core.database"/>
+        <command id="org.jkiss.dbeaver.core.generate.uuid" name="%command.org.jkiss.dbeaver.ui.editors.data.generate.uuid.name" description="%command.org.jkiss.dbeaver.ui.editors.data.generate.uuid.description" categoryId="org.jkiss.dbeaver.core.database"/>
     </extension>
 
     <extension point="org.eclipse.ui.commandImages">
@@ -327,6 +350,14 @@
         <image commandId="org.jkiss.dbeaver.core.resultset.filterSave" icon="platform:/plugin/org.jkiss.dbeaver.ui/icons/misc/filter_save.png"/>
         <image commandId="org.jkiss.dbeaver.core.resultset.filterClear" icon="platform:/plugin/org.jkiss.dbeaver.ui/icons/erase.png"/>
         <image commandId="org.jkiss.dbeaver.core.resultset.filterMenu.distinct" icon="platform:/plugin/org.jkiss.dbeaver.ui/icons/misc/filter_input.png"/>
+        <image commandId="org.jkiss.dbeaver.core.generate.uuid" icon="platform:/plugin/org.jkiss.dbeaver.model/icons/types/uuid.png"/>
+    </extension>
+
+    <extension point="org.eclipse.core.runtime.adapters">
+        <factory adaptableType="org.eclipse.ui.IWorkbenchPart" class="org.jkiss.dbeaver.ui.controls.resultset.ResultSetAdapterFactory">
+            <adapter type="org.jkiss.dbeaver.ui.controls.resultset.IResultSetController"/>
+            <adapter type="org.jkiss.dbeaver.ui.controls.resultset.ResultSetViewer"/>
+        </factory>
     </extension>
 
     <extension point="org.eclipse.core.expressions.definitions">
@@ -340,6 +371,11 @@
                 <test property="org.jkiss.dbeaver.core.resultset.active"/>
             </with>
         </definition>
+        <definition id="org.jkiss.dbeaver.core.ui.resultset.container">
+            <with variable="activePart">
+                <adapt type="org.jkiss.dbeaver.ui.controls.resultset.IResultSetController"/>
+            </with>
+        </definition>
     </extension>
 
     <extension point="org.eclipse.ui.handlers">
@@ -350,7 +386,10 @@
         <handler commandId="org.jkiss.dbeaver.core.resultset.grid.activatePreview" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain"/>
         <handler commandId="org.jkiss.dbeaver.core.resultset.grid.togglePanelMaximize" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain"/>
         <handler commandId="org.jkiss.dbeaver.core.resultset.grid.togglePanel" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerTogglePanel">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
+            <enabledWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></enabledWhen>
+        </handler>
+        <handler commandId="org.jkiss.dbeaver.core.resultset.grid.switchContentViewer" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerSwitchContentViewer">
+            <enabledWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></enabledWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.openWith" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerOpenWith">
             <enabledWhen>
@@ -370,15 +409,39 @@
             <!--<activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>-->
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.grid.copyColumnNames" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
+            <enabledWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></enabledWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.grid.copyRowNames" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
+            <enabledWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></enabledWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.grid.columnsFitValue" class="org.jkiss.dbeaver.ui.controls.resultset.spreadsheet.SpreadsheetCommandHandler">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.presentation.control"/></activeWhen>
+            <enabledWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.presentation.control"/></enabledWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.grid.columnsFitScreen" class="org.jkiss.dbeaver.ui.controls.resultset.spreadsheet.SpreadsheetCommandHandler">
+            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.presentation.control"/></activeWhen>
+        </handler>
+        <handler commandId="org.jkiss.dbeaver.core.resultset.grid.columnsHideEmpty" class="org.jkiss.dbeaver.ui.controls.resultset.spreadsheet.SpreadsheetCommandHandler">
+            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.presentation.control"/></activeWhen>
+        </handler>
+        <handler commandId="org.jkiss.dbeaver.core.resultset.grid.selectColumn" class="org.jkiss.dbeaver.ui.controls.resultset.spreadsheet.SpreadsheetCommandHandler">
+            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.presentation.control"/></activeWhen>
+        </handler>
+		<handler commandId="org.jkiss.dbeaver.core.resultset.grid.selectRow" class="org.jkiss.dbeaver.ui.controls.resultset.spreadsheet.SpreadsheetCommandHandler">
+            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.presentation.control"/></activeWhen>
+        </handler>
+        <handler commandId="org.jkiss.dbeaver.core.resultset.grid.moveColumnRight" class="org.jkiss.dbeaver.ui.controls.resultset.spreadsheet.SpreadsheetCommandHandler">
+            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.presentation.control"/></activeWhen>
+        </handler>
+        <handler commandId="org.jkiss.dbeaver.core.resultset.grid.moveColumnLeft" class="org.jkiss.dbeaver.ui.controls.resultset.spreadsheet.SpreadsheetCommandHandler">
+            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.presentation.control"/></activeWhen>
+        </handler>
+        <handler commandId="org.jkiss.dbeaver.core.resultset.grid.hideColumns" class="org.jkiss.dbeaver.ui.controls.resultset.spreadsheet.SpreadsheetCommandHandler">
+            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.presentation.control"/></activeWhen>
+        </handler>
+        <handler commandId="org.jkiss.dbeaver.core.resultset.grid.showColumns" class="org.jkiss.dbeaver.ui.controls.resultset.spreadsheet.SpreadsheetCommandHandler">
+            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.presentation.control"/></activeWhen>
+        </handler>
+        <handler commandId="org.jkiss.dbeaver.core.resultset.grid.showColumnContextMenu" class="org.jkiss.dbeaver.ui.controls.resultset.spreadsheet.SpreadsheetCommandHandler">
             <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.presentation.control"/></activeWhen>
         </handler>
 
@@ -407,7 +470,7 @@
             </enabledWhen>
         </handler>
         <handler commandId="org.eclipse.ui.edit.findReplace" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.presentation.control"/></activeWhen>
+            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
         </handler>
         <handler commandId="org.eclipse.ui.edit.text.goto.line" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
             <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.presentation.control"/></activeWhen>
@@ -428,7 +491,7 @@
             </enabledWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.focus.filter" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
+            <enabledWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></enabledWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.switchPresentation" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
             <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
@@ -461,14 +524,23 @@
             </enabledWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.filterSave" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
+            <enabledWhen>
+                <and>
+                    <reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/>
+                    <with variable="activePart">
+                        <test property="org.jkiss.dbeaver.core.resultset.canSaveFilters"/>
+                    </with>
+                </and>
+            </enabledWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.filterClear" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
             <enabledWhen>
-                <with variable="activePart">
-                    <test property="org.jkiss.dbeaver.core.resultset.hasfilters"/>
-                </with>
+                <and>
+                    <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
+                    <with variable="activePart">
+                        <test property="org.jkiss.dbeaver.core.resultset.hasfilters"/>
+                    </with>
+                </and>
             </enabledWhen>
         </handler>
 
@@ -479,26 +551,29 @@
             <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.export" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
+            <enabledWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></enabledWhen>
         </handler>
         <handler commandId="org.eclipse.ui.navigate.backwardHistory" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
             <enabledWhen>
-                <with variable="activePart">
-                    <test property="org.jkiss.dbeaver.core.resultset.canNavigateHistory" value="-1"/>
-                </with>
+                <and>
+                    <reference definitionId="org.jkiss.dbeaver.core.ui.resultset.container"/>
+                    <with variable="activePart">
+                        <test property="org.jkiss.dbeaver.core.resultset.canNavigateHistory" value="-1"/>
+                    </with>
+                </and>
             </enabledWhen>
         </handler>
         <handler commandId="org.eclipse.ui.navigate.forwardHistory" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
             <enabledWhen>
-                <with variable="activePart">
-                    <test property="org.jkiss.dbeaver.core.resultset.canNavigateHistory" value="1"/>
-                </with>
+                <and>
+                    <reference definitionId="org.jkiss.dbeaver.core.ui.resultset.container"/>
+                    <with variable="activePart">
+                        <test property="org.jkiss.dbeaver.core.resultset.canNavigateHistory" value="1"/>
+                    </with>
+                </and>
             </enabledWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.row.first" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
             <enabledWhen>
                 <with variable="activePart">
                     <test property="org.jkiss.dbeaver.core.resultset.canMove" value="back"/>
@@ -506,7 +581,6 @@
             </enabledWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.row.previous" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
             <enabledWhen>
                 <with variable="activePart">
                     <test property="org.jkiss.dbeaver.core.resultset.canMove" value="back"/>
@@ -514,7 +588,6 @@
             </enabledWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.row.next" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
             <enabledWhen>
                 <with variable="activePart">
                     <test property="org.jkiss.dbeaver.core.resultset.canMove" value="forward"/>
@@ -522,7 +595,6 @@
             </enabledWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.row.last" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
             <enabledWhen>
                 <with variable="activePart">
                     <test property="org.jkiss.dbeaver.core.resultset.canMove" value="forward"/>
@@ -530,7 +602,6 @@
             </enabledWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.fetch.page" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
             <enabledWhen>
                 <with variable="activePart">
                     <test property="org.jkiss.dbeaver.core.resultset.hasMoreData"/>
@@ -538,7 +609,6 @@
             </enabledWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.fetch.all" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
             <enabledWhen>
                 <with variable="activePart">
                     <test property="org.jkiss.dbeaver.core.resultset.hasMoreData"/>
@@ -546,7 +616,6 @@
             </enabledWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.count" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
             <enabledWhen>
                 <with variable="activePart">
                     <test property="org.jkiss.dbeaver.core.resultset.supportsCount"/>
@@ -627,27 +696,43 @@
             </enabledWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.cell.reset" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
             <enabledWhen>
-                <with variable="activePart">
-                    <test property="org.jkiss.dbeaver.core.resultset.editable" value="edit"/>
-                </with>
+                <and>
+                    <reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/>
+                    <with variable="activePart">
+                        <test property="org.jkiss.dbeaver.core.resultset.editable" value="edit"/>
+                    </with>
+                </and>
             </enabledWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.applyChanges" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
+            <enabledWhen>
+                <and>
+                    <with variable="activePart">
+                        <test property="org.jkiss.dbeaver.core.resultset.changed"/>
+                    </with>
+                    <with variable="activePart">
+                        <test property="org.jkiss.dbeaver.core.resultset.canPersistData"/>
+                    </with>
+                </and>
+            </enabledWhen>
+        </handler>
+        <handler commandId="org.jkiss.dbeaver.core.resultset.applyAndCommitChanges" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
             <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
             <enabledWhen>
-                <with variable="activePart">
-                    <test property="org.jkiss.dbeaver.core.resultset.changed"/>
-                </with>
+                <reference definitionId="org.jkiss.dbeaver.core.transactionActive"/>
             </enabledWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.rejectChanges" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
-            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
             <enabledWhen>
-                <with variable="activePart">
-                    <test property="org.jkiss.dbeaver.core.resultset.changed"/>
-                </with>
+                <and>
+                    <with variable="activePart">
+                        <test property="org.jkiss.dbeaver.core.resultset.changed"/>
+                    </with>
+                    <with variable="activePart">
+                        <test property="org.jkiss.dbeaver.core.resultset.canPersistData"/>
+                    </with>
+                </and>
             </enabledWhen>
         </handler>
         <handler commandId="org.jkiss.dbeaver.core.resultset.generateScript" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
@@ -657,6 +742,9 @@
                     <test property="org.jkiss.dbeaver.core.resultset.changed"/>
                 </with>
             </enabledWhen>
+        </handler>
+        <handler commandId="org.jkiss.dbeaver.core.resultset.toggleConfirmSave" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerToggleSaveConfirmation">
+            <activeWhen><reference definitionId="org.jkiss.dbeaver.core.ui.resultset.part"/></activeWhen>
         </handler>
         <!-- Zoom -->
         <handler commandId="org.eclipse.ui.edit.text.zoomIn" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerMain">
@@ -746,6 +834,15 @@
             </enabledWhen>
         </handler>
 
+        <handler commandId="org.jkiss.dbeaver.core.generate.uuid" class="org.jkiss.dbeaver.ui.controls.resultset.handler.GenerateUUIDHandler">
+            <with variable="activePart">
+                <or>
+                    <adapt type="org.jkiss.dbeaver.ui.controls.resultset.IResultSetController"/>
+                    <adapt type="org.eclipse.jface.text.ITextViewer"/>
+                </or>
+            </with>
+        </handler>
+
     </extension>
 
     <extension point="org.eclipse.ui.menus">
@@ -759,6 +856,36 @@
         </menuContribution>
         <menuContribution allPopups="false" locationURI="menu:org.jkiss.dbeaver.core.resultset.copyAs">
             <dynamic id="org.jkiss.dbeaver.core.resultset.openWith" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerCopyAs$CopyAsMenuContributor"/>
+        </menuContribution>
+
+        <menuContribution allPopups="false" locationURI="menu:org.jkiss.dbeaver.resultset.save.pulldown">
+            <separator name="additions" visible="false"/>
+            <command commandId="org.jkiss.dbeaver.core.resultset.generateScript"/>
+            <command commandId="org.jkiss.dbeaver.core.resultset.applyAndCommitChanges">
+                <visibleWhen checkEnabled="true"/>
+            </command>
+            <separator name="options" visible="true"/>
+            <command commandId="org.jkiss.dbeaver.core.resultset.toggleConfirmSave" style="toggle"/>
+            <separator name="hint" visible="true"/>
+            <command commandId="hint" label="%command.org.jkiss.dbeaver.core.resultset.applyChangesManualCommit.hint">
+                <visibleWhen><reference definitionId="org.jkiss.dbeaver.core.transactionActive"/></visibleWhen>
+            </command>
+            <command commandId="hint" label="%command.org.jkiss.dbeaver.core.resultset.applyChangesAutoCommit.hint">
+                <visibleWhen>
+                    <not><reference definitionId="org.jkiss.dbeaver.core.transactionActive"/></not>
+                </visibleWhen>
+            </command>
+        </menuContribution>
+
+        <menuContribution allPopups="false" locationURI="menu:org.jkiss.dbeaver.resultset.export.pulldown">
+            <command commandId="org.jkiss.dbeaver.core.resultset.export"/>
+            <separator name="openwith" visible="true"/>
+            <dynamic id="org.jkiss.dbeaver.resultset.export.openwith.list" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerOpenWith$OpenWithMenuContributor"/>
+            <separator name="default" visible="true"/>
+            <menu label="%org.jkiss.dbeaver.resultset.export.openwith.default.label">
+                <dynamic id="org.jkiss.dbeaver.resultset.export.openwith.default" class="org.jkiss.dbeaver.ui.controls.resultset.handler.ResultSetHandlerOpenWith$OpenWithMenuDefaultContributor"/>
+            </menu>
+            <command commandId="hint" label="%command.org.jkiss.dbeaver.core.resultset.export.pulldown.hint"/>
         </menuContribution>
 
         <menuContribution allPopups="false" locationURI="menu:edit?after=data">
@@ -833,13 +960,18 @@
             </menu>
         </menuContribution>
 
+        <menuContribution allPopups="false" locationURI="menu:edit?after=transforms">
+            <command commandId="org.jkiss.dbeaver.core.generate.uuid">
+                <visibleWhen checkEnabled="true"/>
+            </command>
+        </menuContribution>
     </extension>
 
     <extension point="org.eclipse.core.contenttype.contentTypes">
         <content-type
             file-extensions="databasedata"
             id="org.jkiss.dbeaver.data"
-            name="Database data flow"
+            name="%extension-point.org.eclipse.core.contenttype.contentTypes.name"
             priority="normal"/>
     </extension>
 
@@ -850,7 +982,6 @@
         <key commandId="org.jkiss.dbeaver.core.resultset.navigateLink" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.eclipse.ui.defaultAcceleratorConfiguration" sequence="ALT+SPACE"/>
         <key commandId="org.jkiss.dbeaver.core.resultset.filterMenu" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.eclipse.ui.defaultAcceleratorConfiguration" sequence="F11"/>
         <key commandId="org.jkiss.dbeaver.core.resultset.filterMenu.distinct" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.eclipse.ui.defaultAcceleratorConfiguration" sequence="CTRL+F11"/>
-        <key commandId="org.jkiss.dbeaver.core.resultset.referencesMenu" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.eclipse.ui.defaultAcceleratorConfiguration" sequence="CTRL+1"/>
         <key commandId="org.jkiss.dbeaver.core.resultset.referencesMenu" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.eclipse.ui.defaultAcceleratorConfiguration" sequence="CTRL+SHIFT+1"/>
         <key commandId="org.jkiss.dbeaver.core.resultset.toggleOrder" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.eclipse.ui.defaultAcceleratorConfiguration" sequence="CTRL+2"/>
         <key commandId="org.jkiss.dbeaver.core.resultset.row.first" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.eclipse.ui.defaultAcceleratorConfiguration" sequence="CTRL+ALT+SHIFT+ARROW_LEFT"/>
@@ -873,8 +1004,35 @@
         <key commandId="org.jkiss.dbeaver.core.resultset.grid.togglePreview" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.eclipse.ui.defaultAcceleratorConfiguration" sequence="CTRL+7"/>
         <key commandId="org.jkiss.dbeaver.core.resultset.grid.togglePreview" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.eclipse.ui.defaultAcceleratorConfiguration" sequence="F7"/>
         <key commandId="org.jkiss.dbeaver.core.resultset.grid.activatePreview" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.eclipse.ui.defaultAcceleratorConfiguration" sequence="CTRL+SHIFT+7"/>
-
         <key commandId="org.jkiss.dbeaver.core.resultset.cell.save" contextId="org.jkiss.dbeaver.ui.context.resultset.edit" schemeId="org.eclipse.ui.defaultAcceleratorConfiguration" sequence="CTRL+ALT+SHIFT+ENTER"/>
+        <key commandId="org.jkiss.dbeaver.core.resultset.grid.selectColumn" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.eclipse.ui.defaultAcceleratorConfiguration" sequence="CTRL+ALT+C"/>
+        <key commandId="org.jkiss.dbeaver.core.resultset.grid.selectRow" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.eclipse.ui.defaultAcceleratorConfiguration" sequence="CTRL+ALT+R"/>
+
+        <key commandId="org.jkiss.dbeaver.core.resultset.grid.moveColumnRight" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.jkiss.dbeaver.keyboardOnlyKeyScheme" sequence="ALT+SHIFT+ARROW_RIGHT"/>
+        <key commandId="org.jkiss.dbeaver.core.resultset.grid.moveColumnLeft" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.jkiss.dbeaver.keyboardOnlyKeyScheme" sequence="ALT+SHIFT+ARROW_LEFT"/>
+        <key commandId="org.jkiss.dbeaver.core.resultset.filterSettings" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.jkiss.dbeaver.keyboardOnlyKeyScheme" sequence="ALT+SHIFT+F"/>
+        <key commandId="org.jkiss.dbeaver.core.resultset.grid.copyColumnNames" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.jkiss.dbeaver.keyboardOnlyKeyScheme" sequence="ALT+SHIFT+C"/>
+        <key commandId="org.jkiss.dbeaver.core.resultset.grid.hideColumns" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.jkiss.dbeaver.keyboardOnlyKeyScheme" sequence="ALT+SHIFT+H"/>
+        <key commandId="org.jkiss.dbeaver.core.resultset.grid.showColumns" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.jkiss.dbeaver.keyboardOnlyKeyScheme" sequence="ALT+SHIFT+T"/>
+        <key commandId="org.jkiss.dbeaver.core.resultset.grid.showColumnContextMenu" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.jkiss.dbeaver.keyboardOnlyKeyScheme" sequence="SHIFT+F11"/>
+
+        <key commandId="org.jkiss.dbeaver.core.resultset.grid.togglePanel" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.jkiss.dbeaver.keyboardOnlyKeyScheme" sequence="CTRL+ALT+F2">
+            <parameter id="panelId" value="value-view"/>
+        </key>
+        <key commandId="org.jkiss.dbeaver.core.resultset.grid.togglePanel" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.jkiss.dbeaver.keyboardOnlyKeyScheme" sequence="CTRL+ALT+F3">
+            <parameter id="panelId" value="results-references"/>
+        </key>
+        <key commandId="org.jkiss.dbeaver.core.resultset.grid.togglePanel" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.jkiss.dbeaver.keyboardOnlyKeyScheme" sequence="CTRL+ALT+F4">
+            <parameter id="panelId" value="results-metadata"/>
+        </key>
+        <key commandId="org.jkiss.dbeaver.core.resultset.grid.togglePanel" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.jkiss.dbeaver.keyboardOnlyKeyScheme" sequence="CTRL+ALT+F5">
+            <parameter id="panelId" value="results-grouping"/>
+        </key>
+        <key commandId="org.jkiss.dbeaver.core.resultset.grid.togglePanel" contextId="org.jkiss.dbeaver.ui.context.resultset" schemeId="org.jkiss.dbeaver.keyboardOnlyKeyScheme" sequence="CTRL+ALT+F6">
+            <parameter id="panelId" value="column-aggregate"/>
+        </key>
+
+        <key commandId="org.jkiss.dbeaver.core.generate.uuid" contextId="org.eclipse.ui.contexts.window" schemeId="org.eclipse.ui.defaultAcceleratorConfiguration" sequence="CTRL+SHIFT+ALT+U"/>
     </extension>
 
     <extension point="org.eclipse.ui.contexts">
@@ -901,7 +1059,11 @@
             <description>%themeElementCategory.org.jkiss.dbeaver.ui.presentation.results.description</description>
         </themeElementCategory>
 
-        <fontDefinition id="org.jkiss.dbeaver.sql.resultset.font" categoryId="org.jkiss.dbeaver.ui.presentation.results" label="%fontDefinition.org.jkiss.dbeaver.sql.resultset.font.label">
+        <fontDefinition
+                id="org.jkiss.dbeaver.sql.resultset.font"
+                categoryId="org.jkiss.dbeaver.ui.fonts"
+                label="%fontDefinition.org.jkiss.dbeaver.sql.resultset.font.label"
+                defaultsTo="org.jkiss.dbeaver.dbeaver.ui.fonts.main">
             <description>%fontDefinition.org.jkiss.dbeaver.sql.resultset.font.description</description>
         </fontDefinition>
 
@@ -1011,6 +1173,13 @@
             <description>%colorDefinition.org.jkiss.dbeaver.sql.resultset.color.header.selected.background.description</description>
         </colorDefinition>
         <colorDefinition
+                label="%colorDefinition.org.jkiss.dbeaver.sql.resultset.color.header.border.label"
+                categoryId="org.jkiss.dbeaver.ui.presentation.results"
+                id="org.jkiss.dbeaver.sql.resultset.color.header.border"
+                value="COLOR_WIDGET_DARK_SHADOW">
+            <description>%colorDefinition.org.jkiss.dbeaver.sql.resultset.color.header.border.description</description>
+        </colorDefinition>
+        <colorDefinition
             label="%colorDefinition.org.jkiss.dbeaver.sql.resultset.color.null.foreground.label"
             categoryId="org.jkiss.dbeaver.ui.presentation.results"
             id="org.jkiss.dbeaver.sql.resultset.color.null.foreground"
@@ -1058,6 +1227,288 @@
             value="0, 0, 0">
             <description>%colorDefinition.org.jkiss.dbeaver.sql.resultset.color.string.foreground.description</description>
         </colorDefinition>
+    </extension>
+
+    <extension point="org.jkiss.dbeaver.confirmations">
+        <confirmation
+            id="org.jkiss.dbeaver.sql.resultset.serverSideOrderingUnavailable"
+            title="%confirm.org.jkiss.dbeaver.sql.resultset.serverSideOrderingUnavailable.title"
+            description="%confirm.org.jkiss.dbeaver.sql.resultset.serverSideOrderingUnavailable.tip"
+            message="%confirm.org.jkiss.dbeaver.sql.resultset.serverSideOrderingUnavailable.message"
+            toggleMessage="%confirm.org.jkiss.dbeaver.sql.resultset.serverSideOrderingUnavailable.toggleMessage"
+            group="Object Editor"/>
+        <confirmation
+                id="keep_statement_open"
+                title="%confirm.keep_statement_open.title"
+                description="%confirm.keep_statement_open.tip"
+                message="%confirm.keep_statement_open.message"
+                toggleMessage="%confirm.resultSet.toggleMessage"
+                group="%confirm.resultSet.group.name"/>
+        <confirmation
+                id="order_resultset"
+                title="%confirm.order_resultset.title"
+                description="%confirm.order_resultset.tip"
+                message="%confirm.order_resultset.message"
+                toggleMessage="%confirm.resultSet.toggleMessage"
+                group="%confirm.resultSet.group.name"/>
+        <confirmation
+                id="filter_resultset"
+                title="%confirm.filter_resultset.title"
+                description="%confirm.filter_resultset.tip"
+                message="%confirm.filter_resultset.message"
+                toggleMessage="%confirm.resultSet.toggleMessage"
+                group="%confirm.resultSet.group.name"/>
+        <confirmation
+                id="fetch_all_rows"
+                title="%confirm.fetch_all_rows.title"
+                description="%confirm.fetch_all_rows.tip"
+                message="%confirm.fetch_all_rows.message"
+                toggleMessage="%confirm.resultSet.toggleMessage"
+                group="%confirm.resultSet.group.name"/>
+        <confirmation
+                id="reset_panels_content"
+                title="%confirm.reset_panels_content.title"
+                description="%confirm.reset_panels_content.tip"
+                message="%confirm.reset_panels_content.message"
+                toggleMessage="%confirm.resultSet.toggleMessage"
+                group="%confirm.resultSet.group.name"/>
+        <confirmation
+                id="close_resultset_edit"
+                title="%confirm.close_resultset_edit.title"
+                message="%confirm.close_resultset_edit.message"
+                group="%confirm.resultSet.group.name"/>
+    </extension>
+    
+    <extension point="org.jkiss.dbeaver.toolBarConfiguration">
+        <toolBar key="resultsetViewer.bottom" name="%org.jkiss.dbeaver.toolBarConfiguration.resultsetViewer.bottom">
+            <item commandId="org.jkiss.dbeaver.core.resultset.applyChanges" defaultVisibility="true"/>
+            <item commandId="org.jkiss.dbeaver.core.resultset.rejectChanges" defaultVisibility="true"/>
+            <item commandId="org.jkiss.dbeaver.core.resultset.row.edit" defaultVisibility="true"/>
+            <item commandId="org.jkiss.dbeaver.core.resultset.row.add" defaultVisibility="true"/>
+            <item commandId="org.jkiss.dbeaver.core.resultset.row.copy" defaultVisibility="true"/>
+            <item commandId="org.jkiss.dbeaver.core.resultset.row.delete" defaultVisibility="true"/>
+            <item commandId="org.jkiss.dbeaver.core.resultset.row.first" defaultVisibility="true"/>
+            <item commandId="org.jkiss.dbeaver.core.resultset.row.previous" defaultVisibility="true"/>
+            <item commandId="org.jkiss.dbeaver.core.resultset.row.next" defaultVisibility="true"/>
+            <item commandId="org.jkiss.dbeaver.core.resultset.row.last" defaultVisibility="true"/>
+            <item commandId="org.jkiss.dbeaver.core.resultset.fetch.page" defaultVisibility="false"/>
+            <item commandId="org.jkiss.dbeaver.core.resultset.fetch.all" defaultVisibility="true"/>
+            <item commandId="org.jkiss.dbeaver.core.resultset.export" defaultVisibility="true"/>
+        </toolBar>
+    </extension>
+    
+    <extension point="org.eclipse.ui.menus">
+    
+        <menuContribution allPopups="false" locationURI="toolbar:org.jkiss.dbeaver.ui.controls.resultset.status.editCmds" >
+            <dynamic class="org.jkiss.dbeaver.ui.controls.ToolbarSeparatorContribution$Vertical" id="resultsetViewer.bottom.editCmds.separator">
+                <visibleWhen checkEnabled="false">
+                    <or>
+                        <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.applyChanges"/>
+                        <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.rejectChanges"/>
+                    </or>
+                </visibleWhen>
+            </dynamic>
+            <command commandId="org.jkiss.dbeaver.core.resultset.applyChanges" id="org.jkiss.dbeaver.resultset.save.pulldown" mode="FORCE_TEXT" style="pulldown" label="%command.org.jkiss.dbeaver.core.resultset.applyChanges.toolbarLabel">
+                <visibleWhen>
+                    <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.applyChanges"/>
+                </visibleWhen>
+            </command>
+            <command commandId="org.jkiss.dbeaver.core.resultset.rejectChanges" mode="FORCE_TEXT" label="%command.org.jkiss.dbeaver.core.resultset.rejectChanges.toolbarLabel" >
+                <visibleWhen>
+                    <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.rejectChanges"/>
+                </visibleWhen>
+            </command>
+            <dynamic class="org.jkiss.dbeaver.ui.controls.ToolbarSeparatorContribution$Vertical" id="resultsetViewer.bottom.rowCmds.separator">
+                <visibleWhen checkEnabled="false">
+                    <or>
+                        <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.row.edit"/>
+                        <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.row.add"/>
+                        <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.row.copy"/>
+                        <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.row.delete"/>
+                    </or>
+                </visibleWhen>
+            </dynamic>
+            <command commandId="org.jkiss.dbeaver.core.resultset.row.edit">
+                <visibleWhen>
+                    <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.row.edit"/>
+                </visibleWhen>
+            </command>
+            <command commandId="org.jkiss.dbeaver.core.resultset.row.add">
+                <visibleWhen>
+                    <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.row.add"/>
+                </visibleWhen>
+            </command>
+            <command commandId="org.jkiss.dbeaver.core.resultset.row.copy">
+                <visibleWhen>
+                    <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.row.copy"/>
+                </visibleWhen>
+            </command>
+            <command commandId="org.jkiss.dbeaver.core.resultset.row.delete">
+                <visibleWhen>
+                    <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.row.delete"/>
+                </visibleWhen>
+            </command>
+        </menuContribution>
+        
+        <menuContribution allPopups="false" locationURI="toolbar:org.jkiss.dbeaver.ui.controls.resultset.status.navCmds" >
+            <dynamic class="org.jkiss.dbeaver.ui.controls.ToolbarSeparatorContribution$Vertical" id="resultsetViewer.bottom.navCmds.separator">
+                <visibleWhen checkEnabled="false">
+                    <or>
+                        <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.row.first"/>
+                        <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.row.previous"/>
+                        <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.row.next"/>
+                        <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.row.last"/>
+                        <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.fetch.page"/>
+                        <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.fetch.all"/>
+                    </or>
+                </visibleWhen>
+            </dynamic>
+            <command commandId="org.jkiss.dbeaver.core.resultset.row.first">
+                <visibleWhen>
+                    <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.row.first"/>
+                </visibleWhen>
+            </command>
+            <command commandId="org.jkiss.dbeaver.core.resultset.row.previous">
+                <visibleWhen>
+                    <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.row.previous"/>
+                </visibleWhen>
+            </command>
+            <command commandId="org.jkiss.dbeaver.core.resultset.row.next">
+                <visibleWhen>
+                    <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.row.next"/>
+                </visibleWhen>
+            </command>
+            <command commandId="org.jkiss.dbeaver.core.resultset.row.last">
+                <visibleWhen>
+                    <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.row.last"/>
+                </visibleWhen>
+            </command>
+            <command commandId="org.jkiss.dbeaver.core.resultset.fetch.page">
+                <visibleWhen>
+                    <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.fetch.page"/>
+                </visibleWhen>
+            </command>
+            <command commandId="org.jkiss.dbeaver.core.resultset.fetch.all">
+                <visibleWhen>
+                    <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.fetch.all"/>
+                </visibleWhen>
+            </command>
+        </menuContribution>
+        
+        <menuContribution  allPopups="false" locationURI="toolbar:org.jkiss.dbeaver.ui.controls.resultset.status.exportCmd">
+            <dynamic class="org.jkiss.dbeaver.ui.controls.ToolbarSeparatorContribution$Vertical" id="resultsetViewer.bottom.exportCmds.separator">
+                <visibleWhen checkEnabled="false">
+                    <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.export"/>
+                </visibleWhen>
+            </dynamic>
+            <command commandId="org.jkiss.dbeaver.core.resultset.export" style="pulldown" mode="FORCE_TEXT" id="org.jkiss.dbeaver.resultset.export.pulldown">
+                <parameter name="exportWithParameter" value="true" />
+                <visibleWhen>
+                    <test property="org.jkiss.dbeaver.ui.toolbar.configuration.visible" args="resultsetViewer.bottom,org.jkiss.dbeaver.core.resultset.export"/>
+                </visibleWhen>
+            </command>
+        </menuContribution>
+        
+    </extension>
+
+    <extension point="org.eclipse.ui.preferencePages">
+        <page category="org.jkiss.dbeaver.preferences.editors" id="org.jkiss.dbeaver.preferences.main.resultset" class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetMain" name="%page.org.jkiss.dbeaver.preferences.main.resultset.name">
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.pref.editor.data"/>
+        </page>
+        <page category="org.jkiss.dbeaver.preferences.main.resultset" id="org.jkiss.dbeaver.preferences.main.resultset.editors" class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetEditors" name="%page.org.jkiss.dbeaver.preferences.main.resultset.editors.name">
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.pref.editor.content"/>
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
+        </page>
+        <page category="org.jkiss.dbeaver.preferences.main.resultset" id="org.jkiss.dbeaver.preferences.main.resultset.presentation" class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetPresentation" name="%page.org.jkiss.dbeaver.preferences.main.resultset.presentation.name">
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
+        </page>
+        <page category="org.jkiss.dbeaver.preferences.main.resultset.presentation" id="org.jkiss.dbeaver.preferences.main.resultset.grid" class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetPresentationGrid" name="%page.org.jkiss.dbeaver.preferences.main.resultset.grid.name">
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.pref.resultset.grid"/>
+        </page>
+        <page category="org.jkiss.dbeaver.preferences.main.resultset.presentation" id="org.jkiss.dbeaver.preferences.main.resultset.plain.text" class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetPresentationPlainText" name="%page.org.jkiss.dbeaver.preferences.main.resultset.plain.text.name">
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.pref.resultset.plain.text"/>
+        </page>
+        <page category="org.jkiss.dbeaver.preferences.main.resultset" id="org.jkiss.dbeaver.preferences.main.dataformat" class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageDataFormat" name="%page.org.jkiss.dbeaver.preferences.main.dataformat.name">
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.pref.db.dataformat"/>
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
+        </page>
+        <page category="org.jkiss.dbeaver.preferences.main.resultset" id="org.jkiss.dbeaver.preferences.main.dataviewer" class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageDataViewer" name="%page.org.jkiss.dbeaver.preferences.main.dataviewer.name">
+            <keywordReference id="org.jkiss.dbeaver.core.keyword.dbeaver"/>
+        </page>
+    </extension>
+
+    <extension point="org.eclipse.ui.propertyPages">
+        <page category="org.jkiss.dbeaver.preferences.editors" id="org.jkiss.dbeaver.preferences.main.resultset" class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetMain" name="%page.org.jkiss.dbeaver.preferences.main.resultset.name">
+            <enabledWhen><reference definitionId="org.jkiss.dbeaver.core.preferences.datasource"/></enabledWhen>
+        </page>
+        <page category="org.jkiss.dbeaver.preferences.main.resultset" id="org.jkiss.dbeaver.preferences.main.resultset.editors" class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetEditors" name="%page.org.jkiss.dbeaver.preferences.main.resultset.editors.name">
+            <enabledWhen><reference definitionId="org.jkiss.dbeaver.core.preferences.datasource"/></enabledWhen>
+        </page>
+        <page category="org.jkiss.dbeaver.preferences.main.resultset" id="org.jkiss.dbeaver.preferences.main.resultset.presentation" class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetPresentation" name="%page.org.jkiss.dbeaver.preferences.main.resultset.presentation.name">
+            <enabledWhen><reference definitionId="org.jkiss.dbeaver.core.preferences.datasource"/></enabledWhen>
+        </page>
+        <page category="org.jkiss.dbeaver.preferences.main.resultset.presentation" id="org.jkiss.dbeaver.preferences.main.resultset.grid" class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetPresentationGrid" name="%page.org.jkiss.dbeaver.preferences.main.resultset.grid.name">
+            <enabledWhen><reference definitionId="org.jkiss.dbeaver.core.preferences.datasource"/></enabledWhen>
+        </page>
+        <page category="org.jkiss.dbeaver.preferences.main.resultset.presentation" id="org.jkiss.dbeaver.preferences.main.resultset.plain.text" class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetPresentationPlainText" name="%page.org.jkiss.dbeaver.preferences.main.resultset.plain.text.name">
+            <enabledWhen><reference definitionId="org.jkiss.dbeaver.core.preferences.datasource"/></enabledWhen>
+        </page>
+        <page category="org.jkiss.dbeaver.preferences.main.resultset" id="org.jkiss.dbeaver.preferences.main.dataformat" class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageDataFormat" name="%page.org.jkiss.dbeaver.preferences.main.dataformat.name">
+            <enabledWhen>
+                <or>
+                    <instanceof value="org.jkiss.dbeaver.model.navigator.DBNDataSource"/>
+                    <instanceof value="org.jkiss.dbeaver.registry.formatter.DataFormatterRegistry"/>
+                    <instanceof value="org.jkiss.dbeaver.ui.controls.resultset.ResultSetViewer"/>
+                    <adapt type="org.jkiss.dbeaver.model.DBPDataSourceContainer"/>
+                </or>
+            </enabledWhen>
+        </page>
+        <page category="org.jkiss.dbeaver.preferences.main.resultset" id="org.jkiss.dbeaver.preferences.main.dataviewer" class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageDataViewer" name="%page.org.jkiss.dbeaver.preferences.main.dataviewer.name">
+            <enabledWhen><reference definitionId="org.jkiss.dbeaver.core.preferences.datasource"/></enabledWhen>
+        </page>
+    </extension>
+
+    <extension point="org.jkiss.dbeaver.ui.dataSourceConfigurator">
+        <dataSourceConfigurator>
+            <dataSourcePage
+                    id="data-editor.main"
+                    class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetMain"
+                    title="%page.org.jkiss.dbeaver.preferences.main.resultset.name"
+                    description="%page.org.jkiss.dbeaver.preferences.main.resultset.description"/>
+            <dataSourcePage
+                    id="data-editor.binary"
+                    parent="data-editor.main"
+                    class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetEditors"
+                    title="%page.org.jkiss.dbeaver.preferences.main.resultset.editors.name"
+                    description="%page.org.jkiss.dbeaver.preferences.main.resultset.editors.description"/>
+            <dataSourcePage
+                    id="data-editor.formats"
+                    parent="data-editor.main"
+                    class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageDataFormat"
+                    title="%page.org.jkiss.dbeaver.preferences.main.dataformat.name"
+                    description="%page.org.jkiss.dbeaver.preferences.main.dataformat.description"/>
+            <dataSourcePage
+                    id="data-editor.presentation"
+                    parent="data-editor.main"
+                    class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetPresentation"
+                    title="%page.org.jkiss.dbeaver.preferences.main.resultset.presentation.name"
+                    description="%page.org.jkiss.dbeaver.preferences.main.resultset.presentation.description"/>
+            <dataSourcePage
+                    id="data-editor.presentation.grid"
+                    parent="data-editor.presentation"
+                    class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetPresentationGrid"
+                    title="%page.org.jkiss.dbeaver.preferences.main.resultset.grid.name"
+                    description="%page.org.jkiss.dbeaver.preferences.main.resultset.grid.description"/>
+            <dataSourcePage
+                    id="data-editor.presentation.text"
+                    parent="data-editor.presentation"
+                    class="org.jkiss.dbeaver.ui.editors.data.preferences.PrefPageResultSetPresentationPlainText"
+                    title="%page.org.jkiss.dbeaver.preferences.main.resultset.plain.text.name"
+                    description="%page.org.jkiss.dbeaver.preferences.main.resultset.plain.text.description"/>
+        </dataSourceConfigurator>
     </extension>
 
 </plugin>

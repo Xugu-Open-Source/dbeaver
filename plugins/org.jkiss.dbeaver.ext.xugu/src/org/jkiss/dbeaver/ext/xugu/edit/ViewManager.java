@@ -49,7 +49,9 @@ import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
+import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
 import org.jkiss.dbeaver.ui.UITask;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.utils.CommonUtils;
@@ -87,24 +89,33 @@ public class ViewManager extends SQLObjectEditor<View, Schema> implements DBEObj
 
 	@Override
 	protected View createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context, final Object container,
-			Object from, Map<String, Object> options) {
+			Object from, Map<String, Object> options) throws DBException {
+		final View view;
 		Schema schema = (Schema) container;
-		return new UITask<View>() {
-			@Override
-			protected View runTask() {
-				NewViewDialog dialog = new NewViewDialog(UIUtils.getActiveWorkbenchShell(), schema);
-				if (dialog.open() != IDialogConstants.OK_ID) {
-					return null;
+		if (from instanceof View) {
+			view = new View(monitor, schema, (View) from);
+			view.setName(getNewChildName(monitor, schema, ((DBSEntity) from).getName()));
+		} else if (from == null) {
+			view = new UITask<View>() {
+				@Override
+				protected View runTask() {
+					NewViewDialog dialog = new NewViewDialog(UIUtils.getActiveWorkbenchShell(), schema);
+					if (dialog.open() != IDialogConstants.OK_ID) {
+						return null;
+					}
+					
+					View newView = dialog.getView();
+					boolean replace = dialog.getViewReplace();
+					boolean force = dialog.getViewRorce();
+					newView.setViewText("CREATE " + (replace ? "OR REPLACE " : "") + (force ? "FORCE " : "") + "VIEW "
+							+ newView.getFullyQualifiedName(DBPEvaluationContext.DDL) + " AS\nSELECT");
+					return newView;
 				}
-				
-				View newView = dialog.getView();
-				boolean replace = dialog.getViewReplace();
-				boolean force = dialog.getViewRorce();
-				newView.setViewText("CREATE " + (replace ? "OR REPLACE " : "") + (force ? "FORCE " : "") + "VIEW "
-						+ newView.getFullyQualifiedName(DBPEvaluationContext.DDL) + " AS\nSELECT");
-				return newView;
-			}
-		}.execute();
+			}.execute();
+		} else {
+			throw new DBException("无法依据 '" + from + "' 创建视图");
+		}
+		return view;
 	}
 
 	@Override

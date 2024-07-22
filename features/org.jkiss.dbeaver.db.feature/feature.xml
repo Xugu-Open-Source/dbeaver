@@ -2,7 +2,7 @@
 <feature
       id="org.jkiss.dbeaver.db.feature"
       label="%featureName"
-      version="1.0.59.qualifier"
+      version="1.0.104.qualifier"
       provider-name="%providerName">
 
    <description>
@@ -97,6 +97,13 @@
          unpack="false"/>
 
    <plugin
+         id="org.jkiss.dbeaver.ext.duckdb"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
          id="org.jkiss.dbeaver.ext.elasticsearch"
          download-size="0"
          install-size="0"
@@ -180,14 +187,19 @@
          version="0.0.0"
          unpack="false"/>
          
-<!--
    <plugin
          id="org.jkiss.dbeaver.ext.oceanbase"
          download-size="0"
          install-size="0"
          version="0.0.0"
          unpack="false"/>
--->
+
+   <plugin
+         id="org.jkiss.dbeaver.ext.tidb"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
 
    <plugin
          id="org.jkiss.dbeaver.ext.opendistro"
@@ -232,6 +244,13 @@
          unpack="false"/>
 
    <plugin
+           id="org.jkiss.dbeaver.ext.trino"
+           download-size="0"
+           install-size="0"
+           version="0.0.0"
+           unpack="false"/>
+
+   <plugin
          id="org.jkiss.dbeaver.ext.vertica"
          download-size="0"
          install-size="0"
@@ -259,6 +278,20 @@
          install-size="0"
          version="0.0.0"
          unpack="false"/>
+
+   <plugin
+           id="org.jkiss.dbeaver.ext.denodo"
+           download-size="0"
+           install-size="0"
+           version="0.0.0"
+           unpack="false"/>
+
+   <plugin
+           id="org.jkiss.dbeaver.ext.databricks"
+           download-size="0"
+           install-size="0"
+           version="0.0.0"
+           unpack="false"/>
 
    <plugin
          id="org.jkiss.dbeaver.ext.xugu"

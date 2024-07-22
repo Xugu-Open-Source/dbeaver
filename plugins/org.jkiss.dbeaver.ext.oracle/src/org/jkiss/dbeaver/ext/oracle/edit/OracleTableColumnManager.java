@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -34,8 +34,6 @@ import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.sql.edit.struct.SQLTableColumnManager;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
-import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
-import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.DBSDataType;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
@@ -85,7 +83,7 @@ public class OracleTableColumnManager extends SQLTableColumnManager<OracleTableC
 
     protected ColumnModifier[] getSupportedModifiers(OracleTableColumn column, Map<String, Object> options)
     {
-        return new ColumnModifier[] {OracleDataTypeModifier, DefaultModifier, NullNotNullModifierConditional};
+        return new ColumnModifier[] {OracleDataTypeModifier, DefaultModifier, NullNotNullModifier};
     }
 
     @Override

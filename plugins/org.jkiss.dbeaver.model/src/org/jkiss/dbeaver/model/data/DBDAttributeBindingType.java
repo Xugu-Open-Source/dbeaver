@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Type attribute value binding info
@@ -135,21 +136,27 @@ public class DBDAttributeBindingType extends DBDAttributeBindingNested implement
 
     @Nullable
     @Override
-    public Object extractNestedValue(@NotNull Object ownerValue) throws DBCException {
+    public Object extractNestedValue(@NotNull Object ownerValue, int itemIndex) throws DBCException {
         assert parent != null;
         if (parent.getDataKind() == DBPDataKind.ARRAY) {
             // If we have a collection then use first element
             if (ownerValue instanceof DBDCollection) {
                 DBDCollection collection = (DBDCollection) ownerValue;
-                if (collection.getItemCount() > 0) {
-                    ownerValue = collection.getItem(0);
+                if (collection.getItemCount() > itemIndex) {
+                    ownerValue = collection.getItem(itemIndex);
                 } else {
+                    // FIXME: Is always caused by arrays of structures. They are not supported now
+                    log.trace("Collection index out of bounds: " + itemIndex);
                     return null;
                 }
             }
         }
         if (ownerValue instanceof DBDComposite) {
             return ((DBDComposite) ownerValue).getAttributeValue(attribute);
+        } else if (ownerValue instanceof Map) {
+            return ((Map<?, ?>) ownerValue).get(getName());
+        } else if (ownerValue == null) {
+            return null;
         }
 
         DBDAttributeBinding parent = getParent(1);

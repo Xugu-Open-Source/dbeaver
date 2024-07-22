@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -132,7 +132,10 @@ class IndexCache extends JDBCCompositeCache<GenericStructContainer, GenericTable
         throws SQLException, DBException
     {
         int ordinalPosition = GenericUtils.safeGetInt(indexObject, dbResult, JDBCConstants.ORDINAL_POSITION);
-        String columnName = GenericUtils.safeGetStringTrimmed(indexObject, dbResult, JDBCConstants.COLUMN_NAME);
+        boolean trimName = parent.getDataSource().getMetaModel().isTrimObjectNames();
+        String columnName = trimName ?
+            GenericUtils.safeGetStringTrimmed(indexObject, dbResult, JDBCConstants.COLUMN_NAME)
+            : GenericUtils.safeGetString(indexObject, dbResult, JDBCConstants.COLUMN_NAME);
         String ascOrDesc = GenericUtils.safeGetStringTrimmed(indexObject, dbResult, JDBCConstants.ASC_OR_DESC);
 
         if (CommonUtils.isEmpty(columnName)) {

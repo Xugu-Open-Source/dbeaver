@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,13 +25,15 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.ui.UITask;
 import org.jkiss.dbeaver.ui.UIUtils;
 
+import java.util.Map;
+
 /**
  * MySQL database configurator
  */
 public class MySQLCatalogConfigurator implements DBEObjectConfigurator<MySQLCatalog> {
 
     @Override
-    public MySQLCatalog configureObject(DBRProgressMonitor monitor, Object dataSource, MySQLCatalog database) {
+    public MySQLCatalog configureObject(DBRProgressMonitor monitor, Object dataSource, MySQLCatalog database, Map<String, Object> options) {
         return UITask.run(() -> {
             MySQLCreateDatabaseDialog dialog = new MySQLCreateDatabaseDialog(UIUtils.getActiveWorkbenchShell(), database);
             if (dialog.open() != IDialogConstants.OK_ID) {

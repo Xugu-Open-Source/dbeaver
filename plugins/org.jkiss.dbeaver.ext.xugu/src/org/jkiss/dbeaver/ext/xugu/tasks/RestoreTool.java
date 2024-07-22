@@ -3,9 +3,12 @@ package org.jkiss.dbeaver.ext.xugu.tasks;
 import static org.eclipse.swt.events.SelectionListener.widgetSelectedAdapter;
 
 import java.nio.charset.Charset;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.time.ZoneOffset;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.SWT;
@@ -33,9 +36,15 @@ public class RestoreTool implements IUserInterfaceTool {
 	@Override
 	public void execute(IWorkbenchWindow window, IWorkbenchPart activePart, Collection<DBSObject> objects)
 			throws DBException {
+		int databaseMajorVersion;
 		Iterator<DBSObject> it = objects.iterator();
 		DBSObject first = it.next();
 		DataSource dataSource = (DataSource) first.getDataSource();
+		try (Connection connection = dataSource.getConnection()) {
+			databaseMajorVersion = connection.getMetaData().getDatabaseMajorVersion();
+		} catch (SQLException ex) {
+			throw new IllegalStateException(ex);
+		}
 		Shell infoShell = new Shell(window.getShell());
 		infoShell.setText("数据库恢复工具");
 		infoShell.setLayout(new GridLayout());
@@ -47,7 +56,13 @@ public class RestoreTool implements IUserInterfaceTool {
 		pathText.setMessage("请输入备份文件名称");
 		Button comfirmButton = new Button(sourceComp, SWT.PUSH);
 		comfirmButton.setText("开始恢复");
-		typeCombo.setItems("系统", "库", "模式", "表");
+		if (databaseMajorVersion > 11) {
+			typeCombo.setItems("系统", "库", "模式", "表");
+			typeCombo.select(3);
+		} else {
+			typeCombo.setItems("系统", "库", "表");
+			typeCombo.select(2);
+		}
 		Composite stackComp = new Composite(infoShell, SWT.NONE);
 		StackLayout stackLayout = new StackLayout();
 		stackComp.setLayout(stackLayout);
@@ -204,29 +219,37 @@ public class RestoreTool implements IUserInterfaceTool {
 			stackComp.layout();
 		}));
 		comfirmButton.addSelectionListener(widgetSelectedAdapter(event -> {
+			StringBuilder sqlWarningMessageBuilder = new StringBuilder();
 			RestoreExecutor executor = new RestoreExecutor(dataSource);
 			String selectedType = typeCombo.getText();
 			try {
 				switch (selectedType) {
 					case "系统":
-						executor.forSystem(systemSysdbaPasswordText.getText(), pathText.getText());
+						sqlWarningMessageBuilder.append("\n### 系统级恢复警告信息\n");
+						executor.forSystem(systemSysdbaPasswordText.getText(), pathText.getText())
+						.stream().forEach(message -> {sqlWarningMessageBuilder.append(message + "\n");});
 						break;
 					case "库":
+						sqlWarningMessageBuilder.append("\n### 库级恢复警告信息 - <" + databaseTargetDatabaseNameText.getText() + ">\n");
 						executor.forCatalog(databaseSourceDatabaseNameText.getText(),
 								databaseTargetDatabaseNameText.getText(),
 								Charset.forName(databaseTargetDatabaseCharsetText.getText()),
 								ZoneOffset.of(databaseTargetDatabaseZoneOffsetText.getText()),
-								pathText.getText());
+								pathText.getText())
+						.stream().forEach(message -> {sqlWarningMessageBuilder.append(message + "\n");});
 						break;
 					case "模式":
+						sqlWarningMessageBuilder.append("\n### 模式级恢复警告信息 - <" + schemaTargetDatabaseNameText.getText() + ">" + schemaTargetSchemaNameText.getText() + "\n");
 						executor.forSchema(schemaSourceSchemaNameText.getText(),
 								schemaTargetDatabaseNameText.getText(),
 								Charset.forName(schemaTargetDatabaseCharsetText.getText()),
 								ZoneOffset.of(schemaTargetDatabaseZoneOffsetText.getText()),
 								schemaTargetSchemaNameText.getText(),
-								pathText.getText());
+								pathText.getText())
+						.stream().forEach(message -> {sqlWarningMessageBuilder.append(message + "\n");});
 						break;
 					case "表":
+						sqlWarningMessageBuilder.append("\n### 表级恢复警告信息 - <" + tableTargetDatabaseNameText.getText() + ">" + tableTargetSchemaNameText.getText() + "." + tableTargetTableNameText.getText() + "\n");
 						executor.forTable(tableSourceSchemaNameText.getText(),
 								tableSourceTableNameText.getText(),
 								tableTargetDatabaseNameText.getText(),
@@ -235,23 +258,27 @@ public class RestoreTool implements IUserInterfaceTool {
 								tableTargetSchemaNameText.getText(),
 								tableTargetSchemaOwnerNameText.getText(),
 								tableTargetTableNameText.getText(),
-								pathText.getText());
+								pathText.getText())
+						.stream().forEach(message -> {sqlWarningMessageBuilder.append(message + "\n");});
 						break;
 					default:
 						throw new IllegalStateException("未支持的类型：" + selectedType);
 				}
 			} catch (Exception e) {
-				MessageDialog.openError(infoShell, "恢复失败", e.getLocalizedMessage());
+				MessageDialog.openError(infoShell, "恢复失败", e.getLocalizedMessage() + "\n" + sqlWarningMessageBuilder.toString());
 				e.printStackTrace();
+				return;
 			}
-			MessageDialog.openInformation(infoShell, "恢复成功", "执行数据库对象恢复完成！");
+			MessageDialog.openInformation(infoShell, "恢复并校验成功", "执行数据库对象恢复并校验完成！\n" + sqlWarningMessageBuilder.toString());
 		}));
 
-		typeCombo.select(3);
 		stackLayout.topControl = tableArgsComp;
 		stackComp.layout();
 
 		infoShell.pack();
 		infoShell.open();
+		if (databaseMajorVersion == 11) {
+			MessageDialog.openWarning(infoShell, "模式级对象恢复未支持", "当前连接的服务器版本为 11，暂未支持模式级对象恢复！");
+		}
 	}
 }

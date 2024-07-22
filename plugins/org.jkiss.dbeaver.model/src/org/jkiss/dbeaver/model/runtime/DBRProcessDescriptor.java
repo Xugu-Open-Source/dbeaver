@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 package org.jkiss.dbeaver.model.runtime;
 
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.runtime.IVariableResolver;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
@@ -31,8 +32,9 @@ import java.util.concurrent.TimeUnit;
 /**
  * DBRProcessDescriptor
  */
-public class DBRProcessDescriptor
-{
+public class DBRProcessDescriptor {
+
+    private static final Log log = Log.getLog(DBRProcessDescriptor.class);
 
     private final DBRShellCommand command;
     private ProcessBuilder processBuilder;
@@ -97,6 +99,15 @@ public class DBRProcessDescriptor
 
     public int getExitValue()
     {
+        return exitValue;
+    }
+
+    public int getUpdatedExitValueCode() {
+        try {
+            exitValue = this.process.exitValue();
+        } catch (IllegalThreadStateException e) {
+            log.debug("Process still executing");
+        }
         return exitValue;
     }
 

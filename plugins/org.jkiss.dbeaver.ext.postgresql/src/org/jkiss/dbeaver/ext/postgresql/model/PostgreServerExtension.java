@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  */
 package org.jkiss.dbeaver.ext.postgresql.model;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
@@ -46,11 +47,15 @@ public interface PostgreServerExtension {
 
     boolean supportsTriggers();
 
+    boolean supportsEventTriggers();
+
     boolean supportsFunctionDefRead();
 
     boolean supportsFunctionCreate();
 
     boolean supportsRules();
+
+    boolean supportsRowLevelSecurity();
 
     boolean supportsExtensions();
 
@@ -61,6 +66,8 @@ public interface PostgreServerExtension {
     boolean supportsTablespaces();
 
     boolean supportsSequences();
+
+    PostgreSequence createSequence(@NotNull PostgreSchema schema);
 
     boolean supportsRoles();
 
@@ -126,36 +133,88 @@ public interface PostgreServerExtension {
     // It works for original PG driver but doesn't work for many forks (e.g. Redshift).
     boolean supportsEntityMetadataInResults();
 
+    /** True if supports special column with check constraint expression */
     boolean supportsPGConstraintExpressionColumn();
 
+    /** True if supports special "Has OIDs" metadata column*/
     boolean supportsHasOidsColumn();
 
     boolean supportsDatabaseSize();
 
     boolean isAlterTableAtomic();
 
+    // Roles
+
     boolean supportsSuperusers();
 
     boolean supportsRolesWithCreateDBAbility();
 
+    /** True if supports role replication parameter.
+     * "A role must have this attribute (or be a superuser) in order to be able to connect to the server in replication mode (physical or logical replication)
+     * and in order to be able to create or drop replication slots."
+     * */
+    boolean supportsRoleReplication();
+
+    /** True if supports role BYPASSRLS parameter.
+     * "These clauses determine whether a role bypasses every row-level security (RLS) policy."
+     * */
+    boolean supportsRoleBypassRLS();
+
+    /**
+     * Determines whether the database supports syntax like {@code COMMENT ON ROLE roleName IS 'comment'} or not
+     */
+    boolean supportsCommentsOnRole();
+
+    // Data types
+
+    /** True if supports serials - serial types are auto-incrementing integer data types */
     boolean supportSerialTypes();
 
+    /** True if supports external types - types from another databases (like Athena). These types in this case will be turned into fake types */
     boolean supportsExternalTypes();
 
     boolean supportsBackslashStringEscape();
 
+    /** The ability to disable triggers need for the data transfer */
     boolean supportsDisablingAllTriggers();
 
+    /** True if supports table generated columns */
     boolean supportsGeneratedColumns();
+
+    /** True if supports table rowid columns. Rowid columns usually replace primary key in the table */
+    boolean isHiddenRowidColumn(@NotNull PostgreAttribute attribute);
+
+    /** Nor all databases support all types of columns. Also, some databases return comments with table DDL from the server-side */
+    boolean supportsShowingOfExtraComments();
 
     boolean supportsKeyAndIndexRename();
 
+    /** Makes it possible to change the name of the user of the current user via UI */
     boolean supportsAlterUserChangePassword();
 
+    /** COPY FROM STDIN is special command for the better table insert performance */
     boolean supportsCopyFromStdIn();
 
     int getParameterBindType(DBSTypedObject type, Object value);
 
+    /** Necessary for the "Truncate table" tool */
     int getTruncateToolModes();
 
+    boolean supportsDistinctForStatementsWithAcl();
+
+    /** True if supports operator families as access methods (System Info) */
+    boolean supportsOpFamily();
+
+    /**
+     * Determines whether the database supports syntax
+     * like {@code ALTER TABLE tableName ALTER COLUMN columnName USING columnName::dataTypeName} or not
+     */
+    boolean supportsAlterTableColumnWithUSING();
+
+    /**
+     * Determines whether the database supports syntax
+     * like {@code ALTER TABLE schema.view RENAME TO schema.view_new}
+     * or use standard {@code ALTER VIEW schema.view RENAME TO schema.view_new}.
+     */
+    boolean supportsAlterTableForViewRename();
 }

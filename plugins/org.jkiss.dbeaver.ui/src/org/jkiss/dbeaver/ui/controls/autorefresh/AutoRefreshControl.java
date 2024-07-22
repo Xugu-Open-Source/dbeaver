@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,9 +31,11 @@ import org.jkiss.dbeaver.model.runtime.DBRRunnableWithProgress;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.ui.UIIcon;
 import org.jkiss.dbeaver.ui.internal.UIMessages;
+import org.jkiss.utils.CommonUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 public class AutoRefreshControl {
 
@@ -48,6 +50,7 @@ public class AutoRefreshControl {
     private DBPImage defRefreshIcon;
     private Menu schedulerMenu;
     private String defRefreshText;
+    private Supplier<String> hintSupplier;
 
     public AutoRefreshControl(Control parent, String controlId, DBRRunnableWithProgress runnable) {
         this.parent = parent;
@@ -68,6 +71,10 @@ public class AutoRefreshControl {
 
     public DBRRunnableWithProgress getRunnable() {
         return runnable;
+    }
+
+    public void setHintSupplier(Supplier<String> hintSupplier) {
+        this.hintSupplier = hintSupplier;
     }
 
     private synchronized RefreshSettings getRefreshSettings() {
@@ -93,6 +100,12 @@ public class AutoRefreshControl {
         updateAutoRefreshToolbar();
     }
 
+    public synchronized void enableControls(boolean enable) {
+        if (autoRefreshButton != null) {
+            autoRefreshButton.setEnabled(enable);
+        }
+    }
+
     public synchronized void scheduleAutoRefresh(boolean afterError) {
         if (autoRefreshJob != null) {
             autoRefreshJob.cancel();
@@ -103,6 +116,7 @@ public class AutoRefreshControl {
         }
         RefreshSettings settings = getRefreshSettings();
         if (afterError && settings.isStopOnError()) {
+            enableAutoRefresh(false);
             return;
         }
         autoRefreshJob = new AutoRefreshJob(this);
@@ -119,17 +133,20 @@ public class AutoRefreshControl {
     }
 
     public ToolItem populateRefreshButton(ToolBar toolbar) {
-        return populateRefreshButton(toolbar, UIMessages.sql_editor_resultset_filter_panel_btn_config_refresh, UIIcon.CLOCK_START, createDefaultRefreshAction());
+        return populateRefreshButton(toolbar, null, UIMessages.sql_editor_resultset_filter_panel_btn_config_refresh, UIIcon.CLOCK_START, createDefaultRefreshAction());
     }
 
-    public ToolItem populateRefreshButton(ToolBar toolbar, String defRefreshText, DBPImage defImage, Runnable defAction) {
+    public ToolItem populateRefreshButton(ToolBar toolbar, String itemText, String defTooltip, DBPImage defImage, Runnable defAction) {
         if (autoRefreshButton != null && !autoRefreshButton.isDisposed()) {
             autoRefreshButton.dispose();
         }
-        this.defRefreshText = defRefreshText;
+        this.defRefreshText = defTooltip;
         this.defRefreshIcon = defImage;
         autoRefreshButton = new ToolItem(toolbar, SWT.DROP_DOWN | SWT.NO_FOCUS);
         autoRefreshButton.setImage(DBeaverIcons.getImage(defRefreshIcon));
+        if (itemText != null) {
+            autoRefreshButton.setText(itemText);
+        }
         autoRefreshButton.addSelectionListener(new AutoRefreshMenuListener(autoRefreshButton, defAction));
         updateAutoRefreshToolbar();
 
@@ -236,6 +253,16 @@ public class AutoRefreshControl {
                                 runPreset(timeout);
                             }
                         });
+                    }
+                }
+                if (hintSupplier != null) {
+                    String hintText = hintSupplier.get();
+                    if (!CommonUtils.isEmpty(hintText)) {
+                        new MenuItem(schedulerMenu, SWT.SEPARATOR);
+                        // We need hint item not just for hint. It also fills last menu element to avoid accidental miss-click in dropdown falls up
+                        MenuItem hintItem = new MenuItem(schedulerMenu, SWT.PUSH);
+                        hintItem.setText(hintText);
+                        hintItem.setEnabled(false);
                     }
                 }
 

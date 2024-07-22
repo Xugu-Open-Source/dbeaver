@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  */
 package org.jkiss.dbeaver.tools.transfer.ui.pages.database;
 
+import org.eclipse.jface.dialogs.DialogPage;
 import org.eclipse.jface.viewers.*;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.KeyAdapter;
@@ -35,6 +36,7 @@ import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSDataType;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
+import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.tools.transfer.database.DatabaseConsumerSettings;
 import org.jkiss.dbeaver.tools.transfer.database.DatabaseMappingAttribute;
@@ -49,18 +51,14 @@ import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.CustomComboBoxCellEditor;
 import org.jkiss.dbeaver.ui.controls.ListContentProvider;
 import org.jkiss.dbeaver.ui.controls.ViewerColumnController;
-import org.jkiss.dbeaver.ui.dialogs.BaseDialog;
 import org.jkiss.utils.CommonUtils;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 
 /**
  * ColumnsMappingDialog
  */
-class ColumnsMappingDialog extends BaseDialog {
+class ColumnsMappingDialog extends DialogPage {
 
     private final DatabaseConsumerSettings settings;
     private final DatabaseMappingContainer mapping;
@@ -69,19 +67,13 @@ class ColumnsMappingDialog extends BaseDialog {
     private Font boldFont;
 
     ColumnsMappingDialog(DataTransferWizard wizard, DatabaseConsumerSettings settings, DatabaseMappingContainer mapping) {
-        super(wizard.getShell(), DTUIMessages.columns_mapping_dialog_shell_text + mapping.getTargetName(), null);
         this.settings = settings;
         this.mapping = mapping;
         attributeMappings = mapping.getAttributeMappings(wizard.getRunnableContext());
     }
 
     @Override
-    protected boolean isResizable() {
-        return true;
-    }
-
-    @Override
-    protected Composite createDialogArea(Composite parent) {
+    public void createControl(Composite parent) {
         DBPDataSource targetDataSource = settings.getTargetDataSource(mapping);
 
         boldFont = UIUtils.makeBoldFont(parent.getFont());
@@ -124,7 +116,7 @@ class ColumnsMappingDialog extends BaseDialog {
                         DatabaseMappingAttribute attribute = (DatabaseMappingAttribute) item.getData();
                         attribute.setMappingType(DatabaseMappingType.existing);
                         try {
-                            attribute.updateMappingType(new VoidProgressMonitor(), false);
+                            attribute.updateMappingType(new VoidProgressMonitor(), false, false);
                         } catch (DBException e1) {
                             DBWorkbench.getPlatformUI().showError("Bad mapping", "Invalid column mapping", e1);
                         }
@@ -172,9 +164,10 @@ class ColumnsMappingDialog extends BaseDialog {
                 try {
                     java.util.List<String> items = new ArrayList<>();
                     DatabaseMappingAttribute mapping = (DatabaseMappingAttribute) element;
-                    if (mapping.getParent().getMappingType() == DatabaseMappingType.existing &&
-                        mapping.getParent().getTarget() instanceof DBSEntity) {
-                        DBSEntity parentEntity = (DBSEntity) mapping.getParent().getTarget();
+                    DatabaseMappingContainer container = mapping.getParent();
+                    if ((container.getMappingType() == DatabaseMappingType.existing || container.getMappingType() == DatabaseMappingType.recreate) &&
+                        container.getTarget() instanceof DBSEntity) {
+                        DBSEntity parentEntity = (DBSEntity) container.getTarget();
                         for (DBSEntityAttribute attr : CommonUtils.safeCollection(parentEntity.getAttributes(new VoidProgressMonitor()))) {
                             items.add(attr.getName());
                         }
@@ -210,9 +203,10 @@ class ColumnsMappingDialog extends BaseDialog {
                     if (DatabaseMappingAttribute.TARGET_NAME_SKIP.equals(name)) {
                         attrMapping.setMappingType(DatabaseMappingType.skip);
                     } else {
-                        if (attrMapping.getParent().getMappingType() == DatabaseMappingType.existing &&
-                            attrMapping.getParent().getTarget() instanceof DBSEntity) {
-                            DBSEntity parentEntity = (DBSEntity) attrMapping.getParent().getTarget();
+                        DatabaseMappingContainer container = attrMapping.getParent();
+                        if ((container.getMappingType() == DatabaseMappingType.existing || container.getMappingType() == DatabaseMappingType.recreate) &&
+                            container.getTarget() instanceof DBSEntity) {
+                            DBSEntity parentEntity = (DBSEntity) container.getTarget();
                             for (DBSEntityAttribute attr : CommonUtils.safeCollection(parentEntity.getAttributes(new VoidProgressMonitor()))) {
                                 if (name.equalsIgnoreCase(attr.getName())) {
                                     attrMapping.setTarget(attr);
@@ -246,16 +240,34 @@ class ColumnsMappingDialog extends BaseDialog {
             protected CellEditor getCellEditor(Object element) {
                 DatabaseMappingAttribute attrMapping = (DatabaseMappingAttribute) element;
 
-                Set<String> types = new TreeSet<>();
-                DBPDataTypeProvider dataTypeProvider = DBUtils.getParentOfType(DBPDataTypeProvider.class, settings.getContainer());
-                if (dataTypeProvider != null) {
-                    for (DBSDataType type : dataTypeProvider.getLocalDataTypes()) {
-                        types.add(type.getName());
+                Map<String, String> types = new TreeMap<>();
+                DBSObjectContainer container = settings.getContainer();
+                if (container != null) {
+                    DBPDataSource dataSource = container.getDataSource();
+                    if (dataSource != null) {
+                        // Also add data types with aliases
+                        Collection<String> dataTypes = dataSource.getSQLDialect().getDataTypes(dataSource);
+                        if (!CommonUtils.isEmpty(dataTypes)) {
+                            for (String dataType : dataTypes) {
+                                types.put(dataType.toUpperCase(Locale.ROOT), dataType);
+                            }
+                        }
                     }
                 }
-                types.add(attrMapping.getTargetType(settings.getTargetDataSource(attrMapping), true));
+                DBPDataTypeProvider dataTypeProvider = DBUtils.getParentOfType(DBPDataTypeProvider.class, container);
+                if (dataTypeProvider != null) {
+                    for (DBSDataType type : dataTypeProvider.getLocalDataTypes()) {
+                        types.put(type.getName().toUpperCase(Locale.ROOT), type.getName());
+                    }
+                }
+                String targetType = attrMapping.getTargetType(settings.getTargetDataSource(attrMapping), true);
+                types.put(targetType.toUpperCase(Locale.ROOT), targetType);
 
-                return new CustomComboBoxCellEditor(mappingViewer, mappingViewer.getTable(), types.toArray(new String[0]), SWT.BORDER);
+                return new CustomComboBoxCellEditor(
+                    mappingViewer,
+                    mappingViewer.getTable(),
+                    types.values().toArray(new String[0]),
+                    SWT.BORDER);
             }
 
             @Override
@@ -319,17 +331,7 @@ class ColumnsMappingDialog extends BaseDialog {
 
         mappingViewer.setInput(attributeMappings);
 
-        return parent;
+        setControl(composite);
     }
 
-    @Override
-    protected void okPressed() {
-        super.okPressed();
-    }
-
-    @Override
-    public boolean close() {
-        UIUtils.dispose(boldFont);
-        return super.close();
-    }
 }

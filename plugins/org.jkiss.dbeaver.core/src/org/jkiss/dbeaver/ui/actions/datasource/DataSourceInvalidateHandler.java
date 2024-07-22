@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,11 +30,11 @@ import org.eclipse.ui.handlers.HandlerUtil;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
-import org.jkiss.dbeaver.model.IDataSourceContainerProviderEx;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.jobs.DisconnectJob;
 import org.jkiss.dbeaver.runtime.jobs.InvalidateJob;
+import org.jkiss.dbeaver.ui.IDataSourceContainerUpdate;
 import org.jkiss.dbeaver.ui.UITask;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.actions.AbstractDataSourceHandler;
@@ -54,13 +54,13 @@ public class DataSourceInvalidateHandler extends AbstractDataSourceHandler
             invalidateDataSource(context.getDataSource());
         } else {
             IEditorPart editor = HandlerUtil.getActiveEditor(event);
-            if (editor instanceof IDataSourceContainerProviderEx) {
+            if (editor instanceof IDataSourceContainerUpdate) {
                 // Try to set the same container.
                 // It should trigger connection instantiation if for some reason it was lost (SQLEditor specific?)
-                DBPDataSourceContainer dsContainer = ((IDataSourceContainerProviderEx) editor).getDataSourceContainer();
+                DBPDataSourceContainer dsContainer = ((IDataSourceContainerUpdate) editor).getDataSourceContainer();
                 if (dsContainer != null) {
-                    ((IDataSourceContainerProviderEx) editor).setDataSourceContainer(null);
-                    ((IDataSourceContainerProviderEx) editor).setDataSourceContainer(dsContainer);
+                    ((IDataSourceContainerUpdate) editor).setDataSourceContainer(null);
+                    ((IDataSourceContainerUpdate) editor).setDataSourceContainer(dsContainer);
                 }
             }
 
@@ -68,12 +68,14 @@ public class DataSourceInvalidateHandler extends AbstractDataSourceHandler
         return null;
     }
 
-    public static void invalidateDataSource(final DBPDataSource dataSource) {
+    public static boolean invalidateDataSource(final DBPDataSource dataSource) {
         if (dataSource != null) {
             //final DataSourceDescriptor dataSourceDescriptor = (DataSourceDescriptor) context;
-            if (!ArrayUtils.isEmpty(Job.getJobManager().find(dataSource.getContainer()))) {
-                // Already connecting/disconnecting - just return
-                return;
+            DBPDataSourceContainer container = dataSource.getContainer();
+            if (!ArrayUtils.isEmpty(Job.getJobManager().find(container)) ||
+                !DataSourceHandler.checkAndCloseActiveTransaction(container, true)) {
+                // Already connecting/disconnecting or cancelled - just return
+                return false;
             }
             final InvalidateJob invalidateJob = new InvalidateJob(dataSource);
             invalidateJob.setFeedbackHandler(() -> DBWorkbench.getPlatformUI().openConnectionEditor(dataSource.getContainer()));
@@ -130,6 +132,7 @@ public class DataSourceInvalidateHandler extends AbstractDataSourceHandler
             });
             invalidateJob.schedule();
         }
+        return true;
     }
 
     public static void showConnectionLostDialog(final Shell shell, final String message, final DBException error)

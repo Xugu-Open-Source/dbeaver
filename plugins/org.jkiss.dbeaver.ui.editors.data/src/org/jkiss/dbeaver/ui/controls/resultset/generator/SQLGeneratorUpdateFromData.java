@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,12 +77,7 @@ public class SQLGeneratorUpdateFromData extends SQLGeneratorResultSet {
             }
             if (!CommonUtils.isEmpty(keyAttributes)) {
                 sql.append(separator).append("WHERE ");
-                hasAttr = false;
-                for (DBDAttributeBinding attr : keyAttributes) {
-                    if (hasAttr) sql.append(" AND ");
-                    appendValueCondition(getController(), sql, attr, firstRow);
-                    hasAttr = true;
-                }
+                appendKeyConditions(sql, keyAttributes, firstRow);
             }
             sql.append(";\n");
         }

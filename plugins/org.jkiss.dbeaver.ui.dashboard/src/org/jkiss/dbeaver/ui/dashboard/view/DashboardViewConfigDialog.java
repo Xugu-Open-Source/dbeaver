@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.*;
+import org.jkiss.dbeaver.model.rm.RMConstants;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.dashboard.internal.UIDashboardMessages;
 import org.jkiss.dbeaver.ui.dashboard.model.DashboardViewConfiguration;
@@ -61,7 +63,9 @@ public class DashboardViewConfigDialog extends BaseDialog {
                     }
                 });
             //connectOnActivationCheck.setEnabled(false);
-            Button separateConnectionCheck = UIUtils.createCheckbox(viewGroup, UIDashboardMessages.dialog_dashboard_view_config_group_viewcfg_checkbox_use_separate_conn, UIDashboardMessages.dialog_dashboard_view_config_group_viewcfg_checkbox_use_separate_conn_tooltip, viewConfiguration.isUseSeparateConnection(), 2);
+
+            // #4209 Dashboard: disable separate connection option (too aggressive)
+            /*Button separateConnectionCheck = UIUtils.createCheckbox(viewGroup, UIDashboardMessages.dialog_dashboard_view_config_group_viewcfg_checkbox_use_separate_conn, UIDashboardMessages.dialog_dashboard_view_config_group_viewcfg_checkbox_use_separate_conn_tooltip, viewConfiguration.isUseSeparateConnection(), 2);
             separateConnectionCheck
                 .addSelectionListener(new SelectionAdapter() {
                     @Override
@@ -69,7 +73,7 @@ public class DashboardViewConfigDialog extends BaseDialog {
                         viewConfiguration.setUseSeparateConnection(((Button)e.widget).getSelection());
                     }
                 });
-            separateConnectionCheck.setEnabled(false);
+            separateConnectionCheck.setEnabled(false);*/
         }
 
         return parent;
@@ -84,16 +88,22 @@ public class DashboardViewConfigDialog extends BaseDialog {
 
     @Override
     protected void createButtonsForButtonBar(Composite parent) {
-        final Button managerButton = createButton(parent, IDialogConstants.CANCEL_ID, UIDashboardMessages.dialog_dashboard_view_config_button_manage, false);
-        ((GridData) managerButton.getLayoutData()).horizontalAlignment = GridData.BEGINNING;
-        ((GridData) managerButton.getLayoutData()).grabExcessHorizontalSpace = true;
-        managerButton.addSelectionListener(new SelectionAdapter() {
-            @Override
-            public void widgetSelected(SelectionEvent e) {
-                new DashboardManagerDialog(UIUtils.getActiveWorkbenchShell()).open();
-            }
-        });
-
+        if (DBWorkbench.getPlatform().getWorkspace().hasRealmPermission(RMConstants.PERMISSION_CONFIGURATION_MANAGER)) {
+            final Button managerButton = createButton(
+                parent,
+                IDialogConstants.CANCEL_ID,
+                UIDashboardMessages.dialog_dashboard_view_config_button_manage,
+                false
+            );
+            ((GridData) managerButton.getLayoutData()).horizontalAlignment = GridData.BEGINNING;
+            ((GridData) managerButton.getLayoutData()).grabExcessHorizontalSpace = true;
+            managerButton.addSelectionListener(new SelectionAdapter() {
+                @Override
+                public void widgetSelected(SelectionEvent e) {
+                    new DashboardManagerDialog(UIUtils.getActiveWorkbenchShell()).open();
+                }
+            });
+        }
         super.createButtonsForButtonBar(parent);
     }
 

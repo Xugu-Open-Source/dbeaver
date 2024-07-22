@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPSystemObject;
 import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBExecUtils;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
@@ -95,6 +96,15 @@ public class ERDUtils
         }
     }
 
+    public static boolean isOptionalAssociation(ERDAssociation association) {
+        try {
+            return DBUtils.isOptionalAssociation(new VoidProgressMonitor(), association.getObject());
+        } catch (DBException e) {
+            log.debug(e);
+            return false;
+        }
+    }
+
     public static ERDEntityAttribute getAttributeByModel(ERDEntity entity, DBSEntityAttribute attr) {
 	    for (ERDEntityAttribute erdAttr : entity.getAttributes()) {
 	        if (erdAttr.getObject() == attr) {
@@ -118,7 +128,15 @@ public class ERDUtils
     public static ERDEntity makeEntityFromObject(DBRProgressMonitor monitor, ERDDiagram diagram, List<ERDEntity> otherEntities, DBSEntity entity, Object userData) {
         ERDEntity erdEntity = new ERDEntity(entity);
         erdEntity.setUserData(userData);
-        diagram.getContentProvider().fillEntityFromObject(monitor, diagram, otherEntities, erdEntity);
+        try {
+            diagram.getContentProvider().fillEntityFromObject(monitor, diagram, otherEntities, erdEntity);
+        } catch (DBCException e) {
+            // Something goes wrong
+            DBWorkbench.getPlatformUI().showError(
+                "Can't create entity",
+                e.getMessage());
+            return null;
+        }
         return erdEntity;
     }
 

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.jkiss.dbeaver.model.sql.parser;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBPKeywordType;
@@ -39,6 +40,7 @@ import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.Pair;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -48,6 +50,8 @@ import java.util.List;
  * Support runtime change of datasource (reloads syntax information)
  */
 public class SQLRuleManager {
+
+    private static final Log log = Log.getLog(SQLRuleManager.class);
 
     @NotNull
     private TPRule[] allRules = new TPRule[0];
@@ -108,36 +112,39 @@ public class SQLRuleManager {
         List<TPRule> rules = new ArrayList<>();
 
         if (ruleProvider != null) {
-            ruleProvider.extendRules(dataSourceContainer, rules, TPRuleProvider.RulePosition.INITIAL);
-        }
-
-        // Add rule for single-line comments.
-        for (String lineComment : dialect.getSingleLineComments()) {
-            if (lineComment.startsWith("^")) {
-                rules.add(new LineCommentRule(lineComment, commentToken, (char) 0, false, true));
-            } else {
-                rules.add(new EndOfLineRule(lineComment, commentToken, (char) 0, false, true));
-            }
+            Collections.addAll(rules, ruleProvider.extendRules(dataSourceContainer, TPRuleProvider.RulePosition.INITIAL));
         }
 
         if (ruleProvider != null) {
-            ruleProvider.extendRules(dataSourceContainer, rules, TPRuleProvider.RulePosition.CONTROL);
+            Collections.addAll(rules, ruleProvider.extendRules(dataSourceContainer, TPRuleProvider.RulePosition.CONTROL));
         }
 
         if (!minimalRules) {
             final SQLControlToken controlToken = new SQLControlToken();
 
-            String commandPrefix = syntaxManager.getControlCommandPrefix();
+            try {
+                String commandPrefix = syntaxManager.getControlCommandPrefix();
 
-            // Control rules
-            for (SQLCommandHandlerDescriptor controlCommand : SQLCommandsRegistry.getInstance().getCommandHandlers()) {
-                rules.add(new SQLCommandRule(commandPrefix, controlCommand, controlToken)); //$NON-NLS-1$
+                // Control rules
+                for (SQLCommandHandlerDescriptor controlCommand : SQLCommandsRegistry.getInstance().getCommandHandlers()) {
+                    rules.add(new SQLCommandRule(commandPrefix, controlCommand, controlToken)); //$NON-NLS-1$
+                }
+            } catch (Exception e) {
+                log.error(e);
             }
         }
-        {
-            if (!minimalRules && syntaxManager.isVariablesEnabled()) {
+        
+        if (!minimalRules) {
+            // Keep variable rule before parameter rule (see #18354)
+            
+            if (syntaxManager.isVariablesEnabled()) {
                 // Variable rule
                 rules.add(new ScriptVariableRule(parameterToken));
+            }
+
+            // Parameter rule
+            for (String npPrefix : syntaxManager.getNamedParameterPrefixes()) {
+                rules.add(new ScriptParameterRule(syntaxManager, parameterToken, npPrefix));
             }
         }
 
@@ -170,7 +177,16 @@ public class SQLRuleManager {
             }
         }
         if (ruleProvider != null) {
-            ruleProvider.extendRules(dataSourceContainer, rules, TPRuleProvider.RulePosition.QUOTES);
+            Collections.addAll(rules, ruleProvider.extendRules(dataSourceContainer, TPRuleProvider.RulePosition.QUOTES));
+        }
+        
+        // Add rule for single-line comments.
+        for (String lineComment : dialect.getSingleLineComments()) {
+            if (lineComment.startsWith("^")) {
+                rules.add(new LineCommentRule(lineComment, commentToken, (char) 0, false, true));
+            } else {
+                rules.add(new EndOfLineRule(lineComment, commentToken, (char) 0, false, true));
+            }
         }
 
         // Add rules for multi-line comments
@@ -196,15 +212,17 @@ public class SQLRuleManager {
         {
             // Delimiter redefine
             String delimRedefine = dialect.getScriptDelimiterRedefiner();
+            if(ArrayUtils.contains(syntaxManager.getStatementDelimiters(), delimRedefine)) {
+                delimRedefine = null;
+            }
             if (!CommonUtils.isEmpty(delimRedefine)) {
                 final SQLSetDelimiterToken setDelimiterToken = new SQLSetDelimiterToken();
-
-                rules.add(new SQLDelimiterSetRule(delimRedefine, setDelimiterToken, delimRule));
+                rules.add(0, new SQLDelimiterSetRule(delimRedefine, setDelimiterToken, delimRule));
             }
         }
 
         if (ruleProvider != null) {
-            ruleProvider.extendRules(dataSourceContainer, rules, TPRuleProvider.RulePosition.KEYWORDS);
+            Collections.addAll(rules, ruleProvider.extendRules(dataSourceContainer, TPRuleProvider.RulePosition.KEYWORDS));
         }
 
         if (!minimalRules) {
@@ -223,7 +241,7 @@ public class SQLRuleManager {
                 for (String type : dialect.getDataTypes(dataSource)) {
                     wordRule.addWord(type, typeToken);
                 }
-                for (String function : dialect.getFunctions(dataSource)) {
+                for (String function : dialect.getFunctions()) {
                     wordRule.addFunction(function);
                 }
             }
@@ -244,15 +262,10 @@ public class SQLRuleManager {
                 }
             }
             rules.add(wordRule);
-
-            // Parameter rule
-            for (String npPrefix : syntaxManager.getNamedParameterPrefixes()) {
-                rules.add(new ScriptParameterRule(syntaxManager, parameterToken, npPrefix));
-            }
         }
 
         if (ruleProvider != null) {
-            ruleProvider.extendRules(dataSourceContainer, rules, TPRuleProvider.RulePosition.FINAL);
+            Collections.addAll(rules, ruleProvider.extendRules(dataSourceContainer, TPRuleProvider.RulePosition.FINAL));
         }
 
         allRules = rules.toArray(new TPRule[0]);

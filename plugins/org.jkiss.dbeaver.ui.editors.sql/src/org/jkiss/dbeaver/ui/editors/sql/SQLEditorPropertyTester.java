@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,9 +23,13 @@ import org.eclipse.jface.text.Region;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.ISelectionProvider;
 import org.eclipse.swt.widgets.Control;
+import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlanner;
 import org.jkiss.dbeaver.model.sql.parser.SQLIdentifierDetector;
 import org.jkiss.dbeaver.ui.ActionUtils;
+import org.jkiss.dbeaver.ui.actions.exec.SQLNativeExecutorDescriptor;
+import org.jkiss.dbeaver.ui.actions.exec.SQLNativeExecutorRegistry;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 
 /**
@@ -33,14 +37,17 @@ import org.jkiss.dbeaver.utils.GeneralUtils;
  */
 public class SQLEditorPropertyTester extends PropertyTester
 {
-    //static final Log log = Log.getLog(SQLEditorPropertyTester.class);
+    static final Log log = Log.getLog(SQLEditorPropertyTester.class);
 
     public static final String NAMESPACE = "org.jkiss.dbeaver.ui.editors.sql";
     public static final String PROP_CAN_EXECUTE = "canExecute";
+    public static final String PROP_CAN_EXECUTE_NATIVE = "canExecuteNative";
     public static final String PROP_CAN_EXPLAIN = "canExplain";
     public static final String PROP_CAN_NAVIGATE = "canNavigate";
     public static final String PROP_CAN_EXPORT = "canExport";
+    public static final String PROP_HAS_ACTIVE_QUERY = "hasActiveQuery";
     public static final String PROP_HAS_SELECTION = "hasSelection";
+    public static final String PROP_IS_ACTIVE_QUERY_RUNNING = "isActiveQueryRunning";
     public static final String PROP_FOLDING_SUPPORTED = "foldingSupported";
     public static final String PROP_FOLDING_ENABLED = "foldingEnabled";
 
@@ -63,6 +70,19 @@ public class SQLEditorPropertyTester extends PropertyTester
             case PROP_CAN_EXECUTE:
                 // Do not check hasActiveQuery - sometimes jface don't update action enablement after cursor change/typing
                 return true;/* && (!"statement".equals(expectedValue) || editor.hasActiveQuery())*/
+            case PROP_CAN_EXECUTE_NATIVE: {
+                try {
+                    if (editor.getDataSourceContainer() == null) {
+                        return false;
+                    }
+                    SQLNativeExecutorDescriptor executorDescriptor =
+                        SQLNativeExecutorRegistry.getInstance().getExecutorDescriptor(editor.getDataSourceContainer());
+                    return executorDescriptor != null && executorDescriptor.getNativeExecutor() != null;
+                } catch (DBException exception) {
+                    log.error("Error checking native execution", exception);
+                    return false;
+                }
+            }
             case PROP_CAN_EXPLAIN:
                 return hasConnection && GeneralUtils.adapt(editor.getDataSource(), DBCQueryPlanner.class) != null;
             case PROP_CAN_NAVIGATE: {
@@ -80,18 +100,23 @@ public class SQLEditorPropertyTester extends PropertyTester
                             editor.getSyntaxManager().getDialect(),
                             editor.getSyntaxManager().getStructSeparator(),
                             editor.getSyntaxManager().getIdentifierQuoteStrings())
-                            .detectIdentifier(document, new Region(selection.getOffset(), selection.getLength())).isEmpty();
+                            .extractIdentifier(document, new Region(selection.getOffset(), selection.getLength()), editor.getRuleManager())
+                            .isEmpty();
             }
             case PROP_CAN_EXPORT:
                 return hasConnection && editor.hasActiveQuery();
+            case PROP_HAS_ACTIVE_QUERY:
+                return editor.hasActiveQuery();
             case PROP_HAS_SELECTION: {
                 ISelection selection = editor.getSelectionProvider().getSelection();
                 return selection instanceof ITextSelection && ((ITextSelection) selection).getLength() > 0;
             }
+            case PROP_IS_ACTIVE_QUERY_RUNNING:
+                return editor.isActiveQueryRunning();
             case PROP_FOLDING_ENABLED:
                 return editor.isFoldingEnabled();
             case PROP_FOLDING_SUPPORTED:
-                return editor.getAnnotationModel() != null;
+                return editor.getProjectionAnnotationModel() != null;
         }
         return false;
     }

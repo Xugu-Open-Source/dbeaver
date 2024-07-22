@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.ext.postgresql.PostgreUtils;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
@@ -33,6 +34,7 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntityAssociation;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.DBSObjectWithType;
 import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.utils.CommonUtils;
 
@@ -44,7 +46,14 @@ import java.util.List;
 /**
  * PostgreTableBase
  */
-public abstract class PostgreTableBase extends JDBCTable<PostgreDataSource, PostgreTableContainer> implements PostgreClass, PostgreScriptObject, DBPScriptObjectExt2, PostgrePrivilegeOwner, DBPNamedObject2
+public abstract class PostgreTableBase extends JDBCTable<PostgreDataSource, PostgreTableContainer>
+    implements
+    PostgreClass,
+    PostgreScriptObject,
+    DBPScriptObjectExt2,
+    PostgrePrivilegeOwner,
+    DBPNamedObject2,
+    DBSObjectWithType
 {
     private static final Log log = Log.getLog(PostgreTableBase.class);
 
@@ -75,7 +84,7 @@ public abstract class PostgreTableBase extends JDBCTable<PostgreDataSource, Post
             JDBCUtils.safeGetBoolean(dbResult, "relispartition");
         this.acl = JDBCUtils.safeGetObject(dbResult, "relacl");
         if (getDataSource().isServerVersionAtLeast(8, 2)) {
-            this.relOptions = JDBCUtils.safeGetArray(dbResult, "reloptions");
+            this.relOptions = PostgreUtils.safeGetStringArray(dbResult, "reloptions");
         }
         //this.reloptions = PostgreUtils.parseObjectString()
 
@@ -288,8 +297,11 @@ public abstract class PostgreTableBase extends JDBCTable<PostgreDataSource, Post
 
     @Override
     public boolean supportsObjectDefinitionOption(String option) {
+        if (DBPScriptObject.OPTION_INCLUDE_COMMENTS.equals(option) && getDataSource().getServerType().supportsShowingOfExtraComments()) {
+            return true;
+        }
         return DBPScriptObject.OPTION_DDL_ONLY_FOREIGN_KEYS.equals(option) || DBPScriptObject.OPTION_DDL_SKIP_FOREIGN_KEYS.equals(option)
-               || DBPScriptObject.OPTION_INCLUDE_PERMISSIONS.equals(option) || DBPScriptObject.OPTION_INCLUDE_COMMENTS.equals(option);
+               || DBPScriptObject.OPTION_INCLUDE_PERMISSIONS.equals(option);
     }
 
     public static class TablespaceListProvider implements IPropertyValueListProvider<PostgreTableBase> {

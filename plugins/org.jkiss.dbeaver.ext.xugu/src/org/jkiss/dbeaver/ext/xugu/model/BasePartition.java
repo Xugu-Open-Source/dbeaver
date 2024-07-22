@@ -59,8 +59,14 @@ public abstract class BasePartition<PARENT extends DBSObject> extends BaseObject
 		this.online = subpartition ? true : JDBCUtils.safeGetBoolean(dbResult, "ONLINE");
 		this.partiKey = subpartition ? JDBCUtils.safeGetString(dbResult, "SUBPARTI_KEY")
 				: JDBCUtils.safeGetString(dbResult, "PARTI_KEY");
+		if (this.partiKey != null && this.partiKey.length() > 1) {
+			this.partiKey = this.partiKey.substring(1, this.partiKey.length()-1);
+		}
 		this.partiType = subpartition ? JDBCUtils.safeGetInt(dbResult, "SUBPARTI_TYPE")
 				: JDBCUtils.safeGetInt(dbResult, "PARTI_TYPE");
+		if (this.getPartiType().equalsIgnoreCase("LIST") && !"OTHERVALUES".equalsIgnoreCase(this.partiValue)) {
+			this.partiValue = this.partiValue.substring(1, this.partiValue.length()-1);
+		}
 		final String autoPartiKey = "AUTO_PARTI_TYPE";
 		if (JDBCUtils.safeGetInteger(dbResult, autoPartiKey) != null) {
 			this.isAuto = true;
@@ -69,6 +75,19 @@ public abstract class BasePartition<PARENT extends DBSObject> extends BaseObject
 		} else {
 			this.isAuto = false;
 		}
+	}
+	
+	protected BasePartition(PARENT table, boolean subpartition, BasePartition<PARENT> source) {
+		super(table, source.getName(), false);
+		this.isSubParti = subpartition;
+		this.setPartiValue(source.getPartiValue());
+		this.partiNo = source.getPartiNo();
+		this.setOnline(source.isOnline());
+		this.setPartiKey(source.getPartiKey());
+		this.setPartiType(source.getPartiType());
+		this.setAuto(this.isAuto);
+		this.setAutoPartiType(source.getAutoPartiType());
+		this.setAutoPartiSpan(source.getAutoPartiSpan());
 	}
 
 	@Property(viewable = true, order = 1, updatable = false, editable = true)
@@ -126,25 +145,7 @@ public abstract class BasePartition<PARENT extends DBSObject> extends BaseObject
 	}
 
 	public void setPartiValue(String value) {
-		// 对于时间类型进行特殊处理（加入引号）
-		final String dash = "-";
-		final String singleQuote = "'";
-		final String comma = ",";
-		if (value.indexOf(dash) != -1 && value.indexOf(singleQuote) == -1) {
-			if (value.indexOf(comma) == -1) {
-				this.partiValue = "'" + value + "'";
-			} else {
-				String[] values = value.split(",");
-				for (int i = 0; i < values.length; i++) {
-					this.partiValue += "'" + values[i] + "'";
-					if (i != values.length) {
-						this.partiValue += ",";
-					}
-				}
-			}
-		} else {
-			this.partiValue = value;
-		}
+		this.partiValue = value;
 	}
 
 	@Property(viewable = true, order = 5, updatable = false, editable = true)
@@ -191,8 +192,8 @@ public abstract class BasePartition<PARENT extends DBSObject> extends BaseObject
 		return this.autoPartiSpan;
 	}
 
-	public void setAutoPartiSpan(int value) {
-		this.autoPartiSpan = value;
+	public void setAutoPartiSpan(Integer value) {
+		this.autoPartiSpan = value == null ? -1 : value;
 	}
 
 	@Property(viewable = true, order = 5, updatable = true, editable = true)
@@ -210,6 +211,14 @@ public abstract class BasePartition<PARENT extends DBSObject> extends BaseObject
 
 	public void setSubPartition(boolean subFlag) {
 		this.isSubParti = subFlag;
+	}
+
+	public boolean isAuto() {
+		return isAuto;
+	}
+
+	public void setAuto(boolean isAuto) {
+		this.isAuto = isAuto;
 	}
 
 }

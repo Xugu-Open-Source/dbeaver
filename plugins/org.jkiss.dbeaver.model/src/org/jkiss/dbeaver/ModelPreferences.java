@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,15 +19,19 @@ package org.jkiss.dbeaver;
 
 import org.jkiss.dbeaver.bundle.ModelActivator;
 import org.jkiss.dbeaver.model.DBConstants;
+import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.exec.DBCExecutionPurpose;
 import org.jkiss.dbeaver.model.impl.preferences.BundlePreferenceStore;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.model.qm.QMConstants;
 import org.jkiss.dbeaver.model.qm.QMObjectType;
 import org.jkiss.dbeaver.model.sql.SQLConstants;
+import org.jkiss.dbeaver.model.virtual.DBVEntity;
 import org.jkiss.dbeaver.registry.formatter.DataFormatterProfile;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.dbeaver.utils.PrefUtils;
+import org.jkiss.dbeaver.utils.RuntimeUtils;
+import org.jkiss.utils.CommonUtils;
 import org.osgi.framework.Bundle;
 
 import java.util.Arrays;
@@ -38,10 +42,47 @@ import java.util.Locale;
  */
 public final class ModelPreferences
 {
+    public enum SeparateConnectionBehavior {
+        DEFAULT("Default"),
+        ALWAYS("Always"),
+        NEVER("Never");
+        
+        private final String title;
+        
+        SeparateConnectionBehavior(String title) {
+            this.title = title;
+        }
+        
+        public String getTitle() {
+            return title;
+        }
+        
+        /**
+         * Convert value to SeparateConnectionBehavior option
+         */
+        public static SeparateConnectionBehavior parse(String value) {
+            if ("true".equalsIgnoreCase(value)) {
+                return DEFAULT;
+            } else if ("false".equalsIgnoreCase(value)) {
+                return NEVER;
+            } else {
+                return CommonUtils.valueOf(SeparateConnectionBehavior.class, value, DEFAULT);
+            }
+        }
+    }
+    
     public static final String PLUGIN_ID = "org.jkiss.dbeaver.model";
+    public static final String CLIENT_TIMEZONE = "java.client.timezone";
+    public static final String CLIENT_BROWSER = "swt.client.browser";
+
+    public static final String PROP_USE_WIN_TRUST_STORE_TYPE = "connections.useWinTrustStoreType"; //$NON-NLS-1$
 
     public static final String NOTIFICATIONS_ENABLED = "notifications.enabled"; //$NON-NLS-1$
     public static final String NOTIFICATIONS_CLOSE_DELAY_TIMEOUT = "notifications.closeDelay"; //$NON-NLS-1$
+    public static final String NOTIFICATIONS_SOUND_ENABLED = "notifications.soundEnabled"; //$NON-NLS-1$
+    public static final String NOTIFICATIONS_SOUND_VOLUME = "notifications.soundVolume"; //$NON-NLS-1$
+
+    public static final String DICTIONARY_MAX_ROWS = "dictionary.max.rows";
 
     public static final String QUERY_ROLLBACK_ON_ERROR = "query.rollback-on-error"; //$NON-NLS-1$
 
@@ -49,6 +90,7 @@ public final class ModelPreferences
     public static final String EXECUTE_RECOVER_RETRY_COUNT = "execute.recover.retryCount"; //$NON-NLS-1$
     public static final String EXECUTE_CANCEL_CHECK_TIMEOUT = "execute.cancel.checkTimeout"; //$NON-NLS-1$
 
+    public static final String DEFAULT_CONNECTION_NAME_PATTERN = "navigator.settings.default.connectionPattern";
     public static final String CONNECTION_OPEN_TIMEOUT = "connection.open.timeout"; //$NON-NLS-1$
     public static final String CONNECTION_VALIDATION_TIMEOUT = "connection.validation.timeout"; //$NON-NLS-1$
     public static final String CONNECTION_CLOSE_TIMEOUT = "connection.close.timeout"; //$NON-NLS-1$
@@ -78,6 +120,8 @@ public final class ModelPreferences
     public static final String RESULT_SCIENTIFIC_NUMERIC_FORMAT = "resultset.format.numeric.scientific"; //$NON-NLS-1$
     public static final String RESULT_TRANSFORM_COMPLEX_TYPES = "resultset.transform.complex.type"; //$NON-NLS-1$
 
+    public static final String RESULT_REFERENCE_DESCRIPTION_COLUMN_PATTERNS = "resultset.reference.value.description.column.patterns"; //$NON-NLS-1$
+
     // Network
     public static final String NET_TUNNEL_PORT_MIN = "net.tunnel.port.min"; //$NON-NLS-1$
     public static final String NET_TUNNEL_PORT_MAX = "net.tunnel.port.max"; //$NON-NLS-1$
@@ -97,7 +141,7 @@ public final class ModelPreferences
 
 
     public static final String SQL_PARAMETERS_ENABLED = "sql.parameter.enabled"; //$NON-NLS-1$
-    public static final String SQL_PARAMETERS_IN_DDL_ENABLED = "sql.parameter.ddl.enabled"; //$NON-NLS-1$
+    public static final String SQL_PARAMETERS_IN_EMBEDDED_CODE_ENABLED = "sql.parameter.ddl.enabled"; //$NON-NLS-1$
     public static final String SQL_ANONYMOUS_PARAMETERS_ENABLED = "sql.parameter.anonymous.enabled"; //$NON-NLS-1$
     public static final String SQL_ANONYMOUS_PARAMETERS_MARK = "sql.parameter.mark"; //$NON-NLS-1$
     public static final String SQL_NAMED_PARAMETERS_PREFIX = "sql.parameter.prefix"; //$NON-NLS-1$
@@ -141,6 +185,7 @@ public final class ModelPreferences
     public static final String TRANSACTIONS_AUTO_CLOSE_TTL = "transaction.auto.close.ttl"; //$NON-NLS-1$
 
     public static final String DICTIONARY_COLUMN_DIVIDER = "resultset.dictionary.columnDivider"; //$NON-NLS-1$
+    public static final String RESULT_SET_USE_DATETIME_EDITOR = "resultset.datetime.editor";
 
     private static Bundle mainBundle;
     private static DBPPreferenceStore preferences;
@@ -150,6 +195,10 @@ public final class ModelPreferences
             setMainBundle(ModelActivator.getInstance().getBundle());
         }
         return preferences;
+    }
+
+    public static void setPreferences(DBPPreferenceStore preferences) {
+        ModelPreferences.preferences = preferences;
     }
 
     public static void setMainBundle(Bundle mainBundle) {
@@ -166,13 +215,17 @@ public final class ModelPreferences
         // Notifications
         PrefUtils.setDefaultPreferenceValue(store, ModelPreferences.NOTIFICATIONS_ENABLED, true);
         PrefUtils.setDefaultPreferenceValue(store, ModelPreferences.NOTIFICATIONS_CLOSE_DELAY_TIMEOUT, 3000L);
-
+        PrefUtils.setDefaultPreferenceValue(store, ModelPreferences.NOTIFICATIONS_SOUND_ENABLED, true);
+        PrefUtils.setDefaultPreferenceValue(store, ModelPreferences.NOTIFICATIONS_SOUND_VOLUME, 100);
+        PrefUtils.setDefaultPreferenceValue(store, ModelPreferences.DICTIONARY_MAX_ROWS, 200);
         // Common
         PrefUtils.setDefaultPreferenceValue(store, QUERY_ROLLBACK_ON_ERROR, false);
         PrefUtils.setDefaultPreferenceValue(store, EXECUTE_RECOVER_ENABLED, true);
         PrefUtils.setDefaultPreferenceValue(store, EXECUTE_RECOVER_RETRY_COUNT, 1);
         PrefUtils.setDefaultPreferenceValue(store, EXECUTE_CANCEL_CHECK_TIMEOUT, 0);
-
+        PrefUtils.setDefaultPreferenceValue(store, DEFAULT_CONNECTION_NAME_PATTERN, GeneralUtils.variablePattern(DBPConnectionConfiguration.VAR_HOST_OR_DATABASE));
+        PrefUtils.setDefaultPreferenceValue(store, CLIENT_TIMEZONE, DBConstants.DEFAULT_TIMEZONE);
+        PrefUtils.setDefaultPreferenceValue(store, CLIENT_BROWSER, "");
         PrefUtils.setDefaultPreferenceValue(store, CONNECTION_OPEN_TIMEOUT, 0);
         PrefUtils.setDefaultPreferenceValue(store, CONNECTION_VALIDATION_TIMEOUT, 10000);
         PrefUtils.setDefaultPreferenceValue(store, CONNECTION_CLOSE_TIMEOUT, 5000);
@@ -184,7 +237,7 @@ public final class ModelPreferences
         PrefUtils.setDefaultPreferenceValue(store, QUERY_REMOVE_TRAILING_DELIMITER, true);
 
         PrefUtils.setDefaultPreferenceValue(store, MEMORY_CONTENT_MAX_SIZE, 10000);
-        PrefUtils.setDefaultPreferenceValue(store, META_SEPARATE_CONNECTION, true);
+        PrefUtils.setDefaultPreferenceValue(store, META_SEPARATE_CONNECTION, SeparateConnectionBehavior.DEFAULT.name());
         PrefUtils.setDefaultPreferenceValue(store, META_CASE_SENSITIVE, false);
         PrefUtils.setDefaultPreferenceValue(store, META_USE_SERVER_SIDE_FILTERS, true);
 
@@ -198,6 +251,8 @@ public final class ModelPreferences
         PrefUtils.setDefaultPreferenceValue(store, RESULT_NATIVE_NUMERIC_FORMAT, false);
         PrefUtils.setDefaultPreferenceValue(store, RESULT_SCIENTIFIC_NUMERIC_FORMAT, false);
         PrefUtils.setDefaultPreferenceValue(store, RESULT_TRANSFORM_COMPLEX_TYPES, true);
+
+        PrefUtils.setDefaultPreferenceValue(store, RESULT_REFERENCE_DESCRIPTION_COLUMN_PATTERNS, String.join("|", DBVEntity.DEFAULT_DESCRIPTION_COLUMN_PATTERNS));
 
         PrefUtils.setDefaultPreferenceValue(store, RESULT_SET_REREAD_ON_SCROLLING, true);
         PrefUtils.setDefaultPreferenceValue(store, RESULT_SET_READ_METADATA, true);
@@ -227,11 +282,11 @@ public final class ModelPreferences
             QMObjectType.toString(Arrays.asList(QMObjectType.txn, QMObjectType.query)));
         PrefUtils.setDefaultPreferenceValue(store, QMConstants.PROP_QUERY_TYPES, DBCExecutionPurpose.USER + "," + DBCExecutionPurpose.USER_FILTERED + "," + DBCExecutionPurpose.USER_SCRIPT);
         PrefUtils.setDefaultPreferenceValue(store, QMConstants.PROP_STORE_LOG_FILE, false);
-        PrefUtils.setDefaultPreferenceValue(store, QMConstants.PROP_LOG_DIRECTORY, GeneralUtils.getMetadataFolder().getAbsolutePath());
+        PrefUtils.setDefaultPreferenceValue(store, QMConstants.PROP_LOG_DIRECTORY, GeneralUtils.getMetadataFolder().toAbsolutePath().toString());
 
         // SQL
         PrefUtils.setDefaultPreferenceValue(store, SQL_PARAMETERS_ENABLED, true);
-        PrefUtils.setDefaultPreferenceValue(store, SQL_PARAMETERS_IN_DDL_ENABLED, false);
+        PrefUtils.setDefaultPreferenceValue(store, SQL_PARAMETERS_IN_EMBEDDED_CODE_ENABLED, false);
         PrefUtils.setDefaultPreferenceValue(store, SQL_ANONYMOUS_PARAMETERS_ENABLED, false);
         PrefUtils.setDefaultPreferenceValue(store, SQL_ANONYMOUS_PARAMETERS_MARK, String.valueOf(SQLConstants.DEFAULT_PARAMETER_MARK));
         PrefUtils.setDefaultPreferenceValue(store, SQL_NAMED_PARAMETERS_PREFIX, String.valueOf(SQLConstants.DEFAULT_PARAMETER_PREFIX));
@@ -258,14 +313,16 @@ public final class ModelPreferences
         PrefUtils.setDefaultPreferenceValue(store, UI_DRIVERS_HOME, "");
         PrefUtils.setDefaultPreferenceValue(store, UI_DRIVERS_SOURCES, "https://dbeaver.io/files/jdbc/");
 
+        PrefUtils.setDefaultPreferenceValue(store, PROP_USE_WIN_TRUST_STORE_TYPE, RuntimeUtils.isWindows());
+
         PrefUtils.setDefaultPreferenceValue(store, ModelPreferences.NAVIGATOR_SHOW_FOLDER_PLACEHOLDERS, true);
         PrefUtils.setDefaultPreferenceValue(store, ModelPreferences.NAVIGATOR_SORT_ALPHABETICALLY, false);
         PrefUtils.setDefaultPreferenceValue(store, ModelPreferences.NAVIGATOR_SORT_FOLDERS_FIRST, true);
 
         PrefUtils.setDefaultPreferenceValue(store, ModelPreferences.TRANSACTIONS_SMART_COMMIT, false);
-        PrefUtils.setDefaultPreferenceValue(store, ModelPreferences.TRANSACTIONS_SMART_COMMIT_RECOVER, true);
-        PrefUtils.setDefaultPreferenceValue(store, ModelPreferences.TRANSACTIONS_AUTO_CLOSE_ENABLED, false);
-        PrefUtils.setDefaultPreferenceValue(store, ModelPreferences.TRANSACTIONS_AUTO_CLOSE_TTL, 15 * 60);
+        PrefUtils.setDefaultPreferenceValue(store, ModelPreferences.TRANSACTIONS_SMART_COMMIT_RECOVER, false);
+        PrefUtils.setDefaultPreferenceValue(store, ModelPreferences.TRANSACTIONS_AUTO_CLOSE_ENABLED, true);
+        PrefUtils.setDefaultPreferenceValue(store, ModelPreferences.TRANSACTIONS_AUTO_CLOSE_TTL, 30 * 60);
         PrefUtils.setDefaultPreferenceValue(store, ModelPreferences.TRANSACTIONS_SHOW_NOTIFICATIONS, true);
 
         PrefUtils.setDefaultPreferenceValue(store, ModelPreferences.DICTIONARY_COLUMN_DIVIDER, " ");

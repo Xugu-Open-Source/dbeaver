@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 package org.jkiss.dbeaver.model.exec;
+
+import org.jkiss.code.NotNull;
+import org.jkiss.dbeaver.model.exec.output.DBCOutputWriter;
 
 import java.io.PrintWriter;
 import java.util.List;
@@ -40,7 +43,6 @@ public interface DBCScriptContext {
             return title;
         }
     }
-
     class VariableInfo {
         public String name;
         public Object value;
@@ -52,7 +54,6 @@ public interface DBCScriptContext {
             this.type = type;
         }
     }
-
     boolean hasVariable(String name);
 
     Object getVariable(String name);
@@ -61,13 +62,18 @@ public interface DBCScriptContext {
 
     void removeVariable(String name);
 
+    boolean hasDefaultParameterValue(String name);
+
+    void removeDefaultParameterValue(String name);
+
     List<VariableInfo> getVariables();
 
     <T> T getData(String key);
 
     void setData(String key, Object value);
 
-    PrintWriter getOutputWriter();
+    @NotNull
+    DBCOutputWriter getOutputWriter();
 
     void addListener(DBCScriptContextListener listener);
 

@@ -118,6 +118,7 @@ public class DataType extends BaseObject<DBSObject>
 		PREDEFINED_TYPES.put("VARCHAR", new TypeDesc(DBPDataKind.STRING, Types.VARCHAR, 0, 0, 0, 0));
 		PREDEFINED_TYPES.put("TIMESTAMP", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 6, 0, 0, 0));
 		PREDEFINED_TYPES.put("INT", new TypeDesc(DBPDataKind.NUMERIC, Types.INTEGER, 10, 0, 0, 0));
+		PREDEFINED_TYPES.put("BIT", new TypeDesc(DBPDataKind.STRING, Types.VARCHAR, 0, 0, 0, 0));
 
 		for (TypeDesc type : PREDEFINED_TYPES.values()) {
 			PREDEFINED_TYPE_IDS.put(type.valueType, type);

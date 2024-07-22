@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,30 +20,29 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPNamedObject2;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.task.*;
 import org.jkiss.dbeaver.utils.GeneralUtils;
-import org.jkiss.utils.ArrayUtils;
-import org.jkiss.utils.CommonUtils;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * TaskImpl
  */
 public class TaskImpl implements DBTTask, DBPNamedObject2 {
+    public static String META_FILE_NAME = "meta.json";
+
     private static final Log log = Log.getLog(TaskImpl.class);
-
-    private static final String META_FILE_NAME = "meta.json";
-
     private static final int MAX_RUNS_IN_STATS = 100;
-    private static final TaskRunImpl VOID_RUN = new TaskRunImpl();
     private static final Gson gson = new GsonBuilder()
         .setLenient()
         .setDateFormat(GeneralUtils.DEFAULT_TIMESTAMP_PATTERN)
@@ -57,14 +56,19 @@ public class TaskImpl implements DBTTask, DBPNamedObject2 {
     private Date updateTime;
     private DBTTaskType type;
     private Map<String, Object> properties;
-    private TaskRunImpl lastRun;
-    @Nullable private TaskFolderImpl taskFolder;
+    private List<DBTTaskRun> runs;
+    private DBTTaskFolder taskFolder;
 
-    private static class RunStatistics {
-        private final List<TaskRunImpl> runs = new ArrayList<>();
-    }
-
-    public TaskImpl(@NotNull DBPProject project, @NotNull DBTTaskType type, @NotNull String id, @NotNull String label, @Nullable String description, @NotNull Date createTime, @Nullable Date updateTime, @Nullable TaskFolderImpl taskFolder) {
+    protected TaskImpl(
+        @NotNull DBPProject project,
+        @NotNull DBTTaskType type,
+        @NotNull String id,
+        @NotNull String label,
+        @Nullable String description,
+        @NotNull Date createTime,
+        @Nullable Date updateTime,
+        @Nullable DBTTaskFolder folder
+    ) {
         this.project = project;
         this.id = id;
         this.label = label;
@@ -72,7 +76,7 @@ public class TaskImpl implements DBTTask, DBPNamedObject2 {
         this.createTime = createTime;
         this.updateTime = updateTime;
         this.type = type;
-        this.taskFolder = taskFolder;
+        this.taskFolder = folder;
     }
 
     @NotNull
@@ -114,7 +118,7 @@ public class TaskImpl implements DBTTask, DBPNamedObject2 {
     }
 
     public void setTaskFolder(@Nullable DBTTaskFolder taskFolder) {
-        this.taskFolder = (TaskFolderImpl) taskFolder;
+        this.taskFolder = taskFolder;
     }
 
     @NotNull
@@ -152,69 +156,82 @@ public class TaskImpl implements DBTTask, DBPNamedObject2 {
     @Nullable
     @Override
     public DBTTaskRun getLastRun() {
-        if (lastRun == null) {
-            refreshRunStatistics();
-        }
-        return lastRun == VOID_RUN ? null : lastRun;
+        loadRunsIfNeeded();
+        return runs.isEmpty() ? null : runs.get(runs.size() - 1);
     }
 
     @NotNull
     @Override
-    public DBTTaskRun[] getRunStatistics() {
-        return loadRunStatistics().runs.toArray(new DBTTaskRun[0]);
+    public DBTTaskRun[] getAllRuns() {
+        loadRunsIfNeeded();
+        return runs.toArray(DBTTaskRun[]::new);
+    }
+
+    @Nullable
+    @Override
+    public Path getRunLog(@NotNull DBTTaskRun run) {
+        return getTaskStatsFolder(false).resolve(TaskUtils.buildRunLogFileName(run.getId()));
     }
 
     @NotNull
     @Override
-    public File getRunLog(DBTTaskRun run) {
-        return new File(getTaskStatsFolder(false), TaskRunImpl.RUN_LOG_PREFIX + run.getId() + "." + TaskRunImpl.RUN_LOG_EXT);
+    public InputStream getRunLogInputStream(@NotNull DBTTaskRun run) throws DBException, IOException {
+        return Files.newInputStream(Objects.requireNonNull(getRunLog(run)));
     }
 
     @Override
-    public void removeRunLog(DBTTaskRun taskRun) {
-        File runLog = getRunLog(taskRun);
+    public void removeRun(DBTTaskRun taskRun) {
+        synchronized (this) {
+            loadRunsIfNeeded();
 
-        if (runLog.exists() && !runLog.delete()) {
-            log.error("Can't delete log file '" + runLog.getAbsolutePath() + "'");
+            if (!runs.remove(taskRun)) {
+                return;
+            }
+
+            Path runLog = getRunLog(taskRun);
+
+            if (runLog != null) {
+                try {
+                    Files.deleteIfExists(runLog);
+                } catch (IOException e) {
+                    log.error("Can't delete log file '" + runLog.toAbsolutePath() + "'", e);
+                }
+            }
+
+            flushRunStatistics(runs);
         }
-        RunStatistics runStatistics = loadRunStatistics();
-        runStatistics.runs.remove(taskRun);
-        flushRunStatistics(runStatistics);
-        if (CommonUtils.equalObjects(lastRun, taskRun)) {
-            lastRun = null;
-        }
+
         TaskRegistry.getInstance().notifyTaskListeners(new DBTTaskEvent(this, DBTTaskEvent.Action.TASK_UPDATE));
     }
 
     @Override
     public void cleanRunStatistics() {
-        File statsFolder = getTaskStatsFolder(false);
-        if (statsFolder.exists()) {
-            for (File file : ArrayUtils.safeArray(statsFolder.listFiles())) {
-                if (!file.delete()) {
-                    log.error("Can't delete log item '" + file.getAbsolutePath() + "'");
+        Path statsFolder = getTaskStatsFolder(false);
+        if (Files.exists(statsFolder)) {
+            try {
+                List<Path> taskFiles = Files.list(statsFolder).collect(Collectors.toList());
+                for (Path file : taskFiles) {
+                    try {
+                        Files.delete(file);
+                    } catch (IOException e) {
+                        log.error("Can't delete log item '" + file.toAbsolutePath() + "'", e);
+                    }
                 }
-            }
-            if (!statsFolder.delete()) {
-                log.error("Can't delete logs folder '" + statsFolder.getAbsolutePath() + "'");
+                Files.delete(statsFolder);
+            } catch (IOException e) {
+                log.error("Can't delete logs folder '" + statsFolder.toAbsolutePath() + "'", e);
             }
         }
-        RunStatistics runStatistics = new RunStatistics();
-        flushRunStatistics(runStatistics);
-        lastRun = null;
+        if (runs != null) {
+            runs.clear();
+        }
+        flushRunStatistics(List.of());
         TaskRegistry.getInstance().notifyTaskListeners(new DBTTaskEvent(this, DBTTaskEvent.Action.TASK_UPDATE));
     }
 
     @Override
     public void refreshRunStatistics() {
-        try {
-            synchronized (this) {
-                List<TaskRunImpl> runs = loadRunStatistics().runs;
-                lastRun = runs.isEmpty() ? VOID_RUN : runs.get(runs.size() - 1);
-            }
-        } catch (Throwable e) {
-            log.debug("Error loading task runs", e); //$NON-NLS-1$
-        }
+        runs = new ArrayList<>(loadRunStatistics());
     }
 
     @Override
@@ -224,82 +241,84 @@ public class TaskImpl implements DBTTask, DBPNamedObject2 {
 
     @Override
     public boolean isTemporary() {
-        return TaskManagerImpl.TEMPORARY_ID.equals(id);
+        return TaskConstants.TEMPORARY_ID.equals(id);
     }
 
-    @NotNull
-    @Override
-    public File getRunLogFolder() {
-        return getTaskStatsFolder(false);
-    }
-
-    File getTaskStatsFolder(boolean create) {
-        File taskStatsFolder = new File(project.getTaskManager().getStatisticsFolder(), id);
-        if (create && !taskStatsFolder.exists() && !taskStatsFolder.mkdirs()) {
-            log.error("Can't create task log folder '" + taskStatsFolder.getAbsolutePath() + "'");
+    protected Path getTaskStatsFolder(boolean create) {
+        Path taskStatsFolder = project.getTaskManager().getStatisticsFolder().resolve(id);
+        if (create && !Files.exists(taskStatsFolder)) {
+            try {
+                Files.createDirectories(taskStatsFolder);
+            } catch (IOException e) {
+                log.error("Can't create task log folder '" + taskStatsFolder.toAbsolutePath() + "'", e);
+            }
         }
         return taskStatsFolder;
     }
 
-    private RunStatistics loadRunStatistics() {
-        File metaFile = new File(getTaskStatsFolder(false), META_FILE_NAME);
-        if (!metaFile.exists()) {
-            return new RunStatistics();
-        }
-        try (FileReader reader = new FileReader(metaFile)) {
-            RunStatistics statistics = gson.fromJson(reader, RunStatistics.class);
-            if (statistics == null) {
-                log.error("Null task run statistics returned");
-                return new RunStatistics();
-            }
-            return statistics;
-        } catch (Exception e) {
-            log.error("Error reading task run statistics", e);
-            return new RunStatistics();
-        }
-    }
-
-    private void flushRunStatistics(RunStatistics stats) {
-        File metaFile = new File(getTaskStatsFolder(true), META_FILE_NAME);
-        try (FileWriter writer = new FileWriter(metaFile)) {
-            String metaContent = gson.toJson(stats);
-            writer.write(metaContent);
-        } catch (IOException e) {
-            log.error("Error writing task run statistics", e);
-        }
-    }
-
-    void addNewRun(TaskRunImpl taskRun) {
+    void addNewRun(@NotNull DBTTaskRun taskRun) {
         synchronized (this) {
-            lastRun = taskRun;
-            RunStatistics stats = loadRunStatistics();
-            stats.runs.add(taskRun);
-            while (stats.runs.size() > MAX_RUNS_IN_STATS) {
-                stats.runs.remove(0);
+            loadRunsIfNeeded();
+
+            runs.add(taskRun);
+
+            while (runs.size() > MAX_RUNS_IN_STATS) {
+                runs.remove(0);
             }
-            flushRunStatistics(stats);
+
+            flushRunStatistics(runs);
         }
+
         TaskRegistry.getInstance().notifyTaskListeners(new DBTTaskEvent(this, DBTTaskEvent.Action.TASK_UPDATE));
     }
 
-    void updateRun(TaskRunImpl taskRun) {
+    void updateRun(@NotNull TaskRunImpl taskRun) {
         synchronized (this) {
-            RunStatistics stats = loadRunStatistics();
-            List<TaskRunImpl> runs = stats.runs;
+            loadRunsIfNeeded();
+
             for (int i = 0; i < runs.size(); i++) {
-                TaskRunImpl run = runs.get(i);
-                if (CommonUtils.equalObjects(run.getId(), taskRun.getId())) {
+                if (runs.get(i).getId().equals(taskRun.getId())) {
                     runs.set(i, taskRun);
                     break;
                 }
             }
-            flushRunStatistics(stats);
+
+            flushRunStatistics(runs);
         }
+
         TaskRegistry.getInstance().notifyTaskListeners(new DBTTaskEvent(this, DBTTaskEvent.Action.TASK_UPDATE));
     }
 
     @Override
     public String toString() {
         return id + " " + label + " (" + type.getName() + ")";
+    }
+
+    @NotNull
+    protected List<? extends DBTTaskRun> loadRunStatistics() {
+        return TaskUtils.loadRunStatistics(getTaskStatsFolder(false).resolve(META_FILE_NAME), gson);
+    }
+
+    protected void flushRunStatistics(@NotNull List<? extends DBTTaskRun> runs) {
+        Path metaFile = getTaskStatsFolder(true).resolve(META_FILE_NAME);
+        try (Writer writer = Files.newBufferedWriter(metaFile)) {
+            final List<TaskRunImpl> filteredRuns = runs.stream()
+                .filter(run -> run instanceof TaskRunImpl)
+                .map(run -> (TaskRunImpl) run)
+                .collect(Collectors.toList());
+            writer.write(gson.toJson(new RunStatistics(filteredRuns)));
+        } catch (IOException e) {
+            log.error("Error writing task run statistics", e);
+        }
+    }
+
+    private void loadRunsIfNeeded() {
+        if (runs == null) {
+            synchronized (this) {
+                if (runs == null) {
+                    runs = new ArrayList<>(loadRunStatistics());
+                }
+            }
+        }
     }
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -123,6 +123,14 @@ public class CommonUtils {
         return str;
     }
 
+    @NotNull
+    public static String removeLeadingSlash(@NotNull String str) {
+        while (str.startsWith("/") || str.startsWith("\\")) {
+            str = str.substring(1);
+        }
+        return str;
+    }
+
     public static String capitalizeWord(String str) {
         if (isEmpty(str) || Character.isUpperCase(str.charAt(0))) {
             return str;
@@ -182,12 +190,25 @@ public class CommonUtils {
         return value == null || value.isEmpty();
     }
 
+    @Nullable
+    public static <T> T getFirstOrNull(@NotNull List<T> list) {
+        return list.isEmpty() ? null : list.get(0);
+    }
+
     @NotNull
     public static <T> Collection<T> safeCollection(@Nullable Collection<T> theList) {
         if (theList == null) {
             theList = Collections.emptyList();
         }
         return theList;
+    }
+
+    @NotNull
+    public static <T> List<T> singletonOrEmpty(@Nullable T object) {
+        if (object == null) {
+            return Collections.emptyList();
+        }
+        return Collections.singletonList(object);
     }
 
     @NotNull
@@ -332,7 +353,8 @@ public class CommonUtils {
         } else if (object instanceof String) {
             return (String) object;
         } else {
-            return object.toString();
+            String strValue = object.toString();
+            return strValue == null ? "" : strValue;
         }
     }
 
@@ -362,6 +384,7 @@ public class CommonUtils {
                 try {
                     return (int)Double.parseDouble(toString(object));
                 } catch (NumberFormatException e1) {
+                    e1.printStackTrace();
                     return def;
                 }
             }
@@ -640,7 +663,7 @@ public class CommonUtils {
     }
 
     @Nullable
-    public static <T extends Enum<T>> T valueOf(@Nullable Class<T> type, @Nullable String name, T defValue, boolean underscoreSpaces) {
+    public static <T extends Enum<T>> T valueOf(@NotNull Class<T> type, @Nullable String name, T defValue, boolean underscoreSpaces) {
         if (name == null) {
             return defValue;
         }
@@ -894,12 +917,6 @@ public class CommonUtils {
         return false;
     }
 
-    @NotNull
-    @SafeVarargs
-    public static <T> Set<T> unmodifiableSet(@NotNull T... vararg) {
-        return Collections.unmodifiableSet(new HashSet<>(Arrays.asList(vararg)));
-    }
-
     /**
      * Checks if the {@code index} is within the bounds of the range from
      * {@code 0} (inclusive) to {@code length} (exclusive).
@@ -1012,5 +1029,45 @@ public class CommonUtils {
         }
         matcher.appendTail(sb);
         return sb.toString();
+    }
+
+    @SafeVarargs
+    public static <T> T[] array(T... elems) {
+        return elems;
+    }
+
+    /**
+     * Removes (single or multiple) starting '/' from {@code resourcePath} and replaces all '\' with '/'
+     */
+    @NotNull
+    public static String normalizeResourcePath(@NotNull String resourcePath) {
+        while (resourcePath.startsWith("/")) {
+            resourcePath = resourcePath.substring(1);
+        }
+        resourcePath = resourcePath.replace('\\', '/');
+        return resourcePath;
+    }
+
+    /**
+     * Replaces the last {@code toReplace} entry in {@code string} with {@code replacement}
+     */
+    @NotNull
+    public static String replaceLast(@NotNull String string, @NotNull String toReplace, @NotNull String replacement) {
+        int pos = string.lastIndexOf(toReplace);
+        if (pos > -1) {
+            return string.substring(0, pos)
+                + replacement
+                + string.substring(pos + toReplace.length());
+        } else {
+            return string;
+        }
+    }
+
+    /**
+     * Sets prefix for sql queries params (f.e. schema names for tables)
+     */
+    @NotNull
+    public static String normalizeTableNames(@NotNull String sql, @Nullable String prefix) {
+        return sql.replaceAll("\\{table_prefix}", isEmpty(prefix) ? "" : prefix + ".");
     }
 }

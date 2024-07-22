@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,9 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.ui.IActionBars;
 import org.eclipse.ui.IEditorPart;
+import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.contexts.IContextActivation;
+import org.eclipse.ui.contexts.IContextService;
 import org.eclipse.ui.part.MultiPageEditorPart;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
@@ -35,6 +38,8 @@ import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSDataContainer;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.dbeaver.ui.DataEditorFeatures;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.resultset.*;
 import org.jkiss.dbeaver.ui.editors.AbstractDatabaseObjectEditor;
@@ -43,6 +48,7 @@ import org.jkiss.dbeaver.ui.navigator.actions.NavigatorHandlerObjectOpen;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
 
 import java.util.Collections;
+import java.util.Map;
 
 /**
  * AbstractDataEditor
@@ -57,6 +63,7 @@ public abstract class AbstractDataEditor<OBJECT_TYPE extends DBSObject> extends 
     //private boolean running = false;
     private Composite parent;
     private DBPProject project;
+    private IContextActivation rscContext;
 
     @Override
     public void createPartControl(Composite parent)
@@ -73,13 +80,29 @@ public abstract class AbstractDataEditor<OBJECT_TYPE extends DBSObject> extends 
 
         if (!loaded && !isSuspendDataQuery()) {
             if (isReadyToRun()) {
+                DataEditorFeatures.DATA_EDIT_OPEN.use(
+                    Map.of("objectType", getDatabaseObject().getClass().getSimpleName())
+                );
+
                 resultSetView.setStatus(getDataQueryMessage());
                 refreshWithFilters();
                 loaded = true;
             }
         }
+        rscContext = PlatformUI.getWorkbench().getService(IContextService.class).activateContext(IResultSetController.RESULTS_CONTEXT_ID);
         //resultSetView.setSelection(resultSetView.getSelection());
     }
+
+    @Override
+    public void deactivatePart()
+    {
+        if (rscContext != null) {
+            PlatformUI.getWorkbench().getService(IContextService.class).deactivateContext(rscContext);
+            rscContext = null;
+        }
+        super.deactivatePart();
+    }
+
 
     protected abstract DBDDataFilter getEditorDataFilter();
 
@@ -98,11 +121,6 @@ public abstract class AbstractDataEditor<OBJECT_TYPE extends DBSObject> extends 
             // Set selection provider from resultset
             getSite().setSelectionProvider(resultSetView);
         }
-    }
-
-    @Override
-    public void deactivatePart()
-    {
     }
 
     @Override
@@ -141,7 +159,7 @@ public abstract class AbstractDataEditor<OBJECT_TYPE extends DBSObject> extends 
             return;
         }
 
-        final DBNDatabaseNode targetNode = executionContext.getDataSource().getContainer().getPlatform().getNavigatorModel().getNodeByObject(monitor, dataContainer, false);
+        final DBNDatabaseNode targetNode = DBWorkbench.getPlatform().getNavigatorModel().getNodeByObject(monitor, dataContainer, false);
         if (targetNode == null) {
             UIUtils.showMessageBox(null, "Open link", "Can't navigate to '" + DBUtils.getObjectFullName(dataContainer, DBPEvaluationContext.UI) + "' - navigator node not found", SWT.ICON_ERROR);
             return;

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,22 +23,25 @@ import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.net.ssh.JSCHUserInfoPromptProvider;
 import org.jkiss.dbeaver.model.net.ssh.config.SSHAuthConfiguration;
+import org.jkiss.dbeaver.model.net.ssh.config.SSHHostConfiguration;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.dbeaver.ui.net.ssh.SSHUIMessages;
 import org.jkiss.utils.CommonUtils;
 
 public class JSCHUIPromptProvider implements JSCHUserInfoPromptProvider {
 
     @NotNull
     @Override
-    public UserInfo createUserInfoPrompt(@NotNull SSHAuthConfiguration configuration, @NotNull Session session) {
+    public UserInfo createUserInfoPrompt(@NotNull SSHHostConfiguration configuration, @NotNull Session session) {
         return new UIPrompter(configuration, session);
     }
 
     private static class UIPrompter extends UserInfoPrompter {
         private static final Log log = Log.getLog(JSCHUIPromptProvider.class);
 
-        private final SSHAuthConfiguration configuration;
+        private final SSHHostConfiguration configuration;
 
-        UIPrompter(@NotNull SSHAuthConfiguration configuration, Session session) {
+        UIPrompter(@NotNull SSHHostConfiguration configuration, Session session) {
             super(session);
             this.configuration = configuration;
         }
@@ -46,27 +49,21 @@ public class JSCHUIPromptProvider implements JSCHUserInfoPromptProvider {
         @Override
         public String[] promptKeyboardInteractive(String destination, String name, String instruction, String[] prompt, boolean[] echo) {
             if (shouldUsePassword()) {
-                setPassword(configuration.getPassword());
+                setPassword(configuration.getAuthConfiguration().getPassword());
             }
             return super.promptKeyboardInteractive(destination, name, instruction, prompt, echo);
         }
 
         @Override
         public boolean promptPassword(String message) {
-            if (shouldUsePassword()) {
-                setPassword(configuration.getPassword());
-                return true;
-            }
-            return super.promptPassword(message);
+            setPassword(configuration.getAuthConfiguration().getPassword());
+            return true;
         }
 
         @Override
         public boolean promptPassphrase(String message) {
-            if (shouldUsePassword()) {
-                setPassphrase(configuration.getPassword());
-                return true;
-            }
-            return super.promptPassphrase(message);
+            setPassphrase(configuration.getAuthConfiguration().getPassword());
+            return true;
         }
 
         @Override
@@ -77,7 +74,17 @@ public class JSCHUIPromptProvider implements JSCHUserInfoPromptProvider {
         }
 
         private boolean shouldUsePassword() {
-            return configuration.getType().usesPassword() && (configuration.isSavePassword() || CommonUtils.isNotEmpty(configuration.getPassword()));
+            final SSHAuthConfiguration auth = configuration.getAuthConfiguration();
+            return auth.getType().usesPassword() && (auth.isSavePassword() || CommonUtils.isNotEmpty(auth.getPassword()));
+        }
+
+        @Override
+        public boolean promptYesNo(String question) {
+            return DBWorkbench.getPlatformUI().confirmAction(
+                SSHUIMessages.jsch_remote_host_identifier_changed_warning_title,
+                question,
+                true
+            );
         }
     }
 }

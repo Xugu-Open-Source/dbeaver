@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,14 +17,29 @@
  */
 package org.jkiss.dbeaver.ui.preferences;
 
+import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.jface.preference.PreferencePage;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
+import org.jkiss.code.NotNull;
 
 /**
  * AbstractPrefPage
  */
-public abstract class AbstractPrefPage extends PreferencePage
-{
+public abstract class AbstractPrefPage extends PreferencePage {
+    @Override
+    protected Control createContents(Composite parent) {
+        final Control content = createPreferenceContent(parent);
+
+        Dialog.applyDialogFont(content);
+
+        return content;
+    }
+
     void disableButtons() {
         noDefaultAndApplyButton();
     }
+
+    @NotNull
+    protected abstract Control createPreferenceContent(@NotNull Composite parent);
 }

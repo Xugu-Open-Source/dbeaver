@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -140,7 +140,7 @@ public class GenericPackage extends GenericObjectContainer implements DBPQualifi
     public DBSObject refreshObject(@NotNull DBRProgressMonitor monitor) throws DBException
     {
         procedures.clear();
-        return this;
+        return super.refreshObject(monitor);
     }
 
     public boolean isNameFromCatalog()

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,11 +33,7 @@ import org.jkiss.dbeaver.model.impl.struct.RelationalObjectType;
 import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
-import org.jkiss.dbeaver.model.struct.DBSObject;
-import org.jkiss.dbeaver.model.struct.DBSObjectFilter;
-import org.jkiss.dbeaver.model.struct.DBSObjectReference;
-import org.jkiss.dbeaver.model.struct.DBSObjectType;
-import org.jkiss.dbeaver.model.struct.DBSStructureAssistant;
+import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.utils.CommonUtils;
 
 import java.sql.SQLException;
@@ -209,7 +205,7 @@ public class PostgreStructureAssistant implements DBSStructureAssistant<PostgreE
                         log.debug("Can't resolve table '" + tableName + "' - owner schema " + schemaId + " not found");
                         continue;
                     }
-                    objects.add(new AbstractObjectReference(tableName, tableSchema, null,
+                    objects.add(new AbstractObjectReference<>(tableName, tableSchema, null,
                         tableType == PostgreClass.RelKind.r ? PostgreTable.class :
                             (tableType == PostgreClass.RelKind.v ? PostgreView.class : PostgreMaterializedView.class),
                         RelationalObjectType.TYPE_TABLE) {
@@ -233,8 +229,9 @@ public class PostgreStructureAssistant implements DBSStructureAssistant<PostgreE
         DBRProgressMonitor monitor = session.getProgressMonitor();
 
         PostgreServerExtension serverType = database.getDataSource().getServerType();
+        String proceduresOidColumn = serverType.getProceduresOidColumn();
         QueryParams queryParams = new QueryParams(
-            "pp." + serverType.getProceduresOidColumn() + " as poid, pp.*",
+            "pp." + proceduresOidColumn + " as poid, pp.*",
             "pg_catalog." + serverType.getProceduresSystemTable() + " pp",
             "pp.proname",
             schemas,
@@ -247,7 +244,7 @@ public class PostgreStructureAssistant implements DBSStructureAssistant<PostgreE
             queryParams.setDescriptionClause("obj_description(pp.oid, 'pg_proc')");
         }
         if (params.isSearchInDefinitions()) {
-            queryParams.setDefinitionClause("pp.prokind <> 'm' AND pp.prokind <> 'a' AND pg_get_functiondef(pp.\"oid\")");
+            queryParams.setDefinitionClause("pp.prokind <> 'm' AND pp.prokind <> 'a' AND pg_get_functiondef(pp.\"" + proceduresOidColumn + "\")");
         }
         queryParams.setMaxResults(params.getMaxResults() - objects.size());
         String sql = buildFindQuery(queryParams);
@@ -267,7 +264,7 @@ public class PostgreStructureAssistant implements DBSStructureAssistant<PostgreE
                     }
                     PostgreProcedure proc = new PostgreProcedure(monitor, procSchema, dbResult);
 
-                    objects.add(new AbstractObjectReference(procName, procSchema, null, PostgreProcedure.class, RelationalObjectType.TYPE_PROCEDURE,
+                    objects.add(new AbstractObjectReference<>(procName, procSchema, null, PostgreProcedure.class, RelationalObjectType.TYPE_PROCEDURE,
                         DBUtils.getQuotedIdentifier(procSchema) + "." + proc.getOverloadedName()) {
                         @Override
                         public DBSObject resolveObject(DBRProgressMonitor monitor) throws DBException {
@@ -319,7 +316,7 @@ public class PostgreStructureAssistant implements DBSStructureAssistant<PostgreE
                         log.debug("Constraint's schema '" + schemaId + "' not found");
                         continue;
                     }
-                    objects.add(new AbstractObjectReference(constrName, constrSchema, null, PostgreTableConstraintBase.class, RelationalObjectType.TYPE_CONSTRAINT) {
+                    objects.add(new AbstractObjectReference<>(constrName, constrSchema, null, PostgreTableConstraintBase.class, RelationalObjectType.TYPE_CONSTRAINT) {
                         @Override
                         public DBSObject resolveObject(DBRProgressMonitor monitor) throws DBException {
                             final PostgreTableConstraintBase constraint = PostgreUtils.getObjectById(monitor, constrSchema.getConstraintCache(), constrSchema, constrId);
@@ -369,7 +366,7 @@ public class PostgreStructureAssistant implements DBSStructureAssistant<PostgreE
                         log.debug("Attribute's schema '" + schemaId + "' not found");
                         continue;
                     }
-                    objects.add(new AbstractObjectReference(attributeName, constrSchema, null, PostgreTableBase.class, RelationalObjectType.TYPE_TABLE_COLUMN) {
+                    objects.add(new AbstractObjectReference<>(attributeName, constrSchema, null, PostgreTableBase.class, RelationalObjectType.TYPE_TABLE_COLUMN) {
                         @Override
                         public DBSObject resolveObject(DBRProgressMonitor monitor) throws DBException {
                             final PostgreTableBase table = PostgreUtils.getObjectById(monitor, constrSchema.getTableCache(), constrSchema, tableId);

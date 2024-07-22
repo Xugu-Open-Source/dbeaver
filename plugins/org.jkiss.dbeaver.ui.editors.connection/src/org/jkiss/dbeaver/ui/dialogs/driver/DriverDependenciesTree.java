@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,15 +36,19 @@ import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.runtime.WebUtils;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.ui.internal.UIConnectionMessages;
 import org.jkiss.dbeaver.utils.GeneralUtils;
+import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.CommonUtils;
 
-import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import javax.net.ssl.SSLHandshakeException;
 
 class DriverDependenciesTree {
 
@@ -159,8 +163,8 @@ class DriverDependenciesTree {
         // Check missing files
         int missingFiles = 0;
         for (DBPDriverDependencies.DependencyNode node : dependencies.getLibraryList()) {
-            File localFile = node.library.getLocalFile();
-            if (localFile == null || !localFile.exists()) {
+            Path localFile = node.library.getLocalFile();
+            if (localFile == null || !Files.exists(localFile)) {
                 missingFiles++;
             }
         }
@@ -187,11 +191,20 @@ class DriverDependenciesTree {
         try {
             WebUtils.openConnection(NETWORK_TEST_URL, GeneralUtils.getProductTitle());
         } catch (IOException e) {
-            throw new DBException("Network unavailable:\n" + e.getClass().getName() + ":" + e.getMessage());
+            String message;
+            if (RuntimeUtils.isWindows() && e instanceof SSLHandshakeException) {
+                message = UIConnectionMessages.dialog_driver_download_network_unavailable_cert_msg;
+            } else {
+                message = UIConnectionMessages.dialog_driver_download_network_unavailable_msg;
+            }
+            throw new DBException(message + "\n" + e.getClass().getName() + ":" + e.getMessage());
         }
     }
 
     public void resizeTree() {
+        if (filesTree.isDisposed()) {
+            return;
+        }
         Shell shell = filesTree.getShell();
         Point curSize = shell.getSize();
         int itemHeight = filesTree.getItemHeight();
@@ -286,7 +299,7 @@ class DriverDependenciesTree {
         editor.setListVisible(true);
     }
 
-    // This may be overrided
+    // This may be overridden
     protected void setLibraryVersion(DBPDriverLibrary library, String version) {
 
     }

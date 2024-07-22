@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.eclipse.jface.dialogs.IDialogSettings;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
@@ -68,8 +69,10 @@ public class EnterNameDialog extends Dialog {
         gl.marginWidth = 10;
         propGroup.setLayout(gl);
         GridData gd = new GridData(GridData.FILL_BOTH);
-        gd.widthHint = 300;
+        gd.minimumWidth = 300;
         propGroup.setLayoutData(gd);
+
+        createControlsBeforeName(propGroup);
 
         propNameText = UIUtils.createLabelText(propGroup, propertyName, null);
         if (propertyValue != null) {
@@ -79,6 +82,10 @@ public class EnterNameDialog extends Dialog {
         propNameText.addModifyListener(e -> updateButtonsState());
 
         return propGroup;
+    }
+
+    protected void createControlsBeforeName(Composite composite) {
+
     }
 
     @Override
@@ -114,7 +121,10 @@ public class EnterNameDialog extends Dialog {
         return dialog.chooseName();
     }
 
-    private void updateButtonsState() {
-        getButton(IDialogConstants.OK_ID).setEnabled(!CommonUtils.isEmptyTrimmed(propNameText.getText()));
+    protected void updateButtonsState() {
+        Button button = getButton(IDialogConstants.OK_ID);
+        if (button != null && propNameText != null) {
+            button.setEnabled(!CommonUtils.isEmptyTrimmed(propNameText.getText()));
+        }
     }
 }

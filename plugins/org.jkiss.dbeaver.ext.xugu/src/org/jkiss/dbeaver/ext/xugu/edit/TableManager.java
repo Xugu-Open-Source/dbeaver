@@ -37,6 +37,7 @@ import org.jkiss.dbeaver.model.impl.sql.edit.struct.SQLTableManager;
 import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
+import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
@@ -52,8 +53,12 @@ import java.util.Map;
  * 表、视图管理器，进行表、视图的创建，修改和删除
  */
 public class TableManager extends SQLTableManager<Table, Schema> implements DBEObjectRenamer<Table> {
-	private static final Class<?>[] CHILD_TYPES = { TableColumn.class, TableConstraint.class, TableForeignKey.class,
-			TableIndex.class };
+	private static final Class<? extends DBSObject>[] CHILD_TYPES = CommonUtils.array(
+			TableColumn.class,
+			TableConstraint.class,
+			TableForeignKey.class,
+			TableIndex.class
+	);
 
 	@Nullable
 	@Override
@@ -63,38 +68,28 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 
 	/**
 	 * 在打开新建表窗口前的准备
+	 * @throws DBException 
 	 */
 	@Override
 	protected Table createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context, final Object container,
-			Object from, Map<String, Object> options) {
+			Object from, Map<String, Object> options) throws DBException {
+		final Table table;
 		Schema schema = (Schema) container;
-		Table table = new Table(schema, "");
-		setNewObjectName(monitor, schema, table);
+		if (from instanceof DBSEntity) {
+			table = new Table(monitor, schema, (DBSEntity) from);
+			table.setName(getNewChildName(monitor, schema, ((DBSEntity) from).getName()));
+		} else if (from == null) {
+            table = new Table(schema, "");
+            setNewObjectName(monitor, schema, table);
+		} else {
+			throw new DBException("无法依据 '" + from + "' 创建表");
+		}
 		return table;
 	}
 
 	@Override
 	protected void setNewObjectName(DBRProgressMonitor monitor, Schema parent, Table table) {
 		table.setName(getNewChildName(monitor, parent, "NEWTABLE"));
-	}
-
-	@Override
-	protected String getNewChildName(DBRProgressMonitor monitor, Schema parent, String baseName) {
-		final int cycleCount = 20;
-		for (int i = 0; i < cycleCount; i++) {
-			try {
-				String tableName = i == 0 ? baseName : (baseName + "_" + i);
-				DBSObject child;
-				child = parent.getChild(monitor, tableName);
-				if (child == null) {
-					return tableName;
-				}
-			} catch (DBException e) {
-				log.error("Error generating child object name", e);
-				return baseName;
-			}
-		}
-		return "NEW_TABLE_";
 	}
 
 	@Override
@@ -126,14 +121,14 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 			if (excludeFromDDL(nestedCommand, orderedCommands)) {
 				continue;
 			}
-			// 对字段注释做额外处理
-			String commentInfo = (String) nestedCommand.getProperty("comment");
-			String realComment = "";
-			if (commentInfo != null) {
-				realComment = " COMMENT '" + commentInfo + "'";
-			}
-			final String nestedDeclaration = nestedCommand.getNestedDeclaration(monitor, table, options) + realComment;
 			if (nestedCommand.getObject() instanceof TableColumn) {
+				// 对字段注释做额外处理
+				String commentInfo = ((TableColumn) nestedCommand.getObject()).getDescription();
+				String realComment = "";
+				if (commentInfo != null) {
+					realComment = " COMMENT '" + commentInfo + "'";
+				}
+				final String nestedDeclaration = nestedCommand.getNestedDeclaration(monitor, table, options) + realComment;
 				// Insert nested declaration
 				if (hasNestedDeclarations) {
 					// Check for embedded comment
@@ -185,7 +180,7 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 					if ("HASH".equals(part.getPartiType())) {
 						isHashPartition = true;
 						tableDef += "\nPARTITION BY " + part.getPartiType() + "(" + part.getPartiKey() + ") PARTITIONS "
-								+ part.getPartiValue();
+								+ table.getPartiNum();
 						break;
 					} else if ("AUTOMATIC".equals(part.getPartiType())) {
 						tableDef += "\nPARTITION BY " + "RANGE(" + part.getPartiKey() + ") INTERVAL "
@@ -229,7 +224,7 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 						if ("HASH".equals(part.getPartiType())) {
 							isHashSubPartition = true;
 							tableDef += "\nSUBPARTITION BY " + part.getPartiType() + "(" + part.getPartiKey()
-									+ ") SUBPARTITIONS " + part.getPartiValue();
+									+ ") SUBPARTITIONS " + table.getSubpartiNum();
 							break;
 						} else {
 							tableDef += "\nSUBPARTITION BY " + part.getPartiType() + "(" + part.getPartiKey()
@@ -346,7 +341,7 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 
 	@NotNull
 	@Override
-	public Class<?>[] getChildTypes() {
+	public Class<? extends DBSObject>[] getChildTypes() {
 		return CHILD_TYPES;
 	}
 
@@ -354,5 +349,20 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 	public void renameObject(DBECommandContext commandContext, Table object, Map<String, Object> options,
 			String newName) throws DBException {
 		processObjectRename(commandContext, object, options, newName);
+	}
+
+	@Override
+	public Collection<? extends DBSObject> getChildObjects(DBRProgressMonitor monitor, Table object,
+			Class<? extends DBSObject> childType) throws DBException {
+        if (childType == TableColumn.class) {
+            return object.getAttributes(monitor);
+        } else if (childType == TableConstraint.class) {
+            return object.getConstraints(monitor);
+        } else if (childType == TableForeignKey.class) {
+            return object.getAssociations(monitor);
+        } else if (childType == TableIndex.class) {
+            return object.getIndexes(monitor);
+        }
+        return null;
 	}
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,28 +19,34 @@
  */
 package org.jkiss.dbeaver.erd.ui.part;
 
-import org.eclipse.draw2dl.ChopboxAnchor;
-import org.eclipse.draw2dl.ConnectionAnchor;
-import org.eclipse.draw2dl.geometry.Point;
-import org.eclipse.draw2dl.geometry.Rectangle;
-import org.eclipse.gef3.*;
-import org.eclipse.gef3.tools.DirectEditManager;
-import org.jkiss.dbeaver.erd.model.ERDElement;
-import org.jkiss.dbeaver.erd.model.ERDEntity;
-import org.jkiss.dbeaver.erd.model.ERDEntityAttribute;
+import org.eclipse.draw2d.ChopboxAnchor;
+import org.eclipse.draw2d.ConnectionAnchor;
+import org.eclipse.draw2d.geometry.Point;
+import org.eclipse.draw2d.geometry.Rectangle;
+import org.eclipse.gef.*;
+import org.eclipse.gef.tools.DirectEditManager;
+import org.eclipse.osgi.util.NLS;
+import org.eclipse.swt.accessibility.AccessibleEvent;
+import org.jkiss.dbeaver.erd.model.*;
+import org.jkiss.dbeaver.erd.ui.ERDUIConstants;
 import org.jkiss.dbeaver.erd.ui.ERDUIUtils;
 import org.jkiss.dbeaver.erd.ui.editor.ERDGraphicalViewer;
 import org.jkiss.dbeaver.erd.ui.figures.AttributeItemFigure;
 import org.jkiss.dbeaver.erd.ui.figures.EditableLabel;
 import org.jkiss.dbeaver.erd.ui.figures.EntityFigure;
+import org.jkiss.dbeaver.erd.ui.internal.ERDUIActivator;
+import org.jkiss.dbeaver.erd.ui.internal.ERDUIMessages;
 import org.jkiss.dbeaver.erd.ui.model.EntityDiagram;
 import org.jkiss.dbeaver.erd.ui.policy.EntityConnectionEditPolicy;
 import org.jkiss.dbeaver.erd.ui.policy.EntityContainerEditPolicy;
 import org.jkiss.dbeaver.erd.ui.policy.EntityEditPolicy;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
+import org.jkiss.dbeaver.model.struct.DBSEntityConstraintType;
 
 import java.beans.PropertyChangeEvent;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -52,6 +58,7 @@ import java.util.Map;
  */
 public class EntityPart extends NodePart {
     protected DirectEditManager manager;
+    private AccessibleGraphicalEditPart accPart;
 
     public EntityPart() {
     }
@@ -75,14 +82,16 @@ public class EntityPart extends NodePart {
      */
     @Override
     protected void createEditPolicies() {
-        final boolean layoutEnabled = isLayoutEnabled();
-        if (layoutEnabled) {
-            installEditPolicy(EditPolicy.GRAPHICAL_NODE_ROLE, new EntityConnectionEditPolicy());
-            installEditPolicy(EditPolicy.CONTAINER_ROLE, new EntityContainerEditPolicy());
-            installEditPolicy(EditPolicy.COMPONENT_ROLE, new EntityEditPolicy());
-        }
+        if (!getEditor().isReadOnly()) {
+            final boolean layoutEnabled = isLayoutEnabled();
+            if (layoutEnabled) {
+                installEditPolicy(EditPolicy.GRAPHICAL_NODE_ROLE, new EntityConnectionEditPolicy());
+                installEditPolicy(EditPolicy.CONTAINER_ROLE, new EntityContainerEditPolicy());
+                installEditPolicy(EditPolicy.COMPONENT_ROLE, new EntityEditPolicy());
+            }
 
-        getDiagram().getModelAdapter().installPartEditPolicies(this);
+            getDiagram().getModelAdapter().installPartEditPolicies(this);
+        }
     }
 
     @Override
@@ -92,6 +101,17 @@ public class EntityPart extends NodePart {
         } else {
             getDiagram().getModelAdapter().performPartRequest(this, request);
         }
+    }
+
+    /**
+     *  Some routing methods doesn't support attribute associations
+     *  Also not all visibility settings can allow an attribute-attribute
+     *  relations
+     *
+     * @return is attribute associations possible
+     */
+    protected boolean isMixedAssociationSupported() {
+        return false;
     }
 
     public void handleNameChange() {
@@ -198,28 +218,6 @@ public class EntityPart extends NodePart {
         return getFigure();
     }
 
-    @Override
-    public ConnectionAnchor getSourceConnectionAnchor(ConnectionEditPart connection) {
-        return new ChopboxAnchor(getFigure());
-    }
-
-    @Override
-    public ConnectionAnchor getSourceConnectionAnchor(Request request) {
-        return new ChopboxAnchor(getFigure());
-        //return new TopAnchor(getFigure());
-    }
-
-    @Override
-    public ConnectionAnchor getTargetConnectionAnchor(ConnectionEditPart connection) {
-        return new ChopboxAnchor(getFigure());
-        //return new BottomAnchor(getFigure());
-    }
-
-    @Override
-    public ConnectionAnchor getTargetConnectionAnchor(Request request) {
-        return new ChopboxAnchor(getFigure());
-    }
-
     /**
      * Sets the width of the line when selected
      */
@@ -287,5 +285,83 @@ public class EntityPart extends NodePart {
     @Override
     public ERDElement getElement() {
         return getEntity();
+    }
+
+    @Override
+    protected List<ERDAssociation> getModelSourceConnections() {
+        if (!supportsAttributeAssociations()) {
+            return super.getModelSourceConnections();
+        }
+        List<ERDAssociation> list = new ArrayList<>();
+        for (ERDAssociation erdAssociation : super.getModelSourceConnections()) {
+            if (erdAssociation.getObject().getConstraintType() == DBSEntityConstraintType.INHERITANCE
+                || isMixedAssociationSupported() && erdAssociation.getTargetAttributes().size() == 0) {
+                list.add(erdAssociation);
+            }
+        }
+        return list;
+
+    }
+
+    private boolean supportsAttributeAssociations() {
+        final DBPPreferenceStore store = ERDUIActivator.getDefault().getPreferences();
+        return store.getString(ERDUIConstants.PREF_ROUTING_TYPE).equals(ERDUIConstants.ROUTING_MIKAMI)
+               && !ERDAttributeVisibility.isHideAttributeAssociations(store);
+    }
+
+    @Override
+    protected List<ERDAssociation> getModelTargetConnections() {
+        final DBPPreferenceStore store = ERDUIActivator.getDefault().getPreferences();
+        if (!store.getString(ERDUIConstants.PREF_ROUTING_TYPE).equals(ERDUIConstants.ROUTING_MIKAMI)
+            || ERDAttributeVisibility.isHideAttributeAssociations(store)) {
+            return super.getModelTargetConnections();
+        }
+        List<ERDAssociation> list = new ArrayList<>();
+        for (ERDAssociation erdAssociation : super.getModelTargetConnections()) {
+            if (erdAssociation.getObject().getConstraintType() == DBSEntityConstraintType.INHERITANCE
+                || (isMixedAssociationSupported() && erdAssociation.getTargetAttributes().size() == 0)) {
+                list.add(erdAssociation);
+            }
+        }
+        return list;
+    }
+
+    @Override
+    public ConnectionAnchor getSourceConnectionAnchor(ConnectionEditPart connectionEditPart) {
+        return new ChopboxAnchor(getFigure());
+    }
+
+    @Override
+    public ConnectionAnchor getTargetConnectionAnchor(ConnectionEditPart connectionEditPart) {
+        return new ChopboxAnchor(getFigure());
+    }
+
+    @Override
+    public ConnectionAnchor getSourceConnectionAnchor(Request request) {
+        return new ChopboxAnchor(getFigure());
+    }
+
+    @Override
+    public ConnectionAnchor getTargetConnectionAnchor(Request request) {
+        return new ChopboxAnchor(getFigure());
+    }
+
+    @Override
+    protected AccessibleEditPart getAccessibleEditPart() {
+        if (this.accPart == null) {
+            this.accPart = new AccessibleGraphicalEditPart() {
+                public void getName(AccessibleEvent e) {
+                    e.result = NLS.bind(ERDUIMessages.erd_accessibility_entity_part, new Object[]{
+                        EntityPart.this.getName(),
+                        EntityPart.this.getEntity().getAttributes().size(),
+                        sourceConnections == null ? 0 : sourceConnections.size(),
+                        targetConnections == null ? 0 : targetConnections.size(),
+
+                    });
+                }
+            };
+        }
+
+        return this.accPart;
     }
 }

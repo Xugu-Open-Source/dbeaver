@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package org.jkiss.dbeaver.ui.editors.sql.log;
 
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.qm.QMEventFilter;
-import org.jkiss.dbeaver.model.qm.QMMetaEvent;
+import org.jkiss.dbeaver.model.qm.QMEvent;
 import org.jkiss.dbeaver.model.qm.meta.*;
 import org.jkiss.dbeaver.ui.editors.sql.SQLEditor;
 
@@ -27,7 +27,7 @@ import java.util.Objects;
 /**
  * SQL log filter
  */
-class SQLLogFilter implements QMEventFilter {
+public class SQLLogFilter implements QMEventFilter {
 
     private SQLEditor editor;
 
@@ -37,36 +37,39 @@ class SQLLogFilter implements QMEventFilter {
     }
 
     @Override
-    public boolean accept(QMMetaEvent event)
-    {
+    public boolean accept(QMEvent event) {
         // Accept only following events:
-        // - statement execution (if statement belongs to specific editor)
+        // - statement execution (if statement belongs to specific execution context)
         // - transaction/savepoint changes (if txn belongs to current datasource)
         // - session changes (if session belongs to active datasource)
         QMMObject object = event.getObject();
-        if (object instanceof QMMSessionInfo) {
-            return editor.getDataSourceContainer() != null && Objects.equals(((QMMSessionInfo) object).getContainerId(), editor.getDataSourceContainer().getId());
+        if (object instanceof QMMConnectionInfo) {
+            return editor.getDataSourceContainer() != null && Objects.equals(((QMMConnectionInfo) object).getContainerId(), editor.getDataSourceContainer().getId());
         } else {
             if (object instanceof QMMStatementExecuteInfo) {
-                return belongsToEditor(((QMMStatementExecuteInfo) object).getStatement().getSession());
+                return belongsToExecutionContext(((QMMStatementExecuteInfo) object).getStatement().getConnection());
             } else if (object instanceof QMMStatementInfo) {
-                return belongsToEditor(((QMMStatementInfo) object).getSession());
+                return belongsToExecutionContext(((QMMStatementInfo) object).getConnection());
             } else if (object instanceof QMMTransactionInfo) {
-                return belongsToEditor(((QMMTransactionInfo)object).getSession());
+                return belongsToExecutionContext(((QMMTransactionInfo) object).getConnection());
             } else if (object instanceof QMMTransactionSavepointInfo) {
-                return belongsToEditor(((QMMTransactionSavepointInfo)object).getTransaction().getSession());
+                return belongsToExecutionContext(((QMMTransactionSavepointInfo) object).getTransaction().getConnection());
             }
         }
         return false;
     }
+    
+    public SQLEditor getEditor() {
+        return editor;
+    }
 
-    private boolean belongsToEditor(QMMSessionInfo session) {
+    private boolean belongsToExecutionContext(QMMConnectionInfo session) {
         String containerId = session.getContainerId();
         String contextName = session.getContextName();
         DBCExecutionContext executionContext = editor.getExecutionContext();
         return executionContext != null &&
-            Objects.equals(executionContext.getDataSource().getContainer().getId(), containerId) &&
-            Objects.equals(executionContext.getContextName(), contextName);
+                Objects.equals(executionContext.getDataSource().getContainer().getId(), containerId) &&
+                Objects.equals(executionContext.getContextName(), contextName);
     }
 
 }

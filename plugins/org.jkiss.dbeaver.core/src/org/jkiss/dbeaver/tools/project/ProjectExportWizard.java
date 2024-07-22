@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,7 @@
  */
 package org.jkiss.dbeaver.tools.project;
 
-import org.eclipse.core.resources.IContainer;
-import org.eclipse.core.resources.IFile;
-import org.eclipse.core.resources.IProject;
-import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.*;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.wizard.Wizard;
@@ -30,6 +27,7 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.core.CoreMessages;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.app.DBPDataSourceRegistry;
+import org.jkiss.dbeaver.model.app.DBPPlatformDesktop;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
 import org.jkiss.dbeaver.model.connection.DBPDriverLibrary;
@@ -46,6 +44,8 @@ import org.jkiss.utils.xml.XMLBuilder;
 import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.net.InetAddress;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -58,7 +58,7 @@ public class ProjectExportWizard extends Wizard implements IExportWizard {
     private static final Log log = Log.getLog(ProjectExportWizard.class);
 
     private static final int COPY_BUFFER_SIZE = 5000;
-    private static final String PROJECT_DESC_FILE = ".project";
+    private static final String PROJECT_DESC_FILE = IProjectDescription.DESCRIPTION_FILE_NAME;
     private static final Set<String> IGNORED_RESOURCES = new HashSet<>();
     private ProjectExportWizardPage mainPage;
 
@@ -130,7 +130,7 @@ public class ProjectExportWizard extends Wizard implements IExportWizard {
             meta.startElement(ExportConstants.TAG_ARCHIVE);
             meta.addAttribute(ExportConstants.ATTR_VERSION, ExportConstants.ARCHIVE_VERSION_CURRENT);
 
-            exportData.initExport(DBWorkbench.getPlatform().getWorkspace(), meta, archiveStream);
+            exportData.initExport(DBPPlatformDesktop.getInstance().getWorkspace(), meta, archiveStream);
 
             {
                 // Export source info
@@ -173,12 +173,12 @@ public class ProjectExportWizard extends Wizard implements IExportWizard {
 
             if (exportData.isExportDrivers()) {
                 // Export driver libraries
-                Set<File> libFiles = new HashSet<>();
-                Map<String, File> libPathMap = new HashMap<>();
+                Set<Path> libFiles = new HashSet<>();
+                Map<String, Path> libPathMap = new HashMap<>();
                 for (DBPDriver driver : exportData.usedDrivers) {
                     for (DBPDriverLibrary fileDescriptor : driver.getDriverLibraries()) {
-                        final File libraryFile = fileDescriptor.getLocalFile();
-                        if (libraryFile != null && !fileDescriptor.isDisabled() && libraryFile.exists()) {
+                        final Path libraryFile = fileDescriptor.getLocalFile();
+                        if (libraryFile != null && !fileDescriptor.isDisabled() && Files.exists(libraryFile)) {
                             libFiles.add(libraryFile);
                             libPathMap.put(fileDescriptor.getPath(), libraryFile);
                         }
@@ -196,9 +196,9 @@ public class ProjectExportWizard extends Wizard implements IExportWizard {
                     exportData.meta.startElement(ExportConstants.TAG_LIBRARIES);
                     Set<String> libFileNames = new HashSet<>();
                     for (String libPath : libPathMap.keySet()) {
-                        final File libFile = libPathMap.get(libPath);
+                        final Path libFile = libPathMap.get(libPath);
                         // Check for file name duplications
-                        final String libFileName = libFile.getName();
+                        final String libFileName = libFile.getFileName().toString();
                         if (libFileNames.contains(libFileName)) {
                             log.warn("Duplicate driver library file name: " + libFileName); //$NON-NLS-1$
                             continue;
@@ -215,7 +215,7 @@ public class ProjectExportWizard extends Wizard implements IExportWizard {
                         final ZipEntry driverFile = new ZipEntry(ExportConstants.DIR_DRIVERS + "/" + libFileName); //$NON-NLS-1$
                         driverFile.setComment("Driver library"); //$NON-NLS-1$
                         exportData.archiveStream.putNextEntry(driverFile);
-                        try (InputStream is = new FileInputStream(libFile)) {
+                        try (InputStream is = Files.newInputStream(libFile)) {
                             IOUtils.copyStream(is, exportData.archiveStream, COPY_BUFFER_SIZE);
                         }
 
@@ -247,7 +247,7 @@ public class ProjectExportWizard extends Wizard implements IExportWizard {
 
     private int getChildCount(ProjectExportData exportData, IResource resource) throws CoreException
     {
-        if (exportData.workspace.getResourceHandler(resource) == null) {
+        if (DBPPlatformDesktop.getInstance().getWorkspace().getResourceHandler(resource) == null) {
             return 0;
         }
         int childCount = 1;

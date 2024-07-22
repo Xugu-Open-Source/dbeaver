@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,12 +25,13 @@ import org.eclipse.ui.IWorkbenchCommandConstants;
 import org.eclipse.ui.IWorkbenchSite;
 import org.jkiss.dbeaver.model.DBPContextProvider;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
-import org.jkiss.dbeaver.model.IDataSourceContainerProvider;
+import org.jkiss.dbeaver.model.DBPDataSourceContainerProvider;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.ui.ActionUtils;
 import org.jkiss.dbeaver.ui.UIIcon;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.css.DBStyles;
+import org.jkiss.dbeaver.ui.editors.internal.EditorsMessages;
 
 /**
  * DB editor utils
@@ -56,8 +57,8 @@ public class DatabaseEditorUtils {
         }
 
         DBPDataSourceContainer dsContainer = null;
-        if (editor instanceof IDataSourceContainerProvider) {
-            dsContainer = ((IDataSourceContainerProvider) editor).getDataSourceContainer();
+        if (editor instanceof DBPDataSourceContainerProvider) {
+            dsContainer = ((DBPDataSourceContainerProvider) editor).getDataSourceContainer();
         } else if (editor instanceof DBPContextProvider) {
             DBCExecutionContext context = ((DBPContextProvider) editor).getExecutionContext();
             if (context != null) {
@@ -80,23 +81,23 @@ public class DatabaseEditorUtils {
         contributionManager.add(ActionUtils.makeCommandContribution(
             workbenchSite,
             IWorkbenchCommandConstants.FILE_SAVE,
-            "Save ...",
+            EditorsMessages.database_editor_command_save_name,
             UIIcon.SAVE,
-            "Preview changes and save",
+            EditorsMessages.database_editor_command_save_tip,
             true));
         contributionManager.add(ActionUtils.makeCommandContribution(
             workbenchSite,
             IWorkbenchCommandConstants.FILE_REVERT,
-            null,
+            EditorsMessages.database_editor_command_revert_name,
             UIIcon.RESET,
-            "Revert all changes in the current editor",
+            EditorsMessages.database_editor_command_revert_tip,
             true));
         contributionManager.add(ActionUtils.makeCommandContribution(
             workbenchSite,
             IWorkbenchCommandConstants.FILE_REFRESH,
-            null,
+            EditorsMessages.database_editor_command_refresh_name,
             UIIcon.REFRESH,
-            "Refresh editor contents",
+            EditorsMessages.database_editor_command_refresh_tip,
             true));
     }
 

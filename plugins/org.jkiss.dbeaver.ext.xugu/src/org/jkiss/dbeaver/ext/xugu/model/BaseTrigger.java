@@ -35,6 +35,7 @@ import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectState;
+import org.jkiss.dbeaver.model.struct.rdb.DBSTable;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTrigger;
 import org.jkiss.dbeaver.ext.xugu.Utils;
 import java.sql.ResultSet;
@@ -159,6 +160,19 @@ public abstract class BaseTrigger<PARENT extends DBSObject> extends BaseObject<P
 		this.triggerType = type;
 	}
 
+	public void setTriggerType(String type) {
+		switch (type) {
+		case "FOR EACH ROW":
+			this.triggerType = 1;
+			break;
+		case "FOR STATEMENT":
+			this.triggerType = 2;
+			break;
+		default:
+			this.triggerType = -1;
+		}
+	}
+
 	@Property(viewable = true, editable = true, updatable = true, order = 7)
 	public String getTriggerCondition() {
 		return this.triggerCondition;
@@ -194,6 +208,29 @@ public abstract class BaseTrigger<PARENT extends DBSObject> extends BaseObject<P
 
 	public void setTriggeringEvent(int event) {
 		this.triggeringEvent = event;
+	}
+
+	public void setTriggeringEvent(String event) {
+		switch (event) {
+		case "":
+			this.triggeringEvent = 0;
+		case "INSERT":
+			this.triggeringEvent = 1;
+		case "UPDATE":
+			this.triggeringEvent = 2;
+		case "INSERT,UPDATE":
+			this.triggeringEvent = 3;
+		case "DELETE":
+			this.triggeringEvent = 4;
+		case "INSERT,DELETE":
+			this.triggeringEvent = 5;
+		case "UPDATE,DELETE":
+			this.triggeringEvent = 6;
+		case "INSERT,DELETE,UPDATE":
+			this.triggeringEvent = 7;
+		default:
+			this.triggeringEvent = -1;
+		}
 	}
 
 	@Property(viewable = true, editable = false, updatable = false, order = 6)

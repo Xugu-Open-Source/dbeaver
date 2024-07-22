@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import org.jkiss.dbeaver.model.meta.PropertyGroup;
 import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.ByteNumberFormat;
 import org.jkiss.utils.CommonUtils;
 
@@ -47,7 +48,7 @@ import java.util.*;
  * OracleTable
  */
 public class OracleTable extends OracleTablePhysical implements DBPScriptObject, DBDPseudoAttributeContainer,
-        DBPObjectStatistics, DBPImageProvider, DBPReferentialIntegrityController {
+        DBPObjectStatistics, DBPImageProvider, DBPReferentialIntegrityController, DBPScriptObjectExt2 {
     private static final Log log = Log.getLog(OracleTable.class);
 
     private static final CharSequence TABLE_NAME_PLACEHOLDER = "%table_name%";
@@ -56,7 +57,12 @@ public class OracleTable extends OracleTablePhysical implements DBPScriptObject,
         + FOREIGN_KEY_NAME_PLACEHOLDER + " DISABLE";
     private static final String ENABLE_REFERENTIAL_INTEGRITY_STATEMENT = "ALTER TABLE " + TABLE_NAME_PLACEHOLDER + " MODIFY CONSTRAINT "
         + FOREIGN_KEY_NAME_PLACEHOLDER + " ENABLE";
-
+    
+    private static final String[] supportedOptions = new String[]{
+        DBPScriptObject.OPTION_DDL_SKIP_FOREIGN_KEYS,
+        DBPScriptObject.OPTION_DDL_ONLY_FOREIGN_KEYS
+    };
+    
     private OracleDataType tableType;
     private String iotType;
     private String iotName;
@@ -86,6 +92,7 @@ public class OracleTable extends OracleTablePhysical implements DBPScriptObject,
         private int avgRowLen;
         private int avgSpaceFreelistBlocks;
         private int numFreelistBlocks;
+        private Date lastStatisticsUpdate;
 
         @Property(category = DBConstants.CAT_STATISTICS, order = 31)
         public int getPctFree() { return pctFree; }
@@ -123,6 +130,10 @@ public class OracleTable extends OracleTablePhysical implements DBPScriptObject,
         public int getAvgSpaceFreelistBlocks() { return avgSpaceFreelistBlocks; }
         @Property(category = DBConstants.CAT_STATISTICS, order = 48)
         public int getNumFreelistBlocks() { return numFreelistBlocks; }
+        @Property(category = DBConstants.CAT_STATISTICS, order = 29)
+        public Date getLastStatisticsUpdate() {
+            return lastStatisticsUpdate;
+        }
     }
 
     private final AdditionalInfo additionalInfo = new AdditionalInfo();
@@ -148,9 +159,9 @@ public class OracleTable extends OracleTablePhysical implements DBPScriptObject,
         }
         this.iotType = JDBCUtils.safeGetString(dbResult, "IOT_TYPE");
         this.iotName = JDBCUtils.safeGetString(dbResult, "IOT_NAME");
-        this.temporary = JDBCUtils.safeGetBoolean(dbResult, "TEMPORARY", "Y");
-        this.secondary = JDBCUtils.safeGetBoolean(dbResult, "SECONDARY", "Y");
-        this.nested = JDBCUtils.safeGetBoolean(dbResult, "NESTED", "Y");
+        this.temporary = JDBCUtils.safeGetBoolean(dbResult, OracleConstants.COLUMN_TEMPORARY, OracleConstants.RESULT_YES_VALUE);
+        this.secondary = JDBCUtils.safeGetBoolean(dbResult, "SECONDARY", OracleConstants.RESULT_YES_VALUE);
+        this.nested = JDBCUtils.safeGetBoolean(dbResult, "NESTED", OracleConstants.RESULT_YES_VALUE);
         if (!CommonUtils.isEmpty(iotName)) {
             //this.setName(iotName);
         }
@@ -339,7 +350,11 @@ public class OracleTable extends OracleTablePhysical implements DBPScriptObject,
     public DBSObject refreshObject(@NotNull DBRProgressMonitor monitor) throws DBException
     {
         getContainer().foreignKeyCache.clearObjectCache(this);
-        tableSize = null;
+        if (tableSize != null) {
+            tableSize = null;
+            getTableSize(monitor);
+        }
+        additionalInfo.loaded = false;
         return super.refreshObject(monitor);
     }
 
@@ -357,7 +372,7 @@ public class OracleTable extends OracleTablePhysical implements DBPScriptObject,
     }
 
     @Override
-    protected void appendSelectSource(DBRProgressMonitor monitor, StringBuilder query, String tableAlias, DBDPseudoAttribute rowIdAttribute) {
+    protected void appendSelectSource(DBRProgressMonitor monitor, StringBuilder query, String tableAlias, DBDPseudoAttribute rowIdAttribute) throws DBCException {
         if (tableType != null && tableType.getName().equals(OracleConstants.TYPE_NAME_XML)) {
             try {
                 OracleTableColumn xmlColumn = getXMLColumn(monitor);
@@ -399,7 +414,10 @@ public class OracleTable extends OracleTablePhysical implements DBPScriptObject,
         }
         try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load table status")) {
             try (JDBCPreparedStatement dbStat = session.prepareStatement(
-                "SELECT * FROM " + OracleUtils.getAdminAllViewPrefix(monitor, getDataSource(), "TABLES") + " WHERE OWNER=? AND TABLE_NAME=?")) {
+                "SELECT a.*, h.STATS_UPDATE_TIME FROM " +
+                    OracleUtils.getAdminAllViewPrefix(monitor, getDataSource(), "TABLES") +
+                    " a, ALL_TAB_STATS_HISTORY h WHERE h.OWNER(+) = a.OWNER AND h.TABLE_NAME(+) = a.TABLE_NAME" +
+                    " AND a.OWNER=? AND a.TABLE_NAME=?")) {
                 dbStat.setString(1, getContainer().getName());
                 dbStat.setString(2, getName());
                 try (JDBCResultSet dbResult = dbStat.executeQuery()) {
@@ -424,6 +442,7 @@ public class OracleTable extends OracleTablePhysical implements DBPScriptObject,
                         additionalInfo.avgRowLen = JDBCUtils.safeGetInt(dbResult, "AVG_ROW_LEN");
                         additionalInfo.avgSpaceFreelistBlocks = JDBCUtils.safeGetInt(dbResult, "AVG_SPACE_FREELIST_BLOCKS");
                         additionalInfo.numFreelistBlocks = JDBCUtils.safeGetInt(dbResult, "NUM_FREELIST_BLOCKS");
+                        additionalInfo.lastStatisticsUpdate = JDBCUtils.safeGetTimestamp(dbResult, "STATS_UPDATE_TIME");
                     } else {
                         log.warn("Cannot find table '" + getFullyQualifiedName(DBPEvaluationContext.UI) + "' metadata");
                     }
@@ -479,5 +498,10 @@ public class OracleTable extends OracleTablePhysical implements DBPScriptObject,
             return ENABLE_REFERENTIAL_INTEGRITY_STATEMENT;
         }
         return DISABLE_REFERENTIAL_INTEGRITY_STATEMENT;
+    }
+
+    @Override
+    public boolean supportsObjectDefinitionOption(String option) {
+        return ArrayUtils.contains(supportedOptions, option);
     }
 }

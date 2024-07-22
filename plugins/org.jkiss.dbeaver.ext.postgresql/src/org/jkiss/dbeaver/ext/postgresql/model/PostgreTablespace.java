@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.jkiss.dbeaver.ext.postgresql.model;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.ext.postgresql.PostgreUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
@@ -25,8 +26,6 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * PostgreTablespace
@@ -58,8 +57,8 @@ public class PostgreTablespace extends PostgreInformation implements PostgreScri
         this.oid = JDBCUtils.safeGetLong(dbResult, "oid");
         this.name = JDBCUtils.safeGetString(dbResult, "spcname");
         this.ownerId = JDBCUtils.safeGetLong(dbResult, "spcowner");
-        Object opts[] = JDBCUtils.safeGetArray(dbResult, "spcoptions");
-        this.options = opts == null ? "" : Stream.of(opts).map(Object::toString).collect(Collectors.joining(","));
+        String[] opts = PostgreUtils.safeGetStringArray(dbResult, "spcoptions");
+        this.options = opts == null ? "" : String.join(",", opts);
         this.loc = JDBCUtils.safeGetString(dbResult, "loc");
     }
 

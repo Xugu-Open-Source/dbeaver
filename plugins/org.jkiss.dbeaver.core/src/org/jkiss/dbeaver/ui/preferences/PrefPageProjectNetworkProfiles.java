@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,21 +30,24 @@ import org.eclipse.swt.widgets.*;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchPreferencePage;
 import org.eclipse.ui.IWorkbenchPropertyPage;
+import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.core.CoreMessages;
 import org.jkiss.dbeaver.model.DBIcon;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.DBPNamedObject;
+import org.jkiss.dbeaver.model.app.DBPPlatformDesktop;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.navigator.DBNNode;
 import org.jkiss.dbeaver.model.net.DBWHandlerConfiguration;
 import org.jkiss.dbeaver.model.net.DBWNetworkProfile;
+import org.jkiss.dbeaver.model.secret.DBSSecretController;
 import org.jkiss.dbeaver.registry.configurator.UIPropertyConfiguratorDescriptor;
 import org.jkiss.dbeaver.registry.configurator.UIPropertyConfiguratorRegistry;
 import org.jkiss.dbeaver.registry.network.NetworkHandlerDescriptor;
 import org.jkiss.dbeaver.registry.network.NetworkHandlerRegistry;
-import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.ui.IObjectPropertyConfigurator;
 import org.jkiss.dbeaver.ui.UIIcon;
@@ -57,6 +60,7 @@ import org.jkiss.utils.CommonUtils;
 
 import java.util.List;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * PrefPageProjectResourceSettings
@@ -67,13 +71,13 @@ public class PrefPageProjectNetworkProfiles extends AbstractPrefPage implements 
     private static final Log log = Log.getLog(PrefPageProjectNetworkProfiles.class);
 
     private static class HandlerBlock {
-        private final IObjectPropertyConfigurator<DBWHandlerConfiguration> configurator;
+        private final IObjectPropertyConfigurator<Object, DBWHandlerConfiguration> configurator;
         private final Composite blockControl;
         private final Button useHandlerCheck;
         private ControlEnableState blockEnableState;
         private final Map<DBWNetworkProfile, DBWHandlerConfiguration> loadedConfigs = new HashMap<>();
 
-        private HandlerBlock(IObjectPropertyConfigurator<DBWHandlerConfiguration> configurator, Composite blockControl, Button useHandlerCheck)
+        private HandlerBlock(IObjectPropertyConfigurator<Object, DBWHandlerConfiguration> configurator, Composite blockControl, Button useHandlerCheck)
         {
             this.configurator = configurator;
             this.blockControl = blockControl;
@@ -81,112 +85,33 @@ public class PrefPageProjectNetworkProfiles extends AbstractPrefPage implements 
         }
     }
 
-    private IProject project;
     private DBPProject projectMeta;
 
     private Table profilesTable;
     private TabFolder handlersFolder;
-    private List<NetworkHandlerDescriptor> allHandlers = new ArrayList<>();
+
+    private ToolItem deleteProfileItem;
+    private ToolItem copyProfileItem;
+
+    private final List<NetworkHandlerDescriptor> allHandlers = new ArrayList<>();
     private DBWNetworkProfile selectedProfile;
-    private Map<NetworkHandlerDescriptor, HandlerBlock> configurations = new HashMap<>();
+    private final Map<NetworkHandlerDescriptor, HandlerBlock> configurations = new HashMap<>();
 
     @Override
     public void init(IWorkbench workbench) {
     }
 
+    @NotNull
     @Override
-    protected Control createContents(final Composite parent) {
+    protected Control createPreferenceContent(@NotNull Composite parent) {
         CustomSashForm divider = UIUtils.createPartDivider(null, parent, SWT.HORIZONTAL);
 
         {
-            Composite profilesGroup = new Composite(divider, SWT.BORDER);
-            GridLayout gl = new GridLayout(1, false);
-            gl.marginWidth = 0;
-            gl.marginHeight = 0;
-            profilesGroup.setLayout(gl);
+            Composite profilesGroup = UIUtils.createComposite(divider, 1);
+            profilesGroup.setLayoutData(new GridData(GridData.FILL_BOTH));
 
-            GridData gd = new GridData(GridData.FILL_BOTH);
-            profilesGroup.setLayoutData(gd);
-
-            {
-                ToolBar toolbar = new ToolBar(profilesGroup, SWT.HORIZONTAL | SWT.RIGHT);
-
-                UIUtils.createToolItem(toolbar, "Create", "Create new profile", UIIcon.ROW_ADD, new SelectionAdapter() {
-                    @Override
-                    public void widgetSelected(SelectionEvent e) {
-                        String profileName = "";
-                        while (true) {
-                            profileName = EnterNameDialog.chooseName(getShell(), "Profile name", profileName);
-                            if (CommonUtils.isEmptyTrimmed(profileName)) {
-                                return;
-                            }
-                            if (projectMeta.getDataSourceRegistry().getNetworkProfile(profileName) != null) {
-                                UIUtils.showMessageBox(getShell(), "Wrong profile name", "Profile '" + profileName + "' already exist in project '" + projectMeta.getName() + "'", SWT.ICON_ERROR);
-                                continue;
-                            }
-                            break;
-                        }
-                        DBWNetworkProfile newProfile = new DBWNetworkProfile();
-                        newProfile.setProfileName(profileName);
-                        projectMeta.getDataSourceRegistry().updateNetworkProfile(newProfile);
-                        projectMeta.getDataSourceRegistry().flushConfig();
-
-                        TableItem item = new TableItem(profilesTable, SWT.NONE);
-                        item.setText(newProfile.getProfileName());
-                        item.setImage(DBeaverIcons.getImage(DBIcon.TYPE_DOCUMENT));
-                        item.setData(newProfile);
-                        if (profilesTable.getItemCount() == 1) {
-                            selectedProfile = newProfile;
-                            profilesTable.select(0);
-                            updateControlsState();
-                        }
-                    }
-                });
-
-                UIUtils.createToolItem(toolbar, "Delete", "Delete profile", UIIcon.ROW_DELETE, new SelectionAdapter() {
-                    @Override
-                    public void widgetSelected(SelectionEvent e) {
-                        if (selectedProfile != null) {
-                            List<? extends DBPDataSourceContainer> usedBy = projectMeta.getDataSourceRegistry().getDataSourcesByProfile(selectedProfile);
-                            if (!usedBy.isEmpty()) {
-                                UIUtils.showMessageBox(getShell(), "Can't delete profile", "Configuration profile '" + selectedProfile.getProfileName() + "' used by " + usedBy.size() + " connections:\n" + usedBy, SWT.ICON_ERROR);
-                                return;
-                            }
-                            if (!UIUtils.confirmAction(getShell(), "Delete profile", "Are you sure you want to delete configuration profile '" + selectedProfile.getProfileName() + "'?")) {
-                                return;
-                            }
-
-                            projectMeta.getDataSourceRegistry().removeNetworkProfile(selectedProfile);
-                            projectMeta.getDataSourceRegistry().flushConfig();
-                            profilesTable.remove(profilesTable.getSelectionIndex());
-                            selectedProfile = null;
-                            updateControlsState();
-                        } else {
-                            UIUtils.showMessageBox(getShell(), "No profile", "Select profile first", SWT.ICON_ERROR);
-                        }
-                    }
-                });
-            }
-
-            profilesTable = new Table(profilesGroup, SWT.SINGLE);
-            gd = new GridData(GridData.FILL_BOTH);
-            gd.minimumWidth = 150;
-            profilesTable.setLayoutData(gd);
-            profilesTable.addSelectionListener(new SelectionAdapter() {
-                @Override
-                public void widgetSelected(SelectionEvent e) {
-                    saveHandlerSettings();
-                    TableItem[] selection = profilesTable.getSelection();
-                    if (ArrayUtils.isEmpty(selection)) {
-                        selectedProfile = null;
-                    } else {
-                        selectedProfile = (DBWNetworkProfile) selection[0].getData();
-                    }
-                    updateControlsState();
-                }
-            });
-
-
+            createProfilesTable(profilesGroup);
+            createProfilesToolBar(profilesGroup);
         }
 
         {
@@ -205,11 +130,160 @@ public class PrefPageProjectNetworkProfiles extends AbstractPrefPage implements 
             });
         }
 
-        divider.setWeights(new int[] { 300, 700 } );
+        divider.setWeights(300, 700);
 
         performDefaults();
 
         return divider;
+    }
+
+    private void createProfilesTable(Composite profilesGroup) {
+        GridData gd;
+        profilesTable = new Table(profilesGroup, SWT.SINGLE);
+        gd = new GridData(GridData.FILL_BOTH);
+        gd.minimumWidth = 150;
+        profilesTable.setLayoutData(gd);
+        profilesTable.addSelectionListener(new SelectionAdapter() {
+            @Override
+            public void widgetSelected(SelectionEvent e) {
+                saveHandlerSettings();
+                TableItem[] selection = profilesTable.getSelection();
+                if (ArrayUtils.isEmpty(selection)) {
+                    selectedProfile = null;
+                } else {
+                    selectedProfile = (DBWNetworkProfile) selection[0].getData();
+                }
+                updateControlsState();
+            }
+        });
+    }
+
+    private void createProfilesToolBar(Composite profilesGroup) {
+        ToolBar toolbar = new ToolBar(profilesGroup, SWT.HORIZONTAL | SWT.RIGHT);
+
+        UIUtils.createToolItem(toolbar, CoreMessages.pref_page_network_profiles_tool_create_title,
+                CoreMessages.pref_page_network_profiles_tool_create_text, UIIcon.ROW_ADD,
+                new SelectionAdapter() {
+                    @Override
+                    public void widgetSelected(SelectionEvent e) {
+                        createNewProfile(null);
+                    }
+                });
+
+        deleteProfileItem = UIUtils.createToolItem(toolbar, CoreMessages.pref_page_network_profiles_tool_delete_title,
+            CoreMessages.pref_page_network_profiles_tool_delete_text, UIIcon.ROW_DELETE,
+            new SelectionAdapter() {
+                @Override
+                public void widgetSelected(SelectionEvent e) {
+                    List<? extends DBPDataSourceContainer> usedBy = projectMeta
+                        .getDataSourceRegistry().getDataSourcesByProfile(selectedProfile);
+                    if (!usedBy.isEmpty()) {
+                        UIUtils.showMessageBox(
+                            getShell(),
+                            CoreMessages.pref_page_network_profiles_tool_delete_dialog_error_title,
+                            NLS.bind(CoreMessages.pref_page_network_profiles_tool_delete_dialog_error_info, new Object[]{
+                                selectedProfile.getProfileName(),
+                                usedBy.size(),
+                                usedBy.stream()
+                                    .sorted(Comparator.comparing(DBPNamedObject::getName))
+                                    .map(x -> " - " + x.getName())
+                                    .collect(Collectors.joining("\n"))
+                            }),
+                            SWT.ICON_ERROR
+                        );
+                        return;
+                    }
+                    if (UIUtils.confirmAction(
+                        getShell(),
+                        CoreMessages.pref_page_network_profiles_tool_delete_confirmation_title,
+                        NLS.bind(
+                            CoreMessages.pref_page_network_profiles_tool_delete_confirmation_question,
+                            selectedProfile.getProfileName()
+                        )
+                    )) {
+                        projectMeta.getDataSourceRegistry().removeNetworkProfile(selectedProfile);
+                        projectMeta.getDataSourceRegistry().flushConfig();
+
+                        final int index = profilesTable.getSelectionIndex();
+                        profilesTable.remove(index);
+                        profilesTable.select(CommonUtils.clamp(index, 0, profilesTable.getItemCount() - 1));
+                        profilesTable.notifyListeners(SWT.Selection, new Event());
+
+                        updateControlsState();
+                    }
+                }
+            });
+
+        copyProfileItem = UIUtils.createToolItem(
+            toolbar,
+            CoreMessages.pref_page_network_profiles_tool_copy_title,
+            CoreMessages.pref_page_network_profiles_tool_copy_text,
+            UIIcon.ROW_COPY,
+            new SelectionAdapter() {
+                @Override
+                public void widgetSelected(SelectionEvent e) {
+                    createNewProfile(selectedProfile);
+                }
+            });
+    }
+
+    private void createNewProfile(@Nullable DBWNetworkProfile sourceProfile) {
+        String profileName = sourceProfile == null ? "" : sourceProfile.getProfileName();
+
+        while (true) {
+            profileName = EnterNameDialog.chooseName(
+                getShell(),
+                CoreMessages.pref_page_network_profiles_tool_create_dialog_profile_name,
+                profileName
+            );
+
+            if (CommonUtils.isEmptyTrimmed(profileName)) {
+                return;
+            }
+
+            if (projectMeta.getDataSourceRegistry().getNetworkProfile(profileName) != null) {
+                UIUtils.showMessageBox(
+                    getShell(),
+                    CoreMessages.pref_page_network_profiles_tool_create_dialog_error_title,
+                    NLS.bind(CoreMessages.pref_page_network_profiles_tool_create_dialog_error_info, profileName, projectMeta.getName()),
+                    SWT.ICON_ERROR
+                );
+
+                continue;
+            }
+
+            break;
+        }
+
+        DBWNetworkProfile newProfile = new DBWNetworkProfile(projectMeta);
+        newProfile.setProfileName(profileName);
+
+        if (sourceProfile != null) {
+            newProfile.setProperties(new LinkedHashMap<>(sourceProfile.getProperties()));
+
+            for (DBWHandlerConfiguration configuration : sourceProfile.getConfigurations()) {
+                newProfile.getConfigurations().add(new DBWHandlerConfiguration(configuration));
+            }
+
+            for (HandlerBlock handler : configurations.values()) {
+                final DBWHandlerConfiguration configuration = handler.loadedConfigs.get(sourceProfile);
+
+                if (configuration != null) {
+                    handler.loadedConfigs.put(newProfile, new DBWHandlerConfiguration(configuration));
+                }
+            }
+        }
+
+        projectMeta.getDataSourceRegistry().updateNetworkProfile(newProfile);
+        projectMeta.getDataSourceRegistry().flushConfig();
+
+        TableItem item = new TableItem(profilesTable, SWT.NONE);
+        item.setText(newProfile.getProfileName());
+        item.setImage(DBeaverIcons.getImage(DBIcon.TYPE_DOCUMENT));
+        item.setData(newProfile);
+
+        profilesTable.select(profilesTable.getItemCount() - 1);
+        profilesTable.notifyListeners(SWT.Selection, new Event());
     }
 
     /**
@@ -237,7 +311,7 @@ public class PrefPageProjectNetworkProfiles extends AbstractPrefPage implements 
         NetworkHandlerDescriptor descriptor = getSelectedHandler();
         enableHandlerContent(descriptor);
 
-        if (descriptor != null) {
+        if (descriptor != null && selectedProfile != null) {
             HandlerBlock handlerBlock = configurations.get(descriptor);
             DBWHandlerConfiguration handlerConfiguration = handlerBlock.loadedConfigs.get(selectedProfile);
             if (handlerConfiguration == null) {
@@ -246,6 +320,9 @@ public class PrefPageProjectNetworkProfiles extends AbstractPrefPage implements 
                 handlerBlock.configurator.loadSettings(handlerConfiguration);
             }
         }
+
+        deleteProfileItem.setEnabled(selectedProfile != null);
+        copyProfileItem.setEnabled(selectedProfile != null);
     }
 
     @Nullable
@@ -256,7 +333,7 @@ public class PrefPageProjectNetworkProfiles extends AbstractPrefPage implements 
 
     private void createHandlerTab(final NetworkHandlerDescriptor descriptor)
     {
-        IObjectPropertyConfigurator<DBWHandlerConfiguration> configurator;
+        IObjectPropertyConfigurator<Object, DBWHandlerConfiguration> configurator;
         try {
             String implName = descriptor.getHandlerType().getImplName();
             UIPropertyConfiguratorDescriptor configDescriptor = UIPropertyConfiguratorRegistry.getInstance().getDescriptor(implName);
@@ -287,7 +364,8 @@ public class PrefPageProjectNetworkProfiles extends AbstractPrefPage implements 
             {
                 if (selectedProfile == null) {
                     useHandlerCheck.setSelection(false);
-                    UIUtils.showMessageBox(getShell(), "No profile", "Select existing profile or create a new one", SWT.ICON_INFORMATION);
+                    UIUtils.showMessageBox(getShell(), CoreMessages.pref_page_network_profiles_tool_no_profile_error_title,
+                            CoreMessages.pref_page_network_profiles_tool_no_profile_error_information, SWT.ICON_INFORMATION);
                     return;
                 }
                 HandlerBlock handlerBlock = configurations.get(descriptor);
@@ -305,7 +383,7 @@ public class PrefPageProjectNetworkProfiles extends AbstractPrefPage implements 
 
         handlerComposite.setLayoutData(new GridData(GridData.FILL_BOTH));
 
-        configurator.createControl(handlerComposite, this::updateApplyButton);
+        configurator.createControl(handlerComposite, descriptor, this::updateApplyButton);
 
         enableHandlerContent(descriptor);
     }
@@ -341,7 +419,19 @@ public class PrefPageProjectNetworkProfiles extends AbstractPrefPage implements 
 
         profilesTable.removeAll();
         if (projectMeta != null) {
+            DBSSecretController secretController = null;
+            if (projectMeta.isUseSecretStorage()) {
+                secretController = DBSSecretController.getProjectSecretController(projectMeta);
+            }
+
             for (DBWNetworkProfile profile : projectMeta.getDataSourceRegistry().getNetworkProfiles()) {
+                if (secretController != null) {
+                    try {
+                        profile.resolveSecrets(secretController);
+                    } catch (DBException e) {
+                        log.error("Error resolving secret configuration for profile " + profile.getProfileId());
+                    }
+                }
 
                 TableItem item = new TableItem(profilesTable, SWT.NONE);
                 item.setText(profile.getProfileName());
@@ -380,17 +470,36 @@ public class PrefPageProjectNetworkProfiles extends AbstractPrefPage implements 
 
     @Override
     public IAdaptable getElement() {
-        return project;
+        return projectMeta == null ? null : projectMeta.getEclipseProject();
     }
 
     @Override
     public void setElement(IAdaptable element) {
+        IProject iProject;
         if (element instanceof DBNNode) {
-            this.project = ((DBNNode) element).getOwnerProject().getEclipseProject();
+            iProject = ((DBNNode) element).getOwnerProject().getEclipseProject();
         } else {
-            this.project = GeneralUtils.adapt(element, IProject.class);
+            iProject = GeneralUtils.adapt(element, IProject.class);
         }
-        this.projectMeta = DBWorkbench.getPlatform().getWorkspace().getProject(this.project);
+        if (iProject != null) {
+            this.projectMeta = DBPPlatformDesktop.getInstance().getWorkspace().getProject(iProject);
+        }
     }
 
+    @Override
+    public void applyData(Object data) {
+        final DBWNetworkProfile profile = projectMeta.getDataSourceRegistry().getNetworkProfile(CommonUtils.toString(data));
+
+        if (profile != null) {
+            final TableItem[] items = profilesTable.getItems();
+
+            for (int i = 0; i < items.length; i++) {
+                if (items[i].getData() == profile) {
+                    profilesTable.select(i);
+                    profilesTable.notifyListeners(SWT.Selection, new Event());
+                    break;
+                }
+            }
+        }
+    }
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,16 @@
  */
 package org.jkiss.dbeaver.erd.ui.action;
 
-import org.eclipse.gef3.Disposable;
-import org.eclipse.gef3.palette.PaletteListener;
-import org.eclipse.gef3.palette.ToolEntry;
-import org.eclipse.gef3.ui.palette.PaletteViewer;
+import org.eclipse.gef.Disposable;
+import org.eclipse.gef.palette.PaletteListener;
+import org.eclipse.gef.palette.ToolEntry;
+import org.eclipse.gef.ui.palette.PaletteViewer;
 import org.eclipse.jface.action.Action;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.erd.ui.ERDIcon;
 import org.jkiss.dbeaver.erd.ui.ERDUIUtils;
 import org.jkiss.dbeaver.erd.ui.editor.tools.HandToolEntry;
+import org.jkiss.dbeaver.erd.ui.internal.ERDUIMessages;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
 
 /**
@@ -40,7 +41,7 @@ public class DiagramToggleHandAction extends Action implements PaletteListener, 
     private ToolEntry previousTool;
 
     public DiagramToggleHandAction(@NotNull PaletteViewer viewer) {
-        super("Toggle Hand Tool", AS_CHECK_BOX);
+        super(ERDUIMessages.erd_action_diagram_toggle_hand_checkbox_text, AS_CHECK_BOX);
         this.viewer = viewer;
         this.viewer.addPaletteListener(this);
         this.handTool = (ToolEntry) ERDUIUtils.findPaletteEntry(viewer.getPaletteRoot(), HandToolEntry.ID);

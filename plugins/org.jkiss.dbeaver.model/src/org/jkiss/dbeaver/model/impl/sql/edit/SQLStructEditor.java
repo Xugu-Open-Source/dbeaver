@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.*;
@@ -74,8 +75,8 @@ public abstract class SQLStructEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
 
     protected void createObjectReferences(DBRProgressMonitor monitor, DBECommandContext commandContext, ObjectCreateCommand createCommand) throws DBException {
         OBJECT_TYPE object = createCommand.getObject();
-        final DBERegistry editorsRegistry = object.getDataSource().getContainer().getPlatform().getEditorsRegistry();
-        for (Class childType : getChildTypes()) {
+        final DBERegistry editorsRegistry = DBWorkbench.getPlatform().getEditorsRegistry();
+        for (Class<? extends DBSObject> childType : getChildTypes()) {
             Collection<? extends DBSObject> children = getChildObjects(monitor, object, childType);
             if (!CommonUtils.isEmpty(children)) {
                 SQLObjectEditor<DBSObject, ?> nestedEditor = getObjectEditor(editorsRegistry, childType);
@@ -95,7 +96,7 @@ public abstract class SQLStructEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
         }
     }
 
-    protected  <T extends DBSObject> SQLObjectEditor<T, OBJECT_TYPE> getObjectEditor(DBERegistry editorsRegistry, Class<T> type) {
+    protected  <T extends DBSObject> SQLObjectEditor<T, OBJECT_TYPE> getObjectEditor(DBERegistry editorsRegistry, Class<? extends T> type) {
         final Class<? extends T> childType = getChildType(type);
         return childType == null ? null : editorsRegistry.getObjectManager(childType, SQLObjectEditor.class);
     }
@@ -105,12 +106,17 @@ public abstract class SQLStructEditor<OBJECT_TYPE extends DBSObject, CONTAINER_T
     }
 
     protected <T> Class<? extends T> getChildType(Class<T> type) {
-        for (Class<?> childType : getChildTypes()) {
+        for (Class<? extends DBSObject> childType : getChildTypes()) {
             if (type.isAssignableFrom(childType)) {
                 return (Class<? extends T>) childType;
             }
         }
         return null;
+    }
+
+    @Override
+    protected final void addObjectCreateActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext, List<DBEPersistAction> actions, ObjectCreateCommand objectChangeCommand, Map<String, Object> options) {
+        throw new IllegalStateException("addObjectCreateActions should never be called in struct editor");
     }
 
     @Override

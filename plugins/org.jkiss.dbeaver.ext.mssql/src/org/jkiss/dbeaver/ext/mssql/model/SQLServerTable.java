@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,10 @@ import org.jkiss.dbeaver.model.struct.rdb.DBSCheckConstraintContainer;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 
 /**
  * SQLServerTable
@@ -63,11 +66,8 @@ public class SQLServerTable extends SQLServerTableBase
         super(schema);
     }
 
-    public SQLServerTable(
-        SQLServerSchema catalog,
-        ResultSet dbResult)
-    {
-        super(catalog, dbResult);
+    public SQLServerTable(@NotNull SQLServerSchema catalog, @NotNull ResultSet dbResult, @NotNull String name) {
+        super(catalog, dbResult, name);
     }
 
     @Override
@@ -224,6 +224,10 @@ public class SQLServerTable extends SQLServerTableBase
         if (hasStatistics()) {
             return;
         }
+        if (SQLServerUtils.isDriverBabelfish(getDataSource().getContainer().getDriver())) {
+            setDefaultTableStats();
+            return;
+        }
         try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load table statistics")) {
             try (JDBCPreparedStatement dbStat = SQLServerUtils.prepareTableStatisticLoadStatement(
                 session,
@@ -266,7 +270,7 @@ public class SQLServerTable extends SQLServerTableBase
         String sql = getChangeReferentialIntegrityStatement(monitor, enable);
         sql = sql.replace("?", getFullyQualifiedName(DBPEvaluationContext.DDL));
         try {
-            DBUtils.executeInMetaSession(monitor, this, "Changing referential integrity", sql);
+            JDBCUtils.executeInMetaSession(monitor, this, "Changing referential integrity", sql);
         } catch (SQLException e) {
             throw new DBException("Unable to change referential integrity", e);
         }
@@ -289,7 +293,7 @@ public class SQLServerTable extends SQLServerTableBase
         @NotNull
         @Override
         protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull SQLServerTable table) throws SQLException {
-            JDBCPreparedStatement dbStat = session.prepareStatement("SELECT * FROM " + SQLServerUtils.getSystemTableName(table.getDatabase(), "check_constraints") + " WHERE parent_object_id=?");
+            JDBCPreparedStatement dbStat = session.prepareStatement("SELECT c.* FROM " + SQLServerUtils.getSystemTableName(table.getDatabase(), "check_constraints") + " c WHERE c.parent_object_id=?");
             dbStat.setLong(1, table.getObjectId());
             return dbStat;
         }

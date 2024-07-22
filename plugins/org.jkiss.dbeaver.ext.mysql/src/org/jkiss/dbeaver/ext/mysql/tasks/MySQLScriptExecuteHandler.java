@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,14 @@
  */
 package org.jkiss.dbeaver.ext.mysql.tasks;
 
+import org.eclipse.osgi.util.NLS;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.mysql.MySQLConstants;
 import org.jkiss.dbeaver.ext.mysql.model.MySQLCatalog;
+import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableContext;
 import org.jkiss.dbeaver.model.task.DBTTask;
@@ -50,6 +54,11 @@ public class MySQLScriptExecuteHandler extends MySQLNativeToolHandler<MySQLScrip
 
     @Override
     protected boolean validateTaskParameters(DBTTask task, MySQLScriptExecuteSettings settings, Log log) {
+        DBPDataSource dataSource = settings.getDataSourceContainer().getDataSource();
+        if (settings.isImport() && dataSource != null && DBUtils.isReadOnly(dataSource)) {
+            log.error(NLS.bind(ModelMessages.tasks_restore_readonly_message, dataSource.getName()));
+            return false;
+        }
         return true;
     }
 

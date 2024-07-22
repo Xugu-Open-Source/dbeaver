@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.model.DPIContainer;
+import org.jkiss.dbeaver.model.DPIElement;
 import org.jkiss.dbeaver.model.connection.DBPConnectionBootstrap;
 import org.jkiss.dbeaver.model.exec.*;
 import org.jkiss.dbeaver.model.qm.QMUtils;
@@ -27,7 +29,9 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Abstract execution context.
@@ -44,6 +48,7 @@ public abstract class AbstractExecutionContext<DATASOURCE extends DBPDataSource>
     protected final DATASOURCE dataSource;
     protected final String purpose;
     protected final long id;
+    private final Map<String, Object> contextAttributes = new LinkedHashMap<>();
 
     public AbstractExecutionContext(@NotNull DATASOURCE dataSource, String purpose) {
         this.dataSource = dataSource;
@@ -57,23 +62,27 @@ public abstract class AbstractExecutionContext<DATASOURCE extends DBPDataSource>
         return idSequence++;
     }
 
+    @DPIElement
     @Override
     public long getContextId() {
         return this.id;
     }
 
+    @DPIElement
     @NotNull
     @Override
     public String getContextName() {
         return purpose;
     }
 
+    @DPIContainer
     @NotNull
     @Override
     public DATASOURCE getDataSource() {
         return dataSource;
     }
 
+    @DPIElement
     @Nullable
     @Override
     public DBCExecutionContextDefaults getContextDefaults() {
@@ -128,6 +137,27 @@ public abstract class AbstractExecutionContext<DATASOURCE extends DBPDataSource>
         QMUtils.getDefaultHandler().handleContextClose(this);
 
         log.debug("Execution context closed (" + dataSource.getName() + ", " + this.id +  ")");
+    }
+
+    @Override
+    public Map<String, ?> getContextAttributes() {
+        return new LinkedHashMap<>(contextAttributes);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T> T getContextAttribute(String attributeName) {
+        return (T) contextAttributes.get(attributeName);
+    }
+
+    @Override
+    public <T> void setContextAttribute(String attributeName, T attributeValue) {
+        contextAttributes.put(attributeName, attributeValue);
+    }
+
+    @Override
+    public void removeContextAttribute(String attributeName) {
+        contextAttributes.remove(attributeName);
     }
 
     @Override

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,14 @@
 
 package org.jkiss.dbeaver.utils;
 
+import org.eclipse.core.internal.runtime.AdapterManager;
 import org.eclipse.core.runtime.*;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.bundle.ModelActivator;
+import org.jkiss.dbeaver.model.app.DBPWorkspace;
 import org.jkiss.dbeaver.model.impl.app.ApplicationDescriptor;
 import org.jkiss.dbeaver.model.impl.app.ApplicationRegistry;
 import org.jkiss.dbeaver.runtime.IVariableResolver;
@@ -37,11 +39,12 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.SQLException;
 import java.text.NumberFormat;
 import java.text.ParseException;
@@ -63,8 +66,6 @@ public class GeneralUtils {
     public static final Charset DEFAULT_FILE_CHARSET = UTF8_CHARSET;
     public static final Charset ASCII_CHARSET = Charset.forName("US-ASCII");
 
-    private static final String METADATA_FOLDER = ".metadata";
-
     public static final String DEFAULT_TIMESTAMP_PATTERN = "yyyyMMddHHmm";
     public static final String DEFAULT_DATE_PATTERN = "yyyyMMdd";
 
@@ -76,6 +77,10 @@ public class GeneralUtils {
         '8', '9', 'a', 'b',
         'c', 'd', 'e', 'f'
     };
+    
+    public static final String PROP_TRUST_STORE = "javax.net.ssl.trustStore"; //$NON-NLS-1$
+    public static final String PROP_TRUST_STORE_TYPE = "javax.net.ssl.trustStoreType"; //$NON-NLS-1$
+    public static final String VALUE_TRUST_STORE_TYPE_WINDOWS = "WINDOWS-ROOT"; //$NON-NLS-1$
 
     static {
         // Compose byte to hex map
@@ -84,7 +89,7 @@ public class GeneralUtils {
         }
     }
 
-    private static Pattern VAR_PATTERN = Pattern.compile("(\\$\\{([\\w\\.\\-]+)\\})", Pattern.CASE_INSENSITIVE);
+    private static Pattern VAR_PATTERN = Pattern.compile("(\\$\\{([\\w\\.\\-]+)(\\:[^\\}]+)?\\})", Pattern.CASE_INSENSITIVE);
 
     /**
      * Default encoding (UTF-8)
@@ -282,6 +287,11 @@ public class GeneralUtils {
     }
 
     @NotNull
+    public static String getLongProductTitle() {
+        return getProductName() + " " + getProductVersion();
+    }
+
+    @NotNull
     public static String getProductName() {
         ApplicationDescriptor application = ApplicationRegistry.getInstance().getApplication();
         if (application != null) {
@@ -470,33 +480,57 @@ public class GeneralUtils {
         return text.toString();
     }
 
+    @Nullable
+    public static String extractVariableName(@NotNull String string) {
+        Matcher matcher = VAR_PATTERN.matcher(string);
+        if (matcher.find()) {
+            return matcher.group(2);
+        }
+        return null;
+    }
+    
     @NotNull
     public static String replaceVariables(@NotNull String string, IVariableResolver resolver) {
+        return replaceVariables(string, resolver, false);
+    }
+
+    @NotNull
+    public static String replaceVariables(@NotNull String string, IVariableResolver resolver, boolean isUpperCaseVarName) {
         if (CommonUtils.isEmpty(string)) {
             return string;
         }
         // We save resolved vars here to avoid resolve recursive cycles
-        List<String> resolvedVars = null;
+        Map<String, String> resolvedVars = null;
         try {
             Matcher matcher = VAR_PATTERN.matcher(string);
             int pos = 0;
             while (matcher.find(pos)) {
                 pos = matcher.end();
-                String varName = matcher.group(2);
-                if (resolvedVars != null && resolvedVars.contains(varName)) {
-                    continue;
+                String matchedName = matcher.group(2);
+                String varName = isUpperCaseVarName ? matchedName.toUpperCase(Locale.ENGLISH) : matchedName;
+                String varValue = null;
+                if (resolvedVars != null) {
+                    varValue = resolvedVars.get(varName); 
+                    if (varValue != null) {
+                        string = substituteVariable(string, matcher, varValue);
+                        matcher = VAR_PATTERN.matcher(string);
+                        pos = 0;
+                        continue;
+                    }
                 }
-                String varValue = resolver.get(varName);
+                varValue = resolver.get(varName);
+                if (varValue == null) {
+                    varValue = matcher.group(3);
+                    if (varValue != null && varValue.startsWith(":")) {
+                        varValue = varValue.substring(1);
+                    }
+                }
                 if (varValue != null) {
                     if (resolvedVars == null) {
-                        resolvedVars = new ArrayList<>();
-                        resolvedVars.add(varName);
+                        resolvedVars = new HashMap<>();
+                        resolvedVars.put(varName, varValue);
                     }
-                    if (matcher.start() == 0 && matcher.end() == string.length() - 1) {
-                        string = varValue;
-                    } else {
-                        string = string.substring(0, matcher.start()) + varValue + string.substring(matcher.end());
-                    }
+                    string = substituteVariable(string, matcher, varValue);
                     matcher = VAR_PATTERN.matcher(string);
                     pos = 0;
                 }
@@ -505,6 +539,15 @@ public class GeneralUtils {
         } catch (Exception e) {
             log.warn("Error matching regex", e);
             return string;
+        }
+    }
+
+    @NotNull
+    private static String substituteVariable(@NotNull String string, @NotNull Matcher matcher, @NotNull String varValue) {
+        if (matcher.start() == 0 && matcher.end() >= string.length() - 1) {
+            return varValue;
+        } else {
+            return string.substring(0, matcher.start()) + varValue + string.substring(matcher.end());
         }
     }
 
@@ -517,6 +560,9 @@ public class GeneralUtils {
     }
 
     private static IStatus makeExceptionStatus(int severity, Throwable ex, boolean nested) {
+        if (ex instanceof CoreException) {
+            return ((CoreException) ex).getStatus();
+        }
         // Skip chain of nested DBExceptions. Show only last message
         while (ex.getCause() != null && ex.getMessage() != null && ex.getMessage().equals(ex.getCause().getMessage())) {
             ex = ex.getCause();
@@ -525,6 +571,8 @@ public class GeneralUtils {
         SQLException nextError = null;
         if (ex instanceof SQLException) {
             nextError = ((SQLException) ex).getNextException();
+        } else if (cause instanceof SQLException) {
+            nextError = ((SQLException) cause).getNextException();
         }
         if (cause == null && nextError == null) {
             return new Status(
@@ -568,6 +616,9 @@ public class GeneralUtils {
     }
 
     public static IStatus makeExceptionStatus(int severity, String message, Throwable ex) {
+        if (CommonUtils.equalObjects(message, ex.getMessage())) {
+            return makeExceptionStatus(severity, ex);
+        }
         return new MultiStatus(
             ModelPreferences.PLUGIN_ID,
             0,
@@ -655,17 +706,25 @@ public class GeneralUtils {
         }
     }
 
-    public static File getMetadataFolder() {
-        final URL workspaceURL = Platform.getInstanceLocation().getURL();
-        File metaDir = getMetadataFolder(new File(workspaceURL.getPath()));
-        if (!metaDir.exists() && !metaDir.mkdir()) {
-            return Platform.getLogFileLocation().toFile().getParentFile();
+    public static Path getMetadataFolder() {
+        try {
+            final File workspacePath = RuntimeUtils.getLocalFileFromURL(Platform.getInstanceLocation().getURL());
+            Path metaDir = getMetadataFolder(workspacePath.toPath());
+            if (!Files.exists(metaDir)) {
+                try {
+                    Files.createDirectories(metaDir);
+                } catch (IOException e) {
+                    return Platform.getLogFileLocation().toFile().toPath();
+                }
+            }
+            return metaDir;
+        } catch (IOException e) {
+            throw new IllegalStateException("Can't parse workspace location URL", e);
         }
-        return metaDir;
     }
 
-    public static File getMetadataFolder(File workspaceFolder) {
-        return new File(workspaceFolder, METADATA_FOLDER);
+    public static Path getMetadataFolder(Path workspaceFolder) {
+        return workspaceFolder.resolve(DBPWorkspace.METADATA_FOLDER);
     }
 
     @NotNull
@@ -726,10 +785,14 @@ public class GeneralUtils {
 
     public static Object queryAdapterManager(Object sourceObject, String adapterId, boolean allowActivation) {
         Object result;
+        AdapterManager adapterManager = AdapterManager.getDefault();
+        if (adapterManager == null) {
+            return null;
+        }
         if (allowActivation) {
-            result = Platform.getAdapterManager().loadAdapter(sourceObject, adapterId);
+            result = adapterManager.loadAdapter(sourceObject, adapterId);
         } else {
-            result = Platform.getAdapterManager().getAdapter(sourceObject, adapterId);
+            result = adapterManager.getAdapter(sourceObject, adapterId);
         }
         return result;
     }

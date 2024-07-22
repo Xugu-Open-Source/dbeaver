@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.jface.action.IContributionManager;
 import org.eclipse.jface.action.IMenuManager;
-import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.viewers.ColumnLabelProvider;
 import org.eclipse.jface.viewers.IFontProvider;
 import org.eclipse.jface.viewers.ISelection;
@@ -120,7 +119,10 @@ public class TabbedFolderPageProperties extends TabbedFolderPage implements IRef
     @Override
     public void dispose() {
         if (curPropertySource != null && curPropertySource.getEditableValue() instanceof DBSObject) {
-            DBUtils.getObjectRegistry((DBSObject) curPropertySource.getEditableValue()).removeDataSourceListener(this);
+            var registry = DBUtils.getObjectRegistry((DBSObject) curPropertySource.getEditableValue());
+            if (registry != null) {
+                registry.removeDataSourceListener(this);
+            }
             curPropertySource = null;
         }
         UIUtils.dispose(boldFont);
@@ -236,7 +238,10 @@ public class TabbedFolderPageProperties extends TabbedFolderPage implements IRef
             propertyTree.loadProperties(curPropertySource);
 
             if (input.getDatabaseObject() != null) {
-                DBUtils.getObjectRegistry((DBSObject) curPropertySource.getEditableValue()).addDataSourceListener(TabbedFolderPageProperties.this);
+                var registry = DBUtils.getObjectRegistry((DBSObject) curPropertySource.getEditableValue());
+                if (registry != null) {
+                    registry.addDataSourceListener(TabbedFolderPageProperties.this);
+                }
             }
             propertyTree.getControl().addDisposeListener(e -> {
                 dispose();
@@ -254,10 +259,6 @@ public class TabbedFolderPageProperties extends TabbedFolderPage implements IRef
             super.fillCustomActions(contributionManager);
             if (part != null) {
                 DatabaseEditorUtils.contributeStandardEditorActions(part.getSite(), contributionManager);
-                if (part instanceof ObjectPropertiesEditor) {
-                    contributionManager.add(new Separator());
-                    ((ObjectPropertiesEditor) part).createPropertyRefreshAction(contributionManager);
-                }
             }
         }
 

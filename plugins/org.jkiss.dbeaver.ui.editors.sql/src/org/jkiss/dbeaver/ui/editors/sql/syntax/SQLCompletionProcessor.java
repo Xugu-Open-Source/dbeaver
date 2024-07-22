@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@ import org.jkiss.dbeaver.model.sql.registry.SQLCommandHandlerDescriptor;
 import org.jkiss.dbeaver.model.sql.registry.SQLCommandsRegistry;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.editors.sql.SQLEditorBase;
+import org.jkiss.dbeaver.ui.editors.sql.SQLEditorUtils;
 import org.jkiss.dbeaver.ui.editors.sql.SQLPreferenceConstants;
 import org.jkiss.dbeaver.ui.editors.sql.templates.SQLContext;
 import org.jkiss.dbeaver.ui.editors.sql.templates.SQLTemplateCompletionProposal;
@@ -97,6 +98,20 @@ public class SQLCompletionProcessor implements IContentAssistProcessor
         if (document == null) {
             return new ICompletionProposal[0];
         }
+        try {
+            IRegion line = document.getLineInformationOfOffset(documentOffset);
+            if (documentOffset <= line.getLength() + line.getOffset() && line.getLength() > 0) { // we are in the nonempty line
+                String typeAtLine = TextUtilities.getContentType(document, SQLParserPartitions.SQL_PARTITIONING, documentOffset - 1, true);
+                // and previous position belongs to the single-line comment
+                if (SQLParserPartitions.CONTENT_TYPE_SQL_COMMENT.equals(typeAtLine)) {
+                    return new ICompletionProposal[0];
+                }
+            }
+        } catch (BadLocationException e) {
+            log.debug(e);
+            return new ICompletionProposal[0];
+        }
+
         final SQLCompletionRequest request = new SQLCompletionRequest(
             editor.getCompletionContext(),
             document,
@@ -186,7 +201,9 @@ public class SQLCompletionProcessor implements IContentAssistProcessor
         final List<SQLTemplateCompletionProposal> templateProposals = new ArrayList<>();
         // Templates
         for (Template template : editor.getTemplatesPage().getTemplateStore().getTemplates()) {
-            if (template.getName().toLowerCase().startsWith(wordPart)) {
+            if (template.getName().toLowerCase().startsWith(wordPart)
+                && SQLEditorUtils.isTemplateContextFitsEditorContext(template.getContextTypeId(), editor)
+            ) { 
                 SQLContext templateContext = new SQLContext(
                     SQLTemplatesRegistry.getInstance().getTemplateContextRegistry().getContextType(template.getContextTypeId()),
                     viewer.getDocument(),
@@ -317,8 +334,9 @@ public class SQLCompletionProcessor implements IContentAssistProcessor
 
         ProposalSearchJob(SQLCompletionAnalyzer analyzer) {
             super("Search proposals...");
-            setSystem(false);
             this.analyzer = analyzer;
+            setSystem(true);
+            setUser(false);
         }
 
         @Override

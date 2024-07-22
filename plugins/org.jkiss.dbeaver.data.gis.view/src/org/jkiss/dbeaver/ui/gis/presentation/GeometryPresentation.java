@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,10 @@ import org.jkiss.dbeaver.ui.controls.resultset.*;
 import org.jkiss.dbeaver.ui.gis.GeometryDataUtils;
 import org.jkiss.dbeaver.ui.gis.panel.GISLeafletViewer;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Geometry presentation.
@@ -57,7 +60,9 @@ public class GeometryPresentation extends AbstractPresentation {
         leafletViewer = new GISLeafletViewer(
             parent,
             bindings,
-            GisTransformUtils.getSpatialDataProvider(controller.getDataContainer().getDataSource()));
+            GisTransformUtils.getSpatialDataProvider(controller.getDataContainer().getDataSource()),
+            this
+        );
         leafletViewer.getBrowserComposite().setLayoutData(new GridData(GridData.FILL_BOTH));
     }
 
@@ -65,6 +70,7 @@ public class GeometryPresentation extends AbstractPresentation {
     protected void applyThemeSettings(ITheme currentTheme) {
     }
 
+    @Nullable
     @Override
     public Composite getControl() {
         return leafletViewer.getBrowser();

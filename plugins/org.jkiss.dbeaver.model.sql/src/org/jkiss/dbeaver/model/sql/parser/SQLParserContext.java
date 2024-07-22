@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,9 @@ public class SQLParserContext {
     private final IDocument document;
     private TPRuleBasedScanner scanner;
 
+    @Nullable
+    private DBPPreferenceStore preferenceStore;
+
     public SQLParserContext(@Nullable DBPDataSource dataSource, @NotNull SQLSyntaxManager syntaxManager, @NotNull SQLRuleManager ruleManager, @NotNull IDocument document) {
         this.dataSource = dataSource;
         this.syntaxManager = syntaxManager;
@@ -83,10 +86,17 @@ public class SQLParserContext {
     }
 
     public DBPPreferenceStore getPreferenceStore() {
+        if (preferenceStore != null) {
+            return preferenceStore;
+        }
         DBPDataSource dataSource = getDataSource();
         return dataSource == null ?
             DBWorkbench.getPlatform().getPreferenceStore() :
             dataSource.getContainer().getPreferenceStore();
+    }
+
+    public void setPreferenceStore(@Nullable DBPPreferenceStore preferenceStore) {
+        this.preferenceStore = preferenceStore;
     }
 
     void startScriptEvaluation() {

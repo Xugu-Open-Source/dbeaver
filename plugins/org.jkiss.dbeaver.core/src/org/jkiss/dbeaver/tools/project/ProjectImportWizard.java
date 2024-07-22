@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import org.eclipse.ui.IWorkbench;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.core.CoreMessages;
+import org.jkiss.dbeaver.model.app.DBPPlatformDesktop;
 import org.jkiss.dbeaver.model.app.DBPWorkspace;
 import org.jkiss.dbeaver.model.connection.DBPDriverLibrary;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
@@ -37,6 +38,7 @@ import org.jkiss.dbeaver.registry.DataSourceRegistry;
 import org.jkiss.dbeaver.registry.RegistryConstants;
 import org.jkiss.dbeaver.registry.driver.DriverDescriptor;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.dbeaver.runtime.resource.DBeaverNature;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.utils.ContentUtils;
 import org.jkiss.dbeaver.utils.GeneralUtils;
@@ -50,6 +52,8 @@ import org.w3c.dom.Element;
 
 import java.io.*;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -282,24 +286,29 @@ public class ProjectImportWizard extends Wizard implements IImportWizard {
                         if (libEntry != null) {
                             // Extract driver to "drivers" folder
                             String libName = libFile.getName();
-                            File contribFolder = DriverDescriptor.getDriversContribFolder();
-                            if (!contribFolder.exists()) {
-                                if (!contribFolder.mkdir()) {
-                                    log.error("Cannot create drivers folder '" + contribFolder.getAbsolutePath() + "'"); //$NON-NLS-1$ //$NON-NLS-2$
+                            Path contribFolder = DriverDescriptor.getDriversContribFolder();
+                            if (!Files.exists(contribFolder)) {
+                                try {
+                                    Files.createDirectories(contribFolder);
+                                } catch (IOException e) {
+                                    log.error("Cannot create drivers folder '" + contribFolder.toAbsolutePath() + "'", e);
                                     continue;
                                 }
                             }
-                            File importLibFile = new File(contribFolder, libName);
-                            if (!importLibFile.exists()) {
-                                try (FileOutputStream os = new FileOutputStream(importLibFile)) {
+                            Path importLibFile = contribFolder.resolve(libName);
+                            if (!importLibFile.normalize().startsWith(contribFolder.normalize())) {
+                                throw new IOException("Zip entry is outside of the target directory");
+                            }
+                            if (!Files.exists(importLibFile)) {
+                                try (OutputStream os = Files.newOutputStream(importLibFile)) {
                                     try (InputStream is = zipFile.getInputStream(libEntry)) {
                                         IOUtils.copyStream(is, os);
                                     }
                                 }
                             }
                             // Make relative path
-                            String contribPath = contribFolder.getAbsolutePath();
-                            String libAbsolutePath = importLibFile.getAbsolutePath();
+                            String contribPath = contribFolder.toAbsolutePath().toString();
+                            String libAbsolutePath = importLibFile.toAbsolutePath().toString();
                             String relativePath = libAbsolutePath.substring(contribPath.length());
                             while (relativePath.charAt(0) == '/' || relativePath.charAt(0) == '\\') {
                                 relativePath = relativePath.substring(1);
@@ -320,6 +329,9 @@ public class ProjectImportWizard extends Wizard implements IImportWizard {
     private IProject importProject(DBRProgressMonitor monitor, Element projectElement, ZipFile zipFile, Map<String, String> driverMap)
         throws DBException, CoreException, IOException
     {
+        if (DBWorkbench.isDistributed()) {
+            throw new DBException("Project import is not supported in distributed workspaces");
+        }
         String projectName = projectElement.getAttribute(ExportConstants.ATTR_NAME);
         String projectDescription = projectElement.getAttribute(ExportConstants.ATTR_DESCRIPTION);
         String targetProjectName = data.getTargetProjectName(projectName);
@@ -327,13 +339,16 @@ public class ProjectImportWizard extends Wizard implements IImportWizard {
             return null;
         }
 
-        IWorkspace eclipseWorkspace = DBWorkbench.getPlatform().getWorkspace().getEclipseWorkspace();
+        IWorkspace eclipseWorkspace = DBPPlatformDesktop.getInstance().getWorkspace().getEclipseWorkspace();
         IProject project = eclipseWorkspace.getRoot().getProject(targetProjectName);
         if (project.exists()) {
             throw new DBException("Project '" + targetProjectName + "' already exists");
         }
 
         final IProjectDescription description = eclipseWorkspace.newProjectDescription(project.getName());
+        
+        description.setNatureIds(new String[] {DBeaverNature.NATURE_ID});
+        
         if (!CommonUtils.isEmpty(projectDescription)) {
             description.setComment(projectDescription);
         }

@@ -168,7 +168,7 @@ public class Package extends BaseSchemaObject implements SourceObject, DBPScript
 	        this.functionBeans.add(createFunctionBean);
 
 		    DBeaverNotifications.showNotification(
-                    DBeaverNotifications.NT_RECONNECT,
+                    DBeaverNotifications.NT_RECONNECT_FAILURE,
                     packageName,
                      e.getMessage(),
                     DBPMessageType.INFORMATION, ()->{});
@@ -398,7 +398,10 @@ public class Package extends BaseSchemaObject implements SourceObject, DBPScript
 		this.proceduresCache.clearCache();
 		this.proceduresCache.getAllObjects(monitor, this);
 		parseProduceAndFuntionBean();
-		return this;
+
+		Schema schema = this.getSchema();
+		schema.packageCache.clearCache();
+		return schema.packageCache.refreshObject(monitor, schema, this);
 	}
 
 	@Override

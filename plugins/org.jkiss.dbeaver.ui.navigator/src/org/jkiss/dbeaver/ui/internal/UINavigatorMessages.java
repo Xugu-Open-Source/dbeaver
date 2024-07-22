@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,6 +26,8 @@ public class UINavigatorMessages extends NLS {
     public static String obj_editor_properties_control_action_filter_setting;
     public static String obj_editor_properties_control_action_configure_columns;
     public static String obj_editor_properties_control_action_configure_columns_description;
+    public static String obj_editor_properties_control_action_columns_fit_width;
+    public static String obj_editor_properties_control_action_columns_fit_width_description;
     //object properties editor
 
     public static String toolbar_datasource_selector_empty;
@@ -51,6 +53,8 @@ public class UINavigatorMessages extends NLS {
     public static String dialog_filter_hint_text;
 
     public static String actions_navigator__objects;
+    public static String actions_navigator_hide_objects;
+    public static String actions_navigator_hide_object;
     public static String actions_navigator_copy_fqn_title;
     public static String actions_navigator_copy_fqn_titles;
     public static String actions_navigator_copy_object_copy_node;
@@ -80,6 +84,19 @@ public class UINavigatorMessages extends NLS {
     public static String actions_navigator_search_filter_container_description;
     public static String actions_navigator_search_filter_object_name;
     public static String actions_navigator_search_filter_object_description;
+    public static String actions_navigator_show_only_selected_objects;
+    public static String actions_navigator_show_only_object;
+    public static String actions_navigator_folder_name;
+    public static String actions_navigator_open_editors_title;
+    public static String actions_navigator_open_editors_question;
+    public static String actions_navigator_rename_object;
+    public static String actions_navigator_rename_object_exception_title;
+    public static String actions_navigator_rename_object_exception_message;
+    public static String actions_navigator_rename_script;
+    public static String actions_navigator_rename_database_object;
+    public static String actions_navigator_rename_database_object_exception_title;
+    public static String actions_navigator_rename_database_object_exception_message;
+    
 
     public static String dialog_project_create_wizard_error_already_exists;
     public static String dialog_project_create_wizard_error_cannot_create;
@@ -97,6 +114,7 @@ public class UINavigatorMessages extends NLS {
     // DatabaseNavigator
     public static String pref_page_database_general_label_expand_navigator_tree;
     public static String pref_page_database_general_label_restore_filter;
+    public static String pref_page_database_general_label_restore_filter_tip;
     public static String pref_page_database_general_label_restore_state_depth;
     public static String pref_page_database_general_label_restore_state_depth_tip;
     public static String pref_page_database_general_label_show_tips_in_tree;
@@ -110,6 +128,8 @@ public class UINavigatorMessages extends NLS {
     public static String pref_page_database_general_label_folders_first_tip;
     public static String pref_page_database_general_label_show_host_name;
     public static String pref_page_database_general_label_show_host_name_tip;
+    public static String pref_page_database_general_label_show_objects_description;
+    public static String pref_page_database_general_label_show_objects_description_tip;
     public static String pref_page_database_general_label_show_statistics;
     public static String pref_page_database_general_label_show_statistics_tip;
     public static String pref_page_database_general_label_show_node_actions;
@@ -134,6 +154,7 @@ public class UINavigatorMessages extends NLS {
     public static String pref_page_navigator_default_editor_page_tip;
     public static String pref_page_navigator_default_editor_page_last;
 
+
     // ProjectSettings
     public static String pref_page_projects_settings_label_resource_location;
     public static String pref_page_projects_settings_label_resource;
@@ -144,6 +165,7 @@ public class UINavigatorMessages extends NLS {
     public static String pref_page_projects_settings_label_not_use_hidden_folders;
     public static String pref_page_projects_settings_label_not_store_resources_in_another_project;
     public static String pref_page_projects_settings_label_restart_require_refresh_global_settings;
+    public static String pref_page_projects_settings_description;
 
     public static String ui_navigator_loading_text_loading;
     public static String ui_properties_category_information;
@@ -169,6 +191,7 @@ public class UINavigatorMessages extends NLS {
     public static String controls_object_list_monitor_load_props;
     public static String controls_object_list_status_objects;
 
+    public static String editors_entity_read_expensive_props_action;
     public static String editors_entity_dialog_persist_title;
     public static String editors_entity_dialog_preview_title;
     public static String editors_entity_monitor_add_folder;
@@ -176,6 +199,8 @@ public class UINavigatorMessages extends NLS {
     public static String editors_entity_monitor_preview_changes;
     public static String editors_entity_properties_text;
     public static String editors_entity_properties_tooltip_suffix;
+    public static String editors_entity_title_uninitialized;
+    public static String editors_entity_title_initializing;
 
     public static String confirm_entity_delete_title;
     public static String confirm_entity_delete_message;
@@ -187,20 +212,6 @@ public class UINavigatorMessages extends NLS {
 
     public static String confirm_local_folder_delete_title;
     public static String confirm_local_folder_delete_message;
-
-    public static String confirm_entity_reject_title;
-    public static String confirm_entity_reject_message;
-    public static String confirm_entity_reject_toggleMessage;
-
-    public static String confirm_entity_revert_title;
-    public static String confirm_entity_revert_message;
-    public static String confirm_entity_revert_toggleMessage;
-
-    public static String confirm_close_editor_edit_title;
-    public static String confirm_close_editor_edit_message;
-
-    public static String confirm_close_entity_edit_title;
-    public static String confirm_close_entity_edit_message;
 
     public static String label_configure_columns;
 
@@ -241,6 +252,44 @@ public class UINavigatorMessages extends NLS {
     public static String question_no_sql_available;
     public static String error_sql_generation_title;
     public static String error_sql_generation_message;
+
+    public static String navigator_expand_all_text;
+    public static String navigator_expand_all_tip;
+    public static String navigator_project_explorer_columns_name_text;
+    public static String navigator_project_explorer_columns_name_description;
+    public static String navigator_project_explorer_columns_datasource_text;
+    public static String navigator_project_explorer_columns_datasource_description;
+    public static String navigator_project_explorer_columns_preview_text;
+    public static String navigator_project_explorer_columns_preview_description;
+    public static String navigator_project_explorer_columns_size_text;
+    public static String navigator_project_explorer_columns_size_description;
+    public static String navigator_project_explorer_columns_modified_text;
+    public static String navigator_project_explorer_columns_modified_description;
+    public static String navigator_project_explorer_columns_type_text;
+    public static String navigator_project_explorer_columns_type_description;
+
+    public static String datasource_list_action_empty;
+    public static String filter_connection_name_placeholder;
+
+    public static String failed_to_paste_due_to_permissions_title;
+    public static String failed_to_paste_due_to_permissions_message;
+
+    public static String object_list_control_group_by_label;
+    public static String object_list_control_clear_grouping_label;
+    public static String pref_page_project_resource_settings_description;
+    public static String navigator_handler_connections_filter_show_all_text;
+    public static String navigator_handler_connections_filter_show_connected_text;
+    public static String navigator_handler_object_create_file_other_text;
+
+    public static String navigator_provider_element_tooltip_datasource_name;
+    public static String navigator_provider_element_tooltip_datasource_url;
+    public static String navigator_provider_element_tooltip_datasource_database_name;
+    public static String navigator_provider_element_tooltip_datasource_database_version;
+    public static String navigator_provider_element_tooltip_datasource_user;
+    public static String navigator_provider_element_tooltip_datasource_description;
+    public static String navigator_provider_element_tooltip_datasource_read_only;
+    public static String navigator_provider_element_tooltip_datasource_provided;
+    public static String navigator_provider_element_tooltip_datasource_error;
 
     static {
         // initialize resource bundle

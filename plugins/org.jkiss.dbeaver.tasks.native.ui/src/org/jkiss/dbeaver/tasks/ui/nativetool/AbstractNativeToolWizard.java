@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,12 +17,10 @@
  */
 package org.jkiss.dbeaver.tasks.ui.nativetool;
 
-import org.eclipse.core.runtime.IStatus;
 import org.eclipse.jface.wizard.WizardPage;
 import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Display;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
@@ -38,6 +36,7 @@ import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.tasks.nativetool.AbstractNativeToolSettings;
 import org.jkiss.dbeaver.tasks.ui.nativetool.internal.TaskNativeUIMessages;
 import org.jkiss.dbeaver.tasks.ui.wizard.TaskConfigurationWizard;
+import org.jkiss.dbeaver.tasks.ui.wizard.TaskConfigurationWizardDialog;
 import org.jkiss.dbeaver.tasks.ui.wizard.TaskWizardExecutor;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.utils.CommonUtils;
@@ -209,6 +208,9 @@ public abstract class AbstractNativeToolWizard<SETTINGS extends AbstractNativeTo
             return super.performFinish();
         }
 
+        TaskConfigurationWizardDialog container = getContainer();
+        container.disableButtonsOnProgress();
+
         showLogPage();
 
         try {
@@ -218,6 +220,8 @@ public abstract class AbstractNativeToolWizard<SETTINGS extends AbstractNativeTo
             saveConfigurationToTask(temporaryTask);
             TaskWizardExecutor executor = new TaskWizardExecutor(getRunnableContext(), temporaryTask, log, logPage.getLogWriter());
             executor.executeTask();
+            container.enableButtonsAfterProgress();
+            container.setCompleteMarkAfterProgress();
             return false;
         } catch (Exception e) {
             DBWorkbench.getPlatformUI().showError(e.getMessage(), "Error running task", e);
@@ -228,15 +232,6 @@ public abstract class AbstractNativeToolWizard<SETTINGS extends AbstractNativeTo
     protected void showLogPage() {
         if (getContainer().getCurrentPage() != logPage) {
             getContainer().showPage(logPage);
-        }
-    }
-
-    protected void notifyToolFinish(String toolName, long workTime) {
-        // Make a sound
-        Display.getCurrent().beep();
-        // Notify agent
-        if (workTime > DBWorkbench.getPlatformUI().getLongOperationTimeout() * 1000) {
-            DBWorkbench.getPlatformUI().notifyAgent(toolName, IStatus.INFO);
         }
     }
 

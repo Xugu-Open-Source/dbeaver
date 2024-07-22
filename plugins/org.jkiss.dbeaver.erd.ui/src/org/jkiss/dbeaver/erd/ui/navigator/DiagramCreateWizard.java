@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2011-2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,12 +26,14 @@ import org.eclipse.jface.wizard.IWizardContainer;
 import org.eclipse.jface.wizard.Wizard;
 import org.eclipse.ui.INewWizard;
 import org.eclipse.ui.IWorkbench;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.erd.model.DiagramObjectCollector;
 import org.jkiss.dbeaver.erd.ui.internal.ERDUIMessages;
 import org.jkiss.dbeaver.erd.ui.model.DiagramCollectSettingsDefault;
 import org.jkiss.dbeaver.erd.ui.model.ERDContentProviderDecorated;
 import org.jkiss.dbeaver.erd.ui.model.ERDDecoratorDefault;
 import org.jkiss.dbeaver.erd.ui.model.EntityDiagram;
+import org.jkiss.dbeaver.model.app.DBPPlatformDesktop;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.app.DBPResourceHandler;
 import org.jkiss.dbeaver.model.navigator.DBNDatabaseNode;
@@ -50,12 +52,15 @@ import java.util.List;
 
 public class DiagramCreateWizard extends Wizard implements INewWizard {
 
+    @Nullable
     private IFolder folder;
     private EntityDiagram diagram = new EntityDiagram(null, "", new ERDContentProviderDecorated(), new ERDDecoratorDefault());
     private DiagramCreateWizardPage pageContent;
 	private String errorMessage;
     private IStructuredSelection entitySelection;
-
+    @Nullable
+    private DBPProject project;
+    
     public DiagramCreateWizard() {
 	}
 
@@ -89,13 +94,16 @@ public class DiagramCreateWizard extends Wizard implements INewWizard {
                 }
             }
         }
-        this.folder = diagramFolder;
+        if (diagramFolder != null) {
+            this.folder = diagramFolder;
+            this.project = DBPPlatformDesktop.getInstance().getWorkspace().getProject(diagramFolder.getProject());
+        }
     }
 
     @Override
     public void addPages() {
         super.addPages();
-        pageContent = new DiagramCreateWizardPage(diagram, entitySelection);
+        pageContent = new DiagramCreateWizardPage(diagram, entitySelection, project);
         addPage(pageContent);
         if (getContainer() != null) {
             //WizardDialog call
@@ -125,7 +133,7 @@ public class DiagramCreateWizard extends Wizard implements INewWizard {
             DiagramCreator creator = new DiagramCreator(rootObjects);
             UIUtils.run(getContainer(), true, true, creator);
 
-            DBPResourceHandler handler = DBWorkbench.getPlatform().getWorkspace().getResourceHandler(creator.diagramFile);
+            DBPResourceHandler handler = DBPPlatformDesktop.getInstance().getWorkspace().getResourceHandler(creator.diagramFile);
             if (handler != null) {
                 handler.openResource(creator.diagramFile);
             }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,11 +23,18 @@ import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.jface.action.IContributionItem;
+import org.eclipse.jface.action.MenuManager;
 import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.ISelectionProvider;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.osgi.util.NLS;
+import org.eclipse.swt.events.MenuListener;
+import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Menu;
+import org.eclipse.swt.widgets.MenuItem;
+import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.*;
 import org.eclipse.ui.actions.CompoundContributionItem;
 import org.eclipse.ui.commands.IElementUpdater;
@@ -35,34 +42,36 @@ import org.eclipse.ui.handlers.HandlerUtil;
 import org.eclipse.ui.menus.CommandContributionItem;
 import org.eclipse.ui.menus.CommandContributionItemParameter;
 import org.eclipse.ui.menus.UIElement;
+import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.*;
+import org.jkiss.dbeaver.model.app.DBPPlatformDesktop;
 import org.jkiss.dbeaver.model.app.DBPResourceCreator;
 import org.jkiss.dbeaver.model.app.DBPResourceHandler;
-import org.jkiss.dbeaver.model.app.DBPWorkspace;
+import org.jkiss.dbeaver.model.app.DBPWorkspaceDesktop;
 import org.jkiss.dbeaver.model.edit.DBEObjectMaker;
 import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.navigator.*;
 import org.jkiss.dbeaver.model.navigator.meta.DBXTreeFolder;
 import org.jkiss.dbeaver.model.navigator.meta.DBXTreeItem;
 import org.jkiss.dbeaver.model.navigator.meta.DBXTreeNode;
+import org.jkiss.dbeaver.model.rm.RMConstants;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.ActionUtils;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.ui.UIIcon;
 import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.ui.actions.ObjectPropertyTester;
 import org.jkiss.dbeaver.ui.internal.UINavigatorMessages;
 import org.jkiss.dbeaver.ui.navigator.NavigatorCommands;
 import org.jkiss.dbeaver.ui.navigator.NavigatorUtils;
+import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.CommonUtils;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Sorry, this is a bit over-complicated handler. Historical reasons.
@@ -74,6 +83,8 @@ public class NavigatorHandlerObjectCreateNew extends NavigatorHandlerObjectCreat
 
     private static final Log log = Log.getLog(NavigatorHandlerObjectCreateNew.class);
     public static final Separator DUMMY_CONTRIBUTION_ITEM = new Separator();
+
+    private MenuManager menuManager;
 
     @Override
     public Object execute(ExecutionEvent event) throws ExecutionException {
@@ -103,15 +114,20 @@ public class NavigatorHandlerObjectCreateNew extends NavigatorHandlerObjectCreat
                 // No explicit object type. Try to detect from selection
                 IWorkbenchPart activePart = HandlerUtil.getActivePart(event);
                 if (activePart != null) {
-                    List<IContributionItem> actions = fillCreateMenuItems(activePart.getSite(), node);
-                    for (IContributionItem item : actions) {
-                        if (item instanceof CommandContributionItem) {
-                            ParameterizedCommand command = ((CommandContributionItem) item).getCommand();
-                            if (command != null) {
-                                ActionUtils.runCommand(command.getId(), selection, command.getParameterMap(), activePart.getSite());
-                                return null;
-                            }
-                        }
+                    final ParameterizedCommand[] commands = fillCreateMenuItems(activePart.getSite(), node).stream()
+                        .filter(item -> item instanceof CommandContributionItem)
+                        .map(item -> (CommandContributionItem) item)
+                        .map(CommandContributionItem::getCommand)
+                        .filter(Objects::nonNull)
+                        .filter(command -> command.getId().equals(NavigatorCommands.CMD_OBJECT_CREATE))
+                        .toArray(ParameterizedCommand[]::new);
+
+                    if (commands.length == 1) {
+                        ActionUtils.runCommand(commands[0].getId(), selection, commands[0].getParameterMap(), activePart.getSite());
+                        return null;
+                    } else if (commands.length > 1) {
+                        showPopupMenu(event, node);
+                        return null;
                     }
                 }
             }
@@ -202,7 +218,8 @@ public class NavigatorHandlerObjectCreateNew extends NavigatorHandlerObjectCreat
     public static DBPImage getObjectTypeIcon(ISelectionProvider selectionProvider) {
         DBNNode node = getNodeFromSelection(selectionProvider.getSelection());
         if (node != null) {
-            if (node instanceof DBNDatabaseNode && node.getParentNode() instanceof DBNDatabaseFolder) {
+            // In case of nested folder, we don't want to unwrap it because the parent's icon will be used instead
+            if (!(node instanceof DBNDatabaseFolder) && node.getParentNode() instanceof DBNDatabaseFolder) {
                 node = node.getParentNode();
             }
             if (node instanceof DBNDataSource) {
@@ -223,8 +240,12 @@ public class NavigatorHandlerObjectCreateNew extends NavigatorHandlerObjectCreat
     // If site is null then we need only item count. BAD CODE.
     public static List<IContributionItem> fillCreateMenuItems(@Nullable IWorkbenchPartSite site, DBNNode node) {
         List<IContributionItem> createActions = new ArrayList<>();
+        boolean projectResourceEditable =
+            node == null || ObjectPropertyTester.nodeProjectHasPermission(node, RMConstants.PERMISSION_PROJECT_RESOURCE_EDIT);
+        boolean projectConnectionEditable =
+            node == null || ObjectPropertyTester.nodeProjectHasPermission(node, RMConstants.PERMISSION_PROJECT_DATASOURCES_EDIT);
 
-        if (node instanceof DBNLocalFolder || node instanceof DBNProjectDatabases) {
+        if ((node instanceof DBNLocalFolder || node instanceof DBNProjectDatabases) && projectConnectionEditable) {
             IContributionItem item = makeCreateContributionItem(
                 site, DBPDataSourceContainer.class.getName(), ModelMessages.model_navigator_Connection, UIIcon.SQL_NEW_CONNECTION, false);
             createActions.add(item);
@@ -233,24 +254,32 @@ public class NavigatorHandlerObjectCreateNew extends NavigatorHandlerObjectCreat
             addDatabaseNodeCreateItems(site, createActions, (DBNDatabaseNode) node);
         }
 
-        if (node instanceof DBNLocalFolder || node instanceof DBNProjectDatabases || node instanceof DBNDataSource) {
+        if ((node instanceof DBNLocalFolder || node instanceof DBNProjectDatabases || node instanceof DBNDataSource)
+            && projectConnectionEditable
+        ) {
             createActions.add(makeCommandContributionItem(site, NavigatorCommands.CMD_CREATE_LOCAL_FOLDER));
-        } else if (node instanceof DBNResource) {
-            final DBPWorkspace workspace = DBWorkbench.getPlatform().getWorkspace();
-            IResource resource = ((DBNResource) node).getResource();
-            if (resource instanceof IProject) {
-                createActions.add(makeCommandContributionItem(site, NavigatorCommands.CMD_CREATE_PROJECT));
-            }
-            DBPResourceHandler handler = workspace.getResourceHandler(resource);
-            if (handler instanceof DBPResourceCreator && (handler.getFeatures(resource) & DBPResourceCreator.FEATURE_CREATE_FILE) != 0) {
-                createActions.add(makeCommandContributionItem(site, NavigatorCommands.CMD_CREATE_RESOURCE_FILE));
-            }
-            if (handler != null && (handler.getFeatures(resource) & DBPResourceHandler.FEATURE_CREATE_FOLDER) != 0) {
-                createActions.add(makeCommandContributionItem(site, NavigatorCommands.CMD_CREATE_RESOURCE_FOLDER));
-            }
-            if (resource instanceof IContainer) {
-                createActions.add(makeCommandContributionItem(site, NavigatorCommands.CMD_CREATE_FILE_LINK));
-                createActions.add(makeCommandContributionItem(site, NavigatorCommands.CMD_CREATE_FOLDER_LINK));
+        } else {
+            final DBPWorkspaceDesktop workspace = DBPPlatformDesktop.getInstance().getWorkspace();
+            final IResource resource = GeneralUtils.adapt(node, IResource.class);
+            if (resource != null) {
+                if (resource instanceof IProject && !DBWorkbench.isDistributed()) {
+                    createActions.add(makeCommandContributionItem(site, NavigatorCommands.CMD_CREATE_PROJECT));
+                }
+                DBPResourceHandler handler = workspace.getResourceHandler(resource);
+                if (handler instanceof DBPResourceCreator
+                    && (handler.getFeatures(resource) & DBPResourceCreator.FEATURE_CREATE_FILE) != 0 && projectResourceEditable
+                ) {
+                    createActions.add(makeCommandContributionItem(site, NavigatorCommands.CMD_CREATE_RESOURCE_FILE));
+                }
+                if (handler != null
+                    && (handler.getFeatures(resource) & DBPResourceHandler.FEATURE_CREATE_FOLDER) != 0 && projectResourceEditable
+                ) {
+                    createActions.add(makeCommandContributionItem(site, NavigatorCommands.CMD_CREATE_RESOURCE_FOLDER));
+                }
+                if (resource instanceof IContainer && projectResourceEditable && !DBWorkbench.isDistributed()) {
+                    createActions.add(makeCommandContributionItem(site, NavigatorCommands.CMD_CREATE_FILE_LINK));
+                    createActions.add(makeCommandContributionItem(site, NavigatorCommands.CMD_CREATE_FOLDER_LINK));
+                }
             }
         }
 
@@ -258,9 +287,49 @@ public class NavigatorHandlerObjectCreateNew extends NavigatorHandlerObjectCreat
             if (!createActions.isEmpty() && !(createActions.get(createActions.size() - 1) instanceof Separator)) {
                 createActions.add(new Separator());
             }
-            createActions.add(ActionUtils.makeCommandContribution(site, IWorkbenchCommandConstants.FILE_NEW, "Other ...", null));
+            createActions.add(ActionUtils.makeCommandContribution(
+                site, IWorkbenchCommandConstants.FILE_NEW, UINavigatorMessages.navigator_handler_object_create_file_other_text, null
+            ));
         }
         return createActions;
+    }
+
+    private void showPopupMenu(@NotNull ExecutionEvent event, @NotNull DBNNode node) throws ExecutionException {
+        final IWorkbenchPart part = HandlerUtil.getActivePartChecked(event);
+        final Shell activeShell = HandlerUtil.getActiveShell(event);
+        final Control focusControl = activeShell != null ? activeShell.getDisplay().getFocusControl() : null;
+
+        if (part == null || activeShell == null || focusControl == null) {
+            return;
+        }
+
+        if (menuManager != null) {
+            menuManager.dispose();
+        }
+
+        menuManager = new MenuManager();
+
+        for (IContributionItem item : fillCreateMenuItems(part.getSite(), node)) {
+            menuManager.add(item);
+        }
+
+        final Menu contextMenu = menuManager.createContextMenu(focusControl);
+        contextMenu.addMenuListener(MenuListener.menuShownAdapter(e -> {
+            int index = 0;
+            for (final MenuItem item : contextMenu.getItems()) {
+                if (CommonUtils.isNotEmpty(item.getText())) {
+                    item.setText(ActionUtils.getLabelWithIndexMnemonic(item.getText(), index));
+                    index += 1;
+                }
+            }
+        }));
+
+        final Point location = ActionUtils.getLocationFromControl(activeShell, focusControl);
+        if (location != null) {
+            contextMenu.setLocation(location);
+        }
+
+        contextMenu.setVisible(true);
     }
 
     private static void addDatabaseNodeCreateItems(@Nullable IWorkbenchPartSite site, List<IContributionItem> createActions, DBNDatabaseNode node) {
@@ -315,7 +384,7 @@ public class NavigatorHandlerObjectCreateNew extends NavigatorHandlerObjectCreat
             Class<?> nodeItemClass = node.getObject().getClass();
             DBNNode parentNode = node.getParentNode();
             if (isCreateSupported(
-                parentNode instanceof DBNDatabaseNode ? (DBNDatabaseNode) parentNode : null,
+                parentNode,
                 nodeItemClass))
             {
                 if (site == null) {
@@ -377,9 +446,11 @@ public class NavigatorHandlerObjectCreateNew extends NavigatorHandlerObjectCreat
         return false;
     }
 
-    private static boolean isCreateSupported(DBNDatabaseNode parentNode, Class<?> objectClass) {
+    private static boolean isCreateSupported(DBNNode parentNode, Class<?> objectClass) {
         DBEObjectMaker objectMaker = DBWorkbench.getPlatform().getEditorsRegistry().getObjectManager(objectClass, DBEObjectMaker.class);
-        return objectMaker != null && objectMaker.canCreateObject(parentNode == null ? null : parentNode.getValueObject());
+        return objectMaker != null && objectMaker.canCreateObject(
+            parentNode instanceof DBNDatabaseNode ?
+                ((DBNDatabaseNode) parentNode).getValueObject() : parentNode.getOwnerProject());
     }
 
     private static IContributionItem makeCommandContributionItem(@Nullable IWorkbenchPartSite site, String commandId)

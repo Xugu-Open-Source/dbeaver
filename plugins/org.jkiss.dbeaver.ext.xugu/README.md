@@ -4,11 +4,11 @@
 
 ## 部署说明
 
-### 下载安装 DBeaver 21.2.4
+### 下载安装 DBeaver 23.2.0
 
-下载地址：[https://github.com/dbeaver/dbeaver/releases](https://github.com/dbeaver/dbeaver/releases)
+下载地址：[DBeaver 23.2.0](https://github.com/dbeaver/dbeaver/releases/tag/23.2.0)
 
-### 注册插件至 DBeaver 21.2.4
+### 注册插件至 DBeaver 23.2.0
 
 1. 将插件 jar 包放入 `DBeaver（安装目录）/plugins` 目录中
 2. 使用文本编辑器打开 `DBeaver（安装目录）/configuration/org.eclipse.equinox.simpleconfigurator/bundles.info` 文件
@@ -42,27 +42,25 @@ views|额外的页面类目录（自主实现）
 
 ## 开发说明
 
+> **注意**：更新默认驱动应作为单独提交，并在提交信息种注明更新版本。
+
 ### 环境要求
 
-- JDK 11
+- JDK 17
 - Eclipse IDE for RCP and RAP Developers
 - Apache Maven 3
 - Git
-- DBeaver 21.2.4
+- DBeaver 23.2.0
 
 ### 安装依赖插件
 
 1. 菜单栏 -> 帮助 -> 安装新软件
-2. 填入地址并回车：  
-<http://dbeaver.io/eclipse-repo>
-3. 勾选所有插件并安装（暂不重启 Eclipse）
-5. 填入地址并回车：  
-<http://eclipse-color-theme.github.com/update>
-6. 勾选所有插件并安装
-7. 填入地址并回车：  
-<http://download.eclipse.org/releases/latest>
-8. 搜索`Mylyn Context Connector: Plug-in Development`，勾选插件并安装
-9. 重启 Eclipse
+1. 填入地址并回车：  
+   `https://p2.dev.dbeaver.com/eclipse-repo`
+1. 勾选所有插件并安装，暂不重启 Eclipse
+1. 填入地址并回车：  
+   `https://eclipse-color-theme.github.io/update`
+1. 勾选所有插件并安装，重启 Eclipse
 
 ### Eclipse 导入 DBeaver 项目
 
@@ -71,7 +69,7 @@ views|额外的页面类目录（自主实现）
 3. 选择 DBeaver 项目目录
 4. 勾选所有项目模块
 5. 导入项目
-6. 执行一次`mvn clean`以处理依赖包
+6. 执行一次 `mvn clean` 以处理依赖包
 
 ### Eclipse 导入启动配置
 

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,11 +58,13 @@ public class MySQLDatabaseExportHandler extends MySQLNativeToolHandler<MySQLExpo
     @Override
     protected boolean validateTaskParameters(DBTTask task, MySQLExportSettings settings, Log log) {
         if (task.getType().getId().equals(MySQLTasks.TASK_DATABASE_BACKUP)) {
-            final File dir = settings.getOutputFolder();
-            if (!dir.exists()) {
-                if (!dir.mkdirs()) {
-                    log.error("Can't create directory '" + dir.getAbsolutePath() + "'");
-                    return false;
+            for (MySQLDatabaseExportInfo exportObject : settings.getExportObjects()) {
+                final File dir = settings.getOutputFolder(exportObject);
+                if (!dir.exists()) {
+                    if (!dir.mkdirs()) {
+                        log.error("Can't create directory '" + dir.getAbsolutePath() + "'");
+                        return false;
+                    }
                 }
             }
         }
@@ -93,14 +95,7 @@ public class MySQLDatabaseExportHandler extends MySQLNativeToolHandler<MySQLExpo
         File dumpBinary = RuntimeUtils.getNativeClientBinary(settings.getClientHome(), MySQLConstants.BIN_FOLDER, "mysqldump"); //$NON-NLS-1$
         String dumpPath = dumpBinary.getAbsolutePath();
         cmd.add(dumpPath);
-        switch (settings.getMethod()) {
-            case LOCK_ALL_TABLES:
-                cmd.add("--lock-all-tables"); //$NON-NLS-1$
-                break;
-            case ONLINE:
-                cmd.add("--single-transaction"); //$NON-NLS-1$
-                break;
-        }
+        cmd.add(settings.getMethod().getCliOption());
         if (supportsColumnStatistics(dumpPath) && !arg.getDatabase().getDataSource().supportsColumnStatistics()) {
             cmd.add("--column-statistics=0");
         }
@@ -163,7 +158,7 @@ public class MySQLDatabaseExportHandler extends MySQLNativeToolHandler<MySQLExpo
 
 
     static class DumpFilterJob extends DumpJob {
-        private Pattern DEFINER_PATTER = Pattern.compile("DEFINER\\s*=\\s*`[^*]*`@`[0-9a-z\\-_\\.%]*`", Pattern.CASE_INSENSITIVE);
+        private final Pattern DEFINER_PATTER = Pattern.compile("DEFINER\\s*=\\s*`[^*]*`@`[0-9a-z\\-_\\.%]*`", Pattern.CASE_INSENSITIVE);
 
         DumpFilterJob(DBRProgressMonitor monitor, InputStream stream, File outFile, Log log) {
             super("MySQL databasse dump filter", monitor, stream, outFile, log);

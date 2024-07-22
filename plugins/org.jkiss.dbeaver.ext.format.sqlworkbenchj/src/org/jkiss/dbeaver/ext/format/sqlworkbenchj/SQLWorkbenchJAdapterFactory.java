@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,15 +22,13 @@ import org.jkiss.dbeaver.ui.editors.sql.preferences.format.SQLFormatterConfigura
 /**
  * Adapts objects to their UI configurators
  */
-public class SQLWorkbenchJAdapterFactory implements IAdapterFactory
-{
+public class SQLWorkbenchJAdapterFactory implements IAdapterFactory {
     private static final Class<?>[] ADAPTER_LIST = {
         SQLFormatterConfigurator.class
     };
 
     @Override
-    public <T> T getAdapter(Object adaptableObject, Class<T> adapterType)
-    {
+    public <T> T getAdapter(Object adaptableObject, Class<T> adapterType) {
         if (adapterType == SQLFormatterConfigurator.class && adaptableObject instanceof SQLWorkbenchJFormatter) {
             return adapterType.cast(new SQLWorkbenchJFormatterSettingsPage());
         }
@@ -38,8 +36,7 @@ public class SQLWorkbenchJAdapterFactory implements IAdapterFactory
     }
 
     @Override
-    public Class[] getAdapterList()
-    {
+    public Class<?>[] getAdapterList() {
         return ADAPTER_LIST;
     }
 }

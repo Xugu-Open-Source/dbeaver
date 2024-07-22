@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,10 +21,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
-import org.jkiss.dbeaver.model.data.DBDCollection;
-import org.jkiss.dbeaver.model.data.DBDValue;
 
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
@@ -59,8 +56,6 @@ public class ResultSetRow {
     public Map<DBDAttributeBinding, Object> changes;
     // Row state
     private byte state;
-    @Nullable
-    public Map<DBDValue, CollectionElementData> collections;
     @Nullable
     public ColorInfo colorInfo;
 
@@ -140,19 +135,6 @@ public class ResultSetRow {
                 DBUtils.releaseValue(oldValue);
             }
         }
-    }
-
-    @NotNull
-    public CollectionElementData getCollectionData(DBDAttributeBinding binding, DBDCollection collection) {
-        if (collections == null) {
-            collections = new HashMap<>();
-        }
-        CollectionElementData ced = collections.get(collection);
-        if (ced == null) {
-            ced = new CollectionElementData(binding, collection);
-            collections.put(collection, ced);
-        }
-        return ced;
     }
 
     @Override

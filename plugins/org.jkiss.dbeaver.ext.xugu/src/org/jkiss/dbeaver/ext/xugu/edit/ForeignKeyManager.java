@@ -62,7 +62,7 @@ public class ForeignKeyManager extends SQLForeignKeyManager<TableForeignKey, Bas
 								DBSForeignKeyModifyRule.NO_ACTION),
 						new DBSForeignKeyModifyRule[] { DBSForeignKeyModifyRule.NO_ACTION,
 								DBSForeignKeyModifyRule.CASCADE, DBSForeignKeyModifyRule.SET_NULL,
-								DBSForeignKeyModifyRule.SET_DEFAULT });
+								DBSForeignKeyModifyRule.SET_DEFAULT }, options);
 				if (!editPage.edit()) {
 					return null;
 				}

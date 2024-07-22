@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,4 +21,12 @@ import org.jkiss.dbeaver.model.sql.SQLQuery;
 public interface DBCQueryTransformProviderExt {
 
     boolean isForceTransform(DBCSession session, SQLQuery sqlQuery);
+    
+    /**
+     * Check if limit can be set for the query
+
+     * @param query to check
+     * @return if limit can be applied to the provided query
+     */
+    boolean isLimitApplicableTo(SQLQuery query);
 }

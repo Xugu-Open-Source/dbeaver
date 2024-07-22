@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,14 @@
  */
 package org.jkiss.dbeaver.ui.controls.lightgrid;
 
-import org.eclipse.swt.SWT;
-import org.eclipse.swt.graphics.*;
+import org.eclipse.swt.graphics.Font;
+import org.eclipse.swt.graphics.GC;
+import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.graphics.Rectangle;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.ui.UIIcon;
 import org.jkiss.dbeaver.ui.UITextUtils;
+import org.jkiss.utils.CommonUtils;
 
 /**
  * Grid row header renderer.
@@ -36,32 +39,23 @@ class GridRowRenderer extends AbstractRenderer {
     public static final int EXPANDER_SPACING = 2;
     public static final int LEVEL_SPACING = EXPANDED_BOUNDS.width;
 
-    final Color DEFAULT_BACKGROUND;
-    final Color DEFAULT_FOREGROUND;
-    final Color DEFAULT_FOREGROUND_TEXT;
-
     public GridRowRenderer(LightGrid grid) {
         super(grid);
-        DEFAULT_BACKGROUND = getDisplay().getSystemColor(SWT.COLOR_WIDGET_BACKGROUND);
-        DEFAULT_FOREGROUND = getDisplay().getSystemColor(SWT.COLOR_WIDGET_NORMAL_SHADOW);
-        DEFAULT_FOREGROUND_TEXT = getDisplay().getSystemColor(SWT.COLOR_WIDGET_FOREGROUND);
     }
 
-    public void paint(GC gc, Rectangle bounds, boolean selected, int level, IGridContentProvider.ElementState state, Object element) {
-        String text = grid.getLabelProvider().getText(element);
-
-        gc.setFont(grid.normalFont);
-
-        Color background = selected ? grid.getContentProvider().getCellHeaderSelectionBackground(element) : grid.getContentProvider().getCellHeaderBackground(element);
-        if (background == null) {
-            background = DEFAULT_BACKGROUND;
-        }
-        gc.setBackground(background);
-
+    public void paint(
+        GC gc,
+        Rectangle bounds,
+        boolean selected,
+        int level,
+        IGridContentProvider.ElementState state,
+        IGridRow element)
+    {
+        gc.setBackground(grid.getLabelProvider().getHeaderBackground(element, selected));
         gc.fillRectangle(bounds.x, bounds.y, bounds.width, bounds.height + 1);
 
         {
-            gc.setForeground(grid.getContentProvider().getCellHeaderForeground(element));
+            gc.setForeground(grid.getLabelProvider().getHeaderBorder(element));
 
             gc.drawLine(
                 bounds.x + bounds.width - 1,
@@ -83,7 +77,7 @@ class GridRowRenderer extends AbstractRenderer {
             Image expandImage = state == IGridContentProvider.ElementState.EXPANDED ? IMG_COLLAPSE : IMG_EXPAND;
             gc.drawImage(expandImage, x, bounds.y + (bounds.height - EXPANDED_BOUNDS.height) / 2);
             x += EXPANDED_BOUNDS.width + EXPANDER_SPACING;
-        } else if (grid.hasNodes()) {
+        } else if (grid.getContentProvider().isElementExpandable(element) && level == 0) {
             x += EXPANDED_BOUNDS.width + EXPANDER_SPACING;
         }
 
@@ -94,38 +88,31 @@ class GridRowRenderer extends AbstractRenderer {
             x += image.getBounds().width + IMAGE_SPACING;
         }
 
-        int width = bounds.width - x;
-
-        width -= RIGHT_MARGIN;
-
-        Color foreground = grid.getContentProvider().getCellHeaderForeground(element);
-        if (foreground == null) {
-            foreground = grid.getLabelProvider().getForeground(element);
-        }
-
-        gc.setForeground(foreground);
-
-        int y = bounds.y;
-        int selectionOffset = 0;
-
-        y += (bounds.height - gc.stringExtent(text).y) / 2;
+        gc.setForeground(grid.getLabelProvider().getHeaderForeground(element, false));
 
         Font font = grid.getLabelProvider().getFont(element);
         if (font == null) {
             font = (element == grid.getFocusRowElement() ? grid.boldFont : grid.normalFont);
         }
         gc.setFont(font);
-        gc.drawString(
-            UITextUtils.getShortString(grid.fontMetrics, text, width),
-            bounds.x + x + selectionOffset,
-            y + selectionOffset,
-            isTransparent
-        );
+
+        final String text = grid.getLabelProvider().getText(element);
+        final String desc = grid.getLabelProvider().getDescription(element);
+
+        final String shortText = UITextUtils.getShortString(grid.fontMetrics, text, bounds.width - x - RIGHT_MARGIN);
+        gc.drawString(shortText, bounds.x + x, bounds.y + (bounds.height - gc.stringExtent(text).y) / 2, isTransparent);
+
+        if (CommonUtils.isNotEmpty(desc)) {
+            final String shortDesc = UITextUtils.getShortString(grid.fontMetrics, " - " + desc, bounds.width - x - RIGHT_MARGIN);
+            x += grid.sizingGC.stringExtent(shortText).x;
+            gc.setFont(grid.italicFont);
+            gc.drawString(shortDesc, bounds.x + x, bounds.y + (bounds.height - gc.stringExtent(text).y) / 2, isTransparent);
+        }
     }
 
-    public int computeHeaderWidth(Object element, int level) {
+    public int computeHeaderWidth(IGridRow element, int level) {
         int width = GridRowRenderer.LEFT_MARGIN + GridRowRenderer.RIGHT_MARGIN;
-        if (grid.hasNodes()) {
+        if (grid.getContentProvider().isElementExpandable(element)) {
             width += GridRowRenderer.EXPANDED_BOUNDS.width + EXPANDER_SPACING;
         }
         Image rowImage = grid.getLabelProvider().getImage(element);
@@ -133,9 +120,9 @@ class GridRowRenderer extends AbstractRenderer {
             width += rowImage.getBounds().width;
             width += GridRowRenderer.IMAGE_SPACING;
         }
-        String rowText = grid.getLabelProvider().getText(element);
-        Point ext = grid.sizingGC.stringExtent(rowText);
-        width += ext.x;
+        final String rowText = grid.getLabelProvider().getText(element);
+        final String rowDesc = grid.getLabelProvider().getDescription(element);
+        width += grid.sizingGC.stringExtent(CommonUtils.isNotEmpty(rowDesc) ? rowText + " - " + rowDesc : rowText).x;
         width += level * GridRowRenderer.LEVEL_SPACING;
         return width;
     }

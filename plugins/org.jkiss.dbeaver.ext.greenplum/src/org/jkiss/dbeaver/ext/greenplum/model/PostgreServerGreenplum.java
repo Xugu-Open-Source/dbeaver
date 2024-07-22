@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2019 Dmitriy Dubson (ddubson@pivotal.io)
  * Copyright (C) 2019 Gavin Shaw (gshaw@pivotal.io)
  * Copyright (C) 2019 Zach Marcin (zmarcin@pivotal.io)
@@ -20,12 +20,14 @@
  */
 package org.jkiss.dbeaver.ext.greenplum.model;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.postgresql.model.*;
 import org.jkiss.dbeaver.ext.postgresql.model.impls.PostgreServerExtensionBase;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.utils.CommonUtils;
 
 /**
  * PostgreServerGreenplum
@@ -43,7 +45,7 @@ public class PostgreServerGreenplum extends PostgreServerExtensionBase {
 
     @Override
     public boolean supportsFunctionDefRead() {
-        return false;
+        return dataSource.isServerVersionAtLeast(12, 0);
     }
 
     @Override
@@ -52,13 +54,8 @@ public class PostgreServerGreenplum extends PostgreServerExtensionBase {
     }
 
     @Override
-    public boolean supportsClientInfo() {
-        return false;
-    }
-
-    @Override
     public PostgreTableBase createRelationOfClass(PostgreSchema schema, PostgreClass.RelKind kind, JDBCResultSet dbResult) {
-        if (kind == PostgreClass.RelKind.r) {
+        if (kind == PostgreClass.RelKind.r || kind == PostgreClass.RelKind.p) {
             if (isRelationExternal(dbResult)) {
                 return new GreenplumExternalTable(schema, dbResult);
             }
@@ -71,7 +68,7 @@ public class PostgreServerGreenplum extends PostgreServerExtensionBase {
 
     @Override
     public PostgreTableBase createNewRelation(DBRProgressMonitor monitor, PostgreSchema schema, PostgreClass.RelKind kind, Object copyFrom) throws DBException {
-        if (kind == PostgreClass.RelKind.r) {
+        if (kind == PostgreClass.RelKind.r || kind == PostgreClass.RelKind.p) {
             return new GreenplumTable(schema);
         } else if (kind == PostgreClass.RelKind.m) {
             return new GreenplumMaterializedView(schema);
@@ -101,17 +98,27 @@ public class PostgreServerGreenplum extends PostgreServerExtensionBase {
 
     @Override
     public boolean supportsExplainPlanXML() {
-        return false;
+        return dataSource.isServerVersionAtLeast(12, 0);
     }
 
     @Override
     public boolean supportsExplainPlanVerbose() {
-        return false;
+        return dataSource.isServerVersionAtLeast(12, 0);
     }
 
     @Override
     public String createWithClause(PostgreTableRegular table, PostgreTableBase tableBase) {
         return GreenplumWithClauseBuilder.generateWithClause(table, tableBase);
+    }
+
+    @Override
+    public void createUsingClause(@NotNull PostgreTableRegular table, @NotNull StringBuilder ddl) {
+        if (table instanceof GreenplumTable) {
+            String accessMethod = ((GreenplumTable) table).getAccessMethod();
+            if (CommonUtils.isNotEmpty(accessMethod)) {
+                ddl.append("\nUSING ").append(accessMethod);
+            }
+        }
     }
 
     @Override
@@ -144,6 +151,16 @@ public class PostgreServerGreenplum extends PostgreServerExtensionBase {
     }
 
     @Override
+    public boolean supportsRoleReplication() {
+        return dataSource.isServerVersionAtLeast(9, 1);
+    }
+
+    @Override
+    public boolean supportsRoleBypassRLS() {
+        return dataSource.isServerVersionAtLeast(12, 0);
+    }
+
+    @Override
     public boolean supportsCopyFromStdIn() {
         return true;
     }
@@ -151,5 +168,15 @@ public class PostgreServerGreenplum extends PostgreServerExtensionBase {
     @Override
     public boolean supportsExternalTypes() {
         return true;
+    }
+
+    @Override
+    public boolean supportsDistinctForStatementsWithAcl() {
+        return dataSource.isServerVersionAtLeast(12, 0);
+    }
+
+    @Override
+    public boolean supportsEventTriggers() {
+        return dataSource.isServerVersionAtLeast(9, 3);
     }
 }

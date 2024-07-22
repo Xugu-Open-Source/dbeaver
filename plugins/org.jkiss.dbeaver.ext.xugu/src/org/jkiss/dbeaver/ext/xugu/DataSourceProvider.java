@@ -17,10 +17,19 @@
  */
 package org.jkiss.dbeaver.ext.xugu;
 
+import java.sql.SQLException;
+
+import javax.swing.JDialog;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JWindow;
+
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource;
+import org.jkiss.dbeaver.ext.xugu.views.ConnectionPage;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
@@ -63,10 +72,11 @@ public class DataSourceProvider extends JDBCDataSourceProvider {
 			url.append(":");
 			url.append(connectionInfo.getHostPort());
 		}
-		if (!CommonUtils.isEmpty(connectionInfo.getDatabaseName())) {
+		if  (!CommonUtils.isEmpty(connectionInfo.getDatabaseName())) {
 			url.append("/");
 			url.append(connectionInfo.getDatabaseName());
 		}
+			
 		return url.toString();
 	}
 

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  * Copyright (C) 2012 Eugene Fradkin (eugene.fradkin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,34 +17,34 @@
  */
 package org.jkiss.dbeaver.ui.preferences;
 
+import org.eclipse.jface.viewers.CellEditor;
+import org.eclipse.jface.viewers.ColumnLabelProvider;
+import org.eclipse.jface.viewers.EditingSupport;
+import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.custom.CCombo;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Table;
-import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchPreferencePage;
-import org.jkiss.code.Nullable;
-import org.jkiss.dbeaver.DBeaverPreferences;
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.core.CoreMessages;
-import org.jkiss.dbeaver.core.DBeaverActivator;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.dbeaver.ui.DefaultViewerToolTipSupport;
 import org.jkiss.dbeaver.ui.UIUtils;
-import org.jkiss.dbeaver.ui.controls.CustomTableEditor;
-import org.jkiss.dbeaver.ui.controls.resultset.ResultSetPreferences;
-import org.jkiss.dbeaver.ui.controls.resultset.internal.ResultSetMessages;
+import org.jkiss.dbeaver.ui.controls.CustomCheckboxCellEditor;
+import org.jkiss.dbeaver.ui.controls.ListContentProvider;
+import org.jkiss.dbeaver.ui.controls.ViewerColumnController;
 import org.jkiss.dbeaver.ui.dialogs.ConfirmationDialog;
-import org.jkiss.dbeaver.ui.editors.sql.SQLPreferenceConstants;
-import org.jkiss.dbeaver.ui.editors.sql.internal.SQLEditorMessages;
-import org.jkiss.dbeaver.ui.internal.UINavigatorMessages;
-import org.jkiss.dbeaver.ui.navigator.NavigatorPreferences;
+import org.jkiss.dbeaver.ui.registry.ConfirmationDescriptor;
+import org.jkiss.dbeaver.ui.registry.ConfirmationRegistry;
 import org.jkiss.dbeaver.utils.PrefUtils;
 import org.jkiss.utils.CommonUtils;
 
-import java.util.ResourceBundle;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * PrefPageConfirmations
@@ -52,7 +52,10 @@ import java.util.ResourceBundle;
 public class PrefPageConfirmations extends AbstractPrefPage implements IWorkbenchPreferencePage {
     public static final String PAGE_ID = "org.jkiss.dbeaver.preferences.main.confirmations"; //$NON-NLS-1$
 
+    private TableViewer tableViewer;
     private Table confirmTable;
+    private List<ConfirmationWithStatus> confirmations = new ArrayList<>();
+    private Map<ConfirmationDescriptor, String> changedConfirmations = new HashMap<>();
 
     @Override
     public void init(IWorkbench workbench)
@@ -60,88 +63,190 @@ public class PrefPageConfirmations extends AbstractPrefPage implements IWorkbenc
 
     }
 
+    @NotNull
     @Override
-    protected Control createContents(Composite parent)
-    {
-        ResourceBundle coreBundle = DBeaverActivator.getCoreResourceBundle();
-        ResourceBundle rsvBundle = ResourceBundle.getBundle(ResultSetMessages.BUNDLE_NAME);
-        ResourceBundle navigatorBundle = ResourceBundle.getBundle(UINavigatorMessages.BUNDLE_NAME);
-        ResourceBundle sqlBundle = ResourceBundle.getBundle(SQLEditorMessages.BUNDLE_NAME);
-
+    protected Control createPreferenceContent(@NotNull Composite parent) {
         Composite composite = UIUtils.createPlaceholder(parent, 1);
 
-        confirmTable = new Table(composite, SWT.BORDER | SWT.FULL_SELECTION);
+        tableViewer = new TableViewer(
+            composite,
+            SWT.BORDER | SWT.UNDERLINE_SINGLE | SWT.V_SCROLL | SWT.H_SCROLL | SWT.FULL_SELECTION);
+
+        confirmTable = tableViewer.getTable();
         confirmTable.setLayoutData(new GridData(GridData.FILL_BOTH));
         confirmTable.setHeaderVisible(true);
         confirmTable.setLinesVisible(true);
-        UIUtils.createTableColumn(confirmTable, SWT.LEFT, CoreMessages.pref_page_confirmations_table_column_confirmation);
-        UIUtils.createTableColumn(confirmTable, SWT.LEFT, CoreMessages.pref_page_confirmations_table_column_group);
-        UIUtils.createTableColumn(confirmTable, SWT.RIGHT, CoreMessages.pref_page_confirmations_table_column_value);
 
-        new CustomTableEditor(confirmTable) {
-            {
-                firstTraverseIndex = 2;
-                lastTraverseIndex = 2;
-                editOnEnter = false;
-            }
+        ViewerColumnController<Object, Object> columnsController = new ViewerColumnController<>(
+            "PrefPageConfirmationsEditor", //$NON-NLS-1$
+            tableViewer);
 
-            @Nullable
+        columnsController.addColumn(
+            CoreMessages.pref_page_confirmations_table_column_confirmation,
+            CoreMessages.pref_page_confirmations_table_column_confirmation_tip,
+            SWT.LEFT,
+            true,
+            true,
+            new ColumnLabelProvider() {
+
             @Override
-            protected Control createEditor(Table table, int index, TableItem item) {
-                if (index != 2) {
-                    return null;
+            public String getToolTipText(Object element) {
+                if (element instanceof ConfirmationWithStatus) {
+                    return ((ConfirmationWithStatus) element).confirmation.getDescription();
                 }
-                CCombo editor = new CCombo(table, SWT.DROP_DOWN | SWT.READ_ONLY);
-                editor.setItems(new String[]{CoreMessages.pref_page_confirmations_combo_always, CoreMessages.pref_page_confirmations_combo_never, CoreMessages.pref_page_confirmations_combo_prompt});
-                editor.setText(item.getText(2));
-                return editor;
+                return null;
             }
 
             @Override
-            protected void saveEditorValue(Control control, int index, TableItem item) {
-                item.setText(2, ((CCombo) control).getText());
+            public String getText(Object element) {
+                if (element instanceof ConfirmationWithStatus) {
+                    return ((ConfirmationWithStatus) element).confirmation.getTitle();
+                }
+                return super.getText(element);
             }
-        };
 
-        createConfirmItem(CoreMessages.pref_page_confirmations_group_general_actions, coreBundle, DBeaverPreferences.CONFIRM_EXIT);
-        createConfirmItem(CoreMessages.pref_page_confirmations_group_general_actions, rsvBundle, ResultSetPreferences.CONFIRM_ORDER_RESULTSET);
-        //createConfirmItem(CoreMessages.pref_page_confirmations_group_general_actions, rsvBundle, ResultSetPreferences.CONFIRM_RS_EDIT_CLOSE);
-        createConfirmItem(CoreMessages.pref_page_confirmations_group_general_actions, rsvBundle, ResultSetPreferences.CONFIRM_RS_FETCH_ALL);
-        createConfirmItem(CoreMessages.pref_page_confirmations_group_general_actions, coreBundle, DBeaverPreferences.CONFIRM_TXN_DISCONNECT);
-        createConfirmItem(CoreMessages.pref_page_confirmations_group_general_actions, coreBundle, DBeaverPreferences.CONFIRM_DRIVER_DOWNLOAD);
-        createConfirmItem(CoreMessages.pref_page_confirmations_group_general_actions, coreBundle, DBeaverPreferences.CONFIRM_VERSION_CHECK);
+        });
 
-        //createConfirmItem(CoreMessages.pref_page_confirmations_group_object_editor, navigatorBundle, NavigatorPreferences.CONFIRM_ENTITY_EDIT_CLOSE);
-        createConfirmItem(CoreMessages.pref_page_confirmations_group_object_editor, navigatorBundle, NavigatorPreferences.CONFIRM_ENTITY_DELETE);
-        createConfirmItem(CoreMessages.pref_page_confirmations_group_object_editor, navigatorBundle, NavigatorPreferences.CONFIRM_ENTITY_REJECT);
-        createConfirmItem(CoreMessages.pref_page_confirmations_group_object_editor, navigatorBundle, NavigatorPreferences.CONFIRM_ENTITY_REVERT);
-        createConfirmItem(CoreMessages.pref_page_confirmations_group_object_editor, rsvBundle, ResultSetPreferences.CONFIRM_KEEP_STATEMENT_OPEN);
-        createConfirmItem(CoreMessages.pref_page_confirmations_group_object_editor, sqlBundle, SQLPreferenceConstants.CONFIRM_DANGER_SQL);
-        createConfirmItem(CoreMessages.pref_page_confirmations_group_object_editor, sqlBundle, SQLPreferenceConstants.CONFIRM_MASS_PARALLEL_SQL);
-        createConfirmItem(CoreMessages.pref_page_confirmations_group_object_editor, sqlBundle, SQLPreferenceConstants.CONFIRM_RUNNING_QUERY_CLOSE);
-        createConfirmItem(CoreMessages.pref_page_confirmations_group_object_editor, sqlBundle, SQLPreferenceConstants.CONFIRM_RESULT_TABS_CLOSE);
+        columnsController.addBooleanColumn(
+            CoreMessages.pref_page_confirmations_table_column_value,
+            CoreMessages.pref_page_confirmations_table_column_value_tip,
+            SWT.CENTER,
+            true,
+            true,
+            item -> {
+                if (item instanceof ConfirmationWithStatus) {
+                    return ConfirmationDialog.PROMPT.equals(((ConfirmationWithStatus) item).status);
+                }
+            return false;
+        }, new EditingSupport(tableViewer) {
 
-        //createConfirmItem(CoreMessages.pref_page_confirmations_group_object_editor, navigatorBundle, NavigatorPreferences.CONFIRM_EDITOR_CLOSE);
+                @Override
+                protected CellEditor getCellEditor(Object element) {
+                    return new CustomCheckboxCellEditor(tableViewer.getTable());
+                }
+
+                @Override
+                protected boolean canEdit(Object element) {
+                    return true;
+                }
+
+                @Override
+                protected Object getValue(Object element) {
+                    if (element instanceof ConfirmationWithStatus) {
+                        return ConfirmationDialog.PROMPT.equals(((ConfirmationWithStatus) element).status);
+                    }
+                    return false;
+                }
+
+                @Override
+                protected void setValue(Object element, Object value) {
+                    if (element instanceof ConfirmationWithStatus) {
+                        ConfirmationWithStatus confirmation = (ConfirmationWithStatus) element;
+                        boolean enabled = CommonUtils.getBoolean(value, true);
+                        if (enabled && !ConfirmationDialog.PROMPT.equals(confirmation.status)) {
+                            confirmation.status = ConfirmationDialog.PROMPT;
+                            changedConfirmations.put((confirmation).confirmation, ConfirmationDialog.PROMPT);
+                        } else if (!enabled) {
+                            // Then set to default - ALWAYS - value.
+                            confirmation.status = ConfirmationDialog.ALWAYS;
+                            changedConfirmations.put((confirmation).confirmation, ConfirmationDialog.ALWAYS);
+                        }
+                    }
+                }
+            });
+
+        columnsController.addBooleanColumn(
+            CoreMessages.pref_page_confirmations_table_column_confirm,
+            CoreMessages.pref_page_confirmations_table_column_confirm_tip,
+            SWT.CENTER,
+            true,
+            true,
+            item -> {
+                if (item instanceof ConfirmationWithStatus) {
+                    // PROMPT and ALWAYS are true by default
+                    return !ConfirmationDialog.NEVER.equals(((ConfirmationWithStatus) item).status);
+                }
+                return false;
+            }, new EditingSupport(tableViewer) {
+
+                @Override
+                protected CellEditor getCellEditor(Object element) {
+                    return new CustomCheckboxCellEditor(tableViewer.getTable());
+                }
+
+                @Override
+                protected boolean canEdit(Object element) {
+                    if (element instanceof ConfirmationWithStatus) {
+                        // Can't change this value if dialog showing is enabled to avoid mess.
+                        return !ConfirmationDialog.PROMPT.equals(((ConfirmationWithStatus) element).status);
+                    }
+                    return false;
+                }
+
+                @Override
+                protected Object getValue(Object element) {
+                    if (element instanceof ConfirmationWithStatus) {
+                        return !ConfirmationDialog.NEVER.equals(((ConfirmationWithStatus) element).status);
+                    }
+                    return false;
+                }
+
+                @Override
+                protected void setValue(Object element, Object value) {
+                    if (element instanceof ConfirmationWithStatus) {
+                        ConfirmationWithStatus confirmation = (ConfirmationWithStatus) element;
+                        if (ConfirmationDialog.PROMPT.equals(confirmation.status)) {
+                            // Something went wrong. We do not want to change confirm value if the "show dialog" is enabled.
+                            return;
+                        }
+                        boolean enabled = CommonUtils.getBoolean(value, true);
+                        if (enabled && !ConfirmationDialog.ALWAYS.equals(confirmation.status)) {
+                            confirmation.status = ConfirmationDialog.ALWAYS;
+                            changedConfirmations.put((confirmation).confirmation, ConfirmationDialog.ALWAYS);
+                        } else if (!enabled && !ConfirmationDialog.NEVER.equals(confirmation.status)) {
+                            confirmation.status = ConfirmationDialog.NEVER;
+                            changedConfirmations.put((confirmation).confirmation, ConfirmationDialog.NEVER);
+                        }
+                    }
+                }
+            });
+
+        columnsController.addColumn(
+            CoreMessages.pref_page_confirmations_table_column_group,
+            CoreMessages.pref_page_confirmations_table_column_group,
+            SWT.RIGHT,
+            true,
+            true,
+            new ColumnLabelProvider() {
+            @Override
+            public String getText(Object element) {
+                if (element instanceof ConfirmationWithStatus) {
+                    return ((ConfirmationWithStatus) element).confirmation.getGroup();
+                }
+                return super.getText(element);
+            }
+        });
+
+        columnsController.createColumns(false);
+        tableViewer.setContentProvider(new ListContentProvider());
+        new DefaultViewerToolTipSupport(tableViewer);
+
+        Collection<ConfirmationDescriptor> descriptors = ConfirmationRegistry.getInstance().getConfirmations().stream()
+            // We do not want to see confirmation without a toggle message in the preferences
+            // because we do not want to add the user's ability to ignore these confirmations
+            .filter(item -> CommonUtils.isNotEmpty(item.getToggleMessage()))
+            .sorted(Comparator.comparing(ConfirmationDescriptor::getGroup))
+            .collect(Collectors.toList());
+        for (ConfirmationDescriptor confirmation : descriptors) {
+            this.confirmations.add(new ConfirmationWithStatus(confirmation, getCurrentConfirmValue(confirmation.getId())));
+        }
+
+        tableViewer.setInput(this.confirmations);
+        tableViewer.refresh();
 
         UIUtils.asyncExec(() -> UIUtils.packColumns(confirmTable, true));
 
-        //performDefaults();
-
         return composite;
-    }
-
-    private void createConfirmItem(String group, ResourceBundle bundle, String id)
-    {
-        String labelKey = ConfirmationDialog.getResourceKey(id, ConfirmationDialog.RES_KEY_TITLE);
-        String title = bundle.getString(labelKey);
-
-        TableItem item = new TableItem(confirmTable, SWT.NONE);
-        item.setData("id", id);
-        item.setData("bundle", bundle);
-
-        item.setText(0, title);
-        item.setText(1, group);
-        item.setText(2, getCurrentConfirmValue(id));
     }
 
     private String getCurrentConfirmValue(String id) {
@@ -149,47 +254,51 @@ public class PrefPageConfirmations extends AbstractPrefPage implements IWorkbenc
 
         String value = store.getString(ConfirmationDialog.PREF_KEY_PREFIX + id);
         if (CommonUtils.isEmpty(value)) {
-            value = ConfirmationDialog.PROMPT;
+            return ConfirmationDialog.PROMPT;
         }
 
-        switch (value) {
-            case ConfirmationDialog.ALWAYS: return CoreMessages.pref_page_confirmations_combo_always;
-            case ConfirmationDialog.NEVER: return CoreMessages.pref_page_confirmations_combo_never;
-            default: return CoreMessages.pref_page_confirmations_combo_prompt;
+        if (ConfirmationDialog.NEVER.equals(value) || ConfirmationDialog.ALWAYS.equals(value)) {
+            return value;
         }
+
+        // Better to ask in other cases
+        return ConfirmationDialog.PROMPT;
     }
 
-    @Override
-    protected void performDefaults()
-    {
-        for (TableItem item : confirmTable.getItems()) {
-            String id = (String) item.getData("id");
-            item.setText(2, getCurrentConfirmValue(id));
-        }
-
-        super.performDefaults();
-    }
 
     @Override
     public boolean performOk() {
         DBPPreferenceStore store = DBWorkbench.getPlatform().getPreferenceStore();
-        for (TableItem item : confirmTable.getItems()) {
-            String id = (String) item.getData("id");
-            String title = item.getText(2);
-            String value;
-            if (title.equals(CoreMessages.pref_page_confirmations_combo_always)) {
-                value = ConfirmationDialog.ALWAYS;
-            } else if (title.equals(CoreMessages.pref_page_confirmations_combo_never)) {
-                value = ConfirmationDialog.NEVER;
-            } else {
-                value = ConfirmationDialog.PROMPT;
-            }
-            store.setValue(ConfirmationDialog.PREF_KEY_PREFIX + id, value);
+        for (Map.Entry<ConfirmationDescriptor, String> entry : changedConfirmations.entrySet()) {
+            String id = entry.getKey().getId();
+            store.setValue(ConfirmationDialog.PREF_KEY_PREFIX + id, entry.getValue());
         }
-
         PrefUtils.savePreferenceStore(store);
-
         return super.performOk();
     }
 
+    @Override
+    protected void performDefaults() {
+        // All elements are true by default
+        for (ConfirmationWithStatus confirmation : confirmations) {
+            if (!ConfirmationDialog.PROMPT.equals(confirmation.status)) {
+                confirmation.status = ConfirmationDialog.PROMPT;
+                changedConfirmations.put(confirmation.confirmation, ConfirmationDialog.PROMPT);
+            }
+        }
+        tableViewer.refresh();
+        UIUtils.asyncExec(() -> UIUtils.packColumns(confirmTable, true));
+        super.performDefaults();
+    }
+
+    private class ConfirmationWithStatus {
+
+        private ConfirmationDescriptor confirmation;
+        private String status;
+
+        ConfirmationWithStatus(ConfirmationDescriptor confirmation, String status) {
+            this.confirmation = confirmation;
+            this.status = status;
+        }
+    }
 }

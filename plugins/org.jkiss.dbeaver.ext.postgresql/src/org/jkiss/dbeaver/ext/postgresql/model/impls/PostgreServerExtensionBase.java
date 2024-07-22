@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  */
 package org.jkiss.dbeaver.ext.postgresql.model.impls;
 
+import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.postgresql.PostgreConstants;
@@ -89,6 +90,11 @@ public abstract class PostgreServerExtensionBase implements PostgreServerExtensi
     }
 
     @Override
+    public boolean supportsEventTriggers() {
+        return false;
+    }
+
+    @Override
     public boolean supportsFunctionCreate() {
         return true;
     }
@@ -96,6 +102,11 @@ public abstract class PostgreServerExtensionBase implements PostgreServerExtensi
     @Override
     public boolean supportsRules() {
         return true;
+    }
+
+    @Override
+    public boolean supportsRowLevelSecurity() {
+        return false;
     }
 
     @Override
@@ -121,6 +132,11 @@ public abstract class PostgreServerExtensionBase implements PostgreServerExtensi
     @Override
     public boolean supportsSequences() {
         return true;//dataSource.isServerVersionAtLeast(10, 0);
+    }
+
+    @Override
+    public PostgreSequence createSequence(@NotNull PostgreSchema schema) {
+        return new PostgreSequence(schema);
     }
 
     @Override
@@ -255,7 +271,16 @@ public abstract class PostgreServerExtensionBase implements PostgreServerExtensi
                 }
             }
             if (tableBase instanceof PostgreTablePartition && !alter) {
-                ddl.append(((PostgreTablePartition) tableBase).getPartitionExpression());                
+                String expression = ((PostgreTablePartition) tableBase).getPartitionExpression();
+                if (CommonUtils.isNotEmpty(expression)) {
+                    ddl.append(" ").append(expression);
+                }
+            }
+        }
+
+        if (tableBase instanceof PostgreTableRegular) {
+            if (!alter) {
+                createUsingClause((PostgreTableRegular) tableBase, ddl);
             }
         }
 
@@ -430,6 +455,10 @@ public abstract class PostgreServerExtensionBase implements PostgreServerExtensi
         return withClauseBuilder.toString();
     }
 
+    public void createUsingClause(@NotNull PostgreTableRegular table, @NotNull StringBuilder ddl) {
+        // Do nothing
+    }
+
     @Override
     public boolean supportsPGConstraintExpressionColumn() {
         return true;
@@ -461,6 +490,21 @@ public abstract class PostgreServerExtensionBase implements PostgreServerExtensi
     }
 
     @Override
+    public boolean supportsRoleReplication() {
+        return dataSource.isServerVersionAtLeast(9, 1);
+    }
+
+    @Override
+    public boolean supportsRoleBypassRLS() {
+        return dataSource.isServerVersionAtLeast(9, 5);
+    }
+
+    @Override
+    public boolean supportsCommentsOnRole() {
+        return supportsRoles();
+    }
+
+    @Override
     public boolean supportSerialTypes() {
         return true;
     }
@@ -486,6 +530,16 @@ public abstract class PostgreServerExtensionBase implements PostgreServerExtensi
     }
 
     @Override
+    public boolean isHiddenRowidColumn(@NotNull PostgreAttribute attribute) {
+        return false;
+    }
+
+    @Override
+    public boolean supportsShowingOfExtraComments() {
+        return true;
+    }
+
+    @Override
     public boolean supportsKeyAndIndexRename() {
         return false;
     }
@@ -508,5 +562,25 @@ public abstract class PostgreServerExtensionBase implements PostgreServerExtensi
     @Override
     public int getTruncateToolModes() {
         return TRUNCATE_TOOL_MODE_SUPPORT_ONLY_ONE_TABLE | TRUNCATE_TOOL_MODE_SUPPORT_IDENTITIES | TRUNCATE_TOOL_MODE_SUPPORT_CASCADE;
+    }
+
+    @Override
+    public boolean supportsDistinctForStatementsWithAcl() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsOpFamily() {
+        return  dataSource.isServerVersionAtLeast(8, 3);
+    }
+
+    @Override
+    public boolean supportsAlterTableColumnWithUSING() {
+        return dataSource.isServerVersionAtLeast(8, 0);
+    }
+
+    @Override
+    public boolean supportsAlterTableForViewRename() {
+        return false;
     }
 }

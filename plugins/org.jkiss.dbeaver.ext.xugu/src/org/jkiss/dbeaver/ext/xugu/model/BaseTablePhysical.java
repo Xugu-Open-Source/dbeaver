@@ -32,6 +32,7 @@ import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectCache;
 import org.jkiss.dbeaver.model.meta.*;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectLazy;
 import org.jkiss.utils.CommonUtils;
@@ -56,13 +57,11 @@ public abstract class BaseTablePhysical extends BaseTable implements DBSObjectLa
 	private Long realRowCount;
 	private Object tablespace;
 	private Integer partitioned;
-	public PartitionCache partitionCache;
-	public SubPartitionCache subPartitionCache;
+	public PartitionCache partitionCache = new PartitionCache();
+	public SubPartitionCache subPartitionCache = new SubPartitionCache();
 
 	protected BaseTablePhysical(Schema schema, String name) {
 		super(schema, name, false);
-		this.partitionCache = new PartitionCache();
-		this.subPartitionCache = new SubPartitionCache();
 	}
 
 	protected BaseTablePhysical(Schema schema, ResultSet dbResult) {
@@ -70,8 +69,11 @@ public abstract class BaseTablePhysical extends BaseTable implements DBSObjectLa
 
 		// 加载表分区信息
 		this.partitioned = JDBCUtils.safeGetInteger(dbResult, "PARTI_TYPE");
-		this.partitionCache = new PartitionCache();
-		this.subPartitionCache = new SubPartitionCache();
+	}
+
+	// 复制构造函数
+	public BaseTablePhysical(DBRProgressMonitor monitor, Schema schema, DBSEntity source) throws DBException {
+		super(monitor, schema, source);
 	}
 
 	@Override
@@ -105,7 +107,6 @@ public abstract class BaseTablePhysical extends BaseTable implements DBSObjectLa
 		if (partitionCache == null) {
 			return null;
 		} else {
-			this.partitionCache.getAllObjects(monitor, this);
 			return this.partitionCache.getAllObjects(monitor, this);
 		}
 	}
@@ -144,7 +145,7 @@ public abstract class BaseTablePhysical extends BaseTable implements DBSObjectLa
 			builder.append("SELECT * FROM ");
 			builder.append(table.getSchema().getRoleFlag());
 			builder.append(
-					"_PARTIS P INNER JOIN (SELECT PARTI_TYPE, PARTI_KEY, AUTO_PARTI_TYPE, AUTO_PARTI_SPAN, TABLE_ID, TABLE_NAME FROM ");
+					"_PARTIS P INNER JOIN (SELECT PARTI_TYPE, PARTI_KEY, AUTO_PARTI_TYPE, AUTO_PARTI_SPAN, TABLE_ID, TABLE_NAME, PARTI_NUM, SUBPARTI_NUM FROM ");
 			builder.append(table.getSchema().getRoleFlag());
 			builder.append("_TABLES T WHERE TABLE_NAME = '");
 			builder.append(table.getName());
@@ -170,7 +171,7 @@ public abstract class BaseTablePhysical extends BaseTable implements DBSObjectLa
 			StringBuilder builder = new StringBuilder();
 			builder.append("SELECT * FROM ");
 			builder.append(table.getSchema().getRoleFlag());
-			builder.append("_SUBPARTIS SP INNER JOIN (SELECT SUBPARTI_TYPE, SUBPARTI_KEY, TABLE_ID, TABLE_NAME FROM  ");
+			builder.append("_SUBPARTIS SP INNER JOIN (SELECT SUBPARTI_TYPE, SUBPARTI_KEY, TABLE_ID, TABLE_NAME, PARTI_NUM, SUBPARTI_NUM FROM  ");
 			builder.append(table.getSchema().getRoleFlag());
 			builder.append("_TABLES T WHERE TABLE_NAME = '");
 			builder.append(table.getName());

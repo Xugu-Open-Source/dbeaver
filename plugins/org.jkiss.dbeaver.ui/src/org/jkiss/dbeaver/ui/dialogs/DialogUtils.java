@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,13 +59,21 @@ public class DialogUtils {
         return selectFileForSave(parentShell, "Save Content As", null, valueName);
     }
 
-    public static File selectFileForSave(Shell parentShell, String title, String[] filterExt, @Nullable String fileName)
-    {
+    @Nullable
+    public static File selectFileForSave(@NotNull Shell parentShell, @NotNull String title, @Nullable String[] filterExt, @Nullable String fileName) {
+        return selectFileForSave(parentShell, title, filterExt, null, fileName);
+    }
+
+    @Nullable
+    public static File selectFileForSave(@NotNull Shell parentShell, @NotNull String title, @Nullable String[] filterExt, @Nullable String[] filterNames, @Nullable String fileName) {
         FileDialog fileDialog = new FileDialog(parentShell, SWT.SAVE);
         fileDialog.setText(title);
         fileDialog.setOverwrite(true);
         if (filterExt != null) {
             fileDialog.setFilterExtensions(filterExt);
+        }
+        if (filterNames != null) {
+            fileDialog.setFilterNames(filterNames);
         }
         if (fileName != null) {
             fileDialog.setFileName(fileName);
@@ -133,11 +141,12 @@ public class DialogUtils {
         if (curDialogFolder != null) {
             fileDialog.setFilterPath(curDialogFolder);
         }
-        String fileName = fileDialog.open();
-        if (!CommonUtils.isEmpty(fileName)) {
+        String filePath = fileDialog.open();
+        if (!CommonUtils.isEmpty(filePath)) {
             setCurDialogFolder(fileDialog.getFilterPath());
+            filePath = fixMissingFileExtension(fileDialog, filePath);
         }
-        return fileName;
+        return filePath;
     }
 
     public static String getCurDialogFolder()
@@ -157,27 +166,46 @@ public class DialogUtils {
     }
 
     @NotNull
-    public static Text createOutputFolderChooser(final Composite parent, @Nullable String label, @Nullable String value, @Nullable ModifyListener changeListener)
-    {
+    public static Text createOutputFolderChooser(final Composite parent, @Nullable String label, @Nullable String value, @Nullable ModifyListener changeListener) {
+        return createOutputFolderChooser(parent, label, null, value, changeListener);
+    }
+
+    @Nullable
+    public static String openDirectoryDialog(@NotNull Shell shell, @NotNull String message, @Nullable String directory) {
+        final DirectoryDialog dialog = new DirectoryDialog(shell);
+        dialog.setMessage("Choose target directory");
+        dialog.setText(message);
+
+        if (CommonUtils.isEmpty(directory)) {
+            directory = curDialogFolder;
+        }
+        if (!CommonUtils.isEmpty(directory)) {
+            dialog.setFilterPath(directory);
+        }
+        directory = dialog.open();
+        if (directory != null) {
+            setCurDialogFolder(directory);
+        }
+
+        return directory;
+    }
+
+    @NotNull
+    public static Text createOutputFolderChooser(
+        @NotNull Composite parent,
+        @Nullable String label,
+        @Nullable String tooltip,
+        @Nullable String value,
+        @Nullable ModifyListener changeListener
+    ) {
         final String message = label != null ? label : UIMessages.output_label_directory;
-        UIUtils.createControlLabel(parent, message);
+        UIUtils.createControlLabel(parent, message).setToolTipText(tooltip);
         final TextWithOpen directoryText = new TextWithOpen(parent) {
             @Override
             protected void openBrowser() {
-                DirectoryDialog dialog = new DirectoryDialog(parent.getShell(), SWT.NONE);
-                dialog.setMessage("Choose target directory");
-                dialog.setText(message);
-                String directory = getText();
-                if (CommonUtils.isEmpty(directory)) {
-                    directory = curDialogFolder;
-                }
-                if (!CommonUtils.isEmpty(directory)) {
-                    dialog.setFilterPath(directory);
-                }
-                directory = dialog.open();
-                if (directory != null) {
-                    setText(directory);
-                    setCurDialogFolder(directory);
+                final String text = openDirectoryDialog(parent.getShell(), message, getText());
+                if (text != null) {
+                    setText(text);
                 }
             }
         };
@@ -206,5 +234,18 @@ public class DialogUtils {
         return filteredTree.getViewer();
     }
 
-
+    /* SWT 2021-06-02 bug: file extension is not appended on Windows */
+    @NotNull
+    private static String fixMissingFileExtension(@NotNull FileDialog dialog, @NotNull String filePath) {
+        if (CommonUtils.isBitSet(dialog.getStyle(), SWT.SAVE) && new File(filePath).getName().indexOf('.') < 0 && RuntimeUtils.isWindows()) {
+            final String[] filters = dialog.getFilterExtensions();
+            if (dialog.getFilterIndex() >= 0 && dialog.getFilterIndex() < filters.length) {
+                final String filter = filters[dialog.getFilterIndex()];
+                if (!filter.equals("*") && !filter.equals("*.*") && filter.indexOf('.') >= 0) {
+                    return filePath + filter.substring(filter.lastIndexOf('.'));
+                }
+            }
+        }
+        return filePath;
+    }
 }

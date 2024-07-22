@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,7 @@
  */
 package org.jkiss.dbeaver.ui.search.metadata;
 
-import org.eclipse.jface.viewers.IStructuredSelection;
-import org.eclipse.jface.viewers.StructuredSelection;
-import org.eclipse.jface.viewers.Viewer;
-import org.eclipse.jface.viewers.ViewerFilter;
+import org.eclipse.jface.viewers.*;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.SashForm;
 import org.eclipse.swt.events.MouseAdapter;
@@ -31,7 +28,6 @@ import org.eclipse.swt.widgets.*;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPDataSource;
-import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.app.DBPPlatform;
 import org.jkiss.dbeaver.model.app.DBPProject;
@@ -95,7 +91,6 @@ public class SearchMetadataPage extends AbstractSearchPage {
 
         Composite searchGroup = UIUtils.createComposite(parent, 1);
         searchGroup.setLayoutData(new GridData(GridData.FILL_BOTH));
-        setControl(searchGroup);
 
         searchText = new Combo(searchGroup, SWT.DROP_DOWN);
         searchText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
@@ -111,7 +106,7 @@ public class SearchMetadataPage extends AbstractSearchPage {
             updateEnablement();
         });
 
-        Composite optionsGroup = new SashForm(searchGroup, 2);
+        Composite optionsGroup = new SashForm(parent, 2);
         optionsGroup.setLayoutData(new GridData(GridData.FILL_BOTH));
 
         {
@@ -124,7 +119,9 @@ public class SearchMetadataPage extends AbstractSearchPage {
             gd.heightHint = 300;
             dataSourceTree.setLayoutData(gd);
 
-            dataSourceTree.getViewer().addFilter(new ViewerFilter() {
+            TreeViewer treeViewer = dataSourceTree.getViewer();
+
+            treeViewer.addFilter(new ViewerFilter() {
                 @Override
                 public boolean select(Viewer viewer, Object parentElement, Object element)
                 {
@@ -148,7 +145,7 @@ public class SearchMetadataPage extends AbstractSearchPage {
                     return false;
                 }
             });
-            dataSourceTree.getViewer().addSelectionChangedListener(
+            treeViewer.addSelectionChangedListener(
                 event -> {
                     fillObjectTypes();
                     updateEnablement();
@@ -178,10 +175,24 @@ public class SearchMetadataPage extends AbstractSearchPage {
                     }
                 }
             );
+
+            treeViewer.addDoubleClickListener(event -> {
+                IStructuredSelection selection = (IStructuredSelection) treeViewer.getSelection();
+                for (Object node : selection.toArray()) {
+                    if (node instanceof TreeNodeSpecial) {
+                        ((TreeNodeSpecial) node).handleDefaultAction(dataSourceTree);
+                    }
+                }
+            });
         }
 
         {
-            Group settingsGroup = UIUtils.createControlGroup(optionsGroup, "Settings", 2, GridData.FILL_BOTH, 0);
+            Group settingsGroup = UIUtils.createControlGroup(
+                optionsGroup,
+                UISearchMessages.dialog_search_objects_group_settings,
+                2,
+                GridData.FILL_BOTH,
+                0);
 
             {
                 //new Label(searchGroup, SWT.NONE);
@@ -284,6 +295,8 @@ public class SearchMetadataPage extends AbstractSearchPage {
             UIUtils.createTableColumn(typesTable, SWT.LEFT, UISearchMessages.dialog_search_objects_column_description);
         }
 
+        setControl(searchGroup);
+
         UIUtils.asyncExec(this::loadState);
     }
 
@@ -350,7 +363,10 @@ public class SearchMetadataPage extends AbstractSearchPage {
     {
         IStructuredSelection selection = (IStructuredSelection) dataSourceTree.getViewer().getSelection();
         if (!selection.isEmpty()) {
-            return (DBNNode) selection.getFirstElement();
+            final Object firstElement = selection.getFirstElement();
+            if (firstElement instanceof DBNNode) {
+                return (DBNNode) firstElement;
+            }
         }
         return null;
     }
@@ -411,7 +427,7 @@ public class SearchMetadataPage extends AbstractSearchPage {
         for (DBNNode node = getSelectedNode(); node != null; node = node.getParentNode()) {
             if (node instanceof DBSWrapper) {
                 DBSObject object = ((DBSWrapper) node).getObject();
-                if (object instanceof DBSStructContainer || object instanceof DBPDataSourceContainer) {
+                if (object instanceof DBSStructContainer) {
                     parentObject = object;
                     break;
                 }
@@ -460,6 +476,7 @@ public class SearchMetadataPage extends AbstractSearchPage {
         params.setMaxResults(maxResults);
         params.setSearchInDefinitions(searchInDefinitions);
         params.setGlobalSearch(true);
+        params.setLikeCondition(matchTypeIndex == SearchMetadataConstants.MATCH_INDEX_LIKE);
 
         return new SearchMetadataQuery(dataSource, assistant, params);
     }

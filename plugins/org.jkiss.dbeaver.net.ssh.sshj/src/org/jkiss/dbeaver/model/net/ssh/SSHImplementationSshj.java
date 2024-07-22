@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,21 @@
  */
 package org.jkiss.dbeaver.model.net.ssh;
 
-import net.schmizz.sshj.Config;
-import net.schmizz.sshj.DefaultConfig;
+import com.jcraft.jsch.Identity;
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.common.LoggerFactory;
+import net.schmizz.sshj.connection.channel.direct.DirectConnection;
 import net.schmizz.sshj.connection.channel.direct.LocalPortForwarder;
+import net.schmizz.sshj.connection.channel.direct.Parameters;
+import net.schmizz.sshj.sftp.SFTPClient;
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier;
-import net.schmizz.sshj.userauth.keyprovider.KeyProvider;
 import net.schmizz.sshj.userauth.method.AuthMethod;
+import net.schmizz.sshj.userauth.password.PasswordFinder;
+import net.schmizz.sshj.userauth.password.PasswordUtils;
+import net.schmizz.sshj.xfer.InMemoryDestFile;
+import net.schmizz.sshj.xfer.InMemorySourceFile;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
@@ -31,16 +38,22 @@ import org.jkiss.dbeaver.model.net.DBWHandlerConfiguration;
 import org.jkiss.dbeaver.model.net.ssh.config.SSHAuthConfiguration;
 import org.jkiss.dbeaver.model.net.ssh.config.SSHHostConfiguration;
 import org.jkiss.dbeaver.model.net.ssh.config.SSHPortForwardConfiguration;
+import org.jkiss.dbeaver.model.runtime.AbstractJob;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
-import org.jkiss.dbeaver.utils.RuntimeUtils;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
+import org.slf4j.Logger;
+import org.slf4j.helpers.NOPLogger;
 
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.net.InetSocketAddress;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * SSHJ tunnel
@@ -49,144 +62,295 @@ public class SSHImplementationSshj extends SSHImplementationAbstract {
 
     private static final Log log = Log.getLog(SSHImplementationSshj.class);
 
-    private transient SSHClient sshClient;
-    private transient LocalPortListener portListener;
+    private final List<LocalPortListener> listeners = new ArrayList<>();
+    private SSHClient[] clients;
 
     @Override
-    protected synchronized void setupTunnel(@NotNull DBRProgressMonitor monitor, @NotNull DBWHandlerConfiguration configuration, @NotNull SSHHostConfiguration[] hosts, @NotNull SSHPortForwardConfiguration portForward) throws DBException, IOException  {
-        try {
-            final SSHHostConfiguration host = hosts[0];
-            final SSHAuthConfiguration auth = host.getAuthConfiguration();
+    protected synchronized void setupTunnel(
+        @NotNull DBRProgressMonitor monitor,
+        @NotNull DBWHandlerConfiguration configuration,
+        @NotNull SSHHostConfiguration[] hosts,
+        @NotNull SSHPortForwardConfiguration portForward
+    ) throws DBException {
+        this.clients = new SSHClient[hosts.length];
 
-            Config clientConfig = new DefaultConfig();
-            clientConfig.setLoggerFactory(LoggerFactory.DEFAULT);
-            sshClient = new SSHClient(clientConfig);
-            // TODO: make real host verifier
-            sshClient.addHostKeyVerifier(new PromiscuousVerifier());
+        final int connectTimeout = configuration.getIntProperty(SSHConstants.PROP_CONNECT_TIMEOUT);
+        final int keepAliveInterval = configuration.getIntProperty(SSHConstants.PROP_ALIVE_INTERVAL) / 1000; // sshj uses seconds for keep-alive interval
+
+        for (int index = 0; index < hosts.length; index++) {
+            final SSHHostConfiguration host = hosts[index];
+            final SSHAuthConfiguration auth = host.getAuthConfiguration();
+            final SSHClient client = new SSHClient();
+
+            client.setConnectTimeout(connectTimeout);
+            client.getConnection().getKeepAlive().setKeepAliveInterval(keepAliveInterval);
+            client.getTransport().getConfig().setLoggerFactory(new FilterLoggerFactory());
+
+            clients[index] = client;
 
             try {
-                sshClient.loadKnownHosts();
+                setupHostKeyVerification(client, configuration, host);
             } catch (IOException e) {
                 log.debug("Error loading known hosts: " + e.getMessage());
             }
 
-            sshClient.connect(host.getHostname(), host.getPort());
+            try {
+                if (index > 0) {
+                    final SSHClient prevClient = clients[index - 1];
 
-            switch (auth.getType()) {
-                case PASSWORD:
-                    sshClient.authPassword(host.getUsername(), auth.getPassword());
-                    break;
-                case PUBLIC_KEY:
-                    if (!CommonUtils.isEmpty(auth.getPassword())) {
-                        KeyProvider keyProvider = sshClient.loadKeys(auth.getKey().getAbsolutePath(), auth.getPassword().toCharArray());
-                        sshClient.authPublickey(host.getUsername(), keyProvider);
-                    } else {
-                        sshClient.authPublickey(host.getUsername(), auth.getKey().getAbsolutePath());
-                    }
-                    break;
-                case AGENT: {
-                    List<SSHAgentIdentity> identities = getAgentData();
-                    List<AuthMethod> authMethods = new ArrayList<>();
-                    for (SSHAgentIdentity identity : identities) {
-                        authMethods.add(new DBeaverAuthAgent(this, identity));
-                    }
-                    sshClient.auth(host.getUsername(), authMethods);
-                    break;
+                    monitor.subTask(String.format(
+                        "Instantiate tunnel to %s:%d via %s:%d",
+                        host.getHostname(), host.getPort(),
+                        prevClient.getRemoteHostname(), prevClient.getRemotePort()));
+
+                    final DirectConnection tunnel = prevClient.newDirectConnection(
+                        host.getHostname(), host.getPort()
+                    );
+                    client.connectVia(tunnel);
+                } else {
+                    monitor.subTask(String.format(
+                        "Instantiate tunnel to %s:%d",
+                        host.getHostname(), host.getPort()));
+
+                    client.connect(host.getHostname(), host.getPort());
                 }
+
+                switch (auth.getType()) {
+                    case PASSWORD:
+                        client.authPassword(host.getUsername(), auth.getPassword());
+                        break;
+                    case PUBLIC_KEY:
+                        if (auth.getKeyFile() != null) {
+                            final String location = auth.getKeyFile().toAbsolutePath().toString();
+                            if (CommonUtils.isEmpty(auth.getPassword())) {
+                                client.authPublickey(host.getUsername(), location);
+                            } else {
+                                client.authPublickey(host.getUsername(), client.loadKeys(location, auth.getPassword().toCharArray()));
+                            }
+                        } else {
+                            final PasswordFinder finder = CommonUtils.isEmpty(auth.getPassword())
+                                ? null
+                                : PasswordUtils.createOneOff(auth.getPassword().toCharArray());
+                            client.authPublickey(host.getUsername(), client.loadKeys(auth.getKeyValue(), null, finder));
+                        }
+                        break;
+                    case AGENT: {
+                        final List<AuthMethod> methods = new ArrayList<>();
+                        for (Object identity : agentIdentityRepository.getIdentities()) {
+                            methods.add(new DBeaverAuthAgent((Identity) identity));
+                        }
+                        client.auth(host.getUsername(), methods);
+                        break;
+                    }
+                    default:
+                        break;
+                }
+
+                if (index == hosts.length - 1) {
+                    log.debug(String.format(
+                        "Set port forwarding %s:%d -> %s:%d",
+                        portForward.getLocalHost(), portForward.getLocalPort(),
+                        portForward.getRemoteHost(), portForward.getRemotePort()));
+                    setPortForwarding(
+                        client,
+                        portForward.getLocalHost(), portForward.getLocalPort(),
+                        portForward.getRemoteHost(), portForward.getRemotePort());
+                }
+            } catch (IOException e) {
+                closeTunnel(monitor);
+                throw new DBException("Cannot establish tunnel to " + host.getHostname() + ":" + host.getPort(), e);
             }
-
-            log.debug("Instantiate SSH tunnel");
-
-            final LocalPortForwarder.Parameters params
-                = new LocalPortForwarder.Parameters(portForward.getLocalHost(), portForward.getLocalPort(), portForward.getRemoteHost(), portForward.getRemotePort());
-            portListener = new LocalPortListener(params);
-            portListener.start();
-            RuntimeUtils.pause(100);
-        } catch (Exception e) {
-            throw new DBException("Cannot establish tunnel", e);
         }
     }
 
+    private static void setupHostKeyVerification(
+        @NotNull SSHClient client,
+        @NotNull DBWHandlerConfiguration configuration,
+        @NotNull SSHHostConfiguration actualHostConfiguration
+    ) throws IOException {
+        if (DBWorkbench.getPlatform().getApplication().isHeadlessMode() ||
+            configuration.getBooleanProperty(SSHConstants.PROP_BYPASS_HOST_VERIFICATION)
+        ) {
+            client.addHostKeyVerifier(new PromiscuousVerifier());
+            client.getTransport().getConfig().setVerifyHostKeyCertificates(false);
+        } else {
+            client.addHostKeyVerifier(new KnownHostsVerifier(SSHUtils.getKnownSshHostsFileOrDefault(), actualHostConfiguration));
+        }
+
+        client.loadKnownHosts();
+    }
+
     @Override
-    public void closeTunnel(DBRProgressMonitor monitor) throws DBException, IOException {
-        if (portListener != null) {
-            portListener.stopServer();
-        }
-        if (sshClient != null) {
-            RuntimeUtils.runTask(monitor1 -> {
-                try {
-                    sshClient.disconnect();
-                } catch (Exception e) {
-                    throw new InvocationTargetException(e);
+    public synchronized void closeTunnel(DBRProgressMonitor monitor) {
+        listeners.forEach(LocalPortListener::disconnect);
+        listeners.clear();
+
+        if (!ArrayUtils.isEmpty(clients)) {
+            SSHClient[] clientsCopy = this.clients;
+            new AbstractJob("Close SSHJ clients") {
+                @Override
+                protected IStatus run(DBRProgressMonitor monitor) {
+                    for (SSHClient client : clientsCopy) {
+                        if (client != null && client.isConnected()) {
+                            try {
+                                log.debug("Disconnect SSHJ tunnel " + client);
+                                client.disconnect();
+                            } catch (Throwable e) {
+                                log.debug("Error closing session: " + e.getMessage());
+                            }
+                        }
+                    }
+                    return Status.OK_STATUS;
                 }
-            }, "Close SSH client", 1000);
-            sshClient = null;
+            }.schedule();
         }
+
+        clients = null;
     }
 
     @Override
     public String getClientVersion() {
-        return sshClient == null ? null : sshClient.getTransport().getClientVersion();
+        return ArrayUtils.isEmpty(clients) ? null : clients[clients.length - 1].getTransport().getClientVersion();
     }
 
     @Override
     public String getServerVersion() {
-        return sshClient == null ? null : sshClient.getTransport().getServerVersion();
+        return ArrayUtils.isEmpty(clients) ? null : clients[clients.length - 1].getTransport().getServerVersion();
     }
 
     @Override
     public void invalidateTunnel(DBRProgressMonitor monitor) throws DBException, IOException {
-        // Do not test - just reopen the tunnel. Otherwise it may take too much time.
-        boolean isAlive = false;//sshClient != null && sshClient.isConnected();
-        if (isAlive) {
-            try {
-                sshClient.isConnected();
-            } catch (Exception e) {
-                isAlive = false;
-            }
-        }
-        if (!isAlive) {
-            closeTunnel(monitor);
-            initTunnel(monitor, null, savedConfiguration, savedConnectionInfo);
-        }
+        closeTunnel(monitor);
+        initTunnel(monitor, savedConfiguration, savedConnectionInfo);
     }
 
-    private class LocalPortListener extends Thread {
-        private LocalPortForwarder.Parameters params;
-        private LocalPortForwarder portForwarder;
-
-        LocalPortListener(LocalPortForwarder.Parameters params) {
-            this.params = params;
-        }
-
-        public void run() {
-            setName("Local port forwarder " + params.getRemoteHost() + ":" + params.getRemotePort() + " socket listener");
-            final LocalPortForwarder.Parameters params
-                = new LocalPortForwarder.Parameters(
-                    this.params.getLocalHost(), this.params.getLocalPort(), this.params.getRemoteHost(), this.params.getRemotePort());
-
-            try {
-                ServerSocket serverSocket = new ServerSocket();
-                serverSocket.setReuseAddress(true);
-                serverSocket.bind(new InetSocketAddress(params.getLocalHost(), params.getLocalPort()));
-                portForwarder = sshClient.newLocalPortForwarder(params, serverSocket);
-                portForwarder.listen();
-            } catch (IOException e) {
-                log.error(e);
-            }
-            log.debug("Server socket closed. Tunnel is terminated");
-        }
-
-        void stopServer() {
-            if (portForwarder != null) {
-                try {
-                    portForwarder.close();
-                } catch (IOException e) {
-                    log.error("Error closing port forwarder", e);
+    @Override
+    public void getFile(
+        @NotNull String src,
+        @NotNull OutputStream dst,
+        @NotNull DBRProgressMonitor monitor
+    ) throws DBException, IOException {
+        try (SFTPClient client = openSftpClient()) {
+            client.get(src, new InMemoryDestFile() {
+                @Override
+                public long getLength() {
+                    return -1;
                 }
-                portForwarder = null;
-            }
+
+                @Override
+                public OutputStream getOutputStream() {
+                    return dst;
+                }
+
+                @Override
+                public OutputStream getOutputStream(boolean b) {
+                    return dst;
+                }
+            });
         }
     }
 
+    @Override
+    public void putFile(
+        @NotNull InputStream src,
+        @NotNull String dst,
+        @NotNull DBRProgressMonitor monitor
+    ) throws DBException, IOException {
+        try (SFTPClient client = openSftpClient()) {
+            client.put(new InMemorySourceFile() {
+                @Override
+                public String getName() {
+                    return "memory";  //$NON-NLS-1$
+                }
+
+                @Override
+                public long getLength() {
+                    return -1;
+                }
+
+                @Override
+                public InputStream getInputStream() {
+                    return src;
+                }
+            }, dst);
+        }
+    }
+
+    @NotNull
+    private SFTPClient openSftpClient() throws DBException, IOException {
+        if (ArrayUtils.isEmpty(clients)) {
+            throw new DBException("No active session available");
+        }
+        SFTPClient sftpClient = clients[clients.length - 1].newSFTPClient();
+        sftpClient.getFileTransfer().setPreserveAttributes(false);
+        return sftpClient;
+
+    }
+
+    private int setPortForwarding(
+        @NotNull SSHClient client,
+        @NotNull String localHost, int localPort,
+        @NotNull String remoteHost, int remotePort
+    ) throws IOException {
+        final ServerSocket ss = new ServerSocket(localPort, 0, InetAddress.getByName(localHost));
+        final Parameters parameters = new Parameters(localHost, ss.getLocalPort(), remoteHost, remotePort);
+        final LocalPortForwarder forwarder = client.newLocalPortForwarder(parameters, ss);
+        final LocalPortListener listener = new LocalPortListener(forwarder, parameters);
+
+        listener.start();
+        listeners.add(listener);
+
+        return ss.getLocalPort();
+    }
+
+    private static class FilterLoggerFactory implements LoggerFactory {
+        private static final Set<String> FILTERED_OUT_CLASSES = Set.of("net.schmizz.sshj.common.StreamCopier");
+
+        @Override
+        public Logger getLogger(String s) {
+            if (FILTERED_OUT_CLASSES.contains(s)) {
+                return NOPLogger.NOP_LOGGER;
+            } else {
+                return org.slf4j.LoggerFactory.getLogger(s);
+            }
+        }
+
+        @Override
+        public Logger getLogger(Class<?> cls) {
+            return getLogger(cls.getName());
+        }
+    }
+
+    private static class LocalPortListener extends Thread {
+        private final LocalPortForwarder forwarder;
+
+        public LocalPortListener(@NotNull LocalPortForwarder forwarder, @NotNull Parameters parameters) {
+            this.forwarder = forwarder;
+
+            setName(String.format(
+                "Port forwarder listener (%s:%d -> %s:%d)",
+                parameters.getLocalHost(), parameters.getLocalPort(),
+                parameters.getRemoteHost(), parameters.getRemotePort()
+            ));
+        }
+
+        @Override
+        public void run() {
+            try {
+                forwarder.listen();
+            } catch (IOException e) {
+                log.error("Error while listening on the port forwarder", e);
+            }
+        }
+
+        public void disconnect() {
+            try {
+                if (forwarder.isRunning()) {
+                    forwarder.close();
+                }
+            } catch (Exception e) {
+                log.error("Error while stopping port forwarding", e);
+            }
+        }
+    }
 }

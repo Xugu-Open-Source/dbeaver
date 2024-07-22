@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,9 +24,11 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.app.DBPPlatformDesktop;
 import org.jkiss.dbeaver.model.app.DBPProject;
 import org.jkiss.dbeaver.model.app.DBPResourceHandler;
 import org.jkiss.dbeaver.model.navigator.DBNNode;
+import org.jkiss.dbeaver.model.navigator.DBNNodeWithResource;
 import org.jkiss.dbeaver.model.navigator.DBNResource;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.UIUtils;
@@ -41,8 +43,7 @@ import java.util.List;
 public abstract class AbstractResourceHandler implements DBPResourceHandler {
 
     @Override
-    public int getFeatures(IResource resource)
-    {
+    public int getFeatures(IResource resource) {
         if (resource instanceof IFolder) {
             if (resource.getParent() instanceof IFolder) {
                 return FEATURE_DELETE | FEATURE_MOVE_INTO | FEATURE_RENAME | FEATURE_CREATE_FOLDER;
@@ -54,20 +55,18 @@ public abstract class AbstractResourceHandler implements DBPResourceHandler {
 
     @NotNull
     @Override
-    public DBNResource makeNavigatorNode(@NotNull DBNNode parentNode, @NotNull IResource resource) throws CoreException, DBException
-    {
+    public DBNResource makeNavigatorNode(@NotNull DBNNode parentNode, @NotNull IResource resource) throws CoreException, DBException {
         return new DBNResource(parentNode, resource, this);
     }
 
     @Override
-    public void updateNavigatorNode(@NotNull DBNResource node, @NotNull IResource resource) {
+    public void updateNavigatorNodeFromResource(@NotNull DBNNodeWithResource node, @NotNull IResource resource) {
         // Reset icon
         node.setResourceImage(null);
     }
 
     @Override
-    public void openResource(@NotNull IResource resource) throws CoreException, DBException
-    {
+    public void openResource(@NotNull IResource resource) throws CoreException, DBException {
         if (resource instanceof IFolder) {
             DBNResource node = DBWorkbench.getPlatform().getNavigatorModel().getNodeByResource(resource);
             if (node != null) {
@@ -82,21 +81,18 @@ public abstract class AbstractResourceHandler implements DBPResourceHandler {
 
     @NotNull
     @Override
-    public String getTypeName(@NotNull IResource resource)
-    {
+    public String getTypeName(@NotNull IResource resource) {
         return "resource";
     }
 
     @Override
-    public String getResourceDescription(@NotNull IResource resource)
-    {
+    public String getResourceDescription(@NotNull IResource resource) {
         return resource.getName();
     }
 
     @Nullable
     @Override
-    public List<DBPDataSourceContainer> getAssociatedDataSources(DBNResource resource)
-    {
+    public List<DBPDataSourceContainer> getAssociatedDataSources(DBNResource resource) {
         return null;
     }
 
@@ -107,12 +103,12 @@ public abstract class AbstractResourceHandler implements DBPResourceHandler {
     }
 
     protected IFolder getDefaultRoot(DBPProject project) {
-        return DBWorkbench.getPlatform().getWorkspace().getResourceDefaultRoot(project, getClass(), false);
+        return DBPPlatformDesktop.getInstance().getWorkspace().getResourceDefaultRoot(project, getClass(), false);
     }
 
     protected IFolder getDefaultRoot(IProject project) {
         return getDefaultRoot(
-            DBWorkbench.getPlatform().getWorkspace().getProject(project));
+            DBPPlatformDesktop.getInstance().getWorkspace().getProject(project));
     }
 
 }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ public class PostgreConstants {
     public static final String PROP_SHOW_UNAVAILABLE_DB = DBConstants.INTERNAL_PROP_PREFIX + "show-unavailable-db@";
     public static final String PROP_SHOW_TEMPLATES_DB = DBConstants.INTERNAL_PROP_PREFIX + "show-template-db@";
     public static final String PROP_READ_ALL_DATA_TYPES = DBConstants.INTERNAL_PROP_PREFIX + "read-all-data-types-db@";
+    public static final String PROP_READ_KEYS_WITH_COLUMNS = "read-keys-with-columns";
     public static final String PROP_USE_PREPARED_STATEMENTS = DBConstants.INTERNAL_PROP_PREFIX + "use-prepared-statements-db@";
     public static final String PROP_DD_PLAIN_STRING = "postgresql.dd.plain.string";
     public static final String PROP_DD_TAG_STRING = "postgresql.dd.tag.string";
@@ -89,11 +90,14 @@ public class PostgreConstants {
 
     // Workaround for Redshift 2.x
     public static final String RS_OBJECT_CLASS = "com.amazon.redshift.util.RedshiftObject";
+    // Workaround for EnterpriseDB
+    public static final String EDB_OBJECT_CLASS = "com.edb.util.PGobject";
 
     public static final DBDPseudoAttribute PSEUDO_ATTR_OID = new DBDPseudoAttribute(DBDPseudoAttributeType.ROWID, "oid",
         "oid", "oid", "Row identifier", false);
 
     public static final String TYPE_CHAR = "char";
+    public static final String TYPE_TEXT = "text";
     public static final String TYPE_UUID = "uuid";
     public static final String TYPE_BPCHAR = "bpchar";
     public static final String TYPE_VARCHAR = "varchar";
@@ -102,6 +106,7 @@ public class PostgreConstants {
     public static final String TYPE_JSONB = "jsonb";
     public static final String TYPE_BIT = "bit";
     public static final String TYPE_VARBIT = "varbit";
+    public static final String TYPE_VARBYTE = "varbyte";
     public static final String TYPE_REFCURSOR = "refcursor";
     public static final String TYPE_MONEY = "money";
     public static final String TYPE_GEOMETRY = "geometry";
@@ -111,6 +116,9 @@ public class PostgreConstants {
     public static final String TYPE_TIMESTAMP = "timestamp";
     public static final String TYPE_TIMETZ = "timetz";
     public static final String TYPE_TIMESTAMPTZ = "timestamptz";
+    public static final String TYPE_XML = "xml";
+    public static final String TYPE_BOOLEAN = "boolean";
+    public static final String TYPE_BYTEA = "bytea";
 
     public static final String HANDLER_SSL = "postgre_ssl";
 
@@ -133,6 +141,8 @@ public class PostgreConstants {
     public static final String TYPE_INT2 = "int2";
     public static final String TYPE_INT4 = "int4";
     public static final String TYPE_INT8 = "int8";
+    public static final String TYPE_BIGINT = "bigint";
+
     public static final String TYPE_FLOAT4 = "float4";
     public static final String TYPE_FLOAT8 = "float8";
 
@@ -142,6 +152,7 @@ public class PostgreConstants {
     public static final String PSQL_EXCEPTION_CLASS_NAME = "org.postgresql.util.PSQLException";
     public static final String COLLATION_DEFAULT = "default";
     public static final String DEFAULT_ARRAY_DELIMITER = " ";
+    public static final String PG_PASS_HOSTNAME = "overriddenUsername";
 
     static {
         DATA_TYPE_ALIASES.put("boolean", TYPE_BOOL);

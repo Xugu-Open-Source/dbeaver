@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,12 @@
  */
 package org.jkiss.dbeaver.ext.mssql.model;
 
-import org.eclipse.core.runtime.IAdaptable;
+import net.sf.jsqlparser.expression.NextValExpression;
+import net.sf.jsqlparser.statement.Statement;
+import net.sf.jsqlparser.statement.select.PlainSelect;
+import net.sf.jsqlparser.statement.select.Select;
+import net.sf.jsqlparser.statement.select.SelectBody;
+import net.sf.jsqlparser.statement.select.SelectExpressionItem;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
@@ -26,7 +31,7 @@ import org.jkiss.dbeaver.ext.mssql.SQLServerConstants;
 import org.jkiss.dbeaver.ext.mssql.SQLServerUtils;
 import org.jkiss.dbeaver.ext.mssql.model.session.SQLServerSessionManager;
 import org.jkiss.dbeaver.model.*;
-import org.jkiss.dbeaver.model.access.DBAUserChangePassword;
+import org.jkiss.dbeaver.model.access.DBAUserPasswordManager;
 import org.jkiss.dbeaver.model.admin.sessions.DBAServerSessionManager;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.exec.*;
@@ -37,10 +42,13 @@ import org.jkiss.dbeaver.model.impl.jdbc.JDBCRemoteInstance;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectCache;
 import org.jkiss.dbeaver.model.impl.net.SSLHandlerTrustStoreImpl;
+import org.jkiss.dbeaver.model.impl.sql.QueryTransformerTop;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.net.DBWHandlerConfiguration;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLQuery;
+import org.jkiss.dbeaver.model.sql.parser.SQLSemanticProcessor;
 import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.BeanUtils;
@@ -51,7 +59,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 
-public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceContainer, DBPObjectStatisticsCollector, IAdaptable, DBCQueryTransformProviderExt {
+public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceContainer, DBPObjectStatisticsCollector, DBPAdaptable, DBCQueryTransformProviderExt {
 
     private static final Log log = Log.getLog(SQLServerDataSource.class);
 
@@ -62,17 +70,62 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
 
     private boolean supportsColumnProperty;
     private String serverVersion;
+    private volatile Boolean supportsIsExternalColumn;
 
     private volatile transient boolean hasStatistics;
+    private boolean isBabelfish;
+    private boolean isSynapseDatabase;
 
     public SQLServerDataSource(DBRProgressMonitor monitor, DBPDataSourceContainer container)
         throws DBException
     {
         super(monitor, container, new SQLServerDialect());
+        isBabelfish = SQLServerUtils.isDriverBabelfish(getContainer().getDriver());
     }
 
     public boolean supportsColumnProperty() {
         return supportsColumnProperty;
+    }
+
+    /**
+     * @deprecated This method is intended to be used only within
+     * the {@code visibleIf} attribute of a navigator tree node.
+     * <p>
+     * This method will be removed once #16366 is implemented.
+     */
+    @Deprecated(forRemoval = true)
+    public boolean supportsExternalTables() {
+        if (supportsIsExternalColumn != null) {
+            return supportsIsExternalColumn;
+        }
+        try (JDBCSession session = DBUtils.openMetaSession(new VoidProgressMonitor(), this, "Determine external tables availability")) {
+            return supportsExternalTables(session);
+        } catch (DBCException ignored) {
+            return false;
+        }
+    }
+
+    public boolean supportsExternalTables(JDBCSession session) {
+        if (supportsIsExternalColumn != null) {
+            return supportsIsExternalColumn;
+        }
+        if (isBabelfish) {
+            supportsIsExternalColumn = false;
+            return false;
+        }
+
+        // The "is_external" column can be used to identify external tables support.
+        // But not all SQL Server versions supports this column in the all_columns view
+        // Sometimes checking the version does not work for some reason - see #15036
+        // Let's check the existence of column directly at the database
+        try {
+            JDBCUtils.queryString(session, "SELECT TOP 1 is_external from sys.tables where 1<>1");
+            this.supportsIsExternalColumn = true;
+        } catch (Exception ignored) {
+            this.supportsIsExternalColumn = false;
+        }
+
+        return supportsIsExternalColumn;
     }
 
     @Override
@@ -93,7 +146,23 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
         return serverVersion;
     }
 
-    String getServerVersion(DBRProgressMonitor monitor) {
+    public boolean supportsTriggers() {
+        return !isBabelfish && !isSynapseDatabase;
+    }
+
+    public boolean supportsSynonyms() {
+        return !isBabelfish;
+    }
+
+    public boolean supportsSequences() {
+        return !isBabelfish && !isSynapseDatabase;
+    }
+
+    public boolean isSynapseDatabase() {
+        return isSynapseDatabase;
+    }
+
+    private String getServerVersion(DBRProgressMonitor monitor) {
         if (serverVersion == null) {
             try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Read server version")) {
                 serverVersion = JDBCUtils.queryString(session, "SELECT @@VERSION");
@@ -103,12 +172,6 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
             }
         }
         return serverVersion;
-    }
-
-    @NotNull
-    @Override
-    public DBPDataSource getDataSource() {
-        return this;
     }
 
     public DatabaseCache getDatabaseCache() {
@@ -140,11 +203,19 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
                 CommonUtils.truncateString(DBUtils.getClientApplicationName(getContainer(), context, purpose), 64));
         }
 
+        if (SQLServerUtils.isDriverSqlServer(getContainer().getDriver())) {
+            // Starting microsoft driver version 10.1 defaulted the encrypt option to true (previously false)
+            // thus the driver will look for a certificate to validate unless trustServerCertificate is set to true
+            // (i.e. do not validate, trust all when encrypt option is enabled)
+            boolean trustCertificate = CommonUtils.getBoolean(
+                connectionInfo.getProviderProperty(SQLServerConstants.PROP_SSL_TRUST_SERVER_CERTIFICATE),
+                false);
+            if (trustCertificate) {
+                properties.put(SQLServerConstants.PROP_DRIVER_TRUST_SERVER_CERTIFICATE, Boolean.TRUE.toString());
+            }
+        }
+
         fillConnectionProperties(connectionInfo, properties);
-
-        SQLServerAuthentication authSchema = SQLServerUtils.detectAuthSchema(connectionInfo);
-
-        authSchema.getInitializer().initializeAuthentication(connectionInfo, properties);
 
         final DBWHandlerConfiguration sslConfig = getContainer().getActualConnectionConfiguration().getHandler(SQLServerConstants.HANDLER_SSL);
         if (sslConfig != null && sslConfig.isEnabled()) {
@@ -163,7 +234,6 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
 //            String keyStorePath = certificateStorage.getKeyStorePath(getContainer(), "ssl").getAbsolutePath();
 
             properties.put("encrypt", "true");
-            properties.put("trustServerCertificate", sslConfig.getStringProperty(SQLServerConstants.PROP_SSL_TRUST_SERVER_CERTIFICATE));
 
             final String keystoreFileProp;
             final String keystorePasswordProp;
@@ -243,6 +313,17 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
                 this.supportsColumnProperty = true;
             } catch (Exception e) {
                 this.supportsColumnProperty = false;
+            }
+
+            // Read Database Engine edition of the instance of SQL Server installed on the server.
+            try {
+                String result = JDBCUtils.queryString(session, "SELECT SERVERPROPERTY('EngineEdition')");
+                if ("6".equals(result) || "11".equals(result)) {
+                    // SERVERPROPERTY returns int 6 or 11 if it is Azure Synapse
+                    isSynapseDatabase = true;
+                }
+            } catch (SQLException e) {
+                log.debug("Can't read Database Engine edition info", e);
             }
         } catch (Throwable e) {
             log.error("Error during connection initialization", e);
@@ -372,11 +453,9 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
     }
 
     @Override
-    public DBCQueryTransformer createQueryTransformer(DBCQueryTransformType type) {
+    public DBCQueryTransformer createQueryTransformer(@NotNull DBCQueryTransformType type) {
         if (type == DBCQueryTransformType.RESULT_SET_LIMIT) {
-            //if (!SQLServerUtils.isDriverAzure(getContainer().getDriver())) {
-                return new QueryTransformerTop();
-            //}
+            return new QueryTransformerTop();
         }
         return super.createQueryTransformer(type);
     }
@@ -387,8 +466,8 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
             return adapter.cast(new SQLServerStructureAssistant(this));
         } else if (adapter == DBAServerSessionManager.class) {
             return adapter.cast(new SQLServerSessionManager(this));
-        } else if (adapter == DBAUserChangePassword.class) {
-            return adapter.cast(new SQLServerChangeLoginPassword(this));
+        } else if (adapter == DBAUserPasswordManager.class) {
+            return adapter.cast(new SQLServerLoginPasswordManager(this));
         }
         return super.getAdapter(adapter);
     }
@@ -426,7 +505,7 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
         if (hasStatistics && !forceRefresh) {
             return;
         }
-        if (SQLServerUtils.isDriverAzure(getContainer().getDriver()) || isDataWarehouseServer(monitor)) {
+        if (SQLServerUtils.isDriverAzure(getContainer().getDriver()) || SQLServerUtils.isDriverBabelfish(getContainer().getDriver()) || isDataWarehouseServer(monitor)) {
             hasStatistics = true;
             return;
         }
@@ -452,6 +531,10 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
         }
     }
 
+    /**
+     * Returns true only in case we find the table and this table has clustered COLUMNSTORE index.
+     * These types of tables restrict special reading rules: do not scroll results or use TOP in the SELECT.
+     */
     @Override
     public boolean isForceTransform(DBCSession session, SQLQuery sqlQuery) {
         try {
@@ -463,6 +546,29 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
         return false;
     }
 
+    @Override
+    public boolean isLimitApplicableTo(SQLQuery query) {
+        boolean hasNextValExpr = false;
+        try {
+            Statement statement = SQLSemanticProcessor.parseQuery(this.sqlDialect, query.getText());
+            if (statement instanceof Select) {
+                SelectBody selectBody = ((Select) statement).getSelectBody();
+                if (selectBody instanceof PlainSelect) {
+                    PlainSelect plainSelect = (PlainSelect) selectBody;
+                    if (plainSelect.getFromItem() == null) {
+                        hasNextValExpr = plainSelect.getSelectItems().stream().anyMatch(
+                            item -> (item instanceof SelectExpressionItem) 
+                                && (((SelectExpressionItem) item).getExpression() instanceof NextValExpression)
+                        );
+                    }
+                }
+            }
+        } catch (DBCException e) {
+            log.error("Can't parse query " + query.getText(), e);
+        }
+        return !hasNextValExpr;
+    }
+    
     static class DatabaseCache extends JDBCObjectCache<SQLServerDataSource, SQLServerDatabase> {
         DatabaseCache() {
             setListOrderComparator(DBUtils.nameComparator());
@@ -472,22 +578,56 @@ public class SQLServerDataSource extends JDBCDataSource implements DBSInstanceCo
         @Override
         protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull SQLServerDataSource owner) throws SQLException {
             StringBuilder sql = new StringBuilder("SELECT db.* FROM sys.databases db");
-
-            DBSObjectFilter databaseFilters = owner.getContainer().getObjectFilter(SQLServerDatabase.class, null, false);
-            if (databaseFilters != null && databaseFilters.isEnabled()) {
-                JDBCUtils.appendFilterClause(sql, databaseFilters, "name", true);
+            DBPDataSourceContainer container = owner.getContainer();
+            DBPConnectionConfiguration configuration = container.getConnectionConfiguration();
+            String property = configuration.getProviderProperty(SQLServerConstants.PROP_SHOW_ALL_DATABASES);
+            // By default we will show all databases only for SQL Server
+            // And for other databases if "Show All databases" setting is enabled
+            boolean showSpecifiedDatabase = property != null && !CommonUtils.getBoolean(property) ||
+                (property == null && (owner.isBabelfish || SQLServerUtils.isDriverAzure(owner.getContainer().getDriver())));
+            String databaseName = configuration.getDatabaseName();
+            boolean useCurrentDatabaseName = showSpecifiedDatabase && CommonUtils.isEmpty(databaseName);
+            if (useCurrentDatabaseName) {
+                sql.append("\nWHERE db.name = db_name()");
+            } else if (showSpecifiedDatabase) {
+                sql.append("\nWHERE db.name = ?");
             }
-            sql.append("\nORDER BY db.name");
-            JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
-            if (databaseFilters != null) {
-                JDBCUtils.setFilterParameters(dbStat, 1, databaseFilters);
+            JDBCPreparedStatement dbStat;
+            if (!showSpecifiedDatabase) {
+                DBSObjectFilter databaseFilters = container.getObjectFilter(
+                    SQLServerDatabase.class,
+                    null,
+                    false);
+                if (databaseFilters != null && databaseFilters.isEnabled()) {
+                    JDBCUtils.appendFilterClause(
+                        sql,
+                        databaseFilters,
+                        "name",
+                        true,
+                        owner);
+                }
+                sql.append("\nORDER BY db.name");
+                dbStat = session.prepareStatement(sql.toString());
+                if (databaseFilters != null) {
+                    JDBCUtils.setFilterParameters(dbStat, 1, databaseFilters);
+                }
+            } else {
+                dbStat = session.prepareStatement(sql.toString());
+                if (!useCurrentDatabaseName) {
+                    dbStat.setString(1, databaseName);
+                }
             }
             return dbStat;
         }
 
         @Override
         protected SQLServerDatabase fetchObject(@NotNull JDBCSession session, @NotNull SQLServerDataSource owner, @NotNull JDBCResultSet resultSet) throws SQLException, DBException {
-            return new SQLServerDatabase(session, owner, resultSet);
+            String databaseName = JDBCUtils.safeGetString(resultSet, "name");
+            if (CommonUtils.isEmpty(databaseName)) {
+                log.debug("Empty database name fetched");
+                return null;
+            }
+            return new SQLServerDatabase(session, owner, resultSet, databaseName);
         }
 
     }

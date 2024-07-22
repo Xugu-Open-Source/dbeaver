@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,8 @@ import org.jkiss.dbeaver.model.struct.DBSInstanceContainer;
  * datasource instance may be refreshed at any moment. Obtain references on datasource only
  * from DBSObject or DBPContextProvider interfaces.
  */
-public interface DBPDataSource extends DBSInstanceContainer
+@DPIObject
+public interface DBPDataSource extends DBSInstanceContainer, DBPContextWithAttributes
 {
     /**
      * Row limit (setMaxSize) affects DML (UPDATE, INSERT, etc) statements.
@@ -46,11 +47,18 @@ public interface DBPDataSource extends DBSInstanceContainer
      * null means "unknown", -1 means any length (i.e. explicit length is not needed)
      */
     String FEATURE_MAX_STRING_LENGTH = "datasource.max-string-type-length";
+    /**
+     * Document data source result set representation.
+     */
+    String FEATURE_DOCUMENT_DATA_SOURCE = "datasource.document-data-source";
+
+
 
     /**
      * Datasource container
      * @return container implementation
      */
+    @DPIContainer(root = true)
     @NotNull
     DBPDataSourceContainer getContainer();
 
@@ -60,17 +68,20 @@ public interface DBPDataSource extends DBSInstanceContainer
      * at the moment of invocation of this function.
      * @return datasource info.
      */
+    @DPIElement
     @NotNull
     DBPDataSourceInfo getInfo();
 
     /**
      * Data source feature
      */
+    @DPIElement
     Object getDataSourceFeature(String featureId);
 
     /**
      * SQL dialect
      */
+    @DPIElement
     SQLDialect getSQLDialect();
 
     /**

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,12 +38,14 @@ import org.eclipse.ui.menus.UIElement;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
+import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
 import org.jkiss.dbeaver.model.sql.SQLScriptElement;
 import org.jkiss.dbeaver.runtime.properties.PropertySourceCustom;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.controls.StyledTextUtils;
 import org.jkiss.dbeaver.ui.editors.sql.SQLEditor;
+import org.jkiss.dbeaver.ui.editors.sql.SQLEditorFeatures;
 import org.jkiss.dbeaver.ui.editors.sql.dialogs.BaseSQLDialog;
 import org.jkiss.dbeaver.ui.editors.sql.internal.SQLEditorMessages;
 import org.jkiss.dbeaver.ui.editors.sql.registry.SQLConverterRegistry;
@@ -86,6 +88,8 @@ public class CopySourceCodeHandler extends AbstractHandler implements IElementUp
         }
 
         UIUtils.setClipboardContents(Display.getCurrent(), TextTransfer.getInstance(), dialog.getConvertedText());
+
+        SQLEditorFeatures.SQL_EDITOR_COPY_AS_SOURCE_CODE.use();
 
         return null;
     }
@@ -188,7 +192,7 @@ public class CopySourceCodeHandler extends AbstractHandler implements IElementUp
                 createSQLPanel(sash);
                 Composite targetGroup = UIUtils.createPlaceholder(sash, 1, 5);
                 targetGroup.setLayoutData(new GridData(GridData.FILL_BOTH));
-                UIUtils.createControlLabel(targetGroup, SQLEditorMessages.controls_querylog_column_result_name);
+                UIUtils.createControlLabel(targetGroup, ModelMessages.controls_querylog_column_result_name);
                 targetText = new StyledText(targetGroup, SWT.BORDER | SWT.READ_ONLY | SWT.V_SCROLL | SWT.WRAP);
                 targetText.setLayoutData(new GridData(GridData.FILL_BOTH));
                 targetText.setFont(UIUtils.getMonospaceFont());

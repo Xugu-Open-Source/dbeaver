@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.jkiss.dbeaver.runtime;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.app.DBPPlatform;
 import org.jkiss.dbeaver.runtime.ui.DBPPlatformUI;
@@ -66,7 +67,7 @@ public class DBWorkbench {
                     platformUIInstance = GeneralUtils.adapt(instance, DBPPlatformUI.class);
                     if (platformUIInstance == null) {
                         // Use console UI
-                        log.debug("No platform UI installed. Use console interface.");
+                        log.debug(new DBException("No platform UI installed. Use console interface"));
                         platformUIInstance = CONSOLE_USER_INTERFACE;
                     }
                 }
@@ -85,6 +86,18 @@ public class DBWorkbench {
             log.debug("Service '" + serviceType.getName() + "' not found");
         }
         return service;
+    }
+
+    /**
+     * Distributed platform.
+     * All configurations and resources are stored on remote servers.
+     */
+    public static boolean isDistributed() {
+        return getPlatform().getApplication().isDistributed();
+    }
+
+    public static boolean hasFeature(@NotNull String feature) {
+        return getPlatform().getApplication().hasProductFeature(feature);
     }
 
 }

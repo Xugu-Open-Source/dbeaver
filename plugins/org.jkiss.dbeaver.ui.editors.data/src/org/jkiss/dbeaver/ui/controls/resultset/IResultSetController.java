@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,6 +53,7 @@ public interface IResultSetController extends IDataController, DBPContextProvide
     String MENU_GROUP_EDIT = "edit";
     String MENU_GROUP_EXPORT = "results_export";
     String MENU_GROUP_ADDITIONS = "results_additions";//IWorkbenchActionConstants.MB_ADDITIONS;
+    String RESULTS_CONTEXT_ID = "org.jkiss.dbeaver.ui.context.resultset";
 
     enum ColumnOrder {
         ASC,
@@ -65,9 +66,6 @@ public interface IResultSetController extends IDataController, DBPContextProvide
 
     @NotNull
     IResultSetDecorator getDecorator();
-
-    @NotNull
-    IResultSetLabelProvider getLabelProvider();
 
     @NotNull
     ResultSetModel getModel();
@@ -111,7 +109,7 @@ public interface IResultSetController extends IDataController, DBPContextProvide
 
     List<DBEPersistAction> generateChangesScript(@NotNull DBRProgressMonitor monitor, @NotNull ResultSetSaveSettings settings);
     
-    void showDistinctFilter(DBDAttributeBinding curAttribute);
+    void showColumnMenu(DBDAttributeBinding curAttribute);
 
     void toggleSortOrder(@NotNull DBDAttributeBinding columnElement, @Nullable ColumnOrder forceOrder);
 
@@ -147,7 +145,7 @@ public interface IResultSetController extends IDataController, DBPContextProvide
      */
     void redrawData(boolean attributesChanged, boolean rowsChanged);
 
-    void fillContextMenu(@NotNull IMenuManager manager, @Nullable DBDAttributeBinding attr, @Nullable ResultSetRow row);
+    void fillContextMenu(@NotNull IMenuManager manager, @Nullable DBDAttributeBinding attr, @Nullable ResultSetRow row, int[] rowIndexes);
 
     @Nullable
     ResultSetRow getCurrentRow();
@@ -190,6 +188,8 @@ public interface IResultSetController extends IDataController, DBPContextProvide
 
     void updateEditControls();
 
+    void updateToolbar();
+
     ////////////////////////////////////////
     // Presentation & panels
 
@@ -211,6 +211,8 @@ public interface IResultSetController extends IDataController, DBPContextProvide
 
     void updatePanelsContent(boolean forceRefresh);
 
+    DBDDataFilter getDataFilter();
+
     void setDataFilter(final DBDDataFilter dataFilter, boolean refreshData);
 
     void setSegmentFetchSize(Integer segmentFetchSize);
@@ -229,4 +231,6 @@ public interface IResultSetController extends IDataController, DBPContextProvide
     void addListener(IResultSetListener listener);
 
     void removeListener(IResultSetListener listener);
+
+    void updateDirtyFlag();
 }

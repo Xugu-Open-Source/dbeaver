@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ package org.jkiss.dbeaver.ext.mysql.ui.config;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.*;
 import org.jkiss.dbeaver.ext.mysql.MySQLConstants;
+import org.jkiss.dbeaver.ext.mysql.MySQLMessages;
 import org.jkiss.dbeaver.ext.mysql.model.MySQLTableColumn;
 import org.jkiss.dbeaver.ext.mysql.model.MySQLTableIndex;
 import org.jkiss.dbeaver.ext.mysql.model.MySQLTableIndexColumn;
@@ -35,6 +36,7 @@ import org.jkiss.dbeaver.ui.editors.object.struct.EditIndexPage;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.Arrays;
+import java.util.Map;
 
 /**
  * MySQL index configurator
@@ -43,7 +45,7 @@ public class MySQLIndexConfigurator implements DBEObjectConfigurator<MySQLTableI
 
 
     @Override
-    public MySQLTableIndex configureObject(DBRProgressMonitor monitor, Object parent, MySQLTableIndex index) {
+    public MySQLTableIndex configureObject(DBRProgressMonitor monitor, Object parent, MySQLTableIndex index, Map<String, Object> options) {
         return UITask.run(() -> {
             MyEditIndexPage editPage = new MyEditIndexPage(index);
             if (!editPage.edit()) {
@@ -97,8 +99,8 @@ public class MySQLIndexConfigurator implements DBEObjectConfigurator<MySQLTableI
         protected void createAttributeColumns(Table columnsTable) {
             super.createAttributeColumns(columnsTable);
 
-            TableColumn colDesc = UIUtils.createTableColumn(columnsTable, SWT.NONE, "Length");
-            colDesc.setToolTipText("Index length (for varchar columns)");
+            TableColumn colDesc = UIUtils.createTableColumn(columnsTable, SWT.NONE, MySQLMessages.table_column_length);
+            colDesc.setToolTipText(MySQLMessages.table_column_length_tooltip);
         }
 
         @Override

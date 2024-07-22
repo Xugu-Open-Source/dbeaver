@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2021 DBeaver Corp and others
+ * Copyright (C) 2010-2023 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,6 +70,15 @@ public class HANAStructureAssistant extends JDBCStructureAssistant<JDBCExecution
                 HANAObjectType.VIEW,
                 HANAObjectType.PROCEDURE,
                 HANAObjectType.SYNONYM
+        };
+    }
+
+    @Override
+    public DBSObjectType[] getHyperlinkObjectTypes() {
+        return new DBSObjectType[]{
+            HANAObjectType.TABLE,
+            HANAObjectType.VIEW,
+            HANAObjectType.SYNONYM
         };
     }
 
@@ -153,7 +162,7 @@ public class HANAStructureAssistant extends JDBCStructureAssistant<JDBCExecution
                     }
 
                     result.add(
-                            new AbstractObjectReference(objectName, schema, null, objectType.getTypeClass(), objectType) {
+                            new AbstractObjectReference<DBSObject>(objectName, schema, null, objectType.getTypeClass(), objectType) {
                                 @Override
                                 public DBSObject resolveObject(DBRProgressMonitor monitor) throws DBException {
                                     DBSObject object = objectType.findObject(session.getProgressMonitor(), schema, objectName);
@@ -166,7 +175,7 @@ public class HANAStructureAssistant extends JDBCStructureAssistant<JDBCExecution
                                 @NotNull
                                 @Override
                                 public String getFullyQualifiedName(DBPEvaluationContext context) {
-                                    if (objectType == HANAObjectType.SYNONYM && "PUBLIC".equals(schemaName)) {
+                                    if (objectType == HANAObjectType.SYNONYM && HANAConstants.SCHEMA_PUBLIC.equals(schemaName)) {
                                         return DBUtils.getQuotedIdentifier(dataSource, objectName);
                                     }
                                     return super.getFullyQualifiedName(context);
@@ -200,7 +209,7 @@ public class HANAStructureAssistant extends JDBCStructureAssistant<JDBCExecution
                     if (schema == null)
                         continue; // filtered
 
-                    result.add(new AbstractObjectReference(objectName, schema, description, GenericTable.class,
+                    result.add(new AbstractObjectReference<DBSObject>(objectName, schema, description, GenericTable.class,
                             RelationalObjectType.TYPE_TABLE) {
                         @Override
                         public DBSObject resolveObject(DBRProgressMonitor monitor) throws DBException {
@@ -241,12 +250,11 @@ public class HANAStructureAssistant extends JDBCStructureAssistant<JDBCExecution
                     if (schema == null)
                         continue; // filtered
 
-                    result.add(new AbstractObjectReference(objectName, schema, description, GenericTable.class,
+                    result.add(new AbstractObjectReference<GenericObjectContainer>(objectName, schema, description, GenericTable.class,
                             RelationalObjectType.TYPE_VIEW) {
                         @Override
                         public DBSObject resolveObject(DBRProgressMonitor monitor) throws DBException {
-                            GenericTableBase object = ((GenericObjectContainer) getContainer()).getTable(monitor,
-                                    getName());
+                            GenericTableBase object = getContainer().getTable(monitor, getName());
                             if (object == null) {
                                 throw new DBException("Can't find object '" + getName() + "' in '"
                                         + DBUtils.getFullQualifiedName(dataSource, getContainer()) + "'");
@@ -282,7 +290,7 @@ public class HANAStructureAssistant extends JDBCStructureAssistant<JDBCExecution
                     if (schema == null)
                         continue; // filtered
 
-                    result.add(new AbstractObjectReference(objectName, schema, description, GenericProcedure.class,
+                    result.add(new AbstractObjectReference<DBSObject>(objectName, schema, description, GenericProcedure.class,
                             RelationalObjectType.TYPE_PROCEDURE) {
                         @Override
                         public DBSObject resolveObject(DBRProgressMonitor monitor) throws DBException {
@@ -324,7 +332,7 @@ public class HANAStructureAssistant extends JDBCStructureAssistant<JDBCExecution
                     if (schema == null)
                         continue; // filtered
 
-                    result.add(new AbstractObjectReference(objectName, schema, description, GenericTableColumn.class,
+                    result.add(new AbstractObjectReference<DBSObject>(objectName, schema, description, GenericTableColumn.class,
                             RelationalObjectType.TYPE_TABLE_COLUMN) {
                         @Override
                         public DBSObject resolveObject(DBRProgressMonitor monitor) throws DBException {
@@ -371,7 +379,7 @@ public class HANAStructureAssistant extends JDBCStructureAssistant<JDBCExecution
                     if (schema == null)
                         continue; // filtered
 
-                    result.add(new AbstractObjectReference(objectName, schema, description, GenericTableColumn.class,
+                    result.add(new AbstractObjectReference<DBSObject>(objectName, schema, description, GenericTableColumn.class,
                             RelationalObjectType.TYPE_TABLE_COLUMN) {
                         @Override
                         public DBSObject resolveObject(DBRProgressMonitor monitor) throws DBException {

@@ -20,12 +20,14 @@ import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource.UserRoleFlag;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
+import org.jkiss.dbeaver.model.DBPRefreshableObject;
 import org.jkiss.dbeaver.model.DBPScriptObject;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.rdb.DBSSequence;
 
 import com.xugu.parser.DatabaseParsing;
@@ -42,7 +44,7 @@ import java.util.Map;
 /**
  * 序列信息类，包含序列相关的基本信息
  */
-public class Sequence extends BaseSchemaObject implements DBSSequence, DBPScriptObject {
+public class Sequence extends BaseSchemaObject implements DBSSequence, DBPScriptObject, DBPRefreshableObject {
 	private int seqId;
 	private String seqName;
 	private BigDecimal curVal;
@@ -245,5 +247,12 @@ public class Sequence extends BaseSchemaObject implements DBSSequence, DBPScript
 		} catch (SQLException e) {
 			throw new DBException("Close connection of DDL failed", e);
 		}
+	}
+
+	@Override
+	public DBSObject refreshObject(DBRProgressMonitor monitor) throws DBException {
+		Schema schema = this.getSchema();
+		schema.sequenceCache.clearCache();
+		return schema.sequenceCache.refreshObject(monitor, schema, this);
 	}
 }

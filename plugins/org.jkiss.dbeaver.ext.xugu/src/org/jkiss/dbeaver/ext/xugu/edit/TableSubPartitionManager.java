@@ -245,10 +245,12 @@ public class TableSubPartitionManager extends SQLObjectEditor<TableSubPartition,
 			colCombo.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 			try {
 				Collection<? extends DBSEntityAttribute> cols = table.getAttributes(monitor);
-				Iterator<? extends DBSEntityAttribute> it = cols.iterator();
-				while (it.hasNext()) {
-					String name = it.next().getName();
-					colCombo.add(name);
+				if(cols != null) {
+					Iterator<? extends DBSEntityAttribute> it = cols.iterator();
+					while (it.hasNext()) {
+						String name = it.next().getName();
+						colCombo.add(name);
+					}
 				}
 			} catch (DBException e) {
 				e.printStackTrace();
