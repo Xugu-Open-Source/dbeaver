@@ -23,6 +23,7 @@ import org.jkiss.dbeaver.model.data.DBDFormatSettings;
 import org.jkiss.dbeaver.model.data.DBDValueHandler;
 import org.jkiss.dbeaver.model.data.DBDValueHandlerProvider;
 import org.jkiss.dbeaver.model.impl.jdbc.data.handlers.JDBCContentValueHandler;
+import org.jkiss.dbeaver.model.impl.jdbc.data.handlers.JDBCStandardValueHandlerProvider;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 
 import java.sql.Types;
@@ -42,6 +43,8 @@ public class ValueHandlerProvider implements DBDValueHandlerProvider {
 			return ClobValueHandler.INSTANCE;
 		case Types.STRUCT:
 			return ObjectValueHandler.INSTANCE;
+		case Types.ARRAY:
+			return ArrayValueHandler.INSTANCE;
 		default:
 			break;
 		}
@@ -66,8 +69,8 @@ public class ValueHandlerProvider implements DBDValueHandlerProvider {
 
 		if (typeName.contains(Constants.TYPE_NAME_TIMESTAMP) || typedObject.getDataKind() == DBPDataKind.DATETIME) {
 			return new TimestampValueHandler(preferences);
-		} else {
-			return null;
 		}
+
+		return new JDBCStandardValueHandlerProvider().getValueHandler(dataSource, preferences, typedObject);
 	}
 }

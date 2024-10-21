@@ -362,6 +362,7 @@
             <!--type standard="STRUCT"/-->
            <type name="BIT"/>
            <type name="VARBIT"/>
+           <type name="ARRAY"/>
         </provider>
     </extension>
     <extension point="org.eclipse.ui.commands">

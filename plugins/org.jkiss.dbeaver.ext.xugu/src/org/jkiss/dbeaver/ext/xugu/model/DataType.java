@@ -119,6 +119,10 @@ public class DataType extends BaseObject<DBSObject>
 		PREDEFINED_TYPES.put("TIMESTAMP", new TypeDesc(DBPDataKind.DATETIME, Types.TIMESTAMP, 6, 0, 0, 0));
 		PREDEFINED_TYPES.put("INT", new TypeDesc(DBPDataKind.NUMERIC, Types.INTEGER, 10, 0, 0, 0));
 		PREDEFINED_TYPES.put("BIT", new TypeDesc(DBPDataKind.STRING, Types.VARCHAR, 0, 0, 0, 0));
+		PREDEFINED_TYPES.put("INTEGER[]", new TypeDesc(DBPDataKind.ARRAY, Types.ARRAY, 0, 0, 0, 0));
+		PREDEFINED_TYPES.put("DOUBLE[]", new TypeDesc(DBPDataKind.ARRAY, Types.ARRAY, 0, 0, 0, 0));
+		PREDEFINED_TYPES.put("CHAR[]", new TypeDesc(DBPDataKind.ARRAY, Types.ARRAY, 0, 0, 0, 0));
+		PREDEFINED_TYPES.put("CLOB[]", new TypeDesc(DBPDataKind.ARRAY, Types.ARRAY, 0, 0, 0, 0));
 
 		for (TypeDesc type : PREDEFINED_TYPES.values()) {
 			PREDEFINED_TYPE_IDS.put(type.valueType, type);
@@ -373,33 +377,12 @@ public class DataType extends BaseObject<DBSObject>
 
 	@Override
 	@Property(viewable = true, order = 8)
-	public DataType getComponentType(@NotNull DBRProgressMonitor monitor) throws DBException {
-		if (componentType != null) {
-			return componentType;
-		}
-		Schema schema = getSchema();
-		if (schema == null || !TYPE_CODE_COLLECTION.equals(typeCode)) {
-			return null;
-		}
-		try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load collection types")) {
-			try (JDBCPreparedStatement dbStat = session.prepareStatement(
-					"SELECT ELEM_TYPE_OWNER,ELEM_TYPE_NAME,ELEM_TYPE_MOD FROM SYS.ALL_COLL_TYPES WHERE OWNER=? AND TYPE_NAME=?")) {
-				dbStat.setString(1, schema.getName());
-				dbStat.setString(2, getName());
-				try (JDBCResultSet dbResults = dbStat.executeQuery()) {
-					if (dbResults.next()) {
-						String compTypeSchema = JDBCUtils.safeGetString(dbResults, "ELEM_TYPE_OWNER");
-						String compTypeName = JDBCUtils.safeGetString(dbResults, "ELEM_TYPE_NAME");
-						componentType = DataType.resolveDataType(compTypeName);
-					} else {
-						log.warn("Can't resolve collection type [" + getName() + "]");
-					}
-				}
+	public DataType getComponentType(@NotNull DBRProgressMonitor monitor) {
+		if (componentType == null) {
+			if(this.typeDesc.dataKind == DBPDataKind.ARRAY) {
+				this.componentType = new DataType(this, this.name.substring(0, this.name.length()-2), true);
 			}
-		} catch (Exception e) {
-			log.warn("Error reading collection types", e);
 		}
-
 		return componentType;
 	}
 
@@ -495,4 +478,8 @@ public class DataType extends BaseObject<DBSObject>
 		return 0;
 	}
 
+    @Property(viewable = true, optional = true, order = 13)
+    public DataType getElementType(DBRProgressMonitor monitor) {
+        return this.getComponentType(monitor);
+    }
 }
