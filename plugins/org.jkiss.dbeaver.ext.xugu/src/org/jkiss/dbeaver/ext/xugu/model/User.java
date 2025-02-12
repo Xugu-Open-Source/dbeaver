@@ -137,25 +137,29 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 		// 获取SYSDBA连接,用来获取当前用户所包含的角色信息
 		try (Connection tempConn = resultSet.getStatement().getConnection();
 				Statement stmt = tempConn.createStatement()) {
-			String sql = "SELECT USER_NAME FROM ";
-	 
-			sql += "SYS_USERS  SU WHERE SU.USER_ID IN(SELECT ROLE_ID FROM SYS_ROLE_MEMBERS SRM WHERE SRM.USER_ID=";
-			sql += this.userId;
-			sql += " AND SRM.DB_ID = ";
-			sql += this.dbId;
-			sql += " ) AND SU.DB_ID=";
-			sql += this.dbId;
-			sql += " AND IS_ROLE=TRUE";
-			ResultSet rs = stmt.executeQuery(sql);
-			// 获取当前用户所含角色信息
 			String text = "";
-			while (rs.next()) {
-				String role = rs.getString(1);
-				text += role + ",";
+			if(!this.getDataSource().getRoleFlag().equalsIgnoreCase("all")) {
+				String sql = "SELECT USER_NAME FROM ";
+				 
+				//sql += "ALL_USERS  SU WHERE SU.USER_ID IN(SELECT ROLE_ID FROM DBA_ROLE_MEMBERS SRM WHERE SRM.USER_ID=";
+				sql += this.getDataSource().getRoleFlag()+"_USERS  SU WHERE SU.USER_ID IN(SELECT ROLE_ID FROM "+this.getDataSource().getRoleFlag()+"_ROLE_MEMBERS SRM WHERE SRM.USER_ID=";
+				sql += this.userId;
+				sql += " AND SRM.DB_ID = ";
+				sql += this.dbId;
+				sql += " ) AND SU.DB_ID=";
+				sql += this.dbId;
+				sql += " AND IS_ROLE=TRUE";
+				ResultSet rs = stmt.executeQuery(sql);
+				// 获取当前用户所含角色信息
+				while (rs.next()) {
+					String role = rs.getString(1);
+					text += role + ",";
+				}
+				if (!text.isEmpty()) {
+					text = text.substring(0, text.length() - 1);
+				}
 			}
-			if (!text.isEmpty()) {
-				text = text.substring(0, text.length() - 1);
-			}
+			
 			this.setRoleList(text);
 
 			// 获取全部角色信息,并加入全部角色列表中
@@ -184,7 +188,7 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 				this.setSchemaList(text2);
 			}
 		} catch (DBException | SQLException e) {
-			e.printStackTrace();
+			throw new RuntimeException(e);
 		}
 		if (resultSet != null) {
 			reloadAuthrities();
