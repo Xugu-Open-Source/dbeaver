@@ -329,4 +329,6 @@ public static final String[] DEF_OBJECT_TYPE_LIST = { "TABLE", "VIEW", "SEQUENCE
 	        null,
 	        "Unique row identifier",
 	        true);
+
+    public static final String XG_ARRAY_CLASS = "com.xugu.cloudjdbc.Array";
 }

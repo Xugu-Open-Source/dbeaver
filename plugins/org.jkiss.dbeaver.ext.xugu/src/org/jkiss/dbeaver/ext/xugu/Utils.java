@@ -22,6 +22,8 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.xugu.model.DDLFormat;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource.UserRoleFlag;
+import org.jkiss.dbeaver.ext.xugu.model.DataType;
+import org.jkiss.dbeaver.ext.xugu.model.Database;
 import org.jkiss.dbeaver.ext.xugu.model.ObjectType;
 import org.jkiss.dbeaver.ext.xugu.model.Package;
 import org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone;
@@ -40,7 +42,10 @@ import org.jkiss.dbeaver.model.DBPScriptObject;
 import org.jkiss.dbeaver.model.DBPScriptObjectExt;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
+import org.jkiss.dbeaver.model.exec.DBCAttributeMetaData;
+import org.jkiss.dbeaver.model.exec.DBCEntityMetaData;
 import org.jkiss.dbeaver.model.exec.DBCException;
+import org.jkiss.dbeaver.model.exec.DBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
@@ -48,8 +53,17 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
 import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
+import org.jkiss.dbeaver.model.impl.jdbc.exec.JDBCColumnMetaData;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.sql.SQLUtils;
+import org.jkiss.dbeaver.model.struct.DBSDataType;
+import org.jkiss.dbeaver.model.struct.DBSEntity;
+import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
+import org.jkiss.dbeaver.model.struct.DBSInstance;
+import org.jkiss.dbeaver.model.struct.DBSTypedObject;
+import org.jkiss.dbeaver.model.struct.DBSTypedObjectEx;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTrigger;
+import org.jkiss.utils.ArrayUtils;
 
 import com.xugu.metadata.*;
 import com.xugu.parser.Parsing;
@@ -657,4 +671,40 @@ public class Utils {
 		}
 		return null;
 	}
+
+    public static DataType findDataType(DBCSession session, DataSource dataSource, DBSTypedObject type) throws DBCException {
+        if (type instanceof DataType) {
+            return (DataType) type;
+        } else {
+            DBRProgressMonitor monitor = session.getProgressMonitor();
+            if (type instanceof JDBCColumnMetaData) {
+                try {
+                    DBCEntityMetaData entityMetaData = ((DBCAttributeMetaData) type).getEntityMetaData();
+                    if (entityMetaData != null) {
+                        DBSEntity docEntity = DBUtils.getEntityFromMetaData(monitor, session.getExecutionContext(), entityMetaData);
+                        if (docEntity != null) {
+                            DBSEntityAttribute attribute = docEntity.getAttribute(monitor, ((DBCAttributeMetaData) type).getName());
+                            if (attribute instanceof DBSTypedObjectEx) {
+                                DBSDataType dataType = ((DBSTypedObjectEx) attribute).getDataType();
+                                if (dataType instanceof DataType) {
+                                    return (DataType) dataType;
+                                }
+                            }
+                        }
+                    } else {
+                        String typeName = type.getTypeName();
+                        DataType dataType = dataSource.dataTypeCache.getCachedObject(typeName);
+                        if (dataType != null) {
+                            return dataType;
+                        }
+                    }
+                } catch (DBException e) {
+                    throw new DBCException("Error extracting column " + type + " data type", e);
+                }
+            }
+
+            String typeName = type.getTypeName();
+            return (DataType) dataSource.getLocalDataType(typeName);
+        }
+    }
 }

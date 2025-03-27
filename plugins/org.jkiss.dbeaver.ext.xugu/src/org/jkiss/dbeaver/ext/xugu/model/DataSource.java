@@ -25,6 +25,7 @@ import org.jkiss.dbeaver.ext.xugu.Constants;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
+import org.jkiss.dbeaver.model.data.DBDValueHandlerProvider;
 import org.jkiss.dbeaver.model.exec.*;
 import org.jkiss.dbeaver.model.exec.jdbc.*;
 import org.jkiss.dbeaver.model.exec.output.DBCOutputWriter;
@@ -56,6 +57,7 @@ import org.jkiss.dbeaver.ext.xugu.model.Schema.SynonymCache;
 import org.jkiss.dbeaver.ext.xugu.model.plan.PlanAnalyser;
 import org.jkiss.dbeaver.ext.xugu.Utils;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
+import org.jkiss.dbeaver.ext.xugu.data.ValueHandlerProvider;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -107,7 +109,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	final public Schema publicSchema;
 	final public SchemaCache schemaCache = new SchemaCache();
 	final public DatabaseCache databaseCache = new DatabaseCache();
-	final DataTypeCache dataTypeCache = new DataTypeCache();
+	final public DataTypeCache dataTypeCache = new DataTypeCache();
 	final public SchedulerJobCache schedulerJobCache = new SchedulerJobCache();
 	final public SynonymCache publicSynonymCache = new SynonymCache();
 
@@ -527,6 +529,8 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			return adapter.cast(new StructureAssistant(this));
 		} else if (adapter == DBCServerOutputReader.class) {
 			return adapter.cast(outputReader);
+		} else if (adapter == DBDValueHandlerProvider.class) {
+			return adapter.cast(new ValueHandlerProvider());
 		}
 		return super.getAdapter(adapter);
 	}
@@ -880,7 +884,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	/**
 	 * 数据类型缓存，不做查询操作，在 initialize 函数中进行初始化
 	 */
-	static class DataTypeCache extends JDBCObjectCache<DataSource, DataType> {
+	public static class DataTypeCache extends JDBCObjectCache<DataSource, DataType> {
 		@Override
 		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull DataSource owner)
 				throws SQLException {
