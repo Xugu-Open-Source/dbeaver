@@ -1,0 +1,405 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.2"?>
+<!--
+ * DBeaver - Universal Database Manager
+ * Copyright (C) 2010-2017 Serge Rider (serge@jkiss.org)
+ * Copyright (C) 2017 Andrew Khitrin (ahitrin@gmail.com)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+  -->
+
+<plugin>
+
+    <extension point="org.jkiss.dbeaver.dataSourceProvider">
+        <datasource class="org.jkiss.dbeaver.ext.xugu.DataSourceProvider" description="Xugu connector" icon="icons/icon.png" id="xugu" label="Xugu" dialect="xugu">
+            <tree icon="icons/icon.png" label="Xugu data source" path="xugu">
+
+                <!--模式-->
+                <folder type="org.jkiss.dbeaver.ext.xugu.model.Schema" label="%tree.schemas.node.name" icon="#folder_schema" description="Database schemas">
+                    <items label="%tree.schema.node.name" path="schema" property="schemas" icon="#schema">
+                        <icon if="object.system" icon="#schema_system"/>
+                        <!--表-->
+                        <folder type="org.jkiss.dbeaver.ext.xugu.model.Table" label="%tree.tables.node.name" icon="#folder_table" description="Tables">
+                            <items label="%tree.table.node.name" path="table" property="tables" icon="#table">
+                                <!--列-->
+                                <folder type="org.jkiss.dbeaver.ext.xugu.model.TableColumn" label="%tree.columns.node.name" icon="#columns" description="Table columns">
+                                    <items label="%tree.column.node.name" path="column" property="attributes" icon="#column">
+                                    </items>
+                                </folder> 
+                                <!--约束-->
+                                <folder type="org.jkiss.dbeaver.ext.xugu.model.TableConstraint" label="%tree.constraints.node.name" icon="#constraints" description="Table constraints">
+                                    <items label="%tree.constraint.node.name" path="constraint" property="constraints" icon="#unique-key">
+                                        <items label="%tree.constraint_columns.node.name" path="column" property="attributeReferences" navigable="false" inline="true">
+                                        </items>
+                                    </items>
+                                </folder>
+                                <!--外键-->
+                                <folder type="org.jkiss.dbeaver.ext.xugu.model.TableForeignKey" label="%tree.foreign_keys.node.name" icon="#keys" description="Table keys">
+                                    <items label="%tree.foreign_key.node.name" path="association" property="associations" icon="#foreign-key">
+                                        <items label="%tree.foreign_key_columns.node.name" itemLabel="%tree.column.node.name" path="column" property="attributeReferences" navigable="false" inline="true">
+                                        </items>
+                                    </items>
+                                </folder>
+                                <!--触发器   -->
+                                <folder type="org.jkiss.dbeaver.ext.xugu.model.Trigger" label="%tree.triggers.node.name" icon="#triggers" description="Triggers">
+                                    <items label="%tree.trigger.node.name" path="trigger" property="triggers" icon="#trigger">
+                                        <items label="%tree.columns.node.name" itemLabel="%tree.column.node.name" path="column" property="columns" navigable="false" inline="false">
+                                        </items>
+                                    </items>
+                                </folder>
+                                <!--索引-->
+                                <folder type="org.jkiss.dbeaver.ext.xugu.model.TableIndex" label="%tree.indexes.node.name" icon="#indexes" description="Table indexes">
+                                    <items label="%tree.index.node.name" path="index" property="indexes" icon="#index">
+                                        <items label="%tree.index_columns.node.name" itemLabel="%tree.column.node.name" path="column" property="attributeReferences" navigable="false" inline="true">
+                                        </items>
+                                    </items>
+                                </folder>
+                                <!--表分区-->
+                                <folder type="org.jkiss.dbeaver.ext.xugu.model.TablePartition" label="%tree.partitions.node.name" icon="#partitions" description="Table partitions">
+                                    <items label="%tree.partition.node.name" path="partition" property="partitions" icon="#partition">
+                                    </items>
+                                </folder>
+                                <!--子分区-->
+                                <folder type="org.jkiss.dbeaver.ext.xugu.model.TableSubPartition" label="%tree.subpartitions.node.name" icon="#partitions" description="Table Subpartitions">
+                                    <items label="%tree.subpartitions.node.name" path="subpartition" property="subPartitions" icon="#partition">
+                                    </items>
+                                </folder>
+                            </items>
+                        </folder>
+                        <!--视图-->
+                        <folder type="org.jkiss.dbeaver.ext.xugu.model.View" label="%tree.views.node.name" icon="#folder_view" description="Views">
+                            <items label="%tree.view.node.name" path="view" property="views" icon="#view">
+                                <!--列-->
+                                <items label="%tree.columns.node.name" itemLabel="%tree.column.node.name" path="column" property="attributes" icon="#column">
+                                </items>
+                            </items>
+                        </folder>
+                        <!--序列-->
+                        <folder type="org.jkiss.dbeaver.ext.xugu.model.Sequence" label="%tree.sequences.node.name" icon="#sequences" description="Sequences">
+                            <items label="%tree.sequence.node.name" path="sequence" property="sequences" icon="#sequence">
+                            </items>
+                        </folder>
+                        <!--包-->
+                        <folder type="org.jkiss.dbeaver.ext.xugu.model.Package" label="%tree.packages.node.name" icon="#packages" description="Packages">
+                            <items label="%tree.package.node.name" path="package" property="packages" icon="#package">
+                                <!--存储过程-->
+                                <folder type="org.jkiss.dbeaver.ext.xugu.model.NewProcedurePackaged" label="%tree.procedures.node.name" icon="#procedures" description="Procedures">
+                                    <items label="%tree.procedures.node.name" itemLabel="%tree.procedure.node.name" path="procedure" property="NewProcedures" icon="#procedure" id="Procedure">
+                                        <items label="%tree.scheduler.job.parameters.node.name" itemLabel="%tree.scheduler.job.parameter.node.name" path="argument" property="parameters" icon="#procedure"/>
+                              	 	</items>
+                                </folder>
+                                <!--存储函数-->
+                                <folder type="org.jkiss.dbeaver.ext.xugu.model.NewProcedurePackaged" label="%tree.functions.node.name" icon="#functions" description="Functions">
+                                    <items label="%tree.functions.node.name" itemLabel="%tree.function.node.name" path="function" property="NewFunctions" icon="#function" id="Functions">                
+                                  	    <items label="%tree.scheduler.job.parameters.node.name" itemLabel="%tree.scheduler.job.parameter.node.name" path="argument" property="parameters" icon="#procedure"/>
+                              	 	</items>
+                                </folder>
+                            </items>
+                        </folder>
+                        <!--存储过程-->
+                        <folder type="org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone" label="%tree.procedures.node.name" icon="#procedures" description="Procedures">
+                            <items label="%tree.procedures.node.name" itemLabel="%tree.procedure.node.name" path="procedure" property="procedures" icon="#procedure" id="Procedure">
+                                <items navigable="false" visibleIf="true" label="%tree.scheduler.job.parameters.node.name" itemLabel="%tree.scheduler.job.parameter.node.name" path="argument" property="parameters" icon="#procedure"/>
+                            </items>
+                        </folder>
+                        <!--存储函数-->
+                        <folder type="org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone" label="%tree.functions.node.name" icon="#functions" description="Functions">
+                            <items label="%tree.functions.node.name" itemLabel="%tree.function.node.name" path="function" property="functions" icon="#function" id="Functions">
+                                <items navigable="false" visibleIf="true" label="%tree.scheduler.job.parameters.node.name" itemLabel="%tree.scheduler.job.parameter.node.name" path="argument" property="parameters" icon="#function"/>
+                            </items>
+                        </folder>
+                        <!--触发器-->
+                        <folder type="org.jkiss.dbeaver.ext.xugu.model.Trigger" label="%tree.triggers.node.name" icon="#triggers" description="triggers">
+                            <items label="%tree.trigger.node.name" path="trigger" property="Triggers" icon="#trigger">
+                                <items label="%tree.columns.node.name" itemLabel="%tree.column.node.name" path="column" property="columns" navigable="false" inline="false" virtual="true">
+                                </items>
+                            </items>
+                        </folder>
+                        <!--同义词-->
+                        <folder type="org.jkiss.dbeaver.ext.xugu.model.Synonym" label="%tree.synonyms.node.name" icon="#synonyms" description="Synonyms">
+                            <items label="%tree.synonym.node.name" path="synonym" property="synonyms" icon="#synonym"/>
+                        </folder>
+                        <!--自定义数据类型-->
+                        <folder type="org.jkiss.dbeaver.ext.xugu.model.Udt" label="%tree.Udts.node.name" icon="#data_types" description="UDTs">
+                            <items label="%tree.Udt.node.name" path="Udt" property="Udts" icon="#data_types">
+								<!--属性-->
+                                <folder type="org.jkiss.dbeaver.ext.xugu.model.DataTypeAttribute" label="%tree.attributes.node.name" icon="#attributes" description="Type attributes" visibleIf="true">
+                                    <items label="%tree.attribute.node.name" path="attribute" property="attributes" icon="#attribute"/>
+                                </folder>
+								<!--方法-->
+                                <folder type="org.jkiss.dbeaver.ext.xugu.model.DataTypeMethod" label="%tree.methods.node.name" icon="#procedures" description="Type methods" visibleIf="true">
+                                    <items label="%tree.method.node.name" path="method" property="methods" icon="#procedure">
+                                        <items label="%tree.arguments.node.name" itemLabel="%tree.argument.node.name" path="parameter" property="parameters" icon="#argument" navigable="false" inline="false">
+                                        </items>
+                                    </items>
+                                </folder>
+                            </items>
+                        </folder>
+                    </items>
+                </folder>
+                <!--作业-->
+                <folder type="org.jkiss.dbeaver.ext.xugu.model.SchedulerJob" label="%tree.scheduler.jobs.node.name" icon="#scheduler_job_folder" description="Scheduler jobs">
+                    <items label="%tree.scheduler.job.node.name" path="schedulerJob" property="schedulerJobs" icon="icons/scheduled_job.png">
+                        <items label="%tree.scheduler.job.arguments.node.name" itemLabel="%tree.scheduler.job.argument.node.name" path="argument" property="arguments" icon="#argument"/>
+                    </items>
+                </folder>
+                <!--存储管理-->
+                <!--表空间-->
+                <folder type="org.jkiss.dbeaver.ext.xugu.model.Tablespace" label="%tree.tablespaces.node.name" icon="#tablespaces" description="Tablespaces">
+                    <items label="%tree.tablespace.node.name" path="tablespace" property="tablespaces" icon="#tablespace">
+                        <folder type="org.jkiss.dbeaver.ext.xugu.model.DataFile" label="%tree.files.node.name" icon="#files" description="Data Files">
+                            <items label="%tree.file.node.name" path="file" property="files" icon="#file"/>
+                        </folder>
+                    </items>
+                </folder>
+                <!--用户-->
+                <folder type="org.jkiss.dbeaver.ext.xugu.model.User" label="%tree.users.node.name" icon="#folder_user" description="Users">
+                    	<items label="%tree.user.node.name" path="user" property="users" icon="#user">
+                    	</items>
+                </folder>
+                <folder type="org.jkiss.dbeaver.ext.xugu.model.Role" label="%tree.roles.node.name" icon="#folder_role" description="Roles">
+                    	<items label="%tree.role.node.name" path="role" property="roles" icon="#user_group">
+                    	</items>
+                </folder>
+                <!--全局元信息-->
+                <folder type="org.jkiss.dbeaver.model.struct.DBSObject" label="%tree.global_metadata.node.name" icon="#logical" description="Global metadata objects">
+                    <folder type="org.jkiss.dbeaver.ext.xugu.model.DataType" label="%tree.types.node.name" icon="#data_types" description="Types">
+                        <items label="%tree.data_type.node.name" path="type" property="localDataTypes" icon="#data_type"/>
+                    </folder>
+                    <folder type="org.jkiss.dbeaver.ext.xugu.model.Synonym" label="%tree.synonyms.node.name" icon="#synonyms" description="Public synonyms">
+                        <items label="%tree.synonym.node.name" path="synonym" property="publicSynonyms" icon="#synonym"/>
+                    </folder>
+                </folder>
+            </tree>
+
+            <drivers managable="true">
+                <driver class="com.xugu.cloudjdbc.Driver" defaultPort="5138" description="Xugu JDBC driver." icon="icons/icon.png" iconBig="icons/icon_big.png" id="Xugu SQL Server" label="Xugu" promoted="9999" sampleURL="jdbc:xugu://{host}[:{port}]/{database}" useURL="false" webURL="https://gitee.com/XuguDB/org.jkiss.dbeaver.ext.xugu/tree/develop/drivers" categories="sql">
+                    <replace provider="generic" driver="xugu"/>
+                    <replace provider="xugu" driver="xugu"/>
+                    <replace provider="xugu" driver="xugu_oci"/>
+
+                    <property name="recv_mode" value="2"/>
+                    <property name="auto_commit" value="on"/>
+                    <!-- <property name="lob_ret" value=""/> -->
+                    <property name="iso_level" value="READ COMMITTED"/>
+                    <property name="lock_timeout" value="3600000"/>
+                    <property name="return_rowid" value="false"/>
+                    <property name="sql_cursor" value="sql_cursor"/>
+                    <property name="isCompatible" value="false"/>
+                    <!--	<property name="iscompatibleqx" value="false"/> -->
+                    <!--	<property name="ips" value=""/> -->
+                    <property name="char_set" value="utf8"/>
+
+                    <!--<file path="maven:/com.Xugu.jdbc:ojdbc8:RELEASE" type="jar"/>-->
+
+                    <file type="license" path="drivers/xugu/LICENSE.txt" bundle="drivers.xugu"/>
+                    <file type="jar" path="drivers/xugu/cloudjdbc-11.0.8.jar" bundle="drivers.xugu"/>
+
+                </driver>
+            </drivers>
+            <templates>
+                <resolver type="SYSDBA" class="org.jkiss.dbeaver.ext.xugu.model.resolvers.UserResolver" description="Current  user"/>
+            </templates>
+        </datasource>
+    </extension>
+
+
+    <extension point="org.jkiss.dbeaver.objectManager">
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.UserManager" objectType="org.jkiss.dbeaver.ext.xugu.model.User"/>
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.DatabaseManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Database"/>
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.SchemaManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.TableManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Table"/>
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.TableColumnManager" objectType="org.jkiss.dbeaver.ext.xugu.model.TableColumn"/>
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.ForeignKeyManager" objectType="org.jkiss.dbeaver.ext.xugu.model.TableForeignKey"/>
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.ConstraintManager" objectType="org.jkiss.dbeaver.ext.xugu.model.TableConstraint"/>
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.IndexManager" objectType="org.jkiss.dbeaver.ext.xugu.model.TableIndex"/>
+     	<manager class="org.jkiss.dbeaver.ext.xugu.edit.ViewManager" objectType="org.jkiss.dbeaver.ext.xugu.model.View"/> 
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.ProcedureManager" objectType="org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone"/>
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.PackageManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Package"/>
+      	<manager class="org.jkiss.dbeaver.ext.xugu.edit.TriggerManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Trigger"/>
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.SequenceManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Sequence"/>
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.SynonymManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Synonym"/>
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.SchedulerJobManager" objectType="org.jkiss.dbeaver.ext.xugu.model.SchedulerJob"/>
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.TablespaceManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Tablespace"/>
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.RoleManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Role"/>
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.UdtManager" objectType="org.jkiss.dbeaver.ext.xugu.model.Udt"/>
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.TablePartitionManager" objectType="org.jkiss.dbeaver.ext.xugu.model.TablePartition"/>
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.TableSubPartitionManager" objectType="org.jkiss.dbeaver.ext.xugu.model.TableSubPartition"/>
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.UserAuthorityManager" objectType="org.jkiss.dbeaver.ext.xugu.model.UserAuthority"/>
+        <manager class="org.jkiss.dbeaver.ext.xugu.edit.RoleAuthorityManager" objectType="org.jkiss.dbeaver.ext.xugu.model.RoleAuthority"/>
+    </extension>
+
+    <extension point="org.jkiss.dbeaver.databaseEditor">
+        <editor id="source.declaration" class="org.jkiss.dbeaver.ext.xugu.editors.SourceDeclarationEditor" label="%editor.package.declaration.name" description="%editor.package.declaration.description" icon="#sql_text" position="additions_middle" contributor="org.jkiss.dbeaver.ui.editors.sql.SQLEditorContributorNested" type="folder" embeddable="false">
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.View"/>
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone"/>
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.Package"/>
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.Trigger"/>
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.Udt"/>
+        </editor>
+        <editor id="source.definition" class="org.jkiss.dbeaver.ext.xugu.editors.SourceDefinitionEditor" label="%editor.package.body.name" description="%editor.package.body.description" icon="#sql_text" position="additions_middle" contributor="org.jkiss.dbeaver.ui.editors.sql.SQLEditorContributorNested" type="folder" embeddable="false">
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.Package"/>
+        </editor>
+             <editor id="source.definition" class="org.jkiss.dbeaver.ext.xugu.editors.SourceDefinitionEditor" label="%editor.package.body.name" description="%editor.udt.body.description" icon="#sql_text" position="additions_middle" contributor="org.jkiss.dbeaver.ui.editors.sql.SQLEditorContributorNested" type="folder" embeddable="false">
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.Udt"/>
+        </editor>
+        <editor id="schedulerJob.action" class="org.jkiss.dbeaver.ext.xugu.editors.SchedulerJobActionEditor" label="%editor.scheduler.job.action.name" description="%editor.schedulerJob.action.description" icon="#sql_text" position="additions_middle" contributor="org.jkiss.dbeaver.ui.editors.sql.SQLEditorContributorNested" type="folder" embeddable="false">
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.SchedulerJob"/>
+        </editor>
+        <editor id="source.ddl" class="org.jkiss.dbeaver.ext.xugu.editors.ObjectDdlEditor" label="DDL" description="DDL" icon="#sql_text" position="additions_middle" contributor="org.jkiss.dbeaver.ui.editors.sql.SQLEditorContributorNested" type="folder">
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.Table"/>
+        </editor>
+        <editor id="org.jkiss.dbeaver.ext.xugu.editors.UserEditorGeneral" class="org.jkiss.dbeaver.ext.xugu.editors.UserEditorGeneral" objectType="org.jkiss.dbeaver.ext.xugu.model.User" main="true" label="%editor.general.name" description="General user settings" icon="#user">
+        </editor>
+        <editor id="org.jkiss.dbeaver.ext.xugu.editors.RoleEditor" class="org.jkiss.dbeaver.ext.xugu.editors.RoleEditor" objectType="org.jkiss.dbeaver.ext.xugu.model.Role" main="true" label="%editor.general.name" description="General role settings" icon="#role">
+        </editor>
+
+    </extension>
+
+
+    <extension point="org.jkiss.dbeaver.tools">
+        <tools>
+            <toolGroup
+                id="org.jkiss.dbeaver.ext.xugu.tools.maintenance"
+                label="Table Maintenance"
+                icon="#tools"/>
+            <tool
+                class="org.jkiss.dbeaver.ext.xugu.tasks.ExportTool"
+                description="Export Object DDL"
+                id="org.jkiss.dbeaver.ext.xugu.tasks.ExportTool"
+                label="导出对象定义"
+                icon="#export"
+                singleton="false">
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Role"/>
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.User"/>
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.View"/>
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Sequence"/>
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Package"/>
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone"/>
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Trigger"/>
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Synonym"/>
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Udt"/>
+            </tool>
+            <tool
+                class="org.jkiss.dbeaver.ext.xugu.tasks.BackupTool"
+                description="Backup Tool"
+                id="org.jkiss.dbeaver.ext.xugu.tasks.BackupTool"
+                label="备份数据库对象"
+                singleton="true">
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
+            </tool>
+            <tool
+                class="org.jkiss.dbeaver.ext.xugu.tasks.RestoreTool"
+                description="Restore Tool"
+                id="org.jkiss.dbeaver.ext.xugu.tasks.RestoreTool"
+                label="恢复数据库对象"
+                singleton="true">
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
+            </tool>
+            <tool
+                class="org.jkiss.dbeaver.ext.xugu.tasks.TransactionKiller"
+                description="Transaction Killer"
+                id="org.jkiss.dbeaver.ext.xugu.tasks.TransactionKiller"
+                label="查杀数据库事务"
+                singleton="true">
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
+            </tool>
+            <tool
+                class="org.jkiss.dbeaver.ext.xugu.tasks.FileViewer"
+                description="File Viewer"
+                id="org.jkiss.dbeaver.ext.xugu.tasks.FileViewer"
+                label="查看数据库文件"
+                singleton="true">
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
+            </tool>
+            <tool
+                class="org.jkiss.dbeaver.ext.xugu.tasks.ResourceViewer"
+                description="File Viewer"
+                id="org.jkiss.dbeaver.ext.xugu.tasks.ResourceViewer"
+                label="查看数据库资源"
+                singleton="true">
+                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
+            </tool>
+        </tools>
+     </extension>
+
+
+    <extension point="org.jkiss.dbeaver.dataTypeProvider">
+        <provider class="org.jkiss.dbeaver.ext.xugu.data.ValueHandlerProvider" description="Xugu data types provider" id="org.jkiss.dbeaver.ext.xugu.data.ValueHandlerProvider" label="Xugu data types provider">
+
+            <datasource id="xugu"/>
+
+            <type name="JSON"/>
+            <type name="XML"/>
+            <type name="XMLTYPE"/>
+            <type kind="CONTENT"/>
+            <type kind="DATETIME"/>
+            <type name="TIMESTAMP"/>
+            <type name="TIMESTAMP WITH TZ"/>
+            <type name="TIMESTAMP WITH LOCAL TZ"/>
+            <type name="TIMESTAMP WITH TIME ZONE"/>
+            <type name="TIMESTAMP WITH LOCAL TIME ZONE"/>
+            <type name="TIMESTAMP WITH LOCAL TIME ZONE"/>
+            <type name="GEOMETRY"/>
+            <!--type standard="STRUCT"/-->
+           <type name="BIT"/>
+           <type name="VARBIT"/>
+           <type name="ARRAY"/>
+        </provider>
+    </extension>
+    <extension point="org.eclipse.ui.commands">
+        <category id="org.jkiss.dbeaver.ext.xugu" name="Xugu" description="Xugu Commands"/>
+    </extension>
+
+    <extension point="org.eclipse.ui.commandImages">
+        <image commandId="org.jkiss.dbeaver.ext.xugu.code.compile" icon="icons/compile.png"/>
+    </extension>
+    <extension point="org.eclipse.ui.bindings">
+        <key commandId="org.jkiss.dbeaver.ext.xugu.code.compile" schemeId="org.jkiss.dbeaver.defaultKeyScheme" sequence="CTRL+F9"/>
+    </extension>
+
+    <extension point="org.eclipse.ui.menus">
+        <menuContribution allPopups="false" locationURI="popup:org.eclipse.ui.popup.any?after=navigator_additions_end">
+            <command commandId="org.jkiss.dbeaver.ext.xugu.code.compile">
+                <visibleWhen checkEnabled="true"/>
+            </command>
+        </menuContribution>
+    </extension>
+
+    <extension point="org.eclipse.core.runtime.adapters">
+        <factory adaptableType="java.lang.Object" class="org.jkiss.dbeaver.ext.xugu.model.ObjectAdapter">
+            <adapter type="org.jkiss.dbeaver.ext.xugu.model.source.SourceObject"/>
+        </factory>
+    </extension>
+
+    <extension point="org.eclipse.ui.editors">
+    </extension>
+
+    <extension point="org.jkiss.dbeaver.sqlDialect">
+        <dialect id="xugu" parent="basic" class="org.jkiss.dbeaver.ext.xugu.model.SqlDialect" label="Xugu" description="Xugu SQL dialect." icon="icons/icon.png">
+        </dialect>
+    </extension>
+
+    <!--MERGE(XUGU) 语句生成拓展点-->
+    <extension point="org.jkiss.dbeaver.sqlGenerator">
+        <generator id="tableMerge" class="org.jkiss.dbeaver.ext.xugu.model.sql.generator.SQLGeneratorMerge" label="MERGE(XUGU)" description="MERGE table using Xugu dialect" order="5">
+            <objectType name="org.jkiss.dbeaver.model.struct.DBSDataManipulator"/>
+        </generator>
+    </extension>
+    
+    <extension point="org.eclipse.core.runtime.preferences">
+        <initializer class="org.jkiss.dbeaver.ext.xugu.internal.PreferencesInitializer"/>
+    </extension>
+</plugin>
