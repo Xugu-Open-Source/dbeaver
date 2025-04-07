@@ -387,7 +387,11 @@ public class Table extends BaseTablePhysical implements DBPScriptObject {
 
 	@Override
 	public DBDPseudoAttribute[] getAllPseudoAttributes(@NotNull DBRProgressMonitor monitor) throws DBException {
-
+		if (this.allPseudoAttributes == null) {
+			List<DBDPseudoAttribute> attrs = new ArrayList<>(2);
+			this.allPseudoAttributes = attrs.toArray(DBDPseudoAttribute.EMPTY_ARRAY);
+		}
 		return this.allPseudoAttributes;
 	}
+
 }
