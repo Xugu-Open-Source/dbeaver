@@ -16,7 +16,9 @@ Require-Bundle: org.eclipse.ui,
  org.eclipse.ui.editors,
  com.github.jsqlparser,
  org.jkiss.dbeaver.model,
- org.jkiss.dbeaver.data.gis
+ org.jkiss.dbeaver.data.gis,
+ org.jkiss.dbeaver.model,
+ org.jkiss.dbeaver.model.jdbc
 Export-Package: org.jkiss.dbeaver.ext.xugu,
  org.jkiss.dbeaver.ext.xugu.data,
  org.jkiss.dbeaver.ext.xugu.edit,
@@ -35,7 +37,8 @@ Bundle-ClassPath: .,
  lib/xugu-permission-1.2.0.jar,
  lib/xugu-parser-1.1.0.jar,
  lib/hutool-all-5.4.1.jar,
- lib/xugu-backup-1.1.0.jar
+ lib/xugu-backup-1.1.0.jar,
+ lib/default-driver.jar
 Import-Package: org.jkiss.dbeaver.tasks.nativetool,
  org.jkiss.dbeaver.tasks.ui.nativetool
 Bundle-Localization: OSGI-INF/l10n/bundle
