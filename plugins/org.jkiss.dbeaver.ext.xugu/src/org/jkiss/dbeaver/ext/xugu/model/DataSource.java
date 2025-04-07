@@ -841,7 +841,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			schemasQuery.append("ALL");
 			schemasQuery.append("_USERS U");
 			schemasQuery.append(" WHERE S.USER_ID=U.USER_ID AND S.DB_ID=");
-			schemasQuery.append(owner.getId());
+			schemasQuery.append("(SELECT db_id FROM all_databases WHERE db_name = '"+dbName+"')");
 			if (schema != null) {
 				schemasQuery.append(" AND S.SCHEMA_NAME =");
 				schemasQuery.append(SQLUtils.quoteString(schema, schema.getName()));
@@ -939,8 +939,8 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 				sql.append(owner.getRoleFlag());
 				sql.append("_USERS");
 				sql.append(" WHERE IS_ROLE=FALSE AND DB_ID=");
-				sql.append(owner.databaseCache.getObject(session.getProgressMonitor(), owner, dbName).getId());
-			} catch (DBException e) {
+				sql.append("(SELECT db_id FROM all_databases WHERE db_name = '"+dbName+"')");
+			} catch (Exception e) {
 				throw new SQLException("Get database object error: ", e);
 			}
 			if (user != null) {
@@ -994,8 +994,8 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 				sql.append(owner.getRoleFlag());
 				sql.append("_USERS WHERE IS_ROLE=true");
 				sql.append(" AND DB_ID=");
-				sql.append(owner.databaseCache.getObject(session.getProgressMonitor(), owner, dbName).getId());
-			} catch (DBException e) {
+				sql.append("(SELECT db_id FROM all_databases WHERE db_name = '"+dbName+"')");
+			} catch (Exception e) {
 				throw new SQLException("Error in DataSource.RoleCache.prepareObjectsStatement()", e);
 			}
 			if (object != null) {
@@ -1038,8 +1038,8 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			sql.append(roleFlag);
 			sql.append("_JOBS WHERE DB_ID=");
 			try {
-				sql.append(owner.databaseCache.getObject(session.getProgressMonitor(), owner, objectName).getId());
-			} catch (DBException e) {
+				sql.append("(SELECT db_id FROM all_databases WHERE db_name = '"+dbName+"')");
+			} catch (Exception e) {
 				throw new SQLException("Error in DataSource.SchedulerJobCache.prepareObjectsStatement()", e);
 			}
 
