@@ -841,7 +841,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			schemasQuery.append("ALL");
 			schemasQuery.append("_USERS U");
 			schemasQuery.append(" WHERE S.USER_ID=U.USER_ID AND S.DB_ID=");
-			schemasQuery.append("(SELECT db_id FROM all_databases WHERE db_name = '"+dbName+"')");
+			schemasQuery.append("(SELECT db_id FROM all_databases WHERE db_name = '"+owner.getName()+"')");
 			if (schema != null) {
 				schemasQuery.append(" AND S.SCHEMA_NAME =");
 				schemasQuery.append(SQLUtils.quoteString(schema, schema.getName()));
@@ -939,7 +939,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 				sql.append(owner.getRoleFlag());
 				sql.append("_USERS");
 				sql.append(" WHERE IS_ROLE=FALSE AND DB_ID=");
-				sql.append("(SELECT db_id FROM all_databases WHERE db_name = '"+dbName+"')");
+				sql.append("(SELECT db_id FROM all_databases WHERE db_name = '"+owner.getDatabase().getName()+"')");
 			} catch (Exception e) {
 				throw new SQLException("Get database object error: ", e);
 			}
@@ -994,7 +994,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 				sql.append(owner.getRoleFlag());
 				sql.append("_USERS WHERE IS_ROLE=true");
 				sql.append(" AND DB_ID=");
-				sql.append("(SELECT db_id FROM all_databases WHERE db_name = '"+dbName+"')");
+				sql.append("(SELECT db_id FROM all_databases WHERE db_name = '"+owner.getDatabase().getName()+"')");
 			} catch (Exception e) {
 				throw new SQLException("Error in DataSource.RoleCache.prepareObjectsStatement()", e);
 			}
@@ -1038,7 +1038,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			sql.append(roleFlag);
 			sql.append("_JOBS WHERE DB_ID=");
 			try {
-				sql.append("(SELECT db_id FROM all_databases WHERE db_name = '"+dbName+"')");
+				sql.append("(SELECT db_id FROM all_databases WHERE db_name = '"+owner.getDatabase().getName()+"')");
 			} catch (Exception e) {
 				throw new SQLException("Error in DataSource.SchedulerJobCache.prepareObjectsStatement()", e);
 			}

@@ -162,6 +162,13 @@ class SqlDialect extends JDBCSQLDialect {
 		return BEGIN_END_BLOCK;
 	}
 
+
+	// todo 大小写是否敏感问题
+	@Override
+	public boolean useCaseInsensitiveNameLookup() {
+		return true;
+	}
+
 	@Override
 	public String[] getBlockHeaderStrings() {
 		return BLOCK_HEADERS;
