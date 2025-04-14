@@ -835,13 +835,19 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		public JDBCStatement prepareLookupStatement(@NotNull JDBCSession session, @NotNull Database owner,
 				Schema schema, String name) throws SQLException {
 			StringBuilder schemasQuery = new StringBuilder();
-			String dbName = session.getCatalog();
+			String aaa = "";
+			if(owner.getDataSource().getRoleFlag().equalsIgnoreCase("SYS") || owner.getDataSource().getRoleFlag().equalsIgnoreCase("DBA")) {
+				aaa = "DBA";
+			}else {
+				aaa = "ALL";
+			}
+			
 			// 根据owner的用户角色选取不同的语句来查询schema
 			schemasQuery.append("SELECT S.DB_ID,S.SCHEMA_ID,S.SCHEMA_NAME,U.USER_NAME,S.COMMENTS FROM ");
-			schemasQuery.append("ALL");
+			schemasQuery.append(aaa);
 			schemasQuery.append("_SCHEMAS S");
 			schemasQuery.append(",");
-			schemasQuery.append("ALL");
+			schemasQuery.append(aaa);
 			schemasQuery.append("_USERS U");
 			schemasQuery.append(" WHERE S.USER_ID=U.USER_ID AND S.DB_ID=");
 			schemasQuery.append(owner.getId());
