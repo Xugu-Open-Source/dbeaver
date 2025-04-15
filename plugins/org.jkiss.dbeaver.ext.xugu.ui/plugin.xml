@@ -204,12 +204,45 @@
 
     <!-- 添加到菜单 -->
     <extension point="org.eclipse.ui.menus">
-        <menuContribution allPopups="false" locationURI="popup:org.eclipse.ui.popup.any?after=export_import">
-            <command
-                    commandId="org.jkiss.dbeaver.ext.xugu.tasks.ExportTool"
-                    label="导出数据库定义"
-                    icon="icons/icon.png"
+        <menuContribution
+                allPopups="false"
+                locationURI="popup:org.eclipse.ui.popup.any?after=export_import">
+
+            <menu
+                    label="Xugu 工具"
+                    icon="icons/icon.png">
+                <visibleWhen checkEnabled="true">
+                    <with variable="selection">
+                        <iterate ifEmpty="false">
+                            <adapt type="org.jkiss.dbeaver.model.struct.DBSObject">>
+                                <instanceof value="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
+                            </adapt>
+                        </iterate>
+                    </with>
+                </visibleWhen>
+
+                <!-- 子命令：导出数据库定义 -->
+                <command
+                        commandId="org.jkiss.dbeaver.ext.xugu.tasks.ExportTool"
+                        label="导出数据库定义"
+                        icon="icons/export.png"
+                        style="push"/>
+
+
+                <!--
+                <command
+                    commandId="org.jkiss.dbeaver.ext.xugu.tasks.AnotherTool"
+                    label="备份工具"
+                    icon="icons/another.png"
                     style="push"/>
+                -->
+
+            </menu>
+
         </menuContribution>
     </extension>
+
+
+
+
 </plugin>
