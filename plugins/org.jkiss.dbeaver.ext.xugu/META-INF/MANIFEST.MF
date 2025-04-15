@@ -3,7 +3,7 @@ Automatic-Module-Name: org.jkiss.dbeaver.ext.xugu
 Bundle-ManifestVersion: 2
 Bundle-Name: %Bundle-Name
 Bundle-SymbolicName: org.jkiss.dbeaver.ext.xugu;singleton:=true
-Bundle-Version: 1.4.201.qualifier
+Bundle-Version: 1.4.202.qualifier
 Bundle-Release-Date: 20220627
 Bundle-Activator: org.jkiss.dbeaver.ext.xugu.Activator
 Require-Bundle: org.eclipse.ui,

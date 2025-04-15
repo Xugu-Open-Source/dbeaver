@@ -78,7 +78,7 @@ public class BackupTool implements IUserInterfaceTool {
 			try {
 				return database.getSchemas(monitor).stream();
 			} catch (DBException e) {
-				throw new IllegalStateException(String.format("è·å–æ•°æ®åº“ï¼ˆ%sï¼‰çš„æ¨¡å¼åˆ—è¡¨å¤±è´¥", database.getName()), e);
+				throw new IllegalStateException(String.format("»ñÈ¡Êı¾İ¿â£¨%s£©µÄÄ£Ê½ÁĞ±íÊ§°Ü", database.getName()), e);
 			}
 		}).collect(Collectors.toSet());
 		Collection<Table> tables = schemas.stream().flatMap(schema -> {
@@ -86,7 +86,7 @@ public class BackupTool implements IUserInterfaceTool {
 				return schema.getTables(monitor).stream();
 			} catch (DBException e) {
 				throw new IllegalStateException(
-						String.format("è·å–åº“ï¼ˆ%sï¼‰æ¨¡å¼ï¼ˆ%sï¼‰çš„è¡¨åˆ—è¡¨å¤±è´¥", schema.getParent().getName(), schema.getName()), e);
+						String.format("»ñÈ¡¿â£¨%s£©Ä£Ê½£¨%s£©µÄ±íÁĞ±íÊ§°Ü", schema.getParent().getName(), schema.getName()), e);
 			}
 		}).collect(Collectors.toSet());
 		Collection<SelectedObject> selectedObjects = new ArrayList<>();
@@ -96,29 +96,29 @@ public class BackupTool implements IUserInterfaceTool {
 		Display display = window.getShell().getDisplay();
         Shell selectShell = new Shell(window.getShell());
         selectShell.setLayout(new FillLayout());
-		selectShell.setText("æ•°æ®åº“å¤‡ä»½å·¥å…· "+"æç¤ºï¼šå¤‡ä»½æ–‡ä»¶å­˜å‚¨äºæ•°æ®åº“éƒ¨ç½²ç›®å½•ä¸‹ " + AbstractExecutor.DATABASE_PATH_PREFIX + executor.getBackupPathPrefix());
+		selectShell.setText("Êı¾İ¿â±¸·İ¹¤¾ß "+"ÌáÊ¾£º±¸·İÎÄ¼ş´æ´¢ÓÚÊı¾İ¿â²¿ÊğÄ¿Â¼ÏÂ " + AbstractExecutor.DATABASE_PATH_PREFIX + executor.getBackupPathPrefix());
 
-        // åˆ›å»º ScrolledComposite
+        // ´´½¨ ScrolledComposite
         ScrolledComposite sc = new ScrolledComposite(selectShell, SWT.V_SCROLL | SWT.H_SCROLL);
         
-        // åˆ›å»º Table ä½œä¸º ScrolledComposite çš„å†…å®¹
+        // ´´½¨ Table ×÷Îª ScrolledComposite µÄÄÚÈİ
         org.eclipse.swt.widgets.Table objectTable = new org.eclipse.swt.widgets.Table(sc, SWT.BORDER);
         sc.setContent(objectTable);
         
         objectTable.setHeaderVisible(true);
         objectTable.setLinesVisible(true);
         
-        // æ·»åŠ è¡¨å¤´
+        // Ìí¼Ó±íÍ·
         TableColumn column1 = new TableColumn(objectTable, SWT.NONE);
         column1.setText("");
         column1.setWidth(30);
         
         TableColumn column2 = new TableColumn(objectTable, SWT.NONE);
-        column2.setText("å¯¹è±¡ç±»å‹");
+        column2.setText("¶ÔÏóÀàĞÍ");
         column2.setWidth(80);
         
         TableColumn column3 = new TableColumn(objectTable, SWT.NONE);
-        column3.setText("å¯¹è±¡åç§°");
+        column3.setText("¶ÔÏóÃû³Æ");
         column3.setWidth(300);
         
         List<Button> selectButtons = new ArrayList<>(1 + databases.size() + schemas.size() + tables.size());
@@ -270,7 +270,7 @@ public class BackupTool implements IUserInterfaceTool {
 		Composite buttonComposite = new Composite(selectShell, SWT.NONE);
 		buttonComposite.setLayout(new RowLayout());
 		Button allSelectButton = new Button(buttonComposite, SWT.PUSH);
-		allSelectButton.setText("å…¨é€‰");
+		allSelectButton.setText("È«Ñ¡");
 		allSelectButton.addSelectionListener(widgetSelectedAdapter(e -> {
 			for (Button button:  selectButtons) {
 				button.setSelection(true);
@@ -278,7 +278,7 @@ public class BackupTool implements IUserInterfaceTool {
 			systemSelectButton.setSelection(confirmSelectSystemButton(selectShell));
 		}));
 		Button reverseSelectButton = new Button(buttonComposite, SWT.PUSH);
-		reverseSelectButton.setText("åé€‰");
+		reverseSelectButton.setText("·´Ñ¡");
 		reverseSelectButton.addSelectionListener(widgetSelectedAdapter(e -> {
 			for (Button button:  selectButtons) {
 				button.setSelection(!button.getSelection());
@@ -288,10 +288,10 @@ public class BackupTool implements IUserInterfaceTool {
 			}
 		}));
 		Button backupButton = new Button(buttonComposite, SWT.PUSH);
-		backupButton.setText("å¼€å§‹å¤‡ä»½");
+		backupButton.setText("¿ªÊ¼±¸·İ");
 		backupButton.addSelectionListener(widgetSelectedAdapter(e -> {
 			Shell comfirmShell = new Shell(selectShell);
-			comfirmShell.setText("ç¡®è®¤å¤‡ä»½æ–‡ä»¶å");
+			comfirmShell.setText("È·ÈÏ±¸·İÎÄ¼şÃû");
 			comfirmShell.setLayout(new GridLayout());
 			org.eclipse.swt.widgets.Table comfirmTable = new org.eclipse.swt.widgets.Table(comfirmShell, SWT.BORDER);
 			comfirmTable.setLinesVisible(true);
@@ -299,15 +299,15 @@ public class BackupTool implements IUserInterfaceTool {
 			comfirmTable.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
 			TableColumn objectTypeColumn = new TableColumn(comfirmTable, SWT.NONE);
 			objectTypeColumn.setWidth(80);
-			objectTypeColumn.setText("å¯¹è±¡ç±»å‹");
+			objectTypeColumn.setText("¶ÔÏóÀàĞÍ");
 			TableColumn objectNameColumn = new TableColumn(comfirmTable, SWT.CENTER);
 			objectNameColumn.setWidth(300);
-			objectNameColumn.setText("å¯¹è±¡åç§°");
+			objectNameColumn.setText("¶ÔÏóÃû³Æ");
 			TableColumn fileNameColumn = new TableColumn(comfirmTable, SWT.CENTER);
 			fileNameColumn.setWidth(300);
-			fileNameColumn.setText("æ–‡ä»¶åç§°");
+			fileNameColumn.setText("ÎÄ¼şÃû³Æ");
 			if (selectedObjects.isEmpty()) {
-				throw new RuntimeException("è¯·å…ˆé€‰æ‹©éœ€è¦å¤‡ä»½çš„å¯¹è±¡");
+				throw new RuntimeException("ÇëÏÈÑ¡ÔñĞèÒª±¸·İµÄ¶ÔÏó");
 			}
 			for (SelectedObject object : selectedObjects) {
 				TableItem item = new TableItem(comfirmTable, SWT.NONE);
@@ -334,11 +334,11 @@ public class BackupTool implements IUserInterfaceTool {
 				editor.setEditor(fileNameText, item, 2);
 			}
 			Button comfirmButton = new Button(comfirmShell, SWT.PUSH);
-			comfirmButton.setText("å·²ç¡®è®¤ï¼Œç«‹å³å¼€å§‹");
+			comfirmButton.setText("ÒÑÈ·ÈÏ£¬Á¢¼´¿ªÊ¼");
 			comfirmButton.addSelectionListener(widgetSelectedAdapter(event -> {
 				Map<SelectedObject, Exception> exceptions = new HashMap<>();
-				// ç”±äºç³»ç»Ÿçº§å¤‡ä»½ä¼šå…³é—­æ‰€æœ‰è¿æ¥
-				// å› æ­¤å°†ç³»ç»Ÿçº§å¤‡ä»½ä»»åŠ¡æ”¾åœ¨æœ€åæ‰§è¡Œ
+				// ÓÉÓÚÏµÍ³¼¶±¸·İ»á¹Ø±ÕËùÓĞÁ¬½Ó
+				// Òò´Ë½«ÏµÍ³¼¶±¸·İÈÎÎñ·ÅÔÚ×îºóÖ´ĞĞ
 				boolean isSelectedSystem = false;
 				SelectedObject systemObject = null;
 				for (SelectedObject object : selectedObjects) {
@@ -370,7 +370,7 @@ public class BackupTool implements IUserInterfaceTool {
 						}
 						break;
 					default:
-						exceptions.put(object, new UnsupportedOperationException("æœªæ”¯æŒçš„å¯¹è±¡ï¼š" + object));
+						exceptions.put(object, new UnsupportedOperationException("Î´Ö§³ÖµÄ¶ÔÏó£º" + object));
 					}
 				}
 				if (isSelectedSystem) {
@@ -381,7 +381,7 @@ public class BackupTool implements IUserInterfaceTool {
 					}
 				}
 				if (exceptions.isEmpty()) {
-					MessageDialog.openInformation(comfirmShell, "å¤‡ä»½æˆåŠŸ", "æ‰§è¡Œæ•°æ®åº“å¯¹è±¡å¤‡ä»½å®Œæˆï¼");
+					MessageDialog.openInformation(comfirmShell, "±¸·İ³É¹¦", "Ö´ĞĞÊı¾İ¿â¶ÔÏó±¸·İÍê³É£¡");
 					comfirmShell.dispose();
 				} else {
 					StringBuilder builder = new StringBuilder();
@@ -399,7 +399,7 @@ public class BackupTool implements IUserInterfaceTool {
 						}
 						builder.append("\n\n");
 					});
-					MessageDialog.openError(comfirmShell, "å¤‡ä»½å¤±è´¥", "ä¸‹åˆ—å¯¹è±¡å¤‡ä»½å¤±è´¥ï¼š\n" + builder);
+					MessageDialog.openError(comfirmShell, "±¸·İÊ§°Ü", "ÏÂÁĞ¶ÔÏó±¸·İÊ§°Ü£º\n" + builder);
 					return;
 				}
 			}));
@@ -408,7 +408,7 @@ public class BackupTool implements IUserInterfaceTool {
 		}));
 		
         
-        // è®¾ç½® ScrolledComposite çš„æœ€å°å¤§å°
+        // ÉèÖÃ ScrolledComposite µÄ×îĞ¡´óĞ¡
         sc.setMinSize(objectTable.computeSize(SWT.DEFAULT, SWT.DEFAULT));
         sc.setExpandHorizontal(true);
         sc.setExpandVertical(true);
@@ -417,17 +417,17 @@ public class BackupTool implements IUserInterfaceTool {
         
         selectShell.open();
 		if (databaseMajorVersion == 11) {
-			MessageDialog.openWarning(selectShell, "æ¨¡å¼çº§å¯¹è±¡å¤‡ä»½æœªæ”¯æŒ", "å½“å‰è¿æ¥çš„æœåŠ¡å™¨ç‰ˆæœ¬ä¸º 11ï¼Œæš‚æœªæ”¯æŒæ¨¡å¼çº§å¯¹è±¡å¤‡ä»½ï¼");
+			MessageDialog.openWarning(selectShell, "Ä£Ê½¼¶¶ÔÏó±¸·İÎ´Ö§³Ö", "µ±Ç°Á¬½ÓµÄ·şÎñÆ÷°æ±¾Îª 11£¬ÔİÎ´Ö§³ÖÄ£Ê½¼¶¶ÔÏó±¸·İ£¡");
 		}
         
 		
 		
 //		Shell selectShell = new Shell(window.getShell());
 //		BackupExecutor executor = new BackupExecutor(dataSource);
-//		selectShell.setText("æ•°æ®åº“å¤‡ä»½å·¥å…·");
+//		selectShell.setText("Êı¾İ¿â±¸·İ¹¤¾ß");
 //		selectShell.setLayout(new GridLayout());
 //		Label tipsLabel = new Label(selectShell, SWT.NONE);
-//		tipsLabel.setText("æç¤ºï¼šå¤‡ä»½æ–‡ä»¶å­˜å‚¨äºæ•°æ®åº“éƒ¨ç½²ç›®å½•ä¸‹ " + AbstractExecutor.DATABASE_PATH_PREFIX + executor.getBackupPathPrefix());
+//		tipsLabel.setText("ÌáÊ¾£º±¸·İÎÄ¼ş´æ´¢ÓÚÊı¾İ¿â²¿ÊğÄ¿Â¼ÏÂ " + AbstractExecutor.DATABASE_PATH_PREFIX + executor.getBackupPathPrefix());
 //		org.eclipse.swt.widgets.Table objectTable = new org.eclipse.swt.widgets.Table(selectShell, SWT.BORDER);
 //		objectTable.setLinesVisible(true);
 //		objectTable.setHeaderVisible(true);
@@ -437,10 +437,10 @@ public class BackupTool implements IUserInterfaceTool {
 //		c0.setText("");
 //		TableColumn c1 = new TableColumn(objectTable, SWT.CENTER);
 //		c1.setWidth(80);
-//		c1.setText("å¯¹è±¡ç±»å‹");
+//		c1.setText("¶ÔÏóÀàĞÍ");
 //		TableColumn c2 = new TableColumn(objectTable, SWT.CENTER);
 //		c2.setWidth(300);
-//		c2.setText("å¯¹è±¡åç§°");
+//		c2.setText("¶ÔÏóÃû³Æ");
 //		List<Button> selectButtons = new ArrayList<>(1 + databases.size() + schemas.size() + tables.size());
 //		String dateString = format.format(new Date());
 //		Button systemSelectButton = new Button(objectTable, SWT.CHECK);
@@ -590,7 +590,7 @@ public class BackupTool implements IUserInterfaceTool {
 //		Composite buttonComposite = new Composite(selectShell, SWT.NONE);
 //		buttonComposite.setLayout(new RowLayout());
 //		Button allSelectButton = new Button(buttonComposite, SWT.PUSH);
-//		allSelectButton.setText("å…¨é€‰");
+//		allSelectButton.setText("È«Ñ¡");
 //		allSelectButton.addSelectionListener(widgetSelectedAdapter(e -> {
 //			for (Button button:  selectButtons) {
 //				button.setSelection(true);
@@ -598,7 +598,7 @@ public class BackupTool implements IUserInterfaceTool {
 //			systemSelectButton.setSelection(confirmSelectSystemButton(selectShell));
 //		}));
 //		Button reverseSelectButton = new Button(buttonComposite, SWT.PUSH);
-//		reverseSelectButton.setText("åé€‰");
+//		reverseSelectButton.setText("·´Ñ¡");
 //		reverseSelectButton.addSelectionListener(widgetSelectedAdapter(e -> {
 //			for (Button button:  selectButtons) {
 //				button.setSelection(!button.getSelection());
@@ -608,10 +608,10 @@ public class BackupTool implements IUserInterfaceTool {
 //			}
 //		}));
 //		Button backupButton = new Button(buttonComposite, SWT.PUSH);
-//		backupButton.setText("å¼€å§‹å¤‡ä»½");
+//		backupButton.setText("¿ªÊ¼±¸·İ");
 //		backupButton.addSelectionListener(widgetSelectedAdapter(e -> {
 //			Shell comfirmShell = new Shell(selectShell);
-//			comfirmShell.setText("ç¡®è®¤å¤‡ä»½æ–‡ä»¶å");
+//			comfirmShell.setText("È·ÈÏ±¸·İÎÄ¼şÃû");
 //			comfirmShell.setLayout(new GridLayout());
 //			org.eclipse.swt.widgets.Table comfirmTable = new org.eclipse.swt.widgets.Table(comfirmShell, SWT.BORDER);
 //			comfirmTable.setLinesVisible(true);
@@ -619,15 +619,15 @@ public class BackupTool implements IUserInterfaceTool {
 //			comfirmTable.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
 //			TableColumn objectTypeColumn = new TableColumn(comfirmTable, SWT.NONE);
 //			objectTypeColumn.setWidth(80);
-//			objectTypeColumn.setText("å¯¹è±¡ç±»å‹");
+//			objectTypeColumn.setText("¶ÔÏóÀàĞÍ");
 //			TableColumn objectNameColumn = new TableColumn(comfirmTable, SWT.CENTER);
 //			objectNameColumn.setWidth(300);
-//			objectNameColumn.setText("å¯¹è±¡åç§°");
+//			objectNameColumn.setText("¶ÔÏóÃû³Æ");
 //			TableColumn fileNameColumn = new TableColumn(comfirmTable, SWT.CENTER);
 //			fileNameColumn.setWidth(300);
-//			fileNameColumn.setText("æ–‡ä»¶åç§°");
+//			fileNameColumn.setText("ÎÄ¼şÃû³Æ");
 //			if (selectedObjects.isEmpty()) {
-//				throw new RuntimeException("è¯·å…ˆé€‰æ‹©éœ€è¦å¤‡ä»½çš„å¯¹è±¡");
+//				throw new RuntimeException("ÇëÏÈÑ¡ÔñĞèÒª±¸·İµÄ¶ÔÏó");
 //			}
 //			for (SelectedObject object : selectedObjects) {
 //				TableItem item = new TableItem(comfirmTable, SWT.NONE);
@@ -654,11 +654,11 @@ public class BackupTool implements IUserInterfaceTool {
 //				editor.setEditor(fileNameText, item, 2);
 //			}
 //			Button comfirmButton = new Button(comfirmShell, SWT.PUSH);
-//			comfirmButton.setText("å·²ç¡®è®¤ï¼Œç«‹å³å¼€å§‹");
+//			comfirmButton.setText("ÒÑÈ·ÈÏ£¬Á¢¼´¿ªÊ¼");
 //			comfirmButton.addSelectionListener(widgetSelectedAdapter(event -> {
 //				Map<SelectedObject, Exception> exceptions = new HashMap<>();
-//				// ç”±äºç³»ç»Ÿçº§å¤‡ä»½ä¼šå…³é—­æ‰€æœ‰è¿æ¥
-//				// å› æ­¤å°†ç³»ç»Ÿçº§å¤‡ä»½ä»»åŠ¡æ”¾åœ¨æœ€åæ‰§è¡Œ
+//				// ÓÉÓÚÏµÍ³¼¶±¸·İ»á¹Ø±ÕËùÓĞÁ¬½Ó
+//				// Òò´Ë½«ÏµÍ³¼¶±¸·İÈÎÎñ·ÅÔÚ×îºóÖ´ĞĞ
 //				boolean isSelectedSystem = false;
 //				SelectedObject systemObject = null;
 //				for (SelectedObject object : selectedObjects) {
@@ -690,7 +690,7 @@ public class BackupTool implements IUserInterfaceTool {
 //						}
 //						break;
 //					default:
-//						exceptions.put(object, new UnsupportedOperationException("æœªæ”¯æŒçš„å¯¹è±¡ï¼š" + object));
+//						exceptions.put(object, new UnsupportedOperationException("Î´Ö§³ÖµÄ¶ÔÏó£º" + object));
 //					}
 //				}
 //				if (isSelectedSystem) {
@@ -701,7 +701,7 @@ public class BackupTool implements IUserInterfaceTool {
 //					}
 //				}
 //				if (exceptions.isEmpty()) {
-//					MessageDialog.openInformation(comfirmShell, "å¤‡ä»½æˆåŠŸ", "æ‰§è¡Œæ•°æ®åº“å¯¹è±¡å¤‡ä»½å®Œæˆï¼");
+//					MessageDialog.openInformation(comfirmShell, "±¸·İ³É¹¦", "Ö´ĞĞÊı¾İ¿â¶ÔÏó±¸·İÍê³É£¡");
 //					comfirmShell.dispose();
 //				} else {
 //					StringBuilder builder = new StringBuilder();
@@ -719,7 +719,7 @@ public class BackupTool implements IUserInterfaceTool {
 //						}
 //						builder.append("\n\n");
 //					});
-//					MessageDialog.openError(comfirmShell, "å¤‡ä»½å¤±è´¥", "ä¸‹åˆ—å¯¹è±¡å¤‡ä»½å¤±è´¥ï¼š\n" + builder);
+//					MessageDialog.openError(comfirmShell, "±¸·İÊ§°Ü", "ÏÂÁĞ¶ÔÏó±¸·İÊ§°Ü£º\n" + builder);
 //					return;
 //				}
 //			}));
@@ -729,14 +729,14 @@ public class BackupTool implements IUserInterfaceTool {
 //		selectShell.pack();
 //		selectShell.open();
 //		if (databaseMajorVersion == 11) {
-//			MessageDialog.openWarning(selectShell, "æ¨¡å¼çº§å¯¹è±¡å¤‡ä»½æœªæ”¯æŒ", "å½“å‰è¿æ¥çš„æœåŠ¡å™¨ç‰ˆæœ¬ä¸º 11ï¼Œæš‚æœªæ”¯æŒæ¨¡å¼çº§å¯¹è±¡å¤‡ä»½ï¼");
+//			MessageDialog.openWarning(selectShell, "Ä£Ê½¼¶¶ÔÏó±¸·İÎ´Ö§³Ö", "µ±Ç°Á¬½ÓµÄ·şÎñÆ÷°æ±¾Îª 11£¬ÔİÎ´Ö§³ÖÄ£Ê½¼¶¶ÔÏó±¸·İ£¡");
 //		}
 	}
 
 	private static boolean confirmSelectSystemButton(Shell shell) {
 		return MessageDialog.openConfirm(shell,
-				"ç¡®è®¤é€‰æ‹©ç³»ç»Ÿçº§å¤‡ä»½",
-				"æ‰§è¡Œç³»ç»Ÿçº§å¤‡ä»½å°†å…³é—­æ‰€æœ‰æ•°æ®åº“è¿æ¥ï¼Œè¯·è°¨æ…è€ƒè™‘ï¼\næ‚¨ç¡®è®¤è¦é€‰æ‹©ç³»ç»Ÿçº§å¤‡ä»½å—ï¼Ÿ");
+				"È·ÈÏÑ¡ÔñÏµÍ³¼¶±¸·İ",
+				"Ö´ĞĞÏµÍ³¼¶±¸·İ½«¹Ø±ÕËùÓĞÊı¾İ¿âÁ¬½Ó£¬Çë½÷É÷¿¼ÂÇ£¡\nÄúÈ·ÈÏÒªÑ¡ÔñÏµÍ³¼¶±¸·İÂğ£¿");
 	}
 
 	private static class SelectedObject {
@@ -820,7 +820,7 @@ public class BackupTool implements IUserInterfaceTool {
 		}
 
 		private static enum Type {
-			SYSTEM("ç³»ç»Ÿ"), DATABASE("åº“"), SCHEMA("æ¨¡å¼"), TABLE("è¡¨");
+			SYSTEM("ÏµÍ³"), DATABASE("¿â"), SCHEMA("Ä£Ê½"), TABLE("±í");
 
 			private final String name;
 
