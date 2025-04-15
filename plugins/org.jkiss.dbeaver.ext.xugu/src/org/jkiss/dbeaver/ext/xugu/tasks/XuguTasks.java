@@ -16,38 +16,7 @@
  */
 package org.jkiss.dbeaver.ext.xugu.tasks;
 
-import java.util.Collection;
+public class XuguTasks {
 
-import com.alibaba.druid.sql.dialect.xugu.api.Base;
-import org.jkiss.code.NotNull;
-import org.jkiss.code.Nullable;
-import org.jkiss.dbeaver.ext.xugu.model.BaseTable;
-import org.jkiss.dbeaver.ext.xugu.model.Schema;
-import org.jkiss.dbeaver.ext.xugu.model.Table;
-
-public class DatabaseExportInfo {
-
-	@NotNull
-	private Schema schemaCache;
-	
-	@Nullable
-	private Collection<Table> tables;
-	
-	
-	public DatabaseExportInfo(Schema schemaCache,Collection<Table> tables) {
-		this.schemaCache = schemaCache;
-		this.tables = tables;	
-	}
-
-
-	
-	public Schema getSchemaCache() {
-		return schemaCache;
-	}
-
-
-	
-	public Collection<Table> getTables(){
-		return tables;
-	}	
+    public static final String TASK_EXPORT_TOOL = "xuguExportTool";
 }

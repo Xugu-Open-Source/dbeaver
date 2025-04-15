@@ -17,24 +17,34 @@
 package org.jkiss.dbeaver.ext.xugu;
 
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
-import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
-import org.jkiss.dbeaver.model.connection.DBPDriver;
+import org.jkiss.dbeaver.model.connection.*;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSourceProvider;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.utils.RuntimeUtils;
 import org.jkiss.utils.CommonUtils;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 加载数据源信息
  */
-public class DataSourceProvider extends JDBCDataSourceProvider {
+public class DataSourceProvider extends JDBCDataSourceProvider implements DBPNativeClientLocationManager {
 
 	public DataSourceProvider() {
 	}
+
+	@Nullable
+	private static Map<String, DBPNativeClientLocation> localClients;
 
 	@Override
 	public long getFeatures() {
@@ -75,5 +85,56 @@ public class DataSourceProvider extends JDBCDataSourceProvider {
 	public DBPDataSource openDataSource(@NotNull DBRProgressMonitor monitor, @NotNull DBPDataSourceContainer container)
 			throws DBException {
 		return new DataSource(monitor, container);
+	}
+
+	@Override
+	public List<DBPNativeClientLocation> findLocalClientLocations() {
+		return new ArrayList<>(findLocalClients().values());
+	}
+
+	@Override
+	public DBPNativeClientLocation getDefaultLocalClientLocation() {
+		return null;
+	}
+
+	@Override
+	public String getProductName(DBPNativeClientLocation location) {
+		return null;
+	}
+
+	@Override
+	public String getProductVersion(DBPNativeClientLocation location) {
+		return null;
+	}
+
+
+	@NotNull
+	private static synchronized Map<String, DBPNativeClientLocation> findLocalClients() {
+		if (localClients != null) {
+			return localClients;
+		}
+		if (RuntimeUtils.isWindows()) {
+			localClients = findWindowsLocalClients();
+		} /*else {
+			localClients = findUnixLocalClients();
+		}*/
+		return localClients;
+	}
+
+
+	@NotNull
+	private static Map<String, DBPNativeClientLocation> findWindowsLocalClients() {
+		Map<String, DBPNativeClientLocation> result = new HashMap<>();
+
+		// read from path
+		String path = System.getenv("XUGU_DB");
+		if (path != null) {
+			result.put(path, new LocalNativeClientLocation(path, path));
+		}
+
+//		searchInWindowsRegistry(result, REGISTRY_ROOT_MYSQL_64, SERER_LOCATION_KEY);
+//		searchInWindowsRegistry(result, REGISTRY_ROOT_MARIADB, INSTALLDIR_KEY);
+
+		return result;
 	}
 }

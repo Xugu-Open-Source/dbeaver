@@ -17,19 +17,38 @@
 package org.jkiss.dbeaver.ext.xugu.tasks;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
- 
+
+import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.xugu.Constants;
+import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.model.DBPDataSourceContainer;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
+import org.jkiss.dbeaver.model.preferences.DBPPreferenceMap;
+import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.task.DBTTask;
 import org.jkiss.dbeaver.tasks.nativetool.AbstractNativeToolHandler;
 import org.jkiss.dbeaver.tasks.nativetool.AbstractNativeToolSettings;
 import org.jkiss.utils.CommonUtils;
 
 public abstract class NativeToolHandler <SETTINGS extends AbstractNativeToolSettings<BASE_OBJECT>, BASE_OBJECT extends DBSObject, PROCESS_ARG>
 extends AbstractNativeToolHandler<SETTINGS, BASE_OBJECT, PROCESS_ARG>{
+
+
+    @Override
+    protected boolean doExecute(DBRProgressMonitor monitor, DBTTask task, SETTINGS settings, Log log) throws DBException, InterruptedException {
+
+
+        return super.doExecute(monitor, task, settings, log);
+
+    }
 	
     protected List<String> getMySQLToolCommandLine(AbstractNativeToolHandler<SETTINGS, BASE_OBJECT, PROCESS_ARG> handler, SETTINGS settings, PROCESS_ARG arg) throws IOException {
         java.util.List<String> cmd = new ArrayList<>();
@@ -55,5 +74,24 @@ extends AbstractNativeToolHandler<SETTINGS, BASE_OBJECT, PROCESS_ARG>{
 
         return cmd;
     }
-	
+
+    @Override
+    public boolean executeProcess(
+            DBRProgressMonitor monitor,
+            DBTTask task,
+            SETTINGS settings,
+            PROCESS_ARG arg,
+            Log log
+    ) throws IOException, InterruptedException {
+        DBPDataSourceContainer dataSourceContainer = settings.getDataSourceContainer();
+        DBPDataSource dataSource = dataSourceContainer.getDataSource();
+        List<Map<String, Object>> exportObjects = ((DBPPreferenceMap) task.getProperties()).getObject("exportObjects");
+        StringBuilder builder = new StringBuilder();
+        for (Map<String, Object> exportObject : exportObjects) {
+            Object o = exportObject.get("schema");
+        }
+
+
+        return true;
+    }
 }
