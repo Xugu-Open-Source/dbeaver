@@ -193,13 +193,49 @@
                 id="org.jkiss.dbeaver.ext.xugu.tasks.ExportTool"
                 name="导出数据库定义"
                 categoryId="org.jkiss.dbeaver.core.database"/>
+        <command
+                id="org.jkiss.dbeaver.ext.xugu.tasks.BackupTool"
+                name="备份数据对象"
+                categoryId="org.jkiss.dbeaver.core.database"/>
+        <command
+                id="org.jkiss.dbeaver.ext.xugu.tasks.FileViewer"
+                name="查看数据库文件"
+                categoryId="org.jkiss.dbeaver.core.database"/>
+        <command
+                id="org.jkiss.dbeaver.ext.xugu.tasks.RestoreTool"
+                name="恢复数据库对象"
+                categoryId="org.jkiss.dbeaver.core.database"/>
+        <command
+                id="org.jkiss.dbeaver.ext.xugu.tasks.ResourceViewer"
+                name="查看数据库资源"
+                categoryId="org.jkiss.dbeaver.core.database"/>
+
+        <command
+                id="org.jkiss.dbeaver.ext.xugu.tasks.TransactionKiller"
+                name="查杀数据库事务"
+                categoryId="org.jkiss.dbeaver.core.database"/>
     </extension>
 
     <!-- 绑定命令处理器 -->
     <extension point="org.eclipse.ui.handlers">
         <handler
                 commandId="org.jkiss.dbeaver.ext.xugu.tasks.ExportTool"
-                class="org.jkiss.dbeaver.ext.xugu.tasks.ExportToolHandler"/>
+                class="org.jkiss.dbeaver.ext.xugu.tasks.ExportTool"/>.
+        <handler
+                commandId="org.jkiss.dbeaver.ext.xugu.tasks.BackupTool"
+                class="org.jkiss.dbeaver.ext.xugu.tasks.BackupTool"/>
+        <handler
+                commandId="org.jkiss.dbeaver.ext.xugu.tasks.FileViewer"
+                class="org.jkiss.dbeaver.ext.xugu.tasks.FileViewer"/>
+        <handler
+                commandId="org.jkiss.dbeaver.ext.xugu.tasks.RestoreTool"
+                class="org.jkiss.dbeaver.ext.xugu.tasks.RestoreTool"/>
+        <handler
+                commandId="org.jkiss.dbeaver.ext.xugu.tasks.ResourceViewer"
+                class="org.jkiss.dbeaver.ext.xugu.tasks.ResourceViewer"/>
+        <handler
+                commandId="org.jkiss.dbeaver.ext.xugu.tasks.TransactionKiller"
+                class="org.jkiss.dbeaver.ext.xugu.tasks.TransactionKiller"/>
     </extension>
 
     <!-- 添加到菜单 -->
@@ -215,7 +251,10 @@
                     <with variable="selection">
                         <iterate ifEmpty="false">
                             <adapt type="org.jkiss.dbeaver.model.struct.DBSObject">>
-                                <instanceof value="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
+                                <or>
+                                    <instanceof value="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
+                                    <instanceof value="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
+                                </or>
                             </adapt>
                         </iterate>
                     </with>
@@ -225,23 +264,47 @@
                 <command
                         commandId="org.jkiss.dbeaver.ext.xugu.tasks.ExportTool"
                         label="导出数据库定义"
-                        icon="icons/export.png"
+                        icon="icons/tool-img/export.png"
                         style="push"/>
 
-
-                <!--
                 <command
-                    commandId="org.jkiss.dbeaver.ext.xugu.tasks.AnotherTool"
-                    label="备份工具"
-                    icon="icons/another.png"
+                    commandId="org.jkiss.dbeaver.ext.xugu.tasks.BackupTool"
+                    label="备份数据对象"
+                    icon="icons/job_log.png"
                     style="push"/>
-                -->
+
+                <command
+                        commandId="org.jkiss.dbeaver.ext.xugu.tasks.FileViewer"
+                        label="查看数据库文件"
+                        icon="icons/tool-img/FileViewer.png"
+                        style="push"/>
+
+                <command
+                        commandId="org.jkiss.dbeaver.ext.xugu.tasks.RestoreTool"
+                        label="恢复数据对象"
+                        icon="icons/tool-img/RestoreTool.png"
+                        style="push"/>
+                <command
+                        commandId="org.jkiss.dbeaver.ext.xugu.tasks.ResourceViewer"
+                        label="查看数据资源"
+                        icon="icons/tool-img/ResourceViewer.png"
+                        style="push">
+                </command>
+
+
+                <command
+                        commandId="org.jkiss.dbeaver.ext.xugu.tasks.TransactionKiller"
+                        label="查杀数据库事务"
+                        icon="icons/tool-img/TransactionKiller.png"
+
+                        style="push">
+                </command>
+
 
             </menu>
 
         </menuContribution>
     </extension>
-
 
 
 

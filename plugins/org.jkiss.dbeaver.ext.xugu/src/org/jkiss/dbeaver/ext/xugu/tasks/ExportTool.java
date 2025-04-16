@@ -50,7 +50,6 @@ import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchWindow;
-import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource;
 import org.jkiss.dbeaver.ext.xugu.model.Database;
 import org.jkiss.dbeaver.ext.xugu.model.Trigger;
@@ -61,7 +60,6 @@ import org.jkiss.dbeaver.ext.xugu.model.Schema;
 import org.jkiss.dbeaver.ext.xugu.model.Sequence;
 import org.jkiss.dbeaver.ext.xugu.model.Synonym;
 import org.jkiss.dbeaver.ext.xugu.model.Table;
-import org.jkiss.dbeaver.ext.xugu.model.Trigger;
 import org.jkiss.dbeaver.ext.xugu.model.Package;
 import org.jkiss.dbeaver.ext.xugu.model.Udt;
 import org.jkiss.dbeaver.ext.xugu.model.User;
@@ -77,12 +75,12 @@ import com.xugu.parser.DatabaseParsing;
 import com.xugu.parser.Parsing;
 import com.xugu.parser.Parsing.TableType;
 
-public class ExportTool  {
+public class ExportTool  extends XuguToolAbstractHandler{
 	private final SimpleDateFormat format = new SimpleDateFormat("yyyyMMddHHmmss");
 
 
-	public void execute(IWorkbenchWindow window, IWorkbenchPart activePart, Collection<DBSObject> objects)
-			throws DBException {
+	@Override
+	public void XuguToolSubclassReach(IWorkbenchWindow window, IWorkbenchPart activePart, Collection<DBSObject> objects) {
 		if (objects.isEmpty()) {
 			return;
 		}

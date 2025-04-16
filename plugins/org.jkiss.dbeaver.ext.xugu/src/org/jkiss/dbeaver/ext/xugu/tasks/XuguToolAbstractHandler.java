@@ -20,18 +20,16 @@ import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
 import org.eclipse.jface.viewers.ISelection;
-import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.ui.navigator.NavigatorUtils;
-import org.jkiss.dbeaver.DBException;
 
 import java.util.ArrayList;
 import java.util.Collection;
 
-public class ExportToolHandler extends AbstractHandler {
+public abstract class XuguToolAbstractHandler  extends AbstractHandler {
 
     @Override
     public Object execute(ExecutionEvent event) throws ExecutionException {
@@ -39,34 +37,12 @@ public class ExportToolHandler extends AbstractHandler {
         IWorkbenchPart part = HandlerUtil.getActivePart(event);
         ISelection selection = HandlerUtil.getCurrentSelection(event);
         DBSObject selectedObject = NavigatorUtils.getSelectedObject(selection);
-        Collection<DBSObject> result = new ArrayList<>();
+        Collection<DBSObject> result  = new ArrayList<>();
         result.add(selectedObject);
-//        Collection<DBSObject> selectedObjects = getSelectedDBSObjects(selection);
-        if (result.isEmpty()) {
-            return null;
-        }
 
-        try {
-            ExportTool tool = new ExportTool();
-            tool.execute(window, part, result);
-        } catch (DBException e) {
-            throw new ExecutionException("导出执行失败", e);
-        }
-
+        XuguToolSubclassReach( window, part,  result);
         return null;
     }
 
-//    private Collection<DBSObject> getSelectedDBSObjects(ISelection selection) {
-//        Collection<DBSObject> result = new ArrayList<>();
-//        if (selection instanceof IStructuredSelection) {
-//            for (Object element : ((IStructuredSelection) selection).toList()) {
-//
-//                DBSObject dbObject = NavigatorUtils.getSelectedObject((ISelection) element);
-//                if (dbObject != null) {
-//                    result.add(dbObject);
-//                }
-//            }
-//        }
-//        return result;
-//    }
+    public abstract void XuguToolSubclassReach(IWorkbenchWindow window, IWorkbenchPart part, Collection<DBSObject> result) ;
 }
