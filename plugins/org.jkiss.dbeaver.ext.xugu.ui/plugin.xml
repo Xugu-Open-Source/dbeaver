@@ -289,6 +289,16 @@
                         label="查看数据资源"
                         icon="icons/tool-img/ResourceViewer.png"
                         style="push">
+                    <visibleWhen checkEnabled="true">
+                        <with variable="selection">
+                            <iterate ifEmpty="false">
+                                <adapt type="org.jkiss.dbeaver.model.struct.DBSObject">
+                                    <test property="org.jkiss.dbeaver.ext.xugu.isSystemDatabase" value="true"/>
+                                </adapt>
+                            </iterate>
+                        </with>
+                    </visibleWhen>
+
                 </command>
 
 
@@ -298,6 +308,16 @@
                         icon="icons/tool-img/TransactionKiller.png"
 
                         style="push">
+                    <visibleWhen checkEnabled="true">
+                        <with variable="selection">
+                            <iterate ifEmpty="false">
+                                <adapt type="org.jkiss.dbeaver.model.struct.DBSObject">
+                                    <test property="org.jkiss.dbeaver.ext.xugu.isSystemDatabase" value="true"/>
+                                </adapt>
+                            </iterate>
+                        </with>
+                    </visibleWhen>
+
                 </command>
 
 

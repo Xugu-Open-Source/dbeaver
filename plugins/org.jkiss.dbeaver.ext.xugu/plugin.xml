@@ -356,4 +356,15 @@
 <!--            <task id="xuguExportTool"/>-->
 <!--        </tool>-->
 <!--    </extension>-->
+
+    <!--注册数据库查工具视图控制-->
+    <extension point="org.eclipse.core.expressions.propertyTesters">
+        <propertyTester
+                id="org.jkiss.dbeaver.ext.xugu.propertyTester.isSystemDatabase"
+                type="org.jkiss.dbeaver.model.struct.DBSObject"
+                namespace="org.jkiss.dbeaver.ext.xugu"
+                properties="isSystemDatabase"
+                class="org.jkiss.dbeaver.ext.xugu.tasks.XuguSystemDatabaseTester"
+                multiple="false"/>
+    </extension>
 </plugin>
