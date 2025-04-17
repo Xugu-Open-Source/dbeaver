@@ -215,7 +215,7 @@ public class Schema extends BaseGlobalObject
 	@Association
 	public Collection<Table> getTables(DBRProgressMonitor monitor) throws DBException {
 		Collection<Table> list = tableCache.getTypedObjects(monitor, this, Table.class);
-		return list;
+		return new ArrayList<>(list);
 	}
 
 	/**

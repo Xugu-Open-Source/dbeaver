@@ -365,7 +365,8 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 	@Association
 	public Collection<Schema> getSchemas(DBRProgressMonitor monitor) throws DBException {
-		return schemaCache.getAllObjects(monitor, this.getDatabase());
+		List<Schema> allObjects = schemaCache.getAllObjects(monitor, this.getDatabase());
+		return new ArrayList<>(allObjects);
 	}
 
 	@Association
