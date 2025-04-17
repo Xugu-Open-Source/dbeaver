@@ -256,14 +256,20 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 				connectKeepAliveMillisecondsValue);
 		if (Boolean.parseBoolean(enableConnectKeepAlive)) {
 			// 创建连接保活线程
-			long keepAliveTime = Long.parseLong(connectKeepAliveMilliseconds);
+//			long keepAliveTime = Long.parseLong(connectKeepAliveMilliseconds);
+			int keepAliveInterval = getContainer().getConnectionConfiguration().getKeepAliveInterval();
+			if (keepAliveInterval<=0){
+				// 默认五秒
+				keepAliveInterval = 5;
+			}
+			int finalKeepAliveInterval = keepAliveInterval*1000;
 			THREAD_POOL_EXECUTOR.execute(() -> {
 				try {
 					while (!connection.isClosed()) {
 						Statement stmt = connection.createStatement();
 						stmt.executeQuery("SELECT 1 FROM DUAL");
 						stmt.close();
-						Thread.sleep(keepAliveTime);
+						Thread.sleep(finalKeepAliveInterval);
 					}
 					log.debug("连接保活线程已销毁，执行环境：" + context.getContextName());
 				} catch (SQLException e) {
@@ -279,7 +285,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 					Thread.currentThread().interrupt();
 				}
 			});
-			log.debug("连接保活线程已创建，保活间隔 " + keepAliveTime / 1000 + " 秒，执行环境：" + context.getContextName());
+			log.debug("连接保活线程已创建，保活间隔 " + keepAliveInterval / 1000 + " 秒，执行环境：" + context.getContextName());
 		} else {
 			log.debug("未开启连接保活功能，执行环境：" + context.getContextName());
 		}
