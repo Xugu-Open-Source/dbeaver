@@ -123,6 +123,7 @@ public class DataType extends BaseObject<DBSObject>
 		PREDEFINED_TYPES.put("DOUBLE[]", new TypeDesc(DBPDataKind.ARRAY, Types.ARRAY, 0, 0, 0, 0));
 		PREDEFINED_TYPES.put("CHAR[]", new TypeDesc(DBPDataKind.ARRAY, Types.ARRAY, 0, 0, 0, 0));
 		PREDEFINED_TYPES.put("CLOB[]", new TypeDesc(DBPDataKind.ARRAY, Types.ARRAY, 0, 0, 0, 0));
+		PREDEFINED_TYPES.put("BOOL", new TypeDesc(DBPDataKind.BOOLEAN, Types.BOOLEAN, 0, 0, 0, 0));
 
 		for (TypeDesc type : PREDEFINED_TYPES.values()) {
 			PREDEFINED_TYPE_IDS.put(type.valueType, type);

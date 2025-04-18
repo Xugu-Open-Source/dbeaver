@@ -132,7 +132,7 @@ public class BackupTool extends XuguToolAbstractHandler {
 		c1.setWidth(80);
 		c1.setText("对象类型");
 		TableColumn c2 = new TableColumn(objectTable, SWT.CENTER);
-		c2.setWidth(300);
+		c2.setWidth(720);
 		c2.setText("对象名称");
 
 		List<Button> selectButtons = new ArrayList<>(1 + databases.size() + schemas.size() + tables.size());
