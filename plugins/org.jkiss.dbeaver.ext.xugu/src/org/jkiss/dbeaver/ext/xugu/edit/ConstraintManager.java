@@ -130,7 +130,7 @@ public class ConstraintManager extends SQLConstraintManager<TableConstraint, Bas
 		decl.append(" CONSTRAINT ");
 		decl.append(constraint.getName());
 
-		log.debug("[" + "Xugu" + "] Construct create constraint sql: " + decl.toString());
+		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create constraint sql: " + decl.toString());
 		actions.add(new SQLDatabasePersistAction(ModelMessages.model_jdbc_create_new_constraint, decl.toString()));
 	}
 

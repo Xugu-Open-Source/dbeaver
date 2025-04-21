@@ -21,6 +21,7 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 
+import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
@@ -84,7 +85,7 @@ public class TableForeignKey extends BaseTableConstraint implements DBSTableFore
 
 		this.enable = JDBCUtils.safeGetBoolean(dbResult, "ENABLE");
 
-		log.debug("Xugu" + " can get alias filed? " + refTableName + " " + refName);
+		log.debug(OemConfig.OEM_NAME_EN + " can get alias filed? " + refTableName + " " + refName);
 		BaseTable refTable = BaseTable.findTable(monitor, table.getDataSource(), refOwnerName, refTableName);
 		if (refTable == null) {
 			log.warn("Referenced table '" + DBUtils.getSimpleQualifiedName(refOwnerName, refTableName) + "' not found");

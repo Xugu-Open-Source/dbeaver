@@ -388,7 +388,7 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 				builder.append("\n ORDER BY TRIG_NAME");
 			}
 
-			log.debug("[" + "Xugu"+ "] Construct select triggers sql: " + builder.toString());
+			log.debug("[" + OemConfig.OEM_NAME_EN+ "] Construct select triggers sql: " + builder.toString());
 			JDBCPreparedStatement dbStat = session.prepareStatement(builder.toString());
 			return dbStat;
 		}

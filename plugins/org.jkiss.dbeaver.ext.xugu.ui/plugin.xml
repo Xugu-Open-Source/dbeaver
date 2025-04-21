@@ -115,77 +115,10 @@
         <initializer class="org.jkiss.dbeaver.ext.xugu.internal.PreferencesInitializer"/>
     </extension>
 
-    <extension point="org.jkiss.dbeaver.tools">
-        <tools>
-            <toolGroup
-                    id="org.jkiss.dbeaver.ext.xugu.tools.maintenance"
-                    label="Table Maintenance"
-                    icon="#tools"/>
-            <tool
-                    class="org.jkiss.dbeaver.ext.xugu.tasks.ExportTool"
-                    description="Export Object DDL"
-                    id="org.jkiss.dbeaver.ext.xugu.tasks.ExportTool"
-                    label="导出对象定义"
-                    icon="#export"
-                    singleton="false">
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Role"/>
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.User"/>
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.View"/>
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Sequence"/>
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Package"/>
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone"/>
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Trigger"/>
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Synonym"/>
-                <objectType name="org.jkiss.dbeaver.ext.xugu.model.Udt"/>
-<!--                <task id="xuguExportTool"/>-->
-            </tool>
-<!--            <tool-->
-<!--                    class="org.jkiss.dbeaver.ext.xugu.tasks.BackupTool"-->
-<!--                    description="Backup Tool"-->
-<!--                    id="org.jkiss.dbeaver.ext.xugu.tasks.BackupTool"-->
-<!--                    label="备份数据库对象"-->
-<!--                    singleton="true">-->
-<!--                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>-->
-<!--            </tool>-->
-<!--            <tool-->
-<!--                    class="org.jkiss.dbeaver.ext.xugu.tasks.RestoreTool"-->
-<!--                    description="Restore Tool"-->
-<!--                    id="org.jkiss.dbeaver.ext.xugu.tasks.RestoreTool"-->
-<!--                    label="恢复数据库对象"-->
-<!--                    singleton="true">-->
-<!--                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>-->
-<!--            </tool>-->
-<!--            <tool-->
-<!--                    class="org.jkiss.dbeaver.ext.xugu.tasks.TransactionKiller"-->
-<!--                    description="Transaction Killer"-->
-<!--                    id="org.jkiss.dbeaver.ext.xugu.tasks.TransactionKiller"-->
-<!--                    label="查杀数据库事务"-->
-<!--                    singleton="true">-->
-<!--                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>-->
-<!--            </tool>-->
-<!--            <tool-->
-<!--                    class="org.jkiss.dbeaver.ext.xugu.tasks.FileViewer"-->
-<!--                    description="File Viewer"-->
-<!--                    id="org.jkiss.dbeaver.ext.xugu.tasks.FileViewer"-->
-<!--                    label="查看数据库文件"-->
-<!--                    singleton="true">-->
-<!--                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>-->
-<!--            </tool>-->
-<!--            <tool-->
-<!--                    class="org.jkiss.dbeaver.ext.xugu.tasks.ResourceViewer"-->
-<!--                    description="File Viewer"-->
-<!--                    id="org.jkiss.dbeaver.ext.xugu.tasks.ResourceViewer"-->
-<!--                    label="查看数据库资源"-->
-<!--                    singleton="true">-->
-<!--                <objectType name="org.jkiss.dbeaver.ext.xugu.model.DataSource"/>-->
-<!--            </tool>-->
-        </tools>
-    </extension>
-    <extension point="org.jkiss.dbeaver.task.ui">
-        <configurator type="xuguExportTool" class="org.jkiss.dbeaver.ext.xugu.tools.XuguTaskConfigurator"/>
-    </extension>
+    <!--弃用导出定义-->
+<!--    <extension point="org.jkiss.dbeaver.task.ui">-->
+<!--        <configurator type="xuguExportTool" class="org.jkiss.dbeaver.ext.xugu.tools.XuguTaskConfigurator"/>-->
+<!--    </extension>-->
 
     <!-- 定义命令 -->
     <extension point="org.eclipse.ui.commands">

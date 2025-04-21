@@ -64,7 +64,7 @@ public class DataSourceProvider extends JDBCDataSourceProvider implements DBPNat
 			return connectionInfo.getUrl();
 		}
 		StringBuilder url = new StringBuilder(100);
-		url.append(String.format("jdbc:%s://", "Xugu".toLowerCase()));
+		url.append(String.format("jdbc:%s://", OemConfig.OEM_NAME_EN_LOWER));
 		if (!CommonUtils.isEmpty(connectionInfo.getHostName())) {
 			url.append(connectionInfo.getHostName());
 		}
