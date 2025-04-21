@@ -19,7 +19,7 @@ package org.jkiss.dbeaver.ext.xugu.model;
 
 import org.jkiss.dbeaver.Log;
 import org.jkiss.utils.CommonUtils;
-import org.jkiss.dbeaver.ext.xugu.Constants;
+import org.jkiss.dbeaver.ext.xugu.internal.Constants;
 
 /**
  * DDL 格式

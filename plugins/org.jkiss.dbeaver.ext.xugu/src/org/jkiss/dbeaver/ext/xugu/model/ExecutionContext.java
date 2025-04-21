@@ -19,7 +19,7 @@ package org.jkiss.dbeaver.ext.xugu.model;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.ext.xugu.Utils;
+import org.jkiss.dbeaver.ext.xugu.internal.Utils;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.connection.DBPConnectionBootstrap;
 import org.jkiss.dbeaver.model.exec.DBCException;

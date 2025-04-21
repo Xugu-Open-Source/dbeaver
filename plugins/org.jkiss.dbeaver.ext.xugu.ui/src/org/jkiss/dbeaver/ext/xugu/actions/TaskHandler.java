@@ -26,7 +26,7 @@ import org.eclipse.ui.commands.IElementUpdater;
 import org.eclipse.ui.menus.UIElement;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.xugu.model.ObjectType;
-import org.jkiss.dbeaver.ext.xugu.Utils;
+import org.jkiss.dbeaver.ext.xugu.internal.Utils;
 import org.jkiss.dbeaver.ext.xugu.model.source.SourceObject;
 import org.jkiss.dbeaver.ext.xugu.model.source.StatefulObject;
 import org.jkiss.dbeaver.model.exec.compile.DBCCompileError;

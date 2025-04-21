@@ -17,17 +17,10 @@
 package org.jkiss.dbeaver.ext.xugu.model.plan;
 
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.ext.xugu.Messages;
-import org.jkiss.dbeaver.ext.xugu.Utils;
-import org.jkiss.dbeaver.ext.xugu.model.DataSource;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlanNode;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlanNodeKind;
-import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
-import org.jkiss.utils.IntKeyMap;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
+
 import java.util.Collection;
 import java.util.List;
 

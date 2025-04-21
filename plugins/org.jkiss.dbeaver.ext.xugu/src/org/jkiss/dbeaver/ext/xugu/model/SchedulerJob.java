@@ -18,17 +18,12 @@ package org.jkiss.dbeaver.ext.xugu.model;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.ext.xugu.Utils;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource.SchedulerJobCache;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource.UserRoleFlag;
-import org.jkiss.dbeaver.ext.xugu.model.source.StatefulObject;
-import org.jkiss.dbeaver.model.DBConstants;
-import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPNamedObject;
 import org.jkiss.dbeaver.model.DBPRefreshableObject;
 import org.jkiss.dbeaver.model.DBPScriptObject;
-import org.jkiss.dbeaver.model.DBPScriptObjectExt;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.exec.DBCExecutionPurpose;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
@@ -37,14 +32,11 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectCache;
-import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
-import org.jkiss.dbeaver.model.struct.DBSObjectState;
 
 import com.xugu.parser.DatabaseParsing;
-import com.xugu.parser.Parsing;
 import com.xugu.parser.Parsing.TableType;
 
 import java.sql.Connection;

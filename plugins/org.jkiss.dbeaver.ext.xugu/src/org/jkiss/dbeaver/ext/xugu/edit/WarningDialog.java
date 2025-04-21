@@ -22,7 +22,7 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Shell;
-import org.jkiss.dbeaver.ext.xugu.Messages;
+import org.jkiss.dbeaver.ext.xugu.internal.Messages;
 import org.jkiss.dbeaver.ui.UIUtils;
 
 /**

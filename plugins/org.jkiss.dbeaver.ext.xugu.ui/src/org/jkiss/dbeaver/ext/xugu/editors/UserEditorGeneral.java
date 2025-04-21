@@ -26,10 +26,10 @@ import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.*;
-import org.jkiss.dbeaver.ext.xugu.Messages;
+import org.jkiss.dbeaver.ext.xugu.internal.Messages;
 
 import org.jkiss.dbeaver.ext.xugu.edit.UserPropertyHandler;
-import org.jkiss.dbeaver.ext.xugu.Constants;
+import org.jkiss.dbeaver.ext.xugu.internal.Constants;
 
 
 import org.jkiss.dbeaver.ext.xugu.model.User;

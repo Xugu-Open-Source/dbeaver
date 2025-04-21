@@ -35,14 +35,14 @@ import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.ext.xugu.Messages;
+import org.jkiss.dbeaver.ext.xugu.internal.Messages;
 import org.jkiss.dbeaver.ext.xugu.model.ObjectType;
 import org.jkiss.dbeaver.ext.xugu.model.ObjectValidateAction;
 import org.jkiss.dbeaver.ext.xugu.model.Schema;
 import org.jkiss.dbeaver.ext.xugu.model.BaseTable;
 import org.jkiss.dbeaver.ext.xugu.model.Trigger;
 
-import org.jkiss.dbeaver.ext.xugu.Utils;
+import org.jkiss.dbeaver.ext.xugu.internal.Utils;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;

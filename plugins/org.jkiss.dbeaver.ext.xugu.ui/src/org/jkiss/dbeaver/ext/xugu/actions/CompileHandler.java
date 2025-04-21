@@ -26,7 +26,7 @@ import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.eclipse.ui.menus.UIElement;
-import org.jkiss.dbeaver.ext.xugu.Utils;
+import org.jkiss.dbeaver.ext.xugu.internal.Utils;
 import org.jkiss.dbeaver.ext.xugu.model.source.SourceObject;
 import org.jkiss.dbeaver.model.DBPEvent;
 import org.jkiss.dbeaver.model.DBUtils;

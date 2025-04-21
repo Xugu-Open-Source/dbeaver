@@ -28,7 +28,7 @@ import org.jkiss.dbeaver.model.struct.rdb.DBSIndexType;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndexColumn;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.ext.xugu.Constants;
+import org.jkiss.dbeaver.ext.xugu.internal.Constants;
 
 import java.sql.Date;
 import java.sql.ResultSet;

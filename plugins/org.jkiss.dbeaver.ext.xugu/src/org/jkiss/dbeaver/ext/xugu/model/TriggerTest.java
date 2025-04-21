@@ -17,23 +17,19 @@
 package org.jkiss.dbeaver.ext.xugu.model;
 
 import java.sql.ResultSet;
-import java.util.Collection;
 import java.util.Map;
 
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.ext.xugu.Utils;
+import org.jkiss.dbeaver.ext.xugu.internal.Utils;
 import org.jkiss.dbeaver.ext.xugu.model.source.SourceObject;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPQualifiedObject;
-import org.jkiss.dbeaver.model.DBPSaveableObject;
-import org.jkiss.dbeaver.model.DBPScriptObject;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
-import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectState;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTable;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTrigger;

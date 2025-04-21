@@ -32,7 +32,7 @@ import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedure;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
-import org.jkiss.dbeaver.ext.xugu.Constants;
+import org.jkiss.dbeaver.ext.xugu.internal.Constants;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 import org.jkiss.dbeaver.ext.xugu.data.content.BinaryFormatter;
 

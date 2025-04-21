@@ -5,7 +5,7 @@ Bundle-Name: %Bundle-Name
 Bundle-SymbolicName: org.jkiss.dbeaver.ext.xugu;singleton:=true
 Bundle-Version: 1.4.201.qualifier
 Bundle-Release-Date: 20220627
-Bundle-Activator: org.jkiss.dbeaver.ext.xugu.Activator
+Bundle-Activator: org.jkiss.dbeaver.ext.xugu.internal.Activator
 Require-Bundle: org.eclipse.ui,
  org.eclipse.core.runtime,
  org.eclipse.ui.views,
@@ -23,6 +23,7 @@ Require-Bundle: org.eclipse.ui,
  org.jkiss.dbeaver.tasks.native;visibility:=reexport
 Export-Package: org.jkiss.dbeaver.ext.xugu,
  org.jkiss.dbeaver.ext.xugu.data,
+ org.jkiss.dbeaver.ext.xugu.config,
  org.jkiss.dbeaver.ext.xugu.edit,
  org.jkiss.dbeaver.ext.xugu.internal,
  org.jkiss.dbeaver.ext.xugu.model,

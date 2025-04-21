@@ -19,9 +19,7 @@ package org.jkiss.dbeaver.ext.xugu.model;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.model.source.SourceObject;
-import org.jkiss.dbeaver.ext.xugu.Utils;
-import org.jkiss.dbeaver.ext.xugu.edit.TablePartitionManager;
-import org.jkiss.dbeaver.ext.xugu.edit.TablePartitionManager.WarningDialog;
+import org.jkiss.dbeaver.ext.xugu.internal.Utils;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPMessageType;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
@@ -44,7 +42,6 @@ import org.jkiss.dbeaver.model.struct.rdb.DBSPackage;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedure;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureContainer;
 import org.jkiss.dbeaver.runtime.DBeaverNotifications;
-import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.utils.CommonUtils;
 
 import com.alibaba.druid.sql.dialect.xugu.api.XuguParserApi;

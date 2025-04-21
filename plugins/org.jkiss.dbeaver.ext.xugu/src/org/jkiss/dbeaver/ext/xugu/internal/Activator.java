@@ -14,16 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jkiss.dbeaver.ext.xugu;
+package org.jkiss.dbeaver.ext.xugu.internal;
 
 import org.eclipse.core.runtime.Plugin;
-import org.eclipse.jface.resource.ImageDescriptor;
-import org.eclipse.ui.plugin.AbstractUIPlugin;
-import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.impl.preferences.BundlePreferenceStore;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
-import org.jkiss.dbeaver.runtime.DBWorkbench;
-import org.jkiss.dbeaver.utils.PrefUtils;
 import org.osgi.framework.BundleContext;
 
 /**

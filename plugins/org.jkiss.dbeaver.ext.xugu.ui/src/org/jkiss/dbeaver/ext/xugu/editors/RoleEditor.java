@@ -28,7 +28,7 @@ import java.util.Iterator;
 import java.util.List;
 import org.eclipse.jface.action.IContributionManager;
 import org.eclipse.swt.widgets.Text;
-import org.jkiss.dbeaver.ext.xugu.Messages;
+import org.jkiss.dbeaver.ext.xugu.internal.Messages;
 import org.jkiss.dbeaver.ext.xugu.model.Role;
 import org.jkiss.dbeaver.ext.xugu.model.RoleAuthority;
 import org.jkiss.dbeaver.model.impl.edit.DBECommandAdapter;

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jkiss.dbeaver.ext.xugu;
+package org.jkiss.dbeaver.ext.xugu.internal;
 
 import org.eclipse.osgi.util.NLS;
 

@@ -22,7 +22,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.jkiss.dbeaver.ext.xugu.Utils;
+import org.jkiss.dbeaver.ext.xugu.internal.Utils;
 import org.jkiss.dbeaver.ext.xugu.model.Role;
 import org.jkiss.dbeaver.ext.xugu.model.RoleAuthority;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;

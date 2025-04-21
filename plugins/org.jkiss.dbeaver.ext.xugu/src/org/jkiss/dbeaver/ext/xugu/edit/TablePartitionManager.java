@@ -35,7 +35,7 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.ext.xugu.Messages;
+import org.jkiss.dbeaver.ext.xugu.internal.Messages;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 import org.jkiss.dbeaver.ext.xugu.model.TablePartition;
 import org.jkiss.dbeaver.ext.xugu.model.BaseTablePhysical;

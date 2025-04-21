@@ -35,9 +35,8 @@ import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectLazy;
-import org.jkiss.utils.CommonUtils;
-import org.jkiss.dbeaver.ext.xugu.Constants;
-import org.jkiss.dbeaver.ext.xugu.Utils;
+import org.jkiss.dbeaver.ext.xugu.internal.Constants;
+import org.jkiss.dbeaver.ext.xugu.internal.Utils;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;

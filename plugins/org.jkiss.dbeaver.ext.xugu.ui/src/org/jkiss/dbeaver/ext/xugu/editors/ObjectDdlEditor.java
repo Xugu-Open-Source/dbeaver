@@ -26,7 +26,7 @@ import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
-import org.jkiss.dbeaver.ext.xugu.Constants;
+import org.jkiss.dbeaver.ext.xugu.internal.Constants;
 import org.jkiss.dbeaver.ext.xugu.model.DDLFormat;
 import org.jkiss.dbeaver.ext.xugu.model.Table;
 import org.jkiss.dbeaver.ui.editors.sql.SQLSourceViewer;

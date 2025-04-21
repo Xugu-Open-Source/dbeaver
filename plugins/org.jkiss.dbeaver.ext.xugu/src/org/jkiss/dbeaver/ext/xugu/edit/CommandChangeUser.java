@@ -17,11 +17,10 @@
 package org.jkiss.dbeaver.ext.xugu.edit;
 
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.ext.xugu.Messages;
-import org.jkiss.dbeaver.ext.xugu.Utils;
+import org.jkiss.dbeaver.ext.xugu.internal.Messages;
+import org.jkiss.dbeaver.ext.xugu.internal.Utils;
 import org.jkiss.dbeaver.ext.xugu.model.User;
 import org.jkiss.dbeaver.ext.xugu.model.UserAuthority;
-import org.jkiss.dbeaver.model.DBPMessageType;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.edit.prop.DBECommandComposite;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
@@ -29,7 +28,6 @@ import org.jkiss.dbeaver.model.exec.DBCSession;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
-import org.jkiss.dbeaver.runtime.DBeaverNotifications;
 import org.jkiss.utils.CommonUtils;
 
 import java.util.ArrayList;

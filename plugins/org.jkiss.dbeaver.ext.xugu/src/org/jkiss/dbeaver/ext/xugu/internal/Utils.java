@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jkiss.dbeaver.ext.xugu;
+package org.jkiss.dbeaver.ext.xugu.internal;
 
 import org.eclipse.core.runtime.Platform;
 import org.jkiss.dbeaver.DBException;
@@ -23,7 +23,6 @@ import org.jkiss.dbeaver.ext.xugu.model.DDLFormat;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource.UserRoleFlag;
 import org.jkiss.dbeaver.ext.xugu.model.DataType;
-import org.jkiss.dbeaver.ext.xugu.model.Database;
 import org.jkiss.dbeaver.ext.xugu.model.ObjectType;
 import org.jkiss.dbeaver.ext.xugu.model.Package;
 import org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone;
@@ -55,17 +54,13 @@ import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.exec.JDBCColumnMetaData;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
-import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.DBSDataType;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
-import org.jkiss.dbeaver.model.struct.DBSInstance;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import org.jkiss.dbeaver.model.struct.DBSTypedObjectEx;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTrigger;
-import org.jkiss.utils.ArrayUtils;
 
-import com.xugu.metadata.*;
 import com.xugu.parser.Parsing;
 import com.xugu.parser.Parsing.TableType;
 
@@ -125,8 +120,8 @@ public class Utils {
 		typeMap.put("mediumtext", java.sql.Types.VARCHAR);
 		typeMap.put("longtext", java.sql.Types.VARCHAR);
 
-		typeMap.put(Constants.TYPE_NAME_ENUM, java.sql.Types.CHAR);
-		typeMap.put(Constants.TYPE_NAME_SET, java.sql.Types.CHAR);
+		typeMap.put(org.jkiss.dbeaver.ext.xugu.internal.Constants.TYPE_NAME_ENUM, java.sql.Types.CHAR);
+		typeMap.put(org.jkiss.dbeaver.ext.xugu.internal.Constants.TYPE_NAME_SET, java.sql.Types.CHAR);
 		typeMap.put("geometry", java.sql.Types.BINARY);
 		typeMap.put("binary", java.sql.Types.BINARY);
 		typeMap.put("varbinary", java.sql.Types.VARBINARY);

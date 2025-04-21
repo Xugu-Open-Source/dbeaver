@@ -31,7 +31,7 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntityMethod;
 import org.jkiss.dbeaver.model.struct.DBSParametrizedObject;
 import org.jkiss.utils.CommonUtils;
-import org.jkiss.dbeaver.ext.xugu.Constants;
+import org.jkiss.dbeaver.ext.xugu.internal.Constants;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;

@@ -14,24 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jkiss.dbeaver.ext.xugu;
+package org.jkiss.dbeaver.ext.xugu.internal;
 
 import org.eclipse.osgi.util.NLS;
 
 /**
- * 执行 Normal SQL
+ * 执行 SYS SQL
  */
-public class ExecuteSqlNormal extends NLS {
-	static final String BUNDLE_NAME = "org.jkiss.dbeaver.ext.xugu.ExecuteSQL_Cloud_NORMAL";
+public class ExecuteSqlSysdba extends NLS {
+	static final String BUNDLE_NAME = "org.jkiss.dbeaver.ext.xugu.internal.ExecuteSQL_Cloud_SYSDBA";
 
 	/**
 	 * 初始化资源包
 	 */
 	static {
-		NLS.initializeMessages(BUNDLE_NAME, ExecuteSqlNormal.class);
+		NLS.initializeMessages(BUNDLE_NAME, ExecuteSqlSysdba.class);
 	}
 
-	private ExecuteSqlNormal() {
+	private ExecuteSqlSysdba() {
 	}
 
 	public static String currentRoleType;

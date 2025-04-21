@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.ext.xugu.Messages;
+import org.jkiss.dbeaver.ext.xugu.internal.Messages;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 import org.jkiss.dbeaver.ext.xugu.model.*;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;

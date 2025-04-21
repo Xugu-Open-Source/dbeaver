@@ -16,8 +16,7 @@
  */
 package org.jkiss.dbeaver.ext.xugu.data.content;
 
-import org.jkiss.dbeaver.ext.xugu.Constants;
-import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.ext.xugu.internal.Constants;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;

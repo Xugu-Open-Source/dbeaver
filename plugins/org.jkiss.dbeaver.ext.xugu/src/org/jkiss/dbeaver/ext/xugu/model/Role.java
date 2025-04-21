@@ -29,12 +29,9 @@ import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
-import org.jkiss.dbeaver.ext.xugu.Utils;
-import org.jkiss.dbeaver.ext.xugu.model.DataSource.UserRoleFlag;
+import org.jkiss.dbeaver.ext.xugu.internal.Utils;
 
-import com.xugu.parser.DatabaseParsing;
 import com.xugu.parser.Parsing;
-import com.xugu.parser.Parsing.TableType;
 import com.xugu.permission.LoadPermission;
 
 import java.sql.Connection;

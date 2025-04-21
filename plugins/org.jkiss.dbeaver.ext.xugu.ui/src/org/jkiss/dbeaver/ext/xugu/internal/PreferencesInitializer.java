@@ -18,7 +18,6 @@ package org.jkiss.dbeaver.ext.xugu.internal;
 
 import org.eclipse.core.runtime.preferences.AbstractPreferenceInitializer;
 import org.jkiss.dbeaver.ModelPreferences;
-import org.jkiss.dbeaver.ext.xugu.Constants;
 import org.jkiss.dbeaver.model.preferences.DBPPreferenceStore;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.utils.PrefUtils;

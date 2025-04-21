@@ -16,14 +16,11 @@
  */
 package org.jkiss.dbeaver.ext.xugu.model;
 
-import org.eclipse.core.runtime.IStatus;
-import org.eclipse.core.runtime.Status;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.xugu.model.source.SourceObject;
-import org.jkiss.dbeaver.ext.xugu.Utils;
-import org.jkiss.dbeaver.ext.xugu.edit.TablePartitionManager.WarningDialog;
+import org.jkiss.dbeaver.ext.xugu.internal.Utils;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPMessageType;
 import org.jkiss.dbeaver.model.DBPRefreshableObject;
@@ -37,17 +34,12 @@ import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectState;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureType;
 import org.jkiss.dbeaver.runtime.DBeaverNotifications;
-import org.jkiss.dbeaver.ui.UIUtils;
-import org.jkiss.dbeaver.ui.dialogs.StandardErrorDialog;
 
 import com.alibaba.druid.sql.dialect.xugu.api.XuguParserApi;
 import com.alibaba.druid.sql.dialect.xugu.api.bean.CreateFunctionBean;
 import com.alibaba.druid.sql.dialect.xugu.api.bean.CreateProcedureBean;
 import com.alibaba.druid.sql.dialect.xugu.api.bean.Param;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.Timestamp;
 import java.util.ArrayList;

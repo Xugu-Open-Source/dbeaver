@@ -17,13 +17,11 @@
 package org.jkiss.dbeaver.ext.xugu.data;
 
 import org.jkiss.code.NotNull;
-import org.jkiss.dbeaver.ext.xugu.Constants;
 import org.jkiss.dbeaver.ext.xugu.data.content.ContentXml;
 import org.jkiss.dbeaver.model.data.DBDContent;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
-import org.jkiss.dbeaver.model.impl.jdbc.data.handlers.JDBCContentValueHandler;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import org.jkiss.dbeaver.utils.MimeTypes;
 

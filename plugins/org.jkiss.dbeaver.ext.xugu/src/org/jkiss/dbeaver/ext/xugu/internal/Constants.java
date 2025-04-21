@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jkiss.dbeaver.ext.xugu;
+package org.jkiss.dbeaver.ext.xugu.internal;
 
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 import org.jkiss.dbeaver.model.DBConstants;
@@ -197,7 +197,7 @@ public static final String[] DEF_OBJECT_TYPE_LIST = { "TABLE", "VIEW", "SEQUENCE
 	
 	static {
  
-		ResourceBundle  resourceBundle = ResourceBundle.getBundle("org.jkiss.dbeaver.ext.xugu.authority",Locale.CHINA);
+		ResourceBundle  resourceBundle = ResourceBundle.getBundle("org.jkiss.dbeaver.ext.xugu.internal.authority",Locale.CHINA);
 		DEF_DATABASE_AUTHORITY_LIST[0] = resourceBundle.getString("can.create.any.database");
 		DEF_DATABASE_AUTHORITY_LIST[1] = resourceBundle.getString("can.update.any.database");
 		DEF_DATABASE_AUTHORITY_LIST[2] = resourceBundle.getString("can.drop.any.database");
