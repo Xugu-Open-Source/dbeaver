@@ -1,5 +1,30 @@
 # 变更日志
 
+## v1.4.201 - DBeaver 25.0.1
+
+### 修复缺陷
+- 修复 fixbug-10892：配合内核对用户视图的查询级别分类查询
+- 修复 fixbug-10578：修改备份工具的前端组件
+- 拆分模块
+- fix(xugu): 修复数据库名称变更后用户、角色、任务等信息无法刷新的问题
+- 在 Table 类中初始化 alPseudoAttributes 属性，避免潜在的空指针异常- 在 MANIFEST.MF 中添加 org.jkiss.dbeaver.model.sql 依赖，完善模块依赖配置
+- 优化了 schemas、users、roles 和 jobs 查询中的数据库名称引用
+- 添加了对不区分大小写名称查找的支持 暂时强制 默认不区分大小写
+- 原先工具全部复用成功
+- 添加工具对应图标
+- 调整备份工具超出显示没有滚动的条的bug
+- 在 plugin.xml 中添加属性测试器，用于判断是否为系统数据库
+- 在 ui/plugin.xml 中为查看数据资源和事务终结器命令添加可见性条件
+- 新增 XuguSystemDatabaseTester 类，实现系统数据库的判断逻辑
+- 移除从配置中解析 keepAlive 时间的逻辑
+- 引入 getContainer().getConnectionConfiguration().getKeepAliveInterval() 方法获取保活间隔- 添加默认保活间隔（5秒）以防止负值导致的错误
+- 返回新对象解决刷新并发修改问题
+- 在 DataSource 类中，将 getSchemas 方法的返回类型从 Collection<Schema> 改为 ArrayList<Schema>
+- 在 Schema 类中，将 getTables 方法的返回类型从 Collection<Table> 改为 ArrayList<Table>
+- 更新了多个文件中的包引用，以适应新的包结构
+- 移除了xugu.ui中的 OEMConfig 类
+- 调整了部分类的导入语句，以使用新的包路径
+
 ## v1.4.201 - DBeaver 23.2.0
 
 ### 新增功能
