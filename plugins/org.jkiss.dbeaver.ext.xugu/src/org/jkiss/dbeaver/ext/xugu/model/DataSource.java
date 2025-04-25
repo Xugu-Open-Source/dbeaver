@@ -257,9 +257,11 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			// 创建连接保活线程
 //			long keepAliveTime = Long.parseLong(connectKeepAliveMilliseconds);
 			int keepAliveInterval = getContainer().getConnectionConfiguration().getKeepAliveInterval();
+
 			if (keepAliveInterval<=0){
 				// 默认五秒
-				keepAliveInterval = 5;
+				keepAliveInterval = Constants.KEEP_ALIVE_INTERVAL_DEFAULT;
+				getContainer().getConnectionConfiguration().setKeepAliveInterval(keepAliveInterval);
 			}
 			int finalKeepAliveInterval = keepAliveInterval*1000;
 			THREAD_POOL_EXECUTOR.execute(() -> {

@@ -34,6 +34,8 @@ public class Constants {
 	public static final String PLUGIN_ID = "org.jkiss.dbeaver.ext.xugu";
 	
 	public static final String CMD_COMPILE = "org.jkiss.dbeaver.ext.xugu.code.compile";
+
+	public static final int KEEP_ALIVE_INTERVAL_DEFAULT = 30;
 	/**
 	 * 连接类型枚举
 	 */
