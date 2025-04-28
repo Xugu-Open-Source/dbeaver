@@ -1,0 +1,18 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: DBeaver xuguDB UI
+Bundle-SymbolicName: org.jkiss.dbeaver.ext.xugu.ui;singleton:=true
+Bundle-Version: 1.0.1.qualifier
+Bundle-Release-Date: 20250428
+Require-Bundle: org.jkiss.dbeaver.ui,
+ org.jkiss.dbeaver.ui.editors.base,
+ org.jkiss.dbeaver.ui.editors.connection,
+ org.jkiss.dbeaver.ui.editors.sql,
+ org.jkiss.dbeaver.ext.xugu,
+ org.jkiss.dbeaver.ext.generic,
+ org.jkiss.dbeaver.ext.generic.ui
+Bundle-ActivationPolicy: lazy
+Bundle-RequiredExecutionEnvironment: JavaSE-17
+Bundle-Vendor: DBeaver Corp
+Bundle-ClassPath: .
+Automatic-Module-Name: org.jkiss.dbeaver.ext.xugu.ui
