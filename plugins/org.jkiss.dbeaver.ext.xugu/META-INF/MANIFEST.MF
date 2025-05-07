@@ -5,7 +5,14 @@ Bundle-SymbolicName: org.jkiss.dbeaver.ext.xugu;singleton:=true
 Bundle-Version: 1.0.1.qualifier
 Bundle-Release-Date: 20250428
 Require-Bundle: org.eclipse.core.runtime,
- org.jkiss.dbeaver.model,
+ com.github.jsqlparser,
+ com.google.gson,
+ org.jkiss.dbeaver.data.gis,
+ org.jkiss.dbeaver.model;visibility:=reexport,
+ org.jkiss.dbeaver.model.jdbc;visibility:=reexport,
+ org.jkiss.dbeaver.model.sql,
+ org.jkiss.dbeaver.registry,
+ org.jkiss.dbeaver.tasks.native;visibility:=reexport,
  org.jkiss.dbeaver.ext.generic
 Bundle-ActivationPolicy: lazy
 Bundle-RequiredExecutionEnvironment: JavaSE-17
@@ -13,3 +20,12 @@ Bundle-Vendor: DBeaver Corp
 Bundle-Localization: OSGI-INF/l10n/bundle
 Automatic-Module-Name: org.jkiss.dbeaver.ext.xugu
 Export-Package: org.jkiss.dbeaver.ext.xugu.model
+Import-Package: com.google.gson
+Bundle-ClassPath: .,
+ lib/out-jar-1.0.jar,
+ lib/xugu-metadata-1.2.0.jar,
+ lib/xugu-permission-1.2.0.jar,
+ lib/xugu-parser-1.1.0.jar,
+ lib/hutool-all-5.4.1.jar,
+ lib/xugu-backup-1.1.0.jar,
+ lib/default-driver.jar

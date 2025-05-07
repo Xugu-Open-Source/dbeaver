@@ -3,6 +3,7 @@
 <!--
  * DBeaver - Universal Database Manager
  * Copyright (C) 2010-2024 DBeaver Corp and others
+ * Copyright (C) 2017 Andrew Khitrin (ahitrin@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,5 +19,90 @@
   -->
 
 <plugin>
+
+    <extension point="org.jkiss.dbeaver.dataSourceProvider">
+    <datasource
+            class="org.jkiss.dbeaver.ext.xugu.XuguDataSourceProvider"
+            description="xugu connector"
+            id="xugu"
+            parent="generic"
+            label="Xugu"
+            icon="icons/icon.png"
+            dialect="xugu">
+        <tree path="xugu"
+              label="xugu data source"
+              icon="icons/icon.png">
+            <folder type="org.jkiss.dbeaver.ext.xugu.model.XuguSchema"
+                    label="%tree.schemas.node.name"
+                    icon="#folder_schema"
+                    description="Database schemas">
+                <items path="schema"
+                       label="#schema"
+                       property="schemas"
+                       icon="#schema">
+                    <folder type="org.jkiss.dbeaver.ext.xugu.model.XuguTable" label="%tree.tables.node.name"
+                            icon="#folder_table" description="%tree.tables.node.tip">
+                        <items label="%tree.table.node.name" path="table" property="physicalTables" icon="#table">
+                            <icon if="object.externalTable" icon="#table_external"/>
+                            <icon if="object.abstractTable" icon="#table_alias"/>
+                            <icon if="object.sharedTable" icon="#table_shared"/>
+
+                            <folder type="org.jkiss.dbeaver.ext.xugu.model.DamengTableColumn"
+                                    label="%tree.columns.node.name" icon="#columns"
+                                    description="%tree.columns.node.tip">
+                                <items label="%tree.column.node.name" path="attribute" property="attributes"
+                                       icon="#column">
+                                </items>
+                            </folder>
+                        </items>
+                    </folder>
+                </items>
+            </folder>
+        </tree>
+
+        <drivers managable="true">
+            <driver class="com.xugu.cloudjdbc.Driver" defaultPort="5138" description="Xugu JDBC driver." icon="icons/icon.png" iconBig="icons/icon_big.png" id="Xugu SQL Server" label="Xugu" promoted="9999" sampleURL="jdbc:xugu://{host}[:{port}]/{database}" useURL="false" webURL="https://gitee.com/XuguDB/org.jkiss.dbeaver.ext.xugu/tree/develop/drivers" categories="sql">
+                <replace provider="generic" driver="xugu"/>
+                <replace provider="xugu" driver="xugu"/>
+                <replace provider="xugu" driver="xugu_oci"/>
+
+                <property name="recv_mode" value="2"/>
+                <property name="auto_commit" value="on"/>
+                <!-- <property name="lob_ret" value=""/> -->
+                <property name="iso_level" value="READ COMMITTED"/>
+                <property name="lock_timeout" value="3600000"/>
+                <property name="return_rowid" value="false"/>
+                <property name="sql_cursor" value="sql_cursor"/>
+                <property name="isCompatible" value="false"/>
+                <!--	<property name="iscompatibleqx" value="false"/> -->
+                <!--	<property name="ips" value=""/> -->
+                <property name="char_set" value="utf8"/>
+
+                <!--<file path="maven:/com.Xugu.jdbc:ojdbc8:RELEASE" type="jar"/>-->
+
+                <file type="license" path="drivers/xugu/LICENSE.txt" bundle="drivers.xugu"/>
+                <file type="jar" path="drivers/xugu/xugu-jdbc-12.3.4.jar" bundle="drivers.xugu"/>
+                <file type="jar" path="maven:/com.xugudb:xugu-jdbc:12.3.4" bundle="!drivers.xugu"/>
+
+            </driver>
+        </drivers>
+
+    </datasource>
+    </extension>
+
+    <extension point="org.jkiss.dbeaver.generic.meta">
+        <meta id="xugu" class="org.jkiss.dbeaver.ext.xugu.model.XuguMetaModel"
+              driverClass="com.xugu.cloudjdbc.Driver"/>
+    </extension>
+
+    <extension point="org.jkiss.dbeaver.sqlDialect">
+        <dialect id="xugu"
+                 parent="generic"
+                 class="org.jkiss.dbeaver.ext.xugu.dialect.XuguSqlDialect"
+                 label="xugu"
+                 description="xuguDB JDBC dialect"
+                 icon="icons/icon.png">
+        </dialect>
+    </extension>
 
 </plugin>
