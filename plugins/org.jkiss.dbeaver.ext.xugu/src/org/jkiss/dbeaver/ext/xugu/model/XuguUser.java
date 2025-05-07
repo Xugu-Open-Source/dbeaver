@@ -101,26 +101,27 @@ public class XuguUser implements DBAUser, DBPScriptObject, DBPObjectWithLongId {
 
     @Override
     public String getObjectDefinitionText(DBRProgressMonitor monitor, Map<String, Object> options) throws DBException {
-        String objectFullName = DBUtils.getObjectFullName(this, DBPEvaluationContext.DDL);
-        monitor.beginTask("Load sources for user '" + objectFullName + "'...", 1);
-        try (Connection conn = DBUtils.openUtilSession(monitor, this, "Get " + this.name + "DDL")) {
-            String roleFlag = getDataSource().getRoleFlag();
-            String databaseName = getDataSource().getContainer().getConnectionConfiguration().getDatabaseName();
-            Parsing.TableType tableType;
-
-            if (XuguDataSource.UserRoleFlag.SYS.name().equalsIgnoreCase(roleFlag)) {
-                tableType = Parsing.TableType.SYS;
-            } else if (XuguDataSource.UserRoleFlag.DBA.name().equalsIgnoreCase(roleFlag)) {
-                tableType = Parsing.TableType.DBA;
-            } else {
-                tableType = Parsing.TableType.ALL;
-            }
-
-            Parsing parsing = new Parsing();
-            return parsing.loadTheUserDDL(conn, databaseName, getName(), tableType);
-        } catch (SQLException e) {
-            throw new DBException("Close connection of DDL failed", e);
-        }
+//        String objectFullName = DBUtils.getObjectFullName(this, DBPEvaluationContext.DDL);
+//        monitor.beginTask("Load sources for user '" + objectFullName + "'...", 1);
+//        try (Connection conn = DBUtils.openUtilSession(monitor, this, "Get " + this.name + "DDL")) {
+//            String roleFlag = getDataSource().getRoleFlag();
+//            String databaseName = getDataSource().getContainer().getConnectionConfiguration().getDatabaseName();
+//            Parsing.TableType tableType;
+//
+//            if (XuguDataSource.UserRoleFlag.SYS.name().equalsIgnoreCase(roleFlag)) {
+//                tableType = Parsing.TableType.SYS;
+//            } else if (XuguDataSource.UserRoleFlag.DBA.name().equalsIgnoreCase(roleFlag)) {
+//                tableType = Parsing.TableType.DBA;
+//            } else {
+//                tableType = Parsing.TableType.ALL;
+//            }
+//
+//            Parsing parsing = new Parsing();
+//            return parsing.loadTheUserDDL(conn, databaseName, getName(), tableType);
+//        } catch (SQLException e) {
+//            throw new DBException("Close connection of DDL failed", e);
+//        }
+        return null;
     }
 
     @Property(viewable = true, order = 6)
