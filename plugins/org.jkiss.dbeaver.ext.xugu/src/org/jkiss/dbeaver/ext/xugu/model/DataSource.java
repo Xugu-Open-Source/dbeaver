@@ -139,7 +139,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		super(monitor, container, new SqlDialect());
 		DBPConnectionConfiguration config = container.getConnectionConfiguration();
 		try {
-			driver = (Driver) container.getDriver().getDriverInstance(monitor);
+			driver = (Driver) container.getDriver().getDefaultDriverLoader().getDriverInstance(monitor);
 		} catch (DBException e) {
 			throw new DBException("注册驱动失败", e);
 		}

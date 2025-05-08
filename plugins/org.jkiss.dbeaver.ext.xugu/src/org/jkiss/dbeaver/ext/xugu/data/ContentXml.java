@@ -17,13 +17,13 @@
 package org.jkiss.dbeaver.ext.xugu.data;
 
 import org.jkiss.dbeaver.ext.xugu.internal.Constants;
-import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.impl.jdbc.data.JDBCContentXML;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
+import org.jkiss.dbeaver.registry.driver.DriverUtils;
 import org.jkiss.utils.BeanUtils;
 
 import java.io.IOException;
@@ -69,9 +69,11 @@ public class ContentXml extends JDBCContentXML {
 
 	private Object createXmlObject(JDBCSession session, InputStream stream) throws DBCException {
 		try {
-			return BeanUtils.invokeStaticMethod(DBUtils.getDriverClass(session.getExecutionContext().getDataSource(), Constants.XMLTYPE_CLASS_NAME),
-					"createXML", new Class[] { java.sql.Connection.class, java.io.InputStream.class },
-					new Object[] { session.getOriginal(), stream });
+			return BeanUtils.invokeStaticMethod(
+					DriverUtils.getDriverClass(session.getExecutionContext().getDataSource(), Constants.XMLTYPE_CLASS_NAME),
+					"createXML",
+					new Class[] {java.sql.Connection.class, java.io.InputStream.class},
+					new Object[] {session.getOriginal(), stream});
 		} catch (SQLException e) {
             throw new DBCException(e, session.getExecutionContext());
         } catch (Throwable e) {
