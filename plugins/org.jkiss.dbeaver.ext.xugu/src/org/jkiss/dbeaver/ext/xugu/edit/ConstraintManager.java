@@ -62,27 +62,23 @@ public class ConstraintManager extends SQLConstraintManager<TableConstraint, Bas
 
 		BaseTable parent = (BaseTable) container;
 
+		return new TableConstraint(
+				parent,
+				"",
+				DBSEntityConstraintType.UNIQUE_KEY,
+				null,
+				ObjectStatus.ENABLED);
+	}
 
-		return new UITask<TableConstraint>() {
-			@Override
-			protected TableConstraint runTask() {
-				EditConstraintPage editPage = new EditConstraintPage(Messages.edit_constraint_manager_dialog_title,
-						null);
-				if (!editPage.edit()) {
-					return null;
-				}
 
-				final TableConstraint constraint = new TableConstraint(parent, editPage.getConstraintName(),
-						editPage.getConstraintType(), editPage.getConstraintExpression(),
-						editPage.isEnableConstraint() ? ObjectStatus.ENABLED : ObjectStatus.DISABLED);
-				constraint.setEnable(constraint.getStatus() == ObjectStatus.ENABLED);
-				int colIndex = 1;
-				for (DBSEntityAttribute tableColumn : editPage.getSelectedAttributes()) {
-					constraint.addColumn(new TableConstraintColumn(constraint, (TableColumn) tableColumn, colIndex++));
-				}
-				return constraint;
-			}
-		}.execute();
+	@Override
+	protected String getDropConstraintPattern(TableConstraint constraint)
+	{
+		String clause = "CONSTRAINT"; //$NON-NLS-1$;
+
+		String tableType = constraint.getTable().isView() ? "VIEW" : "TABLE";
+
+		return "ALTER " + tableType + " " + PATTERN_ITEM_TABLE + " DROP " + clause + " " + PATTERN_ITEM_CONSTRAINT; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	}
 
 	@NotNull
@@ -101,9 +97,9 @@ public class ConstraintManager extends SQLConstraintManager<TableConstraint, Bas
 		// 当为单列主键时，已在列中添加 PRIMARY KEY 以生成主键，此处更改表添加主键需跳过
 		if (constraint.getConstraintType() == DBSEntityConstraintType.PRIMARY_KEY) {
 			List<TableConstraintColumn> columns = constraint.getAttributeReferences(monitor);
-			if (columns.size() == 1) {
-				return;
-			}
+//			if (columns.size() == 1) {
+//				return;
+//			}
 		}
 		// 当此唯一列约束关联列为自增列时，已在列中添加 IDENTITY 以生成唯一约束，此处更改表添加唯一约束需跳过
 		if (constraint.getConstraintType() == DBSEntityConstraintType.UNIQUE_KEY) {

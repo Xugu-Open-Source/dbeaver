@@ -38,10 +38,7 @@ import org.jkiss.dbeaver.model.meta.IPropertyCacheValidator;
 import org.jkiss.dbeaver.model.meta.LazyProperty;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
-import org.jkiss.dbeaver.model.struct.DBSEntity;
-import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
-import org.jkiss.dbeaver.model.struct.DBSObject;
-import org.jkiss.dbeaver.model.struct.DBSObjectState;
+import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableForeignKey;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
@@ -60,7 +57,7 @@ import java.util.Map;
  * 表信息基类，包含触发器缓存
  */
 public abstract class BaseTable extends JDBCTable<DataSource, Schema>
-		implements DBPNamedObject2, DBPRefreshableObject, StatefulObject {
+		implements DBPNamedObject2, DBPRefreshableObject, StatefulObject,DBSEntityConstrainable {
 	private static final Log log = Log.getLog(BaseTable.class);
 
 	private int id;
@@ -91,6 +88,17 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 		public boolean isPropertyCached(BaseTable object, Object propertyId) {
 			return object.comment != null;
 		}
+	}
+
+	@NotNull
+	@Override
+	public List<DBSEntityConstraintInfo> getSupportedConstraints() {
+		return List.of(
+				DBSEntityConstraintInfo.of(DBSEntityConstraintType.PRIMARY_KEY, TableConstraint.class),
+				DBSEntityConstraintInfo.of(DBSEntityConstraintType.UNIQUE_KEY, TableConstraint.class),
+				DBSEntityConstraintInfo.of(DBSEntityConstraintType.INDEX,TableConstraint.class),
+				DBSEntityConstraintInfo.of(DBSEntityConstraintType.CHECK, TableConstraint.class)
+		);
 	}
 
 	protected BaseTable(Schema schema, String name, boolean persisted) {

@@ -95,6 +95,11 @@
         <editor id="org.jkiss.dbeaver.ext.xugu.editors.RoleEditor" class="org.jkiss.dbeaver.ext.xugu.editors.RoleEditor" objectType="org.jkiss.dbeaver.ext.xugu.model.Role" main="true" label="%editor.general.name" description="General role settings" icon="#role">
         </editor>
 
+
+        <configurator class="org.jkiss.dbeaver.ext.xugu.config.XuguConstraintConfigurator">
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.TableConstraint"/>
+        </configurator>
+
     </extension>
 
     <extension point="org.eclipse.ui.menus">
