@@ -19,7 +19,6 @@ package org.jkiss.dbeaver.ext.xugu.model;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
-import org.jkiss.dbeaver.DBDatabaseException;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.generic.model.*;
@@ -33,20 +32,16 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
-import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCBasicDataTypeCache;
-import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCDataType;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntityConstraintType;
-import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureType;
+import org.jkiss.dbeaver.model.struct.rdb.DBSIndexType;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-
 /**
  * @author Shengkai Bai
  */
@@ -120,24 +115,106 @@ public class XuguMetaModel extends GenericMetaModel {
         return true;
     }
 
-//    @Override
-//    public GenericUniqueKey createConstraintImpl(GenericTableBase table, String constraintName, DBSEntityConstraintType constraintType, JDBCResultSet dbResult, boolean persisted) {
-//        return new DamengTableConstraint(table, constraintName, constraintType, dbResult, persisted);
-//    }
+    @Override
+    public JDBCStatement prepareUniqueConstraintsLoadStatement(@NotNull JDBCSession session, @NotNull GenericStructContainer owner, @Nullable GenericTableBase forParent)
+            throws SQLException {
+        // 修改了获取约束信息的sql
+        String roleFlag = "all";
+        StringBuilder sql = new StringBuilder(500);
+        sql.append("SELECT DISTINCT *, REPLACE(TRIM('\"' FROM DEFINE), '\",\"', ',') AS COL_NAME, TABLE_NAME FROM ");
+        sql.append(roleFlag);
+        sql.append("_CONSTRAINTS INNER JOIN (SELECT S.SCHEMA_NAME, T.TABLE_ID, T.TABLE_NAME FROM ");
+        sql.append(roleFlag);
+        sql.append("_SCHEMAS S INNER JOIN ");
+        sql.append(roleFlag);
+        sql.append("_TABLES T USING(SCHEMA_ID) ");
+        if (forParent != null) {
+            sql.append("WHERE TABLE_ID=");
+            sql.append("(SELECT table_id FROM all_tables WHERE table_name = '"+forParent.getName()+"')");
+        }
+        String catalog = session.getCatalog();
+        sql.append(") USING(TABLE_ID)");
+        sql.append(" WHERE DB_ID=");
+        sql.append("(SELECT DB_ID FROM all_databases WHERE dB_name = '"+ catalog +"')");
+        sql.append(" AND CONS_TYPE != 'F'");
+        JDBCPreparedStatement dbStat = session.prepareStatement(sql.toString());
+        return dbStat;
+    }
+
+    @Override
+    public  DBSEntityConstraintType getUniqueConstraintType(JDBCResultSet dbResult) throws SQLException {
+         switch (dbResult.getString(XuguConstants.CONS_TYPE))  {
+            case "C":
+                return DBSEntityConstraintType.CHECK;
+            case "P":
+                return DBSEntityConstraintType.PRIMARY_KEY;
+            case "U":
+                return DBSEntityConstraintType.UNIQUE_KEY;
+            case "F":
+                return DBSEntityConstraintType.FOREIGN_KEY;
+            case "N":
+                return DBSEntityConstraintType.NOT_NULL;
+            case "D":
+                return XuguConstants.CONSTRAINT_DEFAULT;
+            case "R":
+                return XuguConstants.CONSTRAINT_REF_COLUMN;
+            default:
+//                log.debug("Unsupported constraint type: " + code);
+                return DBSEntityConstraintType.CHECK;
+        }
+    }
+
+    @Override
+    public GenericUniqueKey createConstraintImpl(GenericTableBase table, String constraintName, DBSEntityConstraintType constraintType, JDBCResultSet dbResult, boolean persisted) {
+        return new XuguTableConstraint(table, constraintName, constraintType, dbResult, persisted);
+    }
 
     @Override
     public GenericTableConstraintColumn[] createConstraintColumnsImpl(JDBCSession session, GenericTableBase parent, GenericUniqueKey object, GenericMetaObject pkObject, JDBCResultSet dbResult) throws DBException {
-        String columnListStr = JDBCUtils.safeGetString(dbResult, "COLUMN_LIST");
-        List<String> columnNameList = CommonUtils.splitString(columnListStr, ',');
-        List<GenericTableConstraintColumn> columns = new ArrayList<>(columnNameList.size());
-        for (String columnName : columnNameList) {
+        String columnListStr = JDBCUtils.safeGetString(dbResult, "col_name");
+        String[] col_umns = columnListStr.split(",");
+        List<GenericTableConstraintColumn> columns = new ArrayList<>(col_umns.length);
+        for (String columnName : col_umns) {
             GenericTableColumn column = parent.getAttribute(session.getProgressMonitor(), columnName);
             if (column == null) {
                 throw new DBException("Column '" + columnName + "' not found in table " + parent.getName());
             }
             columns.add(new GenericTableConstraintColumn(object, column, 0));
         }
+
+//        List<String> columnNameList = CommonUtils.splitString(columnListStr, ',');
+//        List<GenericTableConstraintColumn> columns = new ArrayList<>(columnNameList.size());
+//        for (String columnName : columnNameList) {
+//            GenericTableColumn column = parent.getAttribute(session.getProgressMonitor(), columnName);
+//            if (column == null) {
+//                throw new DBException("Column '" + columnName + "' not found in table " + parent.getName());
+//            }
+//            columns.add(new GenericTableConstraintColumn(object, column, 0));
+//        }
         return ArrayUtils.toArray(GenericTableConstraintColumn.class, columns);
+    }
+
+
+
+
+    @Override
+    public GenericTableIndex createIndexImpl(
+            GenericTableBase table,
+            boolean nonUnique,
+            String qualifier,
+            long cardinality,
+            String indexName,
+            DBSIndexType indexType,
+            boolean persisted)
+    {
+        return new XuguTableIndex(
+                table,
+                nonUnique,
+                qualifier,
+                cardinality,
+                indexName,
+                indexType,
+                persisted);
     }
 
 

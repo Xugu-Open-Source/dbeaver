@@ -20,40 +20,23 @@ package org.jkiss.dbeaver.ext.xugu.model;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
-
-import org.jkiss.dbeaver.ext.generic.model.GenericDataSource;
+import org.jkiss.dbeaver.ext.generic.model.*;
 import org.jkiss.dbeaver.ext.generic.model.meta.GenericMetaModel;
-import org.jkiss.dbeaver.ext.xugu.conf.OemConfig;
 import org.jkiss.dbeaver.ext.xugu.dialect.XuguSqlDialect;
 import org.jkiss.dbeaver.ext.xugu.internal.XuguConstants;
 import org.jkiss.dbeaver.ext.xugu.internal.XuguUtils;
-import org.jkiss.dbeaver.model.DBPDataKind;
-import org.jkiss.dbeaver.model.DBPDataSourceContainer;
-import org.jkiss.dbeaver.model.DBPDataSourceInfo;
-import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
-import org.jkiss.dbeaver.model.exec.DBCException;
-import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
-import org.jkiss.dbeaver.model.exec.DBCExecutionResult;
-import org.jkiss.dbeaver.model.exec.DBCStatement;
+import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.exec.jdbc.*;
-import org.jkiss.dbeaver.model.exec.output.DBCOutputWriter;
-import org.jkiss.dbeaver.model.impl.AsyncServerOutputReader;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSourceInfo;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCExecutionContext;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCRemoteInstance;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectCache;
-import org.jkiss.dbeaver.model.impl.jdbc.exec.JDBCStatementImpl;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
-import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 
-import java.lang.reflect.Method;
-import java.sql.Driver;
 import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Vector;
+import java.util.*;
 
 /**
  * @author jowee
@@ -66,6 +49,11 @@ public class XuguDataSource extends GenericDataSource {
 
     public XuguDataSource(DBRProgressMonitor monitor, DBPDataSourceContainer container, GenericMetaModel metaModel) throws DBException {
         super(monitor, container, metaModel, new XuguSqlDialect());
+    }
+
+    @Override
+    public boolean isOmitCatalog() {
+        return true;
     }
 
     @Override
@@ -86,7 +74,6 @@ public class XuguDataSource extends GenericDataSource {
             executionContext.setDefaultSchema(monitor, defaultSchema);
         }
     }
-
 
 
     @Override
@@ -120,7 +107,6 @@ public class XuguDataSource extends GenericDataSource {
     }
 
 
-
     @Association
     public Collection<XuguUser> getUsers(DBRProgressMonitor monitor) throws DBException {
         return userCache.getAllObjects(monitor, this);
@@ -144,7 +130,7 @@ public class XuguDataSource extends GenericDataSource {
                 sql.append("ALL");
                 sql.append("_USERS WHERE IS_ROLE=true");
                 sql.append(" AND DB_ID=");
-                sql.append("(SELECT db_id FROM all_databases WHERE db_name = '"+databaseName+"')");
+                sql.append("(SELECT db_id FROM all_databases WHERE db_name = '" + databaseName + "')");
             } catch (Exception e) {
                 throw new SQLException("Error in DataSource.RoleCache.prepareObjectsStatement()", e);
             }
@@ -168,7 +154,7 @@ public class XuguDataSource extends GenericDataSource {
                 sql.append("ALL");
                 sql.append("_USERS");
                 sql.append(" WHERE IS_ROLE=FALSE AND DB_ID=");
-                sql.append("(SELECT db_id FROM all_databases WHERE db_name = '"+databaseName+"')");
+                sql.append("(SELECT db_id FROM all_databases WHERE db_name = '" + databaseName + "')");
             } catch (Exception e) {
                 throw new SQLException("Get database object error: ", e);
             }
@@ -217,8 +203,6 @@ public class XuguDataSource extends GenericDataSource {
 //            return null;
 //        }
 //    }
-
-
 
 
 }

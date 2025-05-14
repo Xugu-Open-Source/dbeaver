@@ -18,6 +18,7 @@ package org.jkiss.dbeaver.ext.xugu.dialect;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.ext.generic.model.GenericSQLDialect;
 import org.jkiss.dbeaver.ext.xugu.conf.OemConfig;
 //import org.jkiss.dbeaver.ext.xugu.data.content.BinaryFormatter;
 import org.jkiss.dbeaver.ext.xugu.internal.XuguConstants;
@@ -42,7 +43,7 @@ import java.util.Locale;
 /**
  * SQL 方言
  */
-public class XuguSqlDialect extends JDBCSQLDialect {
+public class XuguSqlDialect extends GenericSQLDialect {
 
 
 	public static final String[] EXEC_KEYWORDS = new String[] { "EXEC" };

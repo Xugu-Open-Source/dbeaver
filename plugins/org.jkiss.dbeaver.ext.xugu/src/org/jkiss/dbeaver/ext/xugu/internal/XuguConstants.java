@@ -33,6 +33,7 @@ import java.util.ResourceBundle;
 public class XuguConstants {
 
 
+	public static final String CONS_TYPE = "CONS_TYPE";
 	
 	
 	public static final String PLUGIN_ID = "org.jkiss.dbeaver.ext.xugu";
