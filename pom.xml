@@ -125,14 +125,14 @@
         <profile>
             <id>desktop</id>
             <activation><property><name>!headless-platform</name></property></activation>
-<!--            <modules>-->
+            <modules>
 <!--                &lt;!&ndash; Tests &ndash;&gt;-->
 <!--                <module>test</module>-->
 
-<!--                &lt;!&ndash; Products &ndash;&gt;-->
-<!--                <module>product/community</module>-->
-<!--                <module>product/repositories</module>-->
-<!--            </modules>-->
+                <!-- Products -->
+                <module>product/community</module>
+                <module>product/repositories</module>
+            </modules>
         </profile>
 
         <!-- desktop build: includes UI components and products -->
