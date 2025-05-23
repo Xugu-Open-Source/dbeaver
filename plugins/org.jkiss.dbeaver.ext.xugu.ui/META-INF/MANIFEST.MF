@@ -5,8 +5,7 @@ Bundle-SymbolicName: org.jkiss.dbeaver.ext.xugu.ui;singleton:=true
 Bundle-Version: 1.4.301.qualifier
 Bundle-Release-Date: 20250325
 Bundle-Activator: org.jkiss.dbeaver.ext.xugu.internal.XuguUIActivator
-Require-Bundle: org.jkiss.dbeaver.ui.config.migration,
- org.jkiss.dbeaver.ui.editors.locks,
+Require-Bundle: org.jkiss.dbeaver.ui.editors.locks,
  com.github.jsqlparser,
  com.google.gson,
  org.jkiss.dbeaver.registry,
