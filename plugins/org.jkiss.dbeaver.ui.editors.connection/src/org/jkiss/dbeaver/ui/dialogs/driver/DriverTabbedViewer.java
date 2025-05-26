@@ -97,10 +97,10 @@ public class DriverTabbedViewer extends StructuredViewer {
             new TabbedFolderInfo(
                 "all", UIConnectionMessages.dialog_driver_category_all_label, DBIcon.TREE_DATABASE, UIConnectionMessages.dialog_driver_category_all_tip, false,
                 new DriverListFolder(null, ratedDrivers)));
-        folders.add(
-            new TabbedFolderInfo(
-                "popular", UIConnectionMessages.dialog_driver_category_popular_label, DBIcon.TREE_DATABASE, UIConnectionMessages.dialog_driver_category_popular_tip, false,
-                new DriverListFolder(null, recentDrivers)));
+//        folders.add(
+//            new TabbedFolderInfo(
+//                "popular", UIConnectionMessages.dialog_driver_category_popular_label, DBIcon.TREE_DATABASE, UIConnectionMessages.dialog_driver_category_popular_tip, false,
+//                new DriverListFolder(null, recentDrivers)));
 
         List<TabbedFolderInfo> extFolders = new ArrayList<>();
         for (DriverCategoryDescriptor category : DriverManagerRegistry.getInstance().getCategories()) {
@@ -127,7 +127,7 @@ public class DriverTabbedViewer extends StructuredViewer {
             }
             return cmp;
         });
-        folders.addAll(extFolders);
+//        folders.addAll(extFolders);
 
         String folderId = UIUtils.getDialogSettings(DIALOG_ID).get(PARAM_LAST_FOLDER);
         if (CommonUtils.isEmpty(folderId)) {
