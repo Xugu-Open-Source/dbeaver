@@ -204,6 +204,7 @@
 
                     <file type="license" path="drivers/xugu/LICENSE.txt" bundle="drivers.xugu"/>
                     <file type="jar" path="drivers/xugu/cloudjdbc-11.0.8.jar" bundle="drivers.xugu"/>
+                    <file type="jar" path="maven:/com.xugudb:xugu-jdbc:RELEASE[12.3.4]" bundle="!drivers.xugu"/>
 
                 </driver>
             </drivers>

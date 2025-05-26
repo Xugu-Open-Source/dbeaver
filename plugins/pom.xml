@@ -86,7 +86,6 @@
                 <module>org.jkiss.dbeaver.ui.navigator</module>
                 <module>org.jkiss.dbeaver.ui.charts</module>
                 <module>org.jkiss.dbeaver.ui.dashboard</module>
-                <module>org.jkiss.dbeaver.ui.search</module>
                 <module>org.jkiss.dbeaver.ui.statistics</module>
 
                 <module>org.jkiss.dbeaver.ui.swt.linux</module>
