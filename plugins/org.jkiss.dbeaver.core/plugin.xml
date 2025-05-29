@@ -1186,9 +1186,9 @@
     <extension point="org.eclipse.ui.perspectives">
         <perspective
                 class="org.jkiss.dbeaver.ui.perspective.DBeaverPerspective"
-                icon="platform:/plugin/org.jkiss.dbeaver.ui/icons/dbeaver_perspective.png"
+                icon="platform:/plugin/org.jkiss.dbeaver.ui/icons/XGManager.gif"
                 id="org.jkiss.dbeaver.core.perspective"
-                name="%perspective.name">
+                name="XGManager">
         </perspective>
     </extension>
 

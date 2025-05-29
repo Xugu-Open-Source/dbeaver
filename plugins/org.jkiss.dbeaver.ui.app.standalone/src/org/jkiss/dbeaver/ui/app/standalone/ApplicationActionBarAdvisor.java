@@ -247,7 +247,7 @@ public class ApplicationActionBarAdvisor extends ActionBarAdvisor
         // Add a group marker indicating where action set menus will appear.
         menuBar.add(new GroupMarker(IWorkbenchActionConstants.MB_ADDITIONS));
         menuBar.add(windowMenu);
-//        menuBar.add(helpMenu);
+        menuBar.add(helpMenu);
 
         IWorkbenchWindow workbenchWindow = getActionBarConfigurer().getWindowConfigurer().getWindow();
         {
