@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2024 DBeaver Corp and others
+ * Copyright (C) 2010-2025 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ public class CollectDiagnosticInfoHandler extends AbstractHandler {
             log.trace("User cancelled %s".formatted(CollectDiagnosticInfoDialog.class.getName()));
             return null;
         }
-        File archive = new File(dialog.getOutputFolder(), "dbeaver-diagnostic-info-%d.zip".formatted(System.currentTimeMillis()));
+        File archive = new File(dialog.getOutputFolder(), "XuguManager-diagnostic-info-%d.zip".formatted(System.currentTimeMillis()));
         if (archive.exists()) {
             // Happens once in a blue moon
             log.warn("File %s already exists".formatted(archive));
