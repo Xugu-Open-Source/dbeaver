@@ -73,7 +73,7 @@ public class TablePartitionManager extends SQLObjectEditor<TablePartition, BaseT
 			new UITask<String>() {
 				@Override
 				protected String runTask() {
-					WarningDialog dialog2 = new WarningDialog(UIUtils.getActiveWorkbenchShell(), "中文测试Can't create new partition on table with no partition");
+					WarningDialog dialog2 = new WarningDialog(UIUtils.getActiveWorkbenchShell(), "Can't create new partition on table with no partition");
 					if (dialog2.open() != IDialogConstants.OK_ID) {
 						return null;
 					}
