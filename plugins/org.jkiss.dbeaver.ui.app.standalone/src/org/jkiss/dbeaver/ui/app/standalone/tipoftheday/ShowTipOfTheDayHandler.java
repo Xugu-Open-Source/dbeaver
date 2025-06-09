@@ -48,9 +48,9 @@ public class ShowTipOfTheDayHandler extends AbstractHandler {
 
     static void showTipOfTheDay(IWorkbenchWindow window) {
         List<String> tips = loadTips();
-        if (!CommonUtils.isEmpty(tips)) {
-            showTipOfTheDayDialog(tips, window);
-        }
+//        if (!CommonUtils.isEmpty(tips)) {
+//            showTipOfTheDayDialog(tips, window);
+//        }
     }
 
     private static void showTipOfTheDayDialog(List<String> tips, IWorkbenchWindow window) {

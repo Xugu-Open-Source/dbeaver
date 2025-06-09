@@ -24,8 +24,8 @@ import org.jkiss.dbeaver.ui.controls.decorations.HolidayDecorations;
  */
 public class UIIcon {
 
-    public static final DBIcon DBEAVER_LOGO = new DBIcon("dbeaver_logo", "dbeaver_logo_medium.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon DBEAVER_LOGO_SMALL = new DBIcon("dbeaver_logo_small", "dbeaver_logo_small.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon DBEAVER_LOGO = new DBIcon("dbeaver_logo", "icon_big.ico"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon DBEAVER_LOGO_SMALL = new DBIcon("dbeaver_logo_small", "icon_big.ico"); //$NON-NLS-1$ //$NON-NLS-2$
 
     public static final DBIcon SEPARATOR_V = new DBIcon("separator_v", "misc/separator_v.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon SEPARATOR_H = new DBIcon("separator_h", "misc/separator_h.png"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -158,7 +158,7 @@ public class UIIcon {
     public static final DBIcon EDIT_TABLE = new DBIcon("edit_table", "misc/edit_table.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon EDIT_COLUMN = new DBIcon("edit_column", "misc/edit_column.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon CONFIG_TABLE = new DBIcon("edit_table", "misc/config_table.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon SQL_TABLE = new DBIcon("edit_table", "sql/sql_table.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon SQL_TABLE = new DBIcon("edit_table", "new_sql/sql_table.png"); //$NON-NLS-1$ //$NON-NLS-2$
 
     public static final DBIcon OBJ_ADD = new DBIcon("object_add", "misc/object_add.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon OBJ_REMOVE = new DBIcon("object_remove", "misc/object_remove.png"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -188,7 +188,7 @@ public class UIIcon {
     public static final DBIcon SECURITY = new DBIcon("security", "security.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon READONLY_RESOURCES = new DBIcon("readonly", "readonly_resources.png"); //$NON-NLS-1$ //$NON-NLS-2$
 
-    public static final DBIcon SQL_NEW_CONNECTION = new DBIcon("sql_new_connection", "database_connect.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon SQL_NEW_CONNECTION = new DBIcon("sql_new_connection", "new_database_connect.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon SQL_CONNECT = new DBIcon("sql_connect", "sql/connect.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon SQL_DISCONNECT = new DBIcon("sql_disconnect", "sql/disconnect.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon SQL_READONLY = new DBIcon("readonly", "sql/readonly.png"); //$NON-NLS-1$ //$NON-NLS-2$

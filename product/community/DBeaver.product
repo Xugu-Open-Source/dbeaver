@@ -53,7 +53,7 @@
         <macosx icon="/icons/dbeaver.icns"/>
         <solaris/>
         <win useIco="true">
-            <ico path="icons/icon_big.ico"/>
+            <ico path="icons/xugu.ico"/>
         </win>
     </launcher>
 

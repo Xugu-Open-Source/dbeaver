@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2024 DBeaver Corp and others
+ * Copyright (C) 2010-2025 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ public class DBeaverPerspective implements IPerspectiveFactory
             IPageLayout.BOTTOM,
             0.7f,
             FOLDER_NAVIGATION);
-        bottomLeft.addView(ProjectExplorerView.VIEW_ID);
+//        bottomLeft.addView(ProjectExplorerView.VIEW_ID);
         bottomLeft.addPlaceholder(DatabaseBrowserView.VIEW_ID);
 
         // Bottom right.
@@ -87,7 +87,7 @@ public class DBeaverPerspective implements IPerspectiveFactory
         // Add view shortcuts
         layout.addShowViewShortcut(DatabaseNavigatorView.VIEW_ID);
         layout.addShowViewShortcut(ProjectNavigatorView.VIEW_ID);
-        layout.addShowViewShortcut(ProjectExplorerView.VIEW_ID);
+//        layout.addShowViewShortcut(ProjectExplorerView.VIEW_ID);
         layout.addShowViewShortcut(QueryManagerView.VIEW_ID);
         layout.addShowViewShortcut(IActionConstants.LOG_VIEW_ID);
 

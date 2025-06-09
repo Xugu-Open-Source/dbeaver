@@ -62,15 +62,15 @@
             name="%view.project.navigator.title">
             <description>%view.project.navigator.description</description>
         </view>
-        <view
-            id="org.jkiss.dbeaver.core.projectExplorer"
-            category="org.jkiss.dbeaver.core.category"
-            class="org.jkiss.dbeaver.ui.navigator.project.ProjectExplorerView"
-            allowMultiple="false"
-            icon="platform:/plugin/org.jkiss.dbeaver.ui/icons/project.png"
-            name="%view.project.explorer.title">
-            <description>%view.project.explorer.description</description>
-        </view>
+<!--        <view-->
+<!--            id="org.jkiss.dbeaver.core.projectExplorer"-->
+<!--            category="org.jkiss.dbeaver.core.category"-->
+<!--            class="org.jkiss.dbeaver.ui.navigator.project.ProjectExplorerView"-->
+<!--            allowMultiple="false"-->
+<!--            icon="platform:/plugin/org.jkiss.dbeaver.ui/icons/project.png"-->
+<!--            name="%view.project.explorer.title">-->
+<!--            <description>%view.project.explorer.description</description>-->
+<!--        </view>-->
     </extension>
 
     <extension point="org.eclipse.ui.newWizards">

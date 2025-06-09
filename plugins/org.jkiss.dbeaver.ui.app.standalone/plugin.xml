@@ -33,7 +33,7 @@
             <property name="versionInfoSize" value="8"/>
             <property name="startupMessageRect" value="60,273,340,21"/>
             <property name="startupProgressRect" value="0,294,600,6"/>
-            <property name="cssTheme" value="org.eclipse.e4.ui.css.theme.e4_default"/>
+            <property name="cssTheme" value="org.eclipse.e4.ui.css.theme.e4_classic"/>
             <property name="applicationCSSResources" value="platform:/plugin/org.eclipse.ui.themes/images/"/>
             <property name="applicationXMI" value="org.jkiss.dbeaver.ui.app.standalone/dbeaver.e4xmi"/>
             <property name="rendererFactoryUri" value="bundleclass://org.jkiss.dbeaver.core/org.jkiss.dbeaver.ui.e4.DBeaverRendererFactory"/>

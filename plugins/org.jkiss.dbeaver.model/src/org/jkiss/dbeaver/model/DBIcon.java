@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2024 DBeaver Corp and others
+ * Copyright (C) 2010-2025 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,11 +47,11 @@ public class DBIcon implements DBPImage {
 
     public static final DBIcon TREE_SCRIPT = new DBIcon("sql_script", "tree/script.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_SCRIPT_FOLDER = new DBIcon("scripts", "tree/script_folder.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TREE_SCHEMA = new DBIcon("schema", "tree/schema.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_SCHEMA = new DBIcon("schema", "new_tree/schema.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_SCHEMA_SHARED = new DBIcon("schema_shared", "tree/schema_shared.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_SCHEMA_SYSTEM = new DBIcon("schema_system", "tree/schema_system.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_SCHEMA_UTIL = new DBIcon("schema_util", "tree/schema_util.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TREE_TABLE = new DBIcon("table", "tree/table.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_TABLE = new DBIcon("table", "new_tree/table.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_TABLE_ALIAS = new DBIcon("table_alias", "tree/table_alias.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_TABLE_LINK = new DBIcon("table_link", "tree/table_link.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_TABLE_INDEX = new DBIcon("table_index", "tree/table_index.png"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -62,16 +62,16 @@ public class DBIcon implements DBPImage {
     public static final DBIcon TREE_VIEW_SHARED = new DBIcon("view_shared", "tree/view_shared.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_FUNCTION = new DBIcon("function", "tree/function.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_PROCEDURE = new DBIcon("procedure", "tree/procedure.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TREE_COLUMNS = new DBIcon("columns", "tree/columns.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TREE_COLUMN = new DBIcon("column", "tree/column.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TREE_INDEX = new DBIcon("index", "tree/index.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_COLUMNS = new DBIcon("columns", "new_tree/columns.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_COLUMN = new DBIcon("column", "new_tree/column.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_INDEX = new DBIcon("index", "new_tree/index.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_CONSTRAINT = new DBIcon("constraint", "tree/constraint.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TREE_UNIQUE_KEY = new DBIcon("unique-key", "tree/unique_constraint.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TREE_FOREIGN_KEY = new DBIcon("foreign-key", "tree/foreign_key.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_UNIQUE_KEY = new DBIcon("unique-key", "new_tree/unique_constraint.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_FOREIGN_KEY = new DBIcon("foreign-key", "new_tree/foreign_key.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_FOREIGN_KEY_COLUMN = new DBIcon("foreign-key-column", "tree/foreign_key_column.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_DERIVED_COLUMN = new DBIcon("derived-column", "tree/derived_column.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_REFERENCE = new DBIcon("reference", "tree/reference.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TREE_TRIGGER = new DBIcon("trigger", "tree/trigger.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_TRIGGER = new DBIcon("trigger", "new_tree/trigger.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_USER = new DBIcon("user", "tree/user.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_USER_GROUP = new DBIcon("user_group", "tree/group.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_PERMISSIONS = new DBIcon("permissions", "tree/permissions.png"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -86,7 +86,7 @@ public class DBIcon implements DBPImage {
     public static final DBIcon TREE_SEQUENCE = new DBIcon("sequence", "tree/sequence.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_SYNONYM = new DBIcon("synonym", "tree/synonym.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_TABLESPACE = new DBIcon("tablespace", "tree/tablespace.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TREE_PARTITION = new DBIcon("partition", "tree/partition.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_PARTITION = new DBIcon("partition", "new_tree/partition.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_ATTRIBUTE = new DBIcon("attribute", "tree/attribute.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_ARGUMENT = new DBIcon("argument", "tree/argument.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_JAVA_CLASS = new DBIcon("javaClass", "tree/java_class.png"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -103,30 +103,30 @@ public class DBIcon implements DBPImage {
     public static final DBIcon TREE_JOB = new DBIcon("job", "tree/job.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_JOB_SCHEDULE = new DBIcon("job_schedule", "tree/job_schedule.png"); //$NON-NLS-1$ //$NON-NLS-2$
 
-    public static final DBIcon TREE_FOLDER = new DBIcon("folder", "tree/folder.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_FOLDER = new DBIcon("folder", "new_tree/folder.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_FOLDER_LINK = new DBIcon("folder_link", "tree/folder_link.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TREE_FOLDER_DATABASE = new DBIcon("folder_database", "tree/folder_database.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TREE_FOLDER_SCHEMA = new DBIcon("folder_schema", "tree/folder_schema.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TREE_FOLDER_TABLE = new DBIcon("folder_table", "tree/folder_table.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TREE_FOLDER_VIEW = new DBIcon("folder_view", "tree/folder_view.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TREE_FOLDER_USER = new DBIcon("folder_user", "tree/folder_user.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_FOLDER_DATABASE = new DBIcon("folder_database", "new_tree/folder_database.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_FOLDER_SCHEMA = new DBIcon("folder_schema", "new_tree/folder_schema.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_FOLDER_TABLE = new DBIcon("folder_table", "new_tree/folder_table.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_FOLDER_VIEW = new DBIcon("folder_view", "new_tree/folder_view.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_FOLDER_USER = new DBIcon("folder_user", "new_tree/folder_user.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_FOLDER_ADMIN = new DBIcon("folder_admin", "tree/folder_admin.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TREE_FOLDER_CONSTRAINT = new DBIcon("constraints", "tree/folder_constraint.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TREE_FOLDER_CONSTRAINT = new DBIcon("constraints", "new_tree/folder_constraint.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_FOLDER_INFO = new DBIcon("folder_info", "tree/folder_info.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_KEY = new DBIcon("key", "tree/key.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TREE_FOLDER_KEY = new DBIcon("folder_key", "tree/folder_key.png"); //$NON-NLS-1$ //$NON-NLS-2$
 
     public static final DBIcon PROJECT = new DBIcon("project", "project.png"); //$NON-NLS-1$ //$NON-NLS-2$
 
-    public static final DBIcon TYPE_BOOLEAN = new DBIcon("boolean", "types/boolean.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TYPE_NUMBER = new DBIcon("number", "types/number.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TYPE_STRING = new DBIcon("string", "types/string.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TYPE_DATETIME = new DBIcon("datetime", "types/datetime.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TYPE_BINARY = new DBIcon("binary", "types/binary.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TYPE_BOOLEAN = new DBIcon("boolean", "new_types/boolean.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TYPE_NUMBER = new DBIcon("number", "new_types/number.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TYPE_STRING = new DBIcon("string", "new_types/string.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TYPE_DATETIME = new DBIcon("datetime", "new_types/datetime.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TYPE_BINARY = new DBIcon("binary", "new_types/binary.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TYPE_TEXT = new DBIcon("text", "types/text.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TYPE_JSON = new DBIcon("json", "types/json.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TYPE_XML = new DBIcon("xml", "types/xml.png"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TYPE_LOB = new DBIcon("lob", "types/lob.png"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TYPE_LOB = new DBIcon("lob", "new_types/lob.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TYPE_ARRAY = new DBIcon("array", "types/array.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TYPE_STRUCT = new DBIcon("struct", "types/struct.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TYPE_DOCUMENT = new DBIcon("document", "types/document.png"); //$NON-NLS-1$ //$NON-NLS-2$
