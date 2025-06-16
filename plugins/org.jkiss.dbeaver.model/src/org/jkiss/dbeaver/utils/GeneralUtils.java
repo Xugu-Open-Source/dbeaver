@@ -286,12 +286,12 @@ public class GeneralUtils {
 
     @NotNull
     public static String getProductTitle() {
-        return getProductName() + " " + getPlainVersion();
+        return getProductName() /*+ " " + getPlainVersion()*/;
     }
 
     @NotNull
     public static String getLongProductTitle() {
-        return getProductName() + " " + getProductVersion();
+        return getProductName() /*+ " " + getProductVersion()*/;
     }
 
     @NotNull
@@ -304,7 +304,7 @@ public class GeneralUtils {
         if (product != null) {
             return product.getName();
         }
-        return "DBeaver";
+        return "XGManager";
     }
 
     @NotNull
@@ -333,13 +333,13 @@ public class GeneralUtils {
     @NotNull
     public static String getPlainVersion() {
         Version version = getProductVersion();
-        return version.getMajor() + "." + version.getMinor() + "." + version.getMicro();
+        return "";
     }
 
     @NotNull
     public static String getMajorVersion() {
         Version version = getProductVersion();
-        return version.getMajor() + "." + version.getMinor();
+        return "";
     }
 
     @NotNull

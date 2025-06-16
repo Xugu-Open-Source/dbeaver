@@ -17,13 +17,15 @@
         </application>
     </extension>
 
+
+
     <extension point="org.eclipse.core.runtime.products" id="product">
         <product application="org.jkiss.dbeaver.ui.app.standalone.standalone" description="%productSubTitle" name="XGManager">
-            <property name="aboutText" value="%aboutText"/>
-            <property name="copyright" value="© 2025 XGManager"/>
-            <property name="subTitle" value="%productSubTitle"/>
+            <property name="aboutText" value="虚谷数据库管理器"/>
+            <property name="copyright" value="XGManager"/>
+            <property name="subTitle" value="虚谷数据库管理器"/>
             <property name="website" value="https://www.xugudb.com/"/>
-            <property name="email" value="%productEmail"/>
+<!--            <property name="email" value="%productEmail"/>-->
             <property name="versionUpdateURL" value="https://www.xugudb.com/"/>
             <property name="earlyAccessURL" value="https://www.xugudb.com/"/>
             <property name="windowImages" value="/icons/icon.png,/icons/icon@2x.png,/icons/icon_big.png,/icons/icon_big@2x.png,/icons/icon_big@2x.png"/>
@@ -80,12 +82,12 @@
         <command
             id="org.jkiss.dbeaver.core.util.resetSettings"
             categoryId="org.jkiss.dbeaver.core.util"
-            name="Reset Settings..."
+            name="重置设置..."
             description="Reset settings and restart"/>
         <command
             id="org.jkiss.dbeaver.core.util.clearHistory"
             categoryId="org.jkiss.dbeaver.core.util"
-            name="Clear History..."
+            name="清除历史记录..."
             description="Clear logs, query history and restart"/>
 <!--        <command-->
 <!--                id="org.jkiss.dbeaver.core.try.pro"-->

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2024 DBeaver Corp and others
+ * Copyright (C) 2010-2025 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -201,8 +201,23 @@ public class AboutBoxDialog extends InformationDialog
             canvas.addPaintListener(e -> e.gc.drawImage(image, 0, 0));
             HolidayDecorations.install(canvas);
         }
-
         Text versionLabel = new Text(group, SWT.NONE);
+        versionLabel.setEditable(false);
+        versionLabel.setBackground(background);
+        versionLabel.setText("版本: " + "0.0.2.2");
+        gd = new GridData(GridData.FILL_HORIZONTAL);
+        gd.horizontalAlignment = GridData.CENTER;
+        versionLabel.setLayoutData(gd);
+
+
+        Label releaseTimeLabel = new Label(group, SWT.NONE);
+        releaseTimeLabel.setBackground(background);
+        releaseTimeLabel.setText("发布日期: " + "2025-6-9");
+        gd = new GridData(GridData.FILL_HORIZONTAL);
+        gd.horizontalAlignment = GridData.CENTER;
+        releaseTimeLabel.setLayoutData(gd);
+
+/*        Text versionLabel = new Text(group, SWT.NONE);
         versionLabel.setEditable(false);
         versionLabel.setBackground(background);
         versionLabel.setText(CoreMessages.dialog_about_label_version + GeneralUtils.getProductVersion());
@@ -222,7 +237,7 @@ public class AboutBoxDialog extends InformationDialog
         authorLabel.setText(product.getProperty(PRODUCT_PROP_COPYRIGHT));
         gd = new GridData(GridData.FILL_HORIZONTAL);
         gd.horizontalAlignment = GridData.CENTER;
-        authorLabel.setLayoutData(gd);
+        authorLabel.setLayoutData(gd);*/
 
         Link siteLink = UIUtils.createLink(group, UIUtils.makeAnchor(product.getProperty(PRODUCT_PROP_WEBSITE)), new SelectionAdapter() {
             @Override
