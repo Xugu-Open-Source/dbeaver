@@ -204,7 +204,7 @@ public class AboutBoxDialog extends InformationDialog
         Text versionLabel = new Text(group, SWT.NONE);
         versionLabel.setEditable(false);
         versionLabel.setBackground(background);
-        versionLabel.setText("版本: " + "0.0.2.2");
+        versionLabel.setText("版本: " + "0.0.3.0");
         gd = new GridData(GridData.FILL_HORIZONTAL);
         gd.horizontalAlignment = GridData.CENTER;
         versionLabel.setLayoutData(gd);
@@ -212,7 +212,7 @@ public class AboutBoxDialog extends InformationDialog
 
         Label releaseTimeLabel = new Label(group, SWT.NONE);
         releaseTimeLabel.setBackground(background);
-        releaseTimeLabel.setText("发布日期: " + "2025-6-9");
+        releaseTimeLabel.setText("发布日期: " + "2025-06-18");
         gd = new GridData(GridData.FILL_HORIZONTAL);
         gd.horizontalAlignment = GridData.CENTER;
         releaseTimeLabel.setLayoutData(gd);
