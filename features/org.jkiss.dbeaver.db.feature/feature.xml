@@ -14,6 +14,9 @@
    </copyright>
    <plugin id="org.jkiss.dbeaver.ext.xugu" version="0.0.0" />
    <plugin id="org.jkiss.dbeaver.ext.mysql" version="0.0.0" />
+   <plugin id="org.jkiss.dbeaver.ext.oracle" version="0.0.0" />
+   <plugin id="org.jkiss.dbeaver.ui.config.migration" version="0.0.0"/>
+
 
    <plugin id="com.dbeaver.jdbc.api" version="0.0.0"/>
    <plugin id="com.dbeaver.jdbc.driver.libsql" version="0.0.0"/>

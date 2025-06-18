@@ -36,6 +36,7 @@
 
         <module>org.jkiss.dbeaver.ext.xugu</module>
         <module>org.jkiss.dbeaver.ext.mysql</module>
+        <module>org.jkiss.dbeaver.ext.oracle</module>
 
         
         <module>org.jkiss.dbeaver.tasks.native</module>
@@ -50,7 +51,7 @@
         <module>org.jkiss.dbeaver.net.ssh.jsch</module>
         <module>org.jkiss.dbeaver.net.ssh.sshj</module>
         <module>org.jkiss.dbeaver.slf4j</module>
-
+        <module>org.jkiss.dbeaver.ui.config.migration</module>
         <module>org.jkiss.dbeaver.headless</module>
         <module>org.jkiss.dbeaver.osgi.test.runner</module>
     </modules>
@@ -69,6 +70,7 @@
                 <module>org.jkiss.dbeaver.ai.copilot.ui</module>
                 <module>org.jkiss.dbeaver.ext.xugu.ui</module>
                 <module>org.jkiss.dbeaver.ext.mysql.ui</module>
+                <module>org.jkiss.dbeaver.ext.oracle.ui</module>
                 <module>org.jkiss.dbeaver.ui</module>
                 <module>org.jkiss.dbeaver.ui.editors.acl</module>
                 <module>org.jkiss.dbeaver.ui.editors.base</module>
