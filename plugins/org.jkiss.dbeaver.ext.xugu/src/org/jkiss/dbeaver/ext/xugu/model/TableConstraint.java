@@ -124,6 +124,9 @@ public class TableConstraint extends BaseTableConstraint {
 		return this.consName;
 	}
 
+	public void setSearchCondition(String searchCondition) {
+		this.searchCondition = searchCondition;
+	}
 	public char getMatchType() {
 		return this.matchType;
 	}

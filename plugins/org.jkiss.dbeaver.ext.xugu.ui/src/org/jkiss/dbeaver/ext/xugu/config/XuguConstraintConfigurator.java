@@ -51,6 +51,7 @@ public class XuguConstraintConfigurator implements DBEObjectConfigurator<TableCo
             }
             constraint.setName(editPage.getConstraintName());
             constraint.setConstraintType(editPage.getConstraintType());
+            constraint.setSearchCondition(editPage.getConstraintExpression());
             int colIndex = 1;
             for (DBSEntityAttribute tableColumn : editPage.getSelectedAttributes()) {
                 constraint.addColumn(
