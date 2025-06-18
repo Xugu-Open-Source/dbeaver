@@ -120,6 +120,9 @@ public class TableConstraint extends BaseTableConstraint {
 		return this.searchCondition;
 	}
 
+	public void setSearchCondition(String searchCondition) {
+		this.searchCondition = searchCondition;
+	}
 	public String getConstraintName() {
 		return this.consName;
 	}
