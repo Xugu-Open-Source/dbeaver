@@ -1,0 +1,173 @@
+/*
+ * DBeaver - Universal Database Manager
+ * Copyright (C) 2010-2025 DBeaver Corp and others
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/* 主窗口背景 */
+.MTrimmedWindow {
+    background-color: #E8F4FD;
+}
+
+#WorkbenchWindow{
+    border-radius: 25px;
+}
+
+
+
+/* 工具栏：使用单色或线性渐变，仅用 background-color */
+#org-eclipse-ui-main-toolbar {
+    background-color: #DCEFFF;
+    /*border-bottom: 1px solid #A0B8CD;*/
+    /*swt-padding: 4 8;*/
+    /*height: 32px;*/
+    line-height: 40px;
+}
+
+/* 状态栏 */
+#org-eclipse-ui-main-status {
+    background-color: #ECEFF1;
+    border-top: 1px solid #A0B8CD;
+    color: #777777;
+    swt-padding: 2 6;
+}
+
+/* 选项卡样式 */
+.MPartStack {
+    swt-simple: true;
+    swt-outer-keyline-color: #A0B8CD;
+}
+
+/* 标签项默认与选中、悬停态 */
+CTabFolder CTabItem {
+    background-color: #F0F8FF;
+    color: #555555;
+    border: 1px solid transparent;
+    padding: 4 12;
+    font-size: 8px;
+}
+CTabFolder CTabItem:selected {
+    background-color: #FFFFFF;
+    color: #000000;
+    font-weight: bold;
+    border: 1px solid #A0B8CD;
+}
+CTabFolder CTabItem:hover {
+    background-color: #E0F4FF;
+}
+
+/* 按钮 */
+Button {
+    background-color: #EAF6FF;
+    color: #333333;
+    border: 1px solid #C0D4E0;
+    border-radius: 4px;
+    swt-focus-width: 1;
+    swt-focus-color: #A0B8CD;
+}
+Button:hover {
+    background-color: #D0E8FF;
+}
+Button:pressed {
+    background-color: #B0D8FF;
+}
+Button:disabled {
+    background-color: #F5F9FF;
+    color: #AAAAAA;
+}
+
+/* 表格、树、列表高亮 */
+Table, Tree, List {
+    background-color: #FFFFFF;
+    selection-background-color: #D0EBFF;
+    selection-foreground-color: #000000;
+}
+
+/* 输入控件 */
+Text, Combo, Spinner {
+    background-color: #FFFFFF;
+    color: #333333;
+    border: 1px solid #C0D4E0;
+    border-radius: 4;
+    swt-padding: 2 4;
+}
+Text:focus, Combo:focus, Spinner:focus {
+    border-color: #87CEEB;
+}
+
+/* Section / ExpandableComposite 表单组 */
+Section, ExpandableComposite {
+    background-color: #F4FBFF;
+    background-color-titlebar: #E0F8FF;
+    border-color-titlebar: #A0B8CD;
+    swt-border-style: solid;
+    swt-padding: 6 8;
+    border-radius: 4;
+}
+Section:hover, ExpandableComposite:hover {
+    background-color: #EAF8FF;
+}
+
+/*.MPart.busy {*/
+/*    font-style: italic;*/
+/*}*/
+
+/*.MPart.highlighted {*/
+/*    font-weight: bold;*/
+/*}*/
+
+/*.MPartStack, .MPart {*/
+/*    font-family: '#org-eclipse-ui-workbench-TAB_TEXT_FONT';*/
+/*}*/
+
+CTabItem:selected {
+    color: '#org-eclipse-ui-workbench-ACTIVE_TAB_TEXT_COLOR';
+}
+
+.MTrimmedWindow {
+    margin-top: 0px;
+    margin-bottom: 0px;
+    margin-left: 2px;
+    margin-right: 2px;
+}
+
+.MPartStack {
+    swt-tab-renderer: null;
+    swt-selected-tabs-background: '#org-eclipse-ui-workbench-INACTIVE_TAB_BG_START' '#org-eclipse-ui-workbench-INACTIVE_TAB_BG_END' 100%;
+    swt-simple: false;
+    color: '#org-eclipse-ui-workbench-INACTIVE_TAB_TEXT_COLOR';
+}
+
+.MPartStack.active {
+    swt-selected-tabs-background: '#org-eclipse-ui-workbench-ACTIVE_TAB_BG_START' '#org-eclipse-ui-workbench-ACTIVE_TAB_BG_END' 100%;
+}
+
+.MPartStack.active.noFocus {
+    swt-selected-tabs-background: '#org-eclipse-ui-workbench-ACTIVE_NOFOCUS_TAB_BG_START' '#org-eclipse-ui-workbench-ACTIVE_NOFOCUS_TAB_BG_END' 100%;
+}
+
+.MPartStack.active.noFocus > CTabItem:selected {
+    color: '#org-eclipse-ui-workbench-ACTIVE_NOFOCUS_TAB_TEXT_COLOR';
+}
+
+.DragFeedback {
+    background-color: COLOR-WIDGET-NORMAL-SHADOW;
+}
+
+/*.ModifiedDragFeedback {*/
+/*    background-color: #A0A000;*/
+/*}*/
+
+/*#org-eclipse-ui-editorss {*/
+/*    swt-tab-height: 8px;*/
+/*}*/

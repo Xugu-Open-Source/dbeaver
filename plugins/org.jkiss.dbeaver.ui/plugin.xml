@@ -23,6 +23,13 @@
        </definition>
    </extension>
 
+    <extension point="org.eclipse.e4.ui.css.swt.theme">
+        <theme
+                basestylesheeturi="css/cg3.css"
+                id="cg3.theme.id"
+                label="XuGuTheme-sky-blue-plus">
+        </theme>
+    </extension>
 <!--
     <extension point="org.eclipse.e4.ui.css.core.elementProvider" id="org.jkiss.dbeaver.ui.css.elementprovider">
         <provider class="org.jkiss.dbeaver.ui.css.DOMElementProvider">
