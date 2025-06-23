@@ -449,12 +449,12 @@
                 <visibleWhen><reference definitionId="DBeaverPerspectiveActive"/></visibleWhen>
 
                 <separator name="driverGroup" visible="true"/>
-                <command commandId="org.jkiss.dbeaver.core.new.connection">
-                    <visibleWhen checkEnabled="true"><test property="org.jkiss.dbeaver.core.global.canCreateConnection"/></visibleWhen>
-                </command>
-                <command commandId="org.jkiss.dbeaver.core.new.connection.from.url">
-                    <visibleWhen checkEnabled="true"><test property="org.jkiss.dbeaver.core.global.canCreateConnection"/></visibleWhen>
-                </command>
+<!--                <command commandId="org.jkiss.dbeaver.core.new.connection">-->
+<!--                    <visibleWhen checkEnabled="true"><test property="org.jkiss.dbeaver.core.global.canCreateConnection"/></visibleWhen>-->
+<!--                </command>-->
+<!--                <command commandId="org.jkiss.dbeaver.core.new.connection.from.url">-->
+<!--                    <visibleWhen checkEnabled="true"><test property="org.jkiss.dbeaver.core.global.canCreateConnection"/></visibleWhen>-->
+<!--                </command>-->
                 <command commandId="org.jkiss.dbeaver.core.driver.manager">
                     <visibleWhen checkEnabled="true"/>
                 </command>

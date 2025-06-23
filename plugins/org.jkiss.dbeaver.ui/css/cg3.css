@@ -68,7 +68,6 @@ CTabFolder CTabItem:hover {
 
 /* 按钮 */
 Button {
-    background-color: #EAF6FF;
     color: #333333;
     border: 1px solid #C0D4E0;
     border-radius: 4px;
@@ -80,10 +79,6 @@ Button:hover {
 }
 Button:pressed {
     background-color: #B0D8FF;
-}
-Button:disabled {
-    background-color: #F5F9FF;
-    color: #AAAAAA;
 }
 
 /* 表格、树、列表高亮 */
@@ -112,7 +107,7 @@ Section, ExpandableComposite {
     border-color-titlebar: #A0B8CD;
     swt-border-style: solid;
     swt-padding: 6 8;
-    border-radius: 4;
+    border-radius: 4px;
 }
 Section:hover, ExpandableComposite:hover {
     background-color: #EAF8FF;

@@ -28,8 +28,8 @@ public class DataSourceCreateHandler extends AbstractHandler {
     @Override
     public Object execute(ExecutionEvent event) throws ExecutionException {
 
-//        IWorkbenchWindow window = HandlerUtil.getActiveWorkbenchWindow(event);
-//        NewConnectionDialog.openNewConnectionDialog(window);
+        IWorkbenchWindow window = HandlerUtil.getActiveWorkbenchWindow(event);
+        NewConnectionDialog.openNewConnectionDialog(window);
 
         return null;
     }
