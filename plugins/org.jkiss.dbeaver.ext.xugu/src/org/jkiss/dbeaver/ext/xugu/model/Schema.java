@@ -20,10 +20,8 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.model.DBPNamedObject2;
-import org.jkiss.dbeaver.model.DBPRefreshableObject;
-import org.jkiss.dbeaver.model.DBPSystemObject;
-import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.*;
+import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
@@ -55,7 +53,7 @@ import java.util.*;
  * 模式信息类，包含模式相关的基本信息，以及表级对象缓存（表、视图、约束、外键、索引、序列、包、存储过程、作业、同义词、自定义类型）
  */
 public class Schema extends BaseGlobalObject
-		implements DBSSchema, DBPRefreshableObject, DBPSystemObject, DBSProcedureContainer ,DBPNamedObject2 {
+		implements DBSSchema, DBPRefreshableObject, DBPSystemObject, DBSProcedureContainer ,DBPNamedObject2 , DBPObjectStatisticsCollector {
 	private static final Log log = Log.getLog(Schema.class);
 
 	final public TableCache tableCache = new TableCache();
@@ -70,6 +68,8 @@ public class Schema extends BaseGlobalObject
 	final public ProceduresCache proceduresCache = new ProceduresCache();
 	final public FunctionsCache functionsCache = new FunctionsCache();
 	final public TriggerCache triggerCache = new TriggerCache();
+
+	private volatile boolean hasStatistics;
  	
 	private long id;
 	private String name;
@@ -523,6 +523,7 @@ public class Schema extends BaseGlobalObject
 
 	@Override
 	public synchronized DBSObject refreshObject(@NotNull DBRProgressMonitor monitor) throws DBException {
+		hasStatistics = false;
 		tableCache.clearCache();
 		viewCache.clearCache();
 		foreignKeyCache.clearCache();
@@ -573,6 +574,45 @@ public class Schema extends BaseGlobalObject
 			log.debug("GetTableColumn Column '" + columnName + "' not found in table '" + parent.getName() + "'");
 		}
 		return tableColumn;
+	}
+	void resetStatistics() {
+		this.hasStatistics = false;
+	}
+
+	@Override
+	public boolean isStatisticsCollected() {
+		return hasStatistics;
+	}
+
+	@Override
+	public void collectObjectStatistics(DBRProgressMonitor monitor, boolean totalSizeOnly, boolean forceRefresh) throws DBException {
+		if (hasStatistics && !forceRefresh) {
+			return;
+		}
+		try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Load table status")) {
+			Collection<Table> tables = getTables(monitor);
+			List<BaseTable> tables1 = new ArrayList<>();
+			for (Table table : tables) {
+				String tableName = table.getTableName();
+				try(JDBCPreparedStatement jdbcPreparedStatement = session.prepareStatement(
+						"select count(*) as TABLE_SIZE from "+" " + tableName
+				)){
+					try (JDBCResultSet jdbcResultSet = jdbcPreparedStatement.executeQuery()) {
+						table.fetchTableSize(jdbcResultSet);
+					}
+				}
+				tables1.add(table);
+
+			}
+
+			tableCache.clearCache();
+			tableCache.setCache(tables1);
+		} catch (Exception e) {
+			throw new DBCException("Error reading table statistics", e);
+		} finally {
+			hasStatistics = true;
+		}
+
 	}
 
 	/**

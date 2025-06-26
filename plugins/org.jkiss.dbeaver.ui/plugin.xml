@@ -29,6 +29,11 @@
                 id="cg3.theme.id"
                 label="XuGuTheme-sky-blue-plus">
         </theme>
+        <theme
+                basestylesheeturi="css/e4-dark_win.css"
+                id="cg4.theme.dark.id"
+                label="XuGuTheme-dark-plus">
+        </theme>
     </extension>
 <!--
     <extension point="org.eclipse.e4.ui.css.core.elementProvider" id="org.jkiss.dbeaver.ui.css.elementprovider">

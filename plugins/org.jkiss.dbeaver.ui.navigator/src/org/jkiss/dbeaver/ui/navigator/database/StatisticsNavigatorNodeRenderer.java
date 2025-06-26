@@ -222,7 +222,12 @@ public class StatisticsNavigatorNodeRenderer extends DefaultNavigatorNodeRendere
         int percentFull;
 
         if (statistics instanceof ObjectStatistics.Known known) {
-            text = known.format.format(known.statObjectSize);
+            String dbType = node.getMeta().getSource().toString();
+            if (dbType.equalsIgnoreCase("xugu")){
+                text = known.statObjectSize+ " ";
+            }else {
+                text = known.format.format(known.statObjectSize);
+            }
             percentFull = known.maxObjectSize == 0 ? 0 : (int) (known.statObjectSize * 100 / known.maxObjectSize);
         } else {
             text = "...";

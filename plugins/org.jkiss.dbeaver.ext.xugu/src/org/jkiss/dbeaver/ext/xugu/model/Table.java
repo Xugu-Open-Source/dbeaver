@@ -21,8 +21,11 @@ import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.data.DBDPseudoAttribute;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Association;
+import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSEntityAssociation;
@@ -30,9 +33,13 @@ import org.jkiss.dbeaver.model.struct.DBSEntityConstraint;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTable;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
+import org.jkiss.utils.ByteNumberFormat;
 import org.jkiss.utils.CommonUtils;
 
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -41,7 +48,7 @@ import java.util.Map;
 /**
  * 表信息衍生类，包含表相关的基本信息
  */
-public class Table extends BaseTablePhysical implements DBPScriptObject {
+public class Table extends BaseTablePhysical implements DBPScriptObject,DBPObjectStatistics {
 	private static final Log log = Log.getLog(Table.class);
 
 	/**
@@ -88,6 +95,8 @@ public class Table extends BaseTablePhysical implements DBPScriptObject {
 	private int aclMask;
 
 	private DBDPseudoAttribute[] allPseudoAttributes = null;
+
+	private transient volatile Long tableSize;
 
 	public Table(Schema schema, String name) {
 		super(schema, name);
@@ -394,4 +403,29 @@ public class Table extends BaseTablePhysical implements DBPScriptObject {
 		return this.allPseudoAttributes;
 	}
 
+
+	void fetchTableSize(JDBCResultSet dbResult) throws SQLException {
+		while (dbResult.next()){
+			tableSize = dbResult.getLong("TABLE_SIZE");
+		}
+	}
+
+	public void setTableSize(Long tableSize) {
+		this.tableSize = tableSize;
+	}
+
+	@Override
+	public boolean hasStatistics() {
+		return true;
+	}
+
+	@Override
+	public long getStatObjectSize() {
+		return tableSize;
+	}
+
+	@Override
+	public DBPPropertySource getStatProperties() {
+		return null;
+	}
 }
