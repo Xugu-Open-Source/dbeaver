@@ -96,7 +96,7 @@ public class Table extends BaseTablePhysical implements DBPScriptObject,DBPObjec
 
 	private DBDPseudoAttribute[] allPseudoAttributes = null;
 
-	private transient volatile Long tableSize;
+	private transient volatile long tableSize;
 
 	public Table(Schema schema, String name) {
 		super(schema, name);
