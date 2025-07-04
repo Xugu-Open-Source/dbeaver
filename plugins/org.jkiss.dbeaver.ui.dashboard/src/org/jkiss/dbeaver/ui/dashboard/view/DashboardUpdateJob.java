@@ -22,6 +22,7 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.runtime.AbstractJob;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
+import org.jkiss.utils.CommonUtils;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -51,6 +52,12 @@ public class DashboardUpdateJob extends AbstractJob {
             }
         } catch (Exception e) {
             log.error("Error running dashboard updater", e);
+            if (e.getMessage().contains("权限不够")){
+                if (isSchedule.get() && !DBWorkbench.getPlatform().isShuttingDown()) {
+                    schedule(JOB_DELAY);
+                }
+                throw new RuntimeException(CommonUtils.getRootCause(e).getMessage());
+            }
         }
 
         if (isSchedule.get() && !DBWorkbench.getPlatform().isShuttingDown()) {

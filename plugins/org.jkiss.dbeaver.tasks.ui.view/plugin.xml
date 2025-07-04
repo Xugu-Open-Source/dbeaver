@@ -151,27 +151,27 @@
 
     <extension point="org.eclipse.ui.menus">
         <!-- Tools context menu -->
-<!--        <menuContribution allPopups="false" locationURI="popup:org.eclipse.ui.popup.any?before=generate">-->
-<!--            <menu label="%menu.database.tools" icon="platform:/plugin/org.jkiss.dbeaver.ui/icons/misc/tools.png">-->
-<!--                <visibleWhen>-->
-<!--                    <with variable="activePart">-->
-<!--                        <and>-->
-<!--                            <test property="org.jkiss.dbeaver.core.global.hasPermission" value="database-developer"/>-->
-<!--                            <test property="org.jkiss.dbeaver.core.tools.hasTools"/>-->
-<!--                        </and>-->
-<!--                    </with>-->
-<!--                </visibleWhen>-->
-<!--                <dynamic id="org.jkiss.dbeaver.core.menu.tools" class="org.jkiss.dbeaver.tasks.ui.DataSourceToolsContributor"/>-->
-<!--            </menu>-->
-<!--        </menuContribution>-->
+        <menuContribution allPopups="false" locationURI="popup:org.eclipse.ui.popup.any?before=generate">
+            <menu label="%menu.database.tools" icon="platform:/plugin/org.jkiss.dbeaver.ui/icons/misc/tools.png">
+                <visibleWhen>
+                    <with variable="activePart">
+                        <and>
+                            <test property="org.jkiss.dbeaver.core.global.hasPermission" value="database-developer"/>
+                            <test property="org.jkiss.dbeaver.core.tools.hasTools"/>
+                        </and>
+                    </with>
+                </visibleWhen>
+                <dynamic id="org.jkiss.dbeaver.core.menu.tools" class="org.jkiss.dbeaver.tasks.ui.DataSourceToolsContributor"/>
+            </menu>
+        </menuContribution>
 
         <!-- Datasource menu -->
         <menuContribution allPopups="false" locationURI="menu:dataSourceMenu?after=tools">
-<!--            <menu label="%menu.database.tools" icon="platform:/plugin/org.jkiss.dbeaver.ui/icons/misc/tools.png">-->
-<!--                <dynamic id="org.jkiss.dbeaver.core.menu.tools" class="org.jkiss.dbeaver.tasks.ui.DataSourceToolsContributor"/>-->
-<!--                <visibleWhen>-->
-<!--                    <test property="org.jkiss.dbeaver.core.global.hasPermission" value="database-developer"/>-->
-<!--                </visibleWhen>-->
+            <menu label="%menu.database.tools" icon="platform:/plugin/org.jkiss.dbeaver.ui/icons/misc/tools.png">
+                <dynamic id="org.jkiss.dbeaver.core.menu.tools" class="org.jkiss.dbeaver.tasks.ui.DataSourceToolsContributor"/>
+                <visibleWhen>
+                    <test property="org.jkiss.dbeaver.core.global.hasPermission" value="database-developer"/>
+                </visibleWhen>
 <!--            </menu>-->
             <command commandId="org.jkiss.dbeaver.ui.tools.menu">
                 <visibleWhen>

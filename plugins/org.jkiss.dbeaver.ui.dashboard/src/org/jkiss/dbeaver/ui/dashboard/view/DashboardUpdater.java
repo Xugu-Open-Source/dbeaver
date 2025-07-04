@@ -131,6 +131,10 @@ public class DashboardUpdater {
                 });
             } catch (DBException e) {
                 log.debug("Error reading map query data for '" + dsContainer.getName() + "'", e);
+
+                if ( mqEntry.getValue().get(0).dashboard.getDataSourceContainer().getDataSource().getSQLDialect().getDialectName().equalsIgnoreCase("xugu")){
+                    throw new RuntimeException(CommonUtils.getRootCause(e).getMessage());
+                }
             }
         }
 
@@ -154,6 +158,9 @@ public class DashboardUpdater {
                 });
             } catch (DBException e) {
                 log.debug("Error reading dashboard '" + dashboard.getItemDescriptor().getId() + "' data: " + CommonUtils.getRootCause(e).getMessage());
+                if (dashboard.getItemDescriptor().getId().contains("xugu") || CommonUtils.getRootCause(e).getMessage().contains("权限") ){
+                    throw new RuntimeException(CommonUtils.getRootCause(e).getMessage());
+                }
             }
             monitor.worked(1);
         }

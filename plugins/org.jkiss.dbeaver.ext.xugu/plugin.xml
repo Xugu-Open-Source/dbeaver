@@ -368,4 +368,75 @@
                 class="org.jkiss.dbeaver.ext.xugu.tasks.XuguSystemDatabaseTester"
                 multiple="false"/>
     </extension>
+
+
+
+    <!--注册仪表板-->
+    <extension point="org.jkiss.dbeaver.dashboard">
+
+        <mapQuery id="xugu.query.status" updatePeriod="1000">SELECT targ_name ,targ_value FROM sys_all_monitors</mapQuery>
+
+
+
+        <dashboard id="xugu.memory" mapQuery="xugu.query.status" label="内存统计" defaultView="timeseries" group="Status"
+                   calc="value" value="bytes" mapKeys="G_MEM,TRAN_MEM,NET_MEM" mapLabels="全局内存,事务内存,用户连接内存"
+                   showByDefault="false" description="xugu memory stats">
+            <datasource id="xugu"/>
+        </dashboard>
+<!--
+SELECT
+                CASE
+                status
+                WHEN 112 THEN '空闲连接'
+                WHEN 114 THEN '活跃连接'
+                WHEN 111 THEN '正在创建的连接'
+                WHEN 113 THEN '空读连接'
+                WHEN 115 THEN '完成数据输入连接'
+                ELSE '其他'
+                END AS 状态,
+                COUNT(*) AS 数量
+                FROM
+                ALL_SESSIONS
+                GROUP BY
+                CASE
+                status
+                WHEN 112 THEN '空闲连接'
+                WHEN 114 THEN '活跃连接'
+                WHEN 111 THEN '正在创建的连接'
+                WHEN 113 THEN '空读连接'
+                WHEN 115 THEN '完成数据输入连接'
+                ELSE '其他'
+                END
+-->
+        <dashboard id="xugu.sessions" label="会话"
+                   defaultView="timeseries" group="Standard" updatePeriod="3000"
+                   calc="value" value="integer" fetch="rows" showByDefault="true" description="虚谷数据库会话数量按状态分类">
+            <datasource id="xugu"/>
+            <query>SELECT status ,count(*) FROM ALL_SESSIONS GROUP BY STATUS </query>
+        </dashboard>
+
+
+        <dashboard id="xugu.com.queries"  label="查询" updatePeriod="3000" defaultView="timeseries" fetch="columns" group="Status"
+                   calc="delta" value="integer" showByDefault="false" description="查询统计信息">
+            <datasource id="xugu"/>
+            <query>SELECT
+                SUM(CASE WHEN SQL_STR LIKE '%insert%' THEN 1 ELSE 0 END) AS 'insert',
+                SUM(CASE WHEN SQL_STR LIKE '%select%' THEN 1 ELSE 0 END) AS 'select',
+                SUM(CASE WHEN SQL_STR LIKE '%delete%' THEN 1 ELSE 0 END) AS 'delete',
+                SUM(CASE WHEN SQL_STR LIKE '%update%' THEN 1 ELSE 0 END) AS 'update'
+                FROM sys_command_log
+                WHERE SQL_STR IS NOT NULL;</query>
+        </dashboard>
+
+        <dashboard id="xugu.com.io"  label="磁盘读写" updatePeriod="3000" defaultView="timeseries" fetch="columns" group="Status"
+                   calc="value" value="bytes" showByDefault="false" description="查询磁盘读写信息">
+            <datasource id="xugu"/>
+            <query>SELECT
+                DISK_R_BYTES as 读盘,
+                DISK_W_BYTES as 写盘
+                FROM
+                sys_all_run_info;</query>
+        </dashboard>
+    </extension>
+
 </plugin>
