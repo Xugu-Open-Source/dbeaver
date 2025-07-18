@@ -20,16 +20,16 @@
 
 
     <extension point="org.eclipse.core.runtime.products" id="product">
-        <product application="org.jkiss.dbeaver.ui.app.standalone.standalone" description="%productSubTitle" name="XGManager">
+        <product application="org.jkiss.dbeaver.ui.app.standalone.standalone" description="%productSubTitle" name="DBManager">
             <property name="aboutText" value="虚谷数据库管理器"/>
-            <property name="copyright" value="XGManager"/>
+            <property name="copyright" value="DBManager"/>
             <property name="subTitle" value="虚谷数据库管理器"/>
             <property name="website" value="https://www.xugudb.com/"/>
 <!--            <property name="email" value="%productEmail"/>-->
             <property name="versionUpdateURL" value="https://www.xugudb.com/"/>
             <property name="earlyAccessURL" value="https://www.xugudb.com/"/>
             <property name="windowImages" value="/icons/icon.png,/icons/icon@2x.png,/icons/icon_big.png,/icons/icon_big@2x.png,/icons/icon_big@2x.png"/>
-            <property name="appName" value="XGManager"/>
+            <property name="appName" value="DBManager"/>
             <property name="appEdition" value="ce"/>
             <property name="versionInfoCoord" value="170,55"/>
             <property name="versionInfoSize" value="8"/>
@@ -69,7 +69,7 @@
     <extension point="org.jkiss.dbeaver.application">
         <application id="dbeaver-ce"
             family="DB"
-            name="XGManager"
+            name="DBManager"
             description="%productSubTitle"/>
     </extension>
 

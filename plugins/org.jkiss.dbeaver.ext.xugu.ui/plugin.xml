@@ -183,7 +183,7 @@
                 locationURI="popup:org.eclipse.ui.popup.any?after=export_import">
 
             <menu
-                    label="Xugu 工具"
+                    label="XuguDB 工具"
                     icon="icons/icon.png">
                 <visibleWhen checkEnabled="true">
                     <with variable="selection">

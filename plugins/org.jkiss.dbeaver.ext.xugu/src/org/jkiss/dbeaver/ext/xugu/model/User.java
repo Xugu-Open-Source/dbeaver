@@ -244,7 +244,7 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 		this.userName = name;
 	}
 
-	@Property(viewable = true, order = 1)
+//	@Property(viewable = true, order = 1)
 	public String getPassword() {
 		return this.password;
 	}

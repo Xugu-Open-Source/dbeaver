@@ -50,7 +50,7 @@ import java.util.*;
 
 public class NewConnectionWizard extends ConnectionWizard
 {
-    private static final String DEFAULT_DRIVER_ID = "Xugu SQL Server";
+    private static final String DEFAULT_DRIVER_ID = "XuguDB";
     private  DBPDriver initialDriver;
     private final DBPConnectionConfiguration initialConfiguration;
     private IStructuredSelection selection;

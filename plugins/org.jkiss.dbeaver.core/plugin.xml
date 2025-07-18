@@ -1189,7 +1189,7 @@
                 class="org.jkiss.dbeaver.ui.perspective.DBeaverPerspective"
                 icon="platform:/plugin/org.jkiss.dbeaver.ui/icons/XGManager.gif"
                 id="org.jkiss.dbeaver.core.perspective"
-                name="XGManager">
+                name="DBManager">
         </perspective>
     </extension>
 

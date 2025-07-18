@@ -289,7 +289,7 @@ public class DBeaverLauncher {
     private static final String KEY_CONFIGINI_TIMESTAMP = "configIniTimestamp"; //$NON-NLS-1$
     private static final String PROP_IGNORE_USER_CONFIGURATION = "eclipse.ignoreUserConfiguration"; //$NON-NLS-1$
 
-    public static final String DBEAVER_DATA_FOLDER = "XGManager";
+    public static final String DBEAVER_DATA_FOLDER = "DBManager";
     private static final String DBEAVER_INSTALL_FOLDER = "install-data";
     private static final String DBEAVER_SECURE_DIR = "secure"; //$NON-NLS-1$
     private static final String DBEAVER_SECURE_FILE = "secure_storage"; //$NON-NLS-1$

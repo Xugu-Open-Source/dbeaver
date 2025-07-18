@@ -304,7 +304,7 @@ public class GeneralUtils {
         if (product != null) {
             return product.getName();
         }
-        return "XGManager";
+        return "DBManager";
     }
 
     @NotNull
