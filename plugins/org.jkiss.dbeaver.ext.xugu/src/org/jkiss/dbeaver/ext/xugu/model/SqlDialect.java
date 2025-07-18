@@ -20,6 +20,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBPDataKind;
 import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.model.DBPIdentifierCase;
 import org.jkiss.dbeaver.model.data.DBDBinaryFormatter;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCDatabaseMetaData;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
@@ -143,6 +144,28 @@ class SqlDialect extends JDBCSQLDialect {
 	@Override
 	public String[] getExecuteKeywords() {
 		return EXEC_KEYWORDS;
+	}
+
+	@NotNull
+	@Override
+	public DBPIdentifierCase storesUnquotedCase() {
+		return DBPIdentifierCase.MIXED;
+	}
+
+	/*@NotNull
+	@Override
+	public DBPIdentifierCase storesQuotedCase() {
+		return DBPIdentifierCase.MIXED;
+	}*/
+
+	public static final String[][] XUGU_QUOTE_STRINGS = {
+			{"`", "`"}
+	};
+
+	@Nullable
+	@Override
+	public String[][] getIdentifierQuoteStrings() {
+		return XUGU_QUOTE_STRINGS;
 	}
 
 	@Override
