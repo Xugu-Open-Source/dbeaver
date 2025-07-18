@@ -97,9 +97,11 @@ public class ConstraintManager extends SQLConstraintManager<TableConstraint, Bas
 		// 当为单列主键时，已在列中添加 PRIMARY KEY 以生成主键，此处更改表添加主键需跳过
 		if (constraint.getConstraintType() == DBSEntityConstraintType.PRIMARY_KEY) {
 			List<TableConstraintColumn> columns = constraint.getAttributeReferences(monitor);
-//			if (columns.size() == 1) {
-//				return;
-//			}
+			if ("列".equalsIgnoreCase(command.getOptions().get("container").toString())){
+				if (columns.size() == 1) {
+					return;
+				}
+			}
 		}
 		// 当此唯一列约束关联列为自增列时，已在列中添加 IDENTITY 以生成唯一约束，此处更改表添加唯一约束需跳过
 		if (constraint.getConstraintType() == DBSEntityConstraintType.UNIQUE_KEY) {

@@ -17,12 +17,14 @@
 package org.jkiss.dbeaver.ext.xugu.model;
 
 import org.jkiss.code.NotNull;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTableConstraint;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntityConstraint;
 import org.jkiss.dbeaver.model.struct.DBSEntityConstraintType;
+import org.jkiss.dbeaver.model.struct.rdb.DBSTableColumn;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +34,7 @@ import java.util.List;
  */
 public abstract class BaseTableConstraint extends JDBCTableConstraint<BaseTable,TableConstraintColumn> {
 	private ObjectStatus status;
-	private List<TableConstraintColumn> columns;
+	private List<TableConstraintColumn> columns = new ArrayList<>();
 
 	public BaseTableConstraint(BaseTable table, String name, DBSEntityConstraintType constraintType,
 			ObjectStatus status, boolean persisted) {
@@ -90,6 +92,11 @@ public abstract class BaseTableConstraint extends JDBCTableConstraint<BaseTable,
 	public void setAttributeReferences(List<TableConstraintColumn> columns) {
 		this.columns.clear();
 		this.columns.addAll(columns);
+	}
+
+	@Override
+	public void addAttributeReference(DBSTableColumn column) throws DBException {
+		this.columns.add(new TableConstraintColumn(this, (TableColumn) column, columns.size()));
 	}
 
 
