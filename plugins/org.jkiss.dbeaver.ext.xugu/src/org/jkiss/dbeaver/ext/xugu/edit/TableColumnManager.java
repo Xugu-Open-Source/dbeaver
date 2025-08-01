@@ -61,13 +61,21 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 		implements DBEObjectRenamer<TableColumn> {
 
     private final ColumnModifier<TableColumn> IdentityModifier = (monitor, column, sql, command) -> {
-        if (column.getMinInteger() != null && column.getStepInteger() != null) {
-            sql.append(" IDENTITY(")
-            .append(column.getMinInteger())
-            .append(",")
-            .append(column.getStepInteger())
-            .append(")");
-        }
+		if(column.getIsIdenBoolean() != null && column.getIsIdenBoolean()) {
+			Integer minInteger = column.getMinInteger();
+			if (minInteger == null){
+				minInteger = 1;
+			}
+			Integer stepInteger = column.getStepInteger();
+			if (stepInteger == null){
+				stepInteger = 1;
+			}
+			sql.append(" IDENTITY(")
+					.append(minInteger)
+					.append(",")
+					.append(stepInteger)
+					.append(")");
+		}
     };
 
     private final ColumnModifier<TableColumn> SinglePrimaryKeyModifier = (monitor, column, sql, command) -> {
@@ -198,10 +206,18 @@ public class TableColumnManager extends SQLTableColumnManager<TableColumn, BaseT
 					if(column.getIsIdenBoolean()){	
 						count++;
 						if(count<2) {
+							Integer minInteger = column.getMinInteger();
+							if (minInteger == null){
+								minInteger = 1;
+							}
+							Integer stepInteger = column.getStepInteger();
+							if (stepInteger == null){
+								stepInteger = 1;
+							}
 							String sql = "ALTER TABLE " + column.getTable().getFullyQualifiedName(DBPEvaluationContext.DDL)
-									+ " ALTER COLUMN \" "+column.getName() + "\" " + column.getTypeName() + " identity (" 
-									+ (command.getProperty("minInteger")==null?column.getMinInteger().toString():command.getProperty("minInteger"))
-									+"," +(command.getProperty("stepInteger")==null?column.getStepInteger().toString():command.getProperty("stepInteger"))+")";	
+									+ " ALTER COLUMN \" "+column.getName() + "\" " + column.getTypeName() + " identity ("
+									+ (command.getProperty("minInteger")==null?minInteger:command.getProperty("minInteger"))
+									+"," +(command.getProperty("stepInteger")==null?stepInteger:command.getProperty("stepInteger"))+")";
 							log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct alter column comment sql: " + sql);
 							actionList.add(new SQLDatabasePersistAction("Comment column", sql));
 						}else {

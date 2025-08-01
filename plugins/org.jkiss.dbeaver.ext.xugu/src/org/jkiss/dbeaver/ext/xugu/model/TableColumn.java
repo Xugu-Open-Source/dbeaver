@@ -35,6 +35,7 @@ import org.jkiss.dbeaver.model.struct.DBSDataType;
 import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
 import org.jkiss.dbeaver.model.struct.DBSTypedObjectEx;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableColumn;
+import org.jkiss.dbeaver.runtime.DBWorkbench;
 
 import java.sql.ResultSet;
 import java.sql.Types;
@@ -360,7 +361,7 @@ public class TableColumn extends JDBCTableColumn<BaseTable>
 	@Property(viewable = true, editable = true, updatable = true, order = 100)
 	@LazyProperty(cacheValidator = CommentLoadValidator.class)
 	public String getComment(DBRProgressMonitor monitor) {
-		if (comment == null) {
+		if (isPersisted() && comment == null && !DBWorkbench.getPlatform().isUnitTestMode()) {
 			// 加载表中所有列注释
 			getTable().loadColumnComments(monitor);
 		}
