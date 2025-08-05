@@ -32,7 +32,7 @@ Export-Package: org.jkiss.dbeaver.ext.xugu,
  org.jkiss.dbeaver.ext.xugu.model.source,
  org.jkiss.dbeaver.ext.xugu.tasks
 Bundle-ActivationPolicy: lazy
-Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Bundle-RequiredExecutionEnvironment: JavaSE-21
 Bundle-Vendor: %Bundle-Vendor
 Bundle-ClassPath: .,
  lib/out-jar-1.0.jar,

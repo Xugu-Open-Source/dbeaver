@@ -100,16 +100,16 @@ public class PrefPageDatabaseUserInterface extends AbstractPrefPage implements I
         Composite composite = UIUtils.createPlaceholder(parent, 1, 5);
 
         if (isStandalone && !ApplicationPolicyService.getInstance().isInstallUpdateDisabled()) {
-            Group groupObjects = UIUtils.createControlGroup(
-                composite, CoreMessages.pref_page_ui_general_group_general, 2,
-                GridData.VERTICAL_ALIGN_BEGINNING,
-                0);
-            automaticUpdateCheck = UIUtils.createCheckbox(
-                groupObjects,
-                CoreMessages.pref_page_ui_general_checkbox_automatic_updates,
-                null,
-                false,
-                2);
+//            Group groupObjects = UIUtils.createControlGroup(
+//                composite, CoreMessages.pref_page_ui_general_group_general, 2,
+//                GridData.VERTICAL_ALIGN_BEGINNING,
+//                0);
+//            automaticUpdateCheck = UIUtils.createCheckbox(
+//                groupObjects,
+//                CoreMessages.pref_page_ui_general_checkbox_automatic_updates,
+//                null,
+//                false,
+//                2);
         }
         if (isStandalone) {
             Group regionalSettingsGroup = UIUtils.createControlGroup(composite,
@@ -263,9 +263,9 @@ public class PrefPageDatabaseUserInterface extends AbstractPrefPage implements I
             useEmbeddedBrowserAuth.setEnabled(!SWTBrowserRegistry.getActiveBrowser().equals(SWTBrowserRegistry.BrowserSelection.IE));
         }
         if (isStandalone) { 
-            if (!ApplicationPolicyService.getInstance().isInstallUpdateDisabled()) {
-                automaticUpdateCheck.setSelection(store.getBoolean(DBeaverPreferences.UI_AUTO_UPDATE_CHECK));
-            }
+//            if (!ApplicationPolicyService.getInstance().isInstallUpdateDisabled()) {
+//                automaticUpdateCheck.setSelection(false);
+//            }
             useEmbeddedBrowserAuth.setSelection(store.getBoolean(UIPreferences.UI_USE_EMBEDDED_AUTH));
         }
         final String timezone = store.getString(ModelPreferences.CLIENT_TIMEZONE);
@@ -289,9 +289,9 @@ public class PrefPageDatabaseUserInterface extends AbstractPrefPage implements I
         DBPPreferenceStore store = DBWorkbench.getPlatform().getPreferenceStore();
         if (isStandalone) {
             useEmbeddedBrowserAuth.setSelection(store.getDefaultBoolean(UIPreferences.UI_USE_EMBEDDED_AUTH));
-            if (!ApplicationPolicyService.getInstance().isInstallUpdateDisabled()) {
-                automaticUpdateCheck.setSelection(store.getDefaultBoolean(DBeaverPreferences.UI_AUTO_UPDATE_CHECK));
-            }
+//            if (!ApplicationPolicyService.getInstance().isInstallUpdateDisabled()) {
+//                automaticUpdateCheck.setSelection(false);
+//            }
         }
         if (isWindowsDesktopClient()) {
             SWTBrowserRegistry.getActiveBrowser();
@@ -324,7 +324,7 @@ public class PrefPageDatabaseUserInterface extends AbstractPrefPage implements I
         if (isStandalone) {
             store.setValue(UIPreferences.UI_USE_EMBEDDED_AUTH, useEmbeddedBrowserAuth.getSelection());
             if (!ApplicationPolicyService.getInstance().isInstallUpdateDisabled()) {
-                store.setValue(DBeaverPreferences.UI_AUTO_UPDATE_CHECK, automaticUpdateCheck.getSelection());
+                store.setValue(DBeaverPreferences.UI_AUTO_UPDATE_CHECK, false);
             } else {
                 store.setValue(DBeaverPreferences.UI_AUTO_UPDATE_CHECK, Boolean.FALSE);
             }

@@ -28,7 +28,6 @@ import org.jkiss.dbeaver.model.edit.DBECommandContext;
 import org.jkiss.dbeaver.model.edit.DBEObjectRenamer;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
-import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLStructEditor;
@@ -38,15 +37,11 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * 表、视图管理器，进行表、视图的创建，修改和删除
@@ -161,7 +156,7 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 			}
 		}
 		createQuery.append(lineSeparator).append(")");
-		appendTableModifiers(monitor, table, tableProps, createQuery, false);
+		appendTableModifiers(monitor, table, tableProps, createQuery, false,options);
 		// 再额外对分区逻辑进行处理
 		Collection<TablePartition> partList = command.getObject().getPartitions(monitor);
 		Collection<TableSubPartition> subpartList = command.getObject().getSubPartitions(monitor);
@@ -264,7 +259,7 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 		if (command.getProperties().size() > 1 || command.getProperty(commentKey) == null) {
 			StringBuilder query = new StringBuilder("ALTER TABLE ");
 			query.append(command.getObject().getFullyQualifiedName(DBPEvaluationContext.DDL)).append(" ");
-			appendTableModifiers(monitor, command.getObject(), command, query, true);
+			appendTableModifiers(monitor, command.getObject(), command, query, true,options);
 
 			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct alter table sql: " + query.toString());
 			actionList.add(new SQLDatabasePersistAction(query.toString()));
@@ -292,16 +287,22 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 	}
 
 	@Override
-	protected void appendTableModifiers(DBRProgressMonitor monitor, Table table, NestedObjectCommand tableProps,
-			StringBuilder ddl, boolean alter) {
+	protected void appendTableModifiers(
+			DBRProgressMonitor monitor,
+			Table table,
+			NestedObjectCommand tableProps,
+			StringBuilder ddl,
+			boolean alter,
+			Map<String, Object> options) {
 		final String tableSpaceKey = "tablespace";
 		if (tableProps.getProperty(tableSpaceKey) != null) {
+			String delimiter = getDelimiter(options);
 			Object tablespace = table.getTablespace();
 			if (tablespace instanceof Tablespace) {
 				if (table.isPersisted()) {
-					ddl.append("\nMOVE TABLESPACE ").append(((Tablespace) tablespace).getName());
+					ddl.append(delimiter).append("\nMOVE TABLESPACE ").append(((Tablespace) tablespace).getName());
 				} else {
-					ddl.append("\nTABLESPACE ").append(((Tablespace) tablespace).getName());
+					ddl.append(delimiter).append("\nTABLESPACE ").append(((Tablespace) tablespace).getName());
 				}
 			}
 		}
