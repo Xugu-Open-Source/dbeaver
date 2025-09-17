@@ -1,0 +1,363 @@
+/*
+ * DBeaver - Universal Database Manager
+ * Copyright (C) 2010-2025 DBeaver Corp and others
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.jkiss.dbeaver.ext.xugu.model;
+
+import com.alibaba.druid.sql.dialect.xugu.api.XuguParserApi;
+import com.alibaba.druid.sql.dialect.xugu.api.bean.CreateFunctionBean;
+import com.alibaba.druid.sql.dialect.xugu.api.bean.CreateProcedureBean;
+import com.alibaba.druid.sql.dialect.xugu.api.bean.Param;
+import org.jkiss.code.NotNull;
+import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.ext.xugu.internal.Utils;
+import org.jkiss.dbeaver.ext.xugu.model.source.SourceObject;
+import org.jkiss.dbeaver.model.DBPEvaluationContext;
+import org.jkiss.dbeaver.model.DBPMessageType;
+import org.jkiss.dbeaver.model.DBPRefreshableObject;
+import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.edit.DBEPersistAction;
+import org.jkiss.dbeaver.model.exec.DBCException;
+import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
+import org.jkiss.dbeaver.model.meta.Property;
+import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.DBSObjectState;
+import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureType;
+import org.jkiss.dbeaver.runtime.DBeaverNotifications;
+
+import java.sql.ResultSet;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * 存储过程衍生类，包括存储过程名、定义、参数等具体信息
+ */
+public class ProcedureStandalone extends BaseProcedure<Schema> implements SourceObject, DBPRefreshableObject {
+	private static final Log log = Log.getLog(ProcedureStandalone.class);
+	private boolean valid;
+	private String comment;
+	private Timestamp createTime;
+	private String sourceDeclaration;
+
+	private String procedureName;
+	private List<ProcedureParameter> procParams;
+
+//	
+//	
+//	/**
+//	 * 获取参数位置
+//	 * @return
+//	 */
+//	public List getPositions() {
+//		return positions;
+//	}
+
+	public ProcedureStandalone(DBRProgressMonitor monitor, Schema schema, ResultSet dbResult) {
+		super(schema, JDBCUtils.safeGetString(dbResult, "PROC_NAME"), JDBCUtils.safeGetLong(dbResult, "PROC_ID"),
+				DBSProcedureType
+						.valueOf(JDBCUtils.safeGetString(dbResult, "RET_TYPE") == null ? "PROCEDURE" : "FUNCTION"));
+		this.procedureName = JDBCUtils.safeGetString(dbResult, "PROC_NAME");
+		this.valid = JDBCUtils.safeGetBoolean(dbResult, "VALID");
+		this.comment = JDBCUtils.safeGetString(dbResult, "COMMENTS");
+		this.createTime = JDBCUtils.safeGetTimestamp(dbResult, "CREATE_TIME");
+		// 通过 define 字段手动解析参数列表（仅支持查看）
+		this.sourceDeclaration = JDBCUtils.safeGetString(dbResult, "DEFINE");
+
+		String paraName;
+		String paraType;
+		String dataType;
+		Integer paraPosition;
+		String paraDefault;
+		ProcedureParameter procedureParameter;
+		procParams = new ArrayList<ProcedureParameter>();
+//		System.out.println(sourceDeclaration);
+		CreateProcedureBean createProcedureBean = null;
+		if (JDBCUtils.safeGetString(dbResult, "RET_TYPE") == null) {
+			// 通过parser解析包解析存储过程参数。
+			List<CreateProcedureBean> procedureBeans = null;
+			try {
+				procedureBeans = XuguParserApi.parseCreateProcedure(sourceDeclaration);
+			} catch (Exception e) {
+				procedureBeans = new  ArrayList<CreateProcedureBean>();
+				CreateProcedureBean createProcedureBean2 = new CreateProcedureBean();
+				Param param = new Param();
+				param.setName("Procedure existing parser does not support syntax objects");
+				param.setIndex(1);
+				param.setDataType("VARCHAR");
+		
+				List paramsList = new ArrayList<Param>();
+				paramsList.add(param);
+				createProcedureBean2.setParams(paramsList);
+				createProcedureBean2.setParamSize(1);
+				procedureBeans.add(createProcedureBean2);
+				
+			    DBeaverNotifications.showNotification(
+                        DBeaverNotifications.NT_RECONNECT_FAILURE,
+                        procedureName,
+                         e.getMessage(),
+                        DBPMessageType.INFORMATION,new Runnable() {
+			
+							@Override
+							public void run() {
+								// TODO Auto-generated method stub
+								
+							}
+						});
+				
+			}
+			createProcedureBean = procedureBeans.get(0);
+			for (int i = 0; i < createProcedureBean.getParamSize(); i++) {
+				paraName = createProcedureBean.getParams().get(i).getName();
+				paraType = createProcedureBean.getParams().get(i).getParamType();
+				dataType = createProcedureBean.getParams().get(i).getDataType();
+				paraPosition = Integer.valueOf(createProcedureBean.getParams().get(i).getIndex());
+				paraDefault = createProcedureBean.getParams().get(i).getDefaultValue();
+				Integer precision = createProcedureBean.getParams().get(i).getPrecision();
+				Integer scale = createProcedureBean.getParams().get(i).getScale();
+				if (paraDefault == null) {
+					paraDefault = "";
+				}
+				procedureParameter = new ProcedureParameter(monitor, this, paraName, dataType, paraType,
+						paraPosition, paraDefault, precision, scale);
+				// monitor,procedure实例，参数名，数据类型，参数模式，参数位置，默认值。
+				procParams.add(procedureParameter);
+			}
+		} else {
+			// 通过parser解析包解析存储过程参数。
+			List<CreateFunctionBean> functionBeans = null;
+			try {
+				functionBeans = XuguParserApi.parseCreateFunction(sourceDeclaration);
+			} catch (Exception e) {
+				functionBeans = new  ArrayList<CreateFunctionBean>();
+				CreateFunctionBean createFunctionBean = new CreateFunctionBean();
+				Param param = new Param();
+				param.setName("Function existing parser does not support syntax objects");
+				param.setIndex(1);
+				param.setDataType("VARCHAR");
+		 
+				List paramsList = new ArrayList<Param>();
+				paramsList.add(param);
+				createFunctionBean.setParams(paramsList);
+				createFunctionBean.setParamSize(1);
+				functionBeans.add(createFunctionBean);
+				
+			    DBeaverNotifications.showNotification(
+                        DBeaverNotifications.NT_RECONNECT_FAILURE,
+                        procedureName,
+                         e.getMessage(),
+                        DBPMessageType.INFORMATION,new Runnable() {
+			
+							@Override
+							public void run() {
+								// TODO Auto-generated method stub
+								
+							}
+						});
+			}
+			CreateFunctionBean	createFunctionBean = functionBeans.get(0);
+			for (int i = 0; i < createFunctionBean.getParamSize(); i++) {
+				paraName = createFunctionBean.getParams().get(i).getName();
+				paraType = createFunctionBean.getParams().get(i).getParamType();
+				dataType = createFunctionBean.getParams().get(i).getDataType();
+				paraPosition = Integer.valueOf(createFunctionBean.getParams().get(i).getIndex());
+				paraDefault = createFunctionBean.getParams().get(i).getDefaultValue();
+				Integer precision = createFunctionBean.getParams().get(i).getPrecision();
+				Integer scale = createFunctionBean.getParams().get(i).getScale();
+				if (paraDefault == null) {
+					paraDefault = "";
+				}
+				procedureParameter = new ProcedureParameter(monitor, this, paraName, dataType, paraType,
+						paraPosition, paraDefault, precision, scale);
+				// monitor,procedure实例，参数名，数据类型，参数模式，参数位置，默认值。
+				procParams.add(procedureParameter);
+			}
+		}
+	}
+
+	private String getParamString(String define) {
+		int startIndex = -1;
+		int endIndex = -1;
+		int innerSingleLeftBracket = 0;
+		int commentFlagCount = 0;
+		char[] chars = define.toCharArray();
+		for (int i = 0; i < chars.length; ++i) {
+			// 判断是否是注释状态，当commentFlagCount为2时为注释状态
+			// 当为注释状态时，若遇到换行，则清除注释状态
+			if (commentFlagCount == 2) {
+				if (chars[i] == '\n' || chars[i] == '\r') {
+					commentFlagCount = 0;
+					continue;
+				}
+				continue;
+			} else {
+				// 当不是注释状态时，若遇到注释符-，则注释符计数+1
+				// 若不是注释符-，则重置注释符计数
+				if (chars[i] == '-') {
+					++commentFlagCount;
+					continue;
+				} else {
+					commentFlagCount = 0;
+				}
+
+				// 如果是第一个左括号，则记录为参数串开始位置
+				// 如果已记录开始位置，则为左内单括号，左内单括号计数+1
+				if (startIndex == -1 && chars[i] == '(') {
+					String remainString = define.substring(i);
+					Pattern pattern = Pattern.compile("\\s(IS|AS)\\s", Pattern.CASE_INSENSITIVE);
+					Matcher matcher = pattern.matcher(remainString);
+					if (matcher.find()) {
+						startIndex = i + 1;
+						continue;
+					} else {
+						return "";
+					}
+
+				} else if (startIndex != -1 && chars[i] == '(') {
+					++innerSingleLeftBracket;
+					continue;
+				}
+				// 如果内部括号对为0，且为右括号，则记录为参数串结束位置
+				// 如果左内单括号计数不为零，则当前右括号为左内单括号的配对，左内单括号-1
+				if (innerSingleLeftBracket == 0 && chars[i] == ')') {
+
+					endIndex = i;
+					break;
+				} else if (innerSingleLeftBracket != 0 && chars[i] == ')') {
+					--innerSingleLeftBracket;
+					continue;
+				}
+			}
+		}
+
+		if (startIndex == -1 || endIndex == -1) {
+			return "";
+		} else {
+			return define.substring(startIndex, endIndex);
+		}
+	}
+
+	public ProcedureStandalone(Schema schema, String name, DBSProcedureType procedureType) {
+		super(schema, name, 0L, procedureType);
+	}
+
+	public ProcedureStandalone(DBRProgressMonitor monitor, Schema schema, ProcedureStandalone source) {
+		super(schema, source);
+		this.comment = source.comment;
+		this.sourceDeclaration = source.sourceDeclaration;
+	}
+
+	@Override
+	public Collection<ProcedureParameter> getParameters(DBRProgressMonitor monitor) throws DBException {
+		return this.procParams;
+	}
+
+	@Property(viewable = true, editable = true, updatable = true, order = 2)
+	public String getComment() {
+		return comment;
+	}
+
+	@Property(viewable = true, editable = false, updatable = false, order = 3)
+	public Timestamp getCreateTime() {
+		return createTime;
+	}
+
+	@Property(viewable = true, order = 4)
+	public boolean isValid() {
+		return valid;
+	}
+
+	public void setValid(boolean valid) {
+		this.valid = valid;
+	}
+
+	public void setComment(String comment) {
+		this.comment = comment;
+	}
+
+	public void setCreateTime(Timestamp createTime) {
+		this.createTime = createTime;
+	}
+
+	@Override
+	public Schema getSchema() {
+		return getParentObject();
+	}
+
+	@Override
+	public SourceType getSourceType() {
+		return getProcedureType() == DBSProcedureType.PROCEDURE ? SourceType.PROCEDURE : SourceType.FUNCTION;
+	}
+
+	@Override
+	public Integer getOverloadNumber() {
+		return null;
+	}
+
+	@NotNull
+	@Override
+	public String getFullyQualifiedName(DBPEvaluationContext context) {
+		return DBUtils.getFullQualifiedName(getDataSource(), getSchema(), this);
+	}
+
+	@Override
+	@Property(hidden = true, editable = true, updatable = true, order = -1)
+	public String getObjectDefinitionText(DBRProgressMonitor monitor, Map<String, Object> options) throws DBCException {
+		return sourceDeclaration;
+	}
+
+	@Override
+	public void setObjectDefinitionText(String sourceDeclaration) {
+		this.sourceDeclaration = sourceDeclaration;
+	}
+
+	@Override
+	public DBEPersistAction[] getCompileActions(DBRProgressMonitor monitor) {
+		return new DBEPersistAction[] { new ObjectPersistAction(
+				getProcedureType() == DBSProcedureType.PROCEDURE ? ObjectType.PROCEDURE : ObjectType.FUNCTION,
+				"Compile procedure",
+				"ALTER PROCEDURE " + getFullyQualifiedName(DBPEvaluationContext.DDL) + " RECOMPILE") };
+	}
+
+	@NotNull
+	@Override
+	public DBSObjectState getObjectState() {
+		return valid ? DBSObjectState.NORMAL : DBSObjectState.INVALID;
+	}
+
+	@Override
+	public void refreshObjectState(@NotNull DBRProgressMonitor monitor) throws DBCException {
+		this.valid = Utils.getObjectStatus(monitor, this,
+				getProcedureType() == DBSProcedureType.PROCEDURE ? ObjectType.PROCEDURE : ObjectType.FUNCTION);
+	}
+
+	@Override
+	public DBSObject refreshObject(@NotNull DBRProgressMonitor monitor) throws DBException {
+		Schema schema = this.getSchema();
+		if (this.getProcedureType() == DBSProcedureType.PROCEDURE) {
+			schema.proceduresCache.clearCache();
+			return schema.proceduresCache.refreshObject(monitor, schema, this);
+		} else {
+			schema.functionsCache.clearCache();
+			return schema.functionsCache.refreshObject(monitor, schema, this);
+		}
+	}
+}
