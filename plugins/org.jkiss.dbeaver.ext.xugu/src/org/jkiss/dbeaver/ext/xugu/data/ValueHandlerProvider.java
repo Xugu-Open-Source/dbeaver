@@ -68,7 +68,7 @@ public class ValueHandlerProvider implements DBDValueHandlerProvider {
 		}
 
 		if (typeName.contains(Constants.TYPE_NAME_TIMESTAMP) || typedObject.getDataKind() == DBPDataKind.DATETIME) {
-			return new TimestampValueHandler(preferences);
+			return new TimestampValueHandler(preferences,dataSource);
 		}
 
 		return new JDBCStandardValueHandlerProvider().getValueHandler(dataSource, preferences, typedObject);

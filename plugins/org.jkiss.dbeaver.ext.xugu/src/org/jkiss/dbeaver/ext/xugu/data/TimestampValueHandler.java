@@ -17,6 +17,7 @@
 package org.jkiss.dbeaver.ext.xugu.data;
 
 import org.jkiss.code.NotNull;
+import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
 import org.jkiss.dbeaver.model.data.DBDFormatSettings;
 import org.jkiss.dbeaver.model.exec.DBCException;
@@ -65,9 +66,13 @@ public class TimestampValueHandler extends JDBCDateTimeValueHandler {
 	// private static Method TIMESTAMP_READ_METHOD = null, TIMESTAMPTZ_READ_METHOD =
 	// null, TIMESTAMPLTZ_READ_METHOD = null;
 
-	public TimestampValueHandler(DBDFormatSettings formatSettings)
+	@NotNull
+	private  DBPDataSource dataSource;
+
+	public TimestampValueHandler(DBDFormatSettings formatSettings, DBPDataSource dataSource)
     {
         super(formatSettings);
+		this.dataSource = dataSource;
     }
 
 	@Override
@@ -120,6 +125,10 @@ public class TimestampValueHandler extends JDBCDateTimeValueHandler {
 		} else if (value instanceof Date) {
 			String result;
 			Date realValue = (Date) value;
+			String isdisplayad = dataSource.getContainer().getConnectionConfiguration().getProperties().get("isdisplayad");
+			if ("false".equalsIgnoreCase(isdisplayad)){
+				return realValue.toString();
+			}
 			switch(column.getTypeID()) {
 		        case Types.TIME:
 		        	result = TIME_FORMAT.format(realValue);
@@ -264,6 +273,10 @@ public class TimestampValueHandler extends JDBCDateTimeValueHandler {
                 // So let's use simple version
                 String stringValue = dbResults.getString(index + 1);
                 if (stringValue == null) return null;
+				String isdisplayad = dataSource.getContainer().getConnectionConfiguration().getProperties().get("isdisplayad");
+				if ("false".equalsIgnoreCase(isdisplayad)){
+					return stringValue;
+				}
                 Object objectValue = dbResults.getObject(index + 1);
                 switch (type.getTypeID()) {
                     case Types.TIME:
