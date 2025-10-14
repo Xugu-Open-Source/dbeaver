@@ -893,11 +893,13 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			schemasQuery.append("SELECT S.DB_ID,S.SCHEMA_ID,S.SCHEMA_NAME,U.USER_NAME,S.COMMENTS FROM ");
 			schemasQuery.append(aaa);
 			schemasQuery.append("_SCHEMAS S");
-			schemasQuery.append(",");
+			schemasQuery.append(" LEFT JOIN ");
 			schemasQuery.append(aaa);
 			schemasQuery.append("_USERS U");
-			schemasQuery.append(" WHERE S.USER_ID=U.USER_ID AND S.DB_ID=");
-			schemasQuery.append("(SELECT db_id FROM all_databases WHERE db_name = '"+owner.getName()+"')");
+			schemasQuery.append(" ON S.USER_ID = U.USER_ID ");
+//			schemasQuery.append(" WHERE S.USER_ID=U.USER_ID AND S.DB_ID=");
+			schemasQuery.append(" AND S.DB_ID = (SELECT DB_ID FROM "+ aaa +"_DATABASES " +" WHERE DB_NAME = "+"'"+owner.getName()+"'" +")");
+//			schemasQuery.append("(SELECT db_id FROM all_databases WHERE db_name = '"+owner.getName()+"')");
 			if (schema != null) {
 				schemasQuery.append(" AND S.SCHEMA_NAME =");
 				schemasQuery.append(SQLUtils.quoteString(schema, schema.getName()));
