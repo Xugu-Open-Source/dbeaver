@@ -65,7 +65,8 @@ public abstract class BasePartition<PARENT extends DBSObject> extends BaseObject
 		this.partiType = subpartition ? JDBCUtils.safeGetInt(dbResult, "SUBPARTI_TYPE")
 				: JDBCUtils.safeGetInt(dbResult, "PARTI_TYPE");
 		if (this.getPartiType().equalsIgnoreCase("LIST") && !"OTHERVALUES".equalsIgnoreCase(this.partiValue)) {
-			this.partiValue = this.partiValue.substring(1, this.partiValue.length()-1);
+			this.partiValue = trimQuotes(this.partiValue);
+//			this.partiValue.substring(1, this.partiValue.length()-1);
 		}
 		final String autoPartiKey = "AUTO_PARTI_TYPE";
 		if (JDBCUtils.safeGetInteger(dbResult, autoPartiKey) != null) {
@@ -75,6 +76,15 @@ public abstract class BasePartition<PARENT extends DBSObject> extends BaseObject
 		} else {
 			this.isAuto = false;
 		}
+	}
+	public static String trimQuotes(String partiValue) {
+		if (partiValue == null || partiValue.length() < 2) {
+			return partiValue;
+		}
+		if (partiValue.startsWith("'") && partiValue.endsWith("'")) {
+			return partiValue.substring(1, partiValue.length() - 1);
+		}
+		return partiValue;
 	}
 	
 	protected BasePartition(PARENT table, boolean subpartition, BasePartition<PARENT> source) {
