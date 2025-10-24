@@ -59,6 +59,7 @@
         <module>org.jkiss.dbeaver.ext.kingbase</module>
         <module>org.jkiss.dbeaver.ext.mssql</module>
         <module>org.jkiss.dbeaver.ext.mysql</module>
+        <module>org.jkiss.dbeaver.ext.xugu</module>
         <module>org.jkiss.dbeaver.ext.netezza</module>
         <module>org.jkiss.dbeaver.ext.oceanbase</module>
         <module>org.jkiss.dbeaver.ext.ocient</module>
@@ -120,6 +121,7 @@
                 <module>org.jkiss.dbeaver.ext.kingbase.ui</module>
                 <module>org.jkiss.dbeaver.ext.mssql.ui</module>
                 <module>org.jkiss.dbeaver.ext.mysql.ui</module>
+                <module>org.jkiss.dbeaver.ext.xugu.ui</module>
                 <module>org.jkiss.dbeaver.ext.oceanbase.ui</module>
                 <module>org.jkiss.dbeaver.ext.oracle.ui</module>
 
