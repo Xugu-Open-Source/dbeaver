@@ -16,6 +16,12 @@
  */
 package org.jkiss.dbeaver.ext.xugu.model;
 
+import java.sql.ResultSet;
+import java.sql.Types;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
@@ -36,12 +42,6 @@ import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
 import org.jkiss.dbeaver.model.struct.DBSTypedObjectEx;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableColumn;
 import org.jkiss.dbeaver.runtime.DBWorkbench;
-
-import java.sql.ResultSet;
-import java.sql.Types;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 /**
  * 表字段信息类，包含字段相关的基本信息
@@ -149,6 +149,8 @@ public class TableColumn extends JDBCTableColumn<BaseTable>
 			final String typeVarchar = "VARCHAR";
 			final String typeIntervalRegex = "INTERVAL(.*)";
 			final String typeTimestamp = "TIMESTAMP";
+            final String typeBit = "BIT";
+            final String typeVarBit = "VARBIT";
 
 			if (typeDatetime.equals(this.typeName)) {
 				String t = JDBCUtils.safeGetString(dbResult, "TIMESTAMP_T");
@@ -175,7 +177,8 @@ public class TableColumn extends JDBCTableColumn<BaseTable>
 					this.setScale(JDBCUtils.safeGetInt(dbResult, "SCALE") % 65536);
 					this.setPrecision((JDBCUtils.safeGetInt(dbResult, "SCALE") - this.scale) / 65536);
 					this.maxLength = this.precision;
-				} else if (typeChar.equals(this.typeName) || typeVarchar.equals(this.typeName)) {
+				} else if (typeChar.equals(this.typeName) || typeVarchar.equals(this.typeName)
+                    || typeBit.equals(this.typeName) || typeVarBit.equalsIgnoreCase(this.typeName)) {
 					this.setPrecision(JDBCUtils.safeGetInt(dbResult, "SCALE"));
 					this.setScale(null);
 				} else if (this.typeName.matches(typeIntervalRegex)) {

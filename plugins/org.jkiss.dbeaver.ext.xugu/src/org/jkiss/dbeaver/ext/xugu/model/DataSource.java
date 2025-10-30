@@ -16,6 +16,38 @@
  */
 package org.jkiss.dbeaver.ext.xugu.model;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.io.StringReader;
+import java.lang.reflect.Method;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.Driver;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
+import java.sql.Statement;
+import java.sql.Types;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Vector;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import org.eclipse.core.runtime.IAdaptable;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
@@ -27,11 +59,22 @@ import org.jkiss.dbeaver.ext.xugu.internal.Constants;
 import org.jkiss.dbeaver.ext.xugu.internal.Utils;
 import org.jkiss.dbeaver.ext.xugu.model.Schema.SynonymCache;
 import org.jkiss.dbeaver.ext.xugu.model.plan.PlanAnalyser;
-import org.jkiss.dbeaver.model.*;
+import org.jkiss.dbeaver.model.DBPDataKind;
+import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.DBPErrorAssistant;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
 import org.jkiss.dbeaver.model.data.DBDValueHandlerProvider;
-import org.jkiss.dbeaver.model.exec.*;
+import org.jkiss.dbeaver.model.exec.DBCException;
+import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
+import org.jkiss.dbeaver.model.exec.DBCExecutionPurpose;
+import org.jkiss.dbeaver.model.exec.DBCExecutionResult;
+import org.jkiss.dbeaver.model.exec.DBCQueryTransformType;
+import org.jkiss.dbeaver.model.exec.DBCQueryTransformer;
+import org.jkiss.dbeaver.model.exec.DBCSession;
+import org.jkiss.dbeaver.model.exec.DBCStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
@@ -64,18 +107,6 @@ import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.utils.BeanUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.StandardConstants;
-
-import java.io.*;
-import java.lang.reflect.Method;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.sql.*;
-import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * 数据源类，包含连接信息以及模式级别的对象缓存（模式、角色、用户、表空间、数据类型） 负责创建连接、初始化上下文等
@@ -418,14 +449,19 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			JDBCSession session2 = DBUtils.openUtilSession(monitor, this, "Check util connection");
 			this.utilSession = session2;
 		}
+        // 查询数据库中基础数据类型进行缓存
+        dataTypeCache.setFullCache(false);
+        dataTypeCache.loadObjects(monitor, this);
 
-		// 真正进行数据类型缓存
-		List<DataType> dtList = new ArrayList<>();
-		for (Map.Entry<String, DataType.TypeDesc> predefinedType : DataType.PREDEFINED_TYPES.entrySet()) {
-			DataType dataType = new DataType(this, predefinedType.getKey(), true);
-			dtList.add(dataType);
-		}
-		this.dataTypeCache.setCache(dtList);
+		// 同名数据类型使用代码中预设值覆盖
+        for (Map.Entry<String, DataType.TypeDesc> predefinedType : DataType.PREDEFINED_TYPES.entrySet()) {
+            DataType dataType = new DataType(this, predefinedType.getKey(), true);
+            DataType oldCachedObject = dataTypeCache.getCachedObject(dataType.getName());
+            if (oldCachedObject != null) {
+                dataTypeCache.removeObject(oldCachedObject, false);
+            }
+            dataTypeCache.cacheObject(dataType);
+        }
 	}
 
 	@Override
@@ -574,6 +610,9 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		if (typeName.equals(Constants.TYPE_NAME_XML) || typeName.equals(Constants.TYPE_NAME_XMLTYPE)) {
 			return DBPDataKind.CONTENT;
 		}
+        if (typeName.equals(Constants.TYPE_NAME_VARBIT)) {
+            return DBPDataKind.STRING;
+        }
 		DBPDataKind dataKind = DataType.getDataKind(typeName);
 		if (dataKind != null) {
 			return dataKind;
@@ -896,23 +935,43 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 	}
 
 	/**
-	 * 数据类型缓存，不做查询操作，在 initialize 函数中进行初始化
+	 * 数据类型缓存，查询操作，在 initialize 函数中进行代码初始化的部分会替换此查询
 	 */
 	public static class DataTypeCache extends JDBCObjectCache<DataSource, DataType> {
 		@Override
 		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull DataSource owner)
 				throws SQLException {
-			// TODO 准备数据类型缓存对象声明
-			return session.prepareStatement("");
+            return session.prepareStatement("show DATA_TYPES;");
 		}
 
 		@Override
 		protected DataType fetchObject(@NotNull JDBCSession session, @NotNull DataSource owner,
 				@NotNull JDBCResultSet resultSet) throws SQLException, DBException {
-			// TODO 获取数据类型缓存对象
-			return null;
-		}
-	}
+            DataType dataType = new DataType(owner, resultSet);
+            // 排除暂不考虑的数据类型
+            HashSet<String> set = new HashSet<>();
+            set.add(null);
+            set.add("NULL");
+            set.add("ARRAY");
+            set.add("POINT");
+            set.add("LINE");
+            set.add("LSEG");
+            set.add("BOX");
+            set.add("PATH");
+            set.add("POLYGON");
+            set.add("CIRCLE");
+            set.add("ROWVERSION");
+            if (set.contains(dataType.getName())) {
+                return null;
+            }
+            return dataType;
+        }
+
+        @Override
+        protected synchronized void loadObjects(DBRProgressMonitor monitor, DataSource dataSource) throws DBException {
+            super.loadObjects(monitor, dataSource);
+        }
+    }
 
 	/**
 	 * 表空间缓存
