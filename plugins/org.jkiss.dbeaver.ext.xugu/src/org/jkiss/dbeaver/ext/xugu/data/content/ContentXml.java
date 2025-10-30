@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,15 +19,18 @@ package org.jkiss.dbeaver.ext.xugu.data.content;
 import org.jkiss.dbeaver.ext.xugu.internal.Constants;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
-import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.jdbc.data.JDBCContentXML;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import org.jkiss.dbeaver.registry.driver.DriverUtils;
 import org.jkiss.utils.BeanUtils;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.sql.SQLXML;
 
@@ -51,9 +54,16 @@ public class ContentXml extends JDBCContentXML {
 		try {
 			if (storage != null) {
 				try (InputStream streamReader = storage.getContentStream()) {
-					final Object xmlObject = createXmlObject(session, streamReader);
-
-					preparedStatement.setObject(paramIndex, xmlObject);
+					// final Object xmlObject = createXmlObject(session, streamReader);
+                    // 按照sql命令方式使用字符串作为参数
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(streamReader, StandardCharsets.UTF_8));
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line).append("\n");
+                    }
+                    String xmlValue = sb.toString();
+					preparedStatement.setObject(paramIndex, xmlValue);
 				}
 			} else {
 				preparedStatement.setNull(paramIndex, java.sql.Types.SQLXML);

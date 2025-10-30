@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -149,6 +149,8 @@ public class TableColumn extends JDBCTableColumn<BaseTable>
 			final String typeVarchar = "VARCHAR";
 			final String typeIntervalRegex = "INTERVAL(.*)";
 			final String typeTimestamp = "TIMESTAMP";
+            final String typeBit = "BIT";
+            final String typeVarBit = "VARBIT";
 
 			if (typeDatetime.equals(this.typeName)) {
 				String t = JDBCUtils.safeGetString(dbResult, "TIMESTAMP_T");
@@ -175,7 +177,8 @@ public class TableColumn extends JDBCTableColumn<BaseTable>
 					this.setScale(JDBCUtils.safeGetInt(dbResult, "SCALE") % 65536);
 					this.setPrecision((JDBCUtils.safeGetInt(dbResult, "SCALE") - this.scale) / 65536);
 					this.maxLength = this.precision;
-				} else if (typeChar.equals(this.typeName) || typeVarchar.equals(this.typeName)) {
+				} else if (typeChar.equals(this.typeName) || typeVarchar.equals(this.typeName)
+                    || typeBit.equals(this.typeName) || typeVarBit.equalsIgnoreCase(this.typeName)) {
 					this.setPrecision(JDBCUtils.safeGetInt(dbResult, "SCALE"));
 					this.setScale(null);
 				} else if (this.typeName.matches(typeIntervalRegex)) {
