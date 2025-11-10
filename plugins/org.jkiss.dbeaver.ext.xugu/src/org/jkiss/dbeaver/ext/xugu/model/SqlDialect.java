@@ -37,7 +37,10 @@ import org.jkiss.dbeaver.model.struct.rdb.DBSProcedure;
 import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 
-import java.util.Arrays;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Locale;
 
 /**
@@ -72,50 +75,17 @@ class SqlDialect extends JDBCSQLDialect {
         super.initDriverSettings(session, dataSource, metaData);
 		crlfBroken = !dataSource.isServerVersionAtLeast(11, 0);
 		preferenceStore = dataSource.getContainer().getPreferenceStore();
-
-		addFunctions(Arrays.asList("ABS", "ACOS", "ACOSD", "ACOSH", "ADDDATE", "ADDTIME", "ADD_MONTHS", "ASCII", "ASIN",
-                "ASIND", "ASINH", "ATAN", "ATAN2", "ATAN2D", "ATAND", "ATANH", "ATOF", "ATOL", "BACKFILE_TYPE", "BASE64_DECODE",
-                "BASE64_ENCODE", "BETWEEN00", "BETWEEN01", "BETWEEN10", "BETWEEN11", "BIN", "BITAND", "BITTOCHAR", "BIT_AND",
-                "BIT_CLR", "BIT_COUNT", "BIT_LENGTH", "BIT_NOT", "BIT_OR", "BIT_SET", "BIT_TEST", "BIT_XOR", "BLEN", "BLENGTH",
-                "BOX", "CBRT", "CEIL", "CEILING", "CHARACTER_LENGTH", "CHAR_LENGTH", "CHECK_AUTH", "CHECK_GROMETRY", "CHR",
-                "CLR_VARS", "COMPARE", "CONCAT", "CONCAT_WS", "CONV", "CONVERT", "COS", "COSD", "COSH", "COT", "COTD", "CURDATE",
-                "CURRENT_DATABASE", "CURRENT_DATE", "CURRENT_DATETIME", "CURRENT_DB", "CURRENT_DB_ID", "CURRENT_IP", "CURRENT_NODEID",
-                "CURRENT_SCHEMA", "CURRENT_SCHEMAID", "CURRENT_TIME", "CURRENT_TIMESTAMP", "CURRENT_USER", "CURRENT_USERID", "CURRVAL",
-                "CURTIME", "DATABASE", "DATE", "DATEDIFF", "DATE_ADD", "DATE_FORMAT", "DATE_SUB", "DAY", "DAYNAME", "DAYOFMONTH",
-                "DAYOFWEEK", "DAYOFYEAR", "DBTS", "DECODE_PG", "DEGREES", "DIR_EXISTS", "DIV", "DROP_FILE", "DROP_OS_FILE",
-                "EMPTY_BLOB", "EMPTY_CLOB", "ENCODE_PG", "ERF", "ERFC", "ESCAPE_DECODE", "ESCAPE_ENCODE", "EXP", "EXTRACT",
-                "EXTRACTVALUE", "EXTRACT_DAY", "EXTRACT_HOUR", "EXTRACT_MINUTE", "EXTRACT_MONTH", "EXTRACT_SECOND", "EXTRACT_YEAR",
-                "FACTORIAL", "FILELEN", "FILE_EXISTS", "FIND_IN_SET", "FLOOR", "FORMAT_BINARY_TO_NUMBER", "FORMAT_GSTO_NOS",
-                "FROM_BASE64", "FROM_DAYS", "FROM_UNIXTIME", "GCD", "GEN_RANDOM_UUID", "GETDATE", "GETDAY", "GETHOUR", "GETMINUTE",
-                "GETMONTH", "GETSECOND", "GETTIME", "GETX", "GETY", "GETYEAR", "GET_BOOT_TIME", "GET_DVAR", "GET_FORMAT", "GET_FVAR",
-                "GET_GATHER_NODE_NUM", "GET_HASH", "GET_INSTALL_PATH", "GET_IVAR", "GET_LICENSE_REMAIN_DAYS", "GET_STORE_NODE_NUM",
-                "GET_SVAR", "GET_TYPE_SPACE", "GET_UPTIME", "GET_WORK_PATH", "HEADING", "HEX", "HEXTORAW", "HEX_DECODE", "HEX_ENCODE",
-                "HOUR", "IMPORT_LICENSE", "INET_ATON", "INET_NTOA", "INITCAP", "INSERT", "INSTR", "INSTRB", "ISNULL", "IS_FALSE",
-                "IS_ROLE_MEMBER", "IS_SYS_DBA", "IS_TRUE", "JSON_ARRAY", "JSON_ARRAY_APPEND", "JSON_ARRAY_INSERT", "JSON_CONTAINS",
-                "JSON_CONTAINS_PATH", "JSON_DEPTH", "JSON_EXTRACT", "JSON_INSERT", "JSON_KEYS", "JSON_LENGTH", "JSON_MERGE",
-                "JSON_MERGE_PATCH", "JSON_MERGE_PRESERVE", "JSON_OBJECT", "JSON_OVERLAPS", "JSON_PRETTY", "JSON_QUOTE",
-                "JSON_REMOVE", "JSON_REPLACE", "JSON_SCHEMA_VALID", "JSON_SCHEMA_VALIDATION_REPORT", "JSON_SEARCH", "JSON_SET",
-                "JSON_TYPE", "JSON_UNQUOTE", "JSON_VALID", "LABEL_CMP", "LABEL_FROM_CHAR", "LABEL_STR_CMP", "LABEL_TO_CHAR",
-                "LAST_DAY", "LAST_INSERT_ID", "LCASE", "LCM", "LEFT", "LEFTB", "LEN", "LENGTH", "LENGTHB", "LN", "LOCALTIME",
-                "LOCALTIMESTAMP", "LOCATE", "LOG", "LOG10", "LOG2", "LOWER", "LPAD", "LTRIM", "MAKEDATE", "MAKETIME",
-                "MAKE_DATE", "MAKE_TIME", "MAKE_TIMESTAMP", "MAX_NODE_NUM", "MD5", "MD5_OLD", "MICROSECOND", "MID",
-                "MINUTE", "MOD", "MONTH", "MONTHNAME", "MONTHS_BETWEEN", "MY_LABEL", "NANVL", "NEWID", "NEXTVAL",
-                "NEXT_DAY", "NOW", "NUMTODSINTERVAL", "NUMTOYMINTERVAL", "NUM_NONNULLS", "NUM_NULLS", "OS_FILE_EXISTS",
-                "OS_PATH", "OVERLAPS", "PERIOD_ADD", "PERIOD_DIFF", "PI", "PINYIN", "PINYIN1", "POINT", "POSITION", "POW",
-                "POWER", "QUARTER", "RADIANS", "RAISE_APPLICATION_ERROR", "RAND", "RANDOM", "RANDOM_NORMAL", "RAWTOHEX",
-                "REGEXP_COUNT", "REGEXP_INSTR", "REGEXP_LIKE", "REGEXP_REPLACE", "REGEXP_SUBSTR", "RELOAD_LICENSE", "REMAINDER",
-                "RENAME_FILE", "RENAME_OS_FILE", "REPEAT", "REPLACE", "REPLICATE", "REVERSE", "REVERSE_STR", "RIGHT", "RIGHTB",
-                "ROUND", "ROUND_TIES_TO_EVEN", "ROWIDTOCHAR", "RPAD", "RTRIM", "SECOND", "SEC_TO_TIME", "SEND_MSG", "SESSION_USER",
-                "SETSEED", "SET_DVAR", "SET_FVAR", "SET_IVAR", "SET_SVAR", "SHL", "SHR", "SIGN", "SIN", "SIND", "SINH", "SLEEP",
-                "SPACE", "SPLIT_PART", "SQLCODE", "SQLERRM", "SQRT", "SQUARE", "SRAND", "STRCMP", "STROF", "STUFF", "SUBDATE",
-                "SUBSTR", "SUBSTRB", "SUBSTRING", "SUBSTRING_INDEX", "SUBTIME", "SYSDATE", "SYSDATETIME", "SYSTEM_USER", "SYSTIME",
-                "SYSTIMESTAMP", "SYS_CONTEXT", "SYS_GUID", "SYS_USERID", "SYS_UUID", "TAILING", "TAN", "TAND", "TANH", "TIME",
-                "TIMEDIFF", "TIMESTAMP", "TIMESTAMPADD", "TIMESTAMPDIFF", "TIME_FORMAT", "TIME_TO_SEC", "TO_BASE64", "TO_BLOB",
-                "TO_CHAR", "TO_DATE", "TO_DAYS", "TO_HEX", "TO_NCHAR", "TO_NUMBER", "TO_SECONDS", "TO_TIMESTAMP", "TO_TIMESTAMPZ",
-                "TO_XDATE", "TRANSACTION_TIMESTAMP", "TRANSLATE", "TRIM", "TRUNC", "TRUNCATE", "UCASE", "UID", "UNHEX",
-                "UNIX_TIMESTAMP", "UPPER", "USER", "USERENV", "UTC_DATE", "UTC_TIME", "UTC_TIMESTAMP", "UUID", "VERSION",
-                "WEEK", "WEEKDAY", "WEEKOFYEAR", "WRITE_MSG", "XMLATTRIBUTES", "XMLCAST", "XMLELEMENT", "XMLEXISTS",
-                "XMLFOREST", "XMLQUERY", "XMLSEQUENCE", "XMLTABLE", "XMLTYPE", "YEAR", "YEARWEEK"));
+		try(Statement statement = metaData.getConnection().createStatement()){
+			ResultSet resultSet = statement.executeQuery("SELECT DISTINCT  name from ALL_METHODS order by name ASC");
+			ArrayList<String> methodNames = new ArrayList<>();
+			while (resultSet.next()) {
+				String methodName = resultSet.getString("name");
+				methodNames.add(methodName);
+			}
+			addFunctions(methodNames);
+		} catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
 		removeSQLKeyword("SYSTEM");
 
 		for (String kw : ADVANCED_KEYWORDS) {
