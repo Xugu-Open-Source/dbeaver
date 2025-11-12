@@ -214,7 +214,7 @@ public class Utils {
 
 	public static String transformColumnAuthority(String authority) {
 		String action = "";
-		ResourceBundle  resourceBundle = ResourceBundle.getBundle("org.jkiss.dbeaver.ext.xugu.authority",Locale.CHINA);
+		ResourceBundle  resourceBundle = ResourceBundle.getBundle("org.jkiss.dbeaver.ext.xugu.internal.authority",Locale.CHINA);
 		if (authority != null) {
 			// 处理动词
 			final String authRead = resourceBundle.getString("read");
@@ -232,7 +232,7 @@ public class Utils {
 		String action = "";
 		String type = "";
 		String any = "ANY";
-		ResourceBundle  resourceBundle = ResourceBundle.getBundle("org.jkiss.dbeaver.ext.xugu.authority",Locale.CHINA);
+		ResourceBundle  resourceBundle = ResourceBundle.getBundle("org.jkiss.dbeaver.ext.xugu.internal.authority",Locale.CHINA);
 		if (authority != null) {
 			// 处理动词
 			final String authCreate = resourceBundle.getString("create");
