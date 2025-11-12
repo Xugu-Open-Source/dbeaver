@@ -22,6 +22,7 @@ import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.data.DBDPseudoAttribute;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
+import org.jkiss.dbeaver.model.impl.DBPositiveNumberTransformer;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.meta.Property;
@@ -33,13 +34,10 @@ import org.jkiss.dbeaver.model.struct.DBSEntityConstraint;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTable;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
-import org.jkiss.utils.ByteNumberFormat;
 import org.jkiss.utils.CommonUtils;
 
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -274,8 +272,15 @@ public class Table extends BaseTablePhysical implements DBPScriptObject,DBPObjec
 		return gstoNo;
 	}
 
+
+	@NotNull
+	@Property(viewable = true, editable = true, updatable = true, valueTransformer = DBPositiveNumberTransformer.class, order = 4)
 	public int getCopyNum() {
 		return copyNum;
+	}
+
+	public void setCopyNum(int copyNum) {
+		this.copyNum = copyNum;
 	}
 
 	public int getBlockSize() {

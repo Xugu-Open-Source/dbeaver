@@ -252,4 +252,6 @@ public class Messages extends NLS {
 	public static String model_struct_default;
 	public static String model_struct_ref_column;
 	public static String dialog_user_create_info;
+	public static String create_index_copy_number;
+	public static String create_index_is_local;
 }

@@ -181,7 +181,7 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 	}
 
 	@NotNull
-	@Property(viewable = true, editable = false, valueTransformer = DBObjectNameCaseTransformer.class, order = 4)
+	@Property(viewable = true, editable = false, valueTransformer = DBObjectNameCaseTransformer.class, order = 5)
 	public boolean isValid() {
 		return valid;
 	}

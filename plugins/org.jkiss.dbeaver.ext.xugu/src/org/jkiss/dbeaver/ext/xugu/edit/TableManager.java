@@ -261,7 +261,8 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 			List<DBEPersistAction> actionList, SQLObjectEditor<Table, Schema>.ObjectChangeCommand command,
 			Map<String, Object> options) throws DBException {
 		final String commentKey = "comment";
-		if (command.getProperties().size() > 1 || command.getProperty(commentKey) == null) {
+		final String copyNumKey = "copyNum";
+		if (command.getProperties().size() > 1 || command.getProperty(commentKey) == null && command.getProperty(copyNumKey) == null) {
 			StringBuilder query = new StringBuilder("ALTER TABLE ");
 			query.append(command.getObject().getFullyQualifiedName(DBPEvaluationContext.DDL)).append(" ");
 			appendTableModifiers(monitor, command.getObject(), command, query, true);
@@ -288,6 +289,13 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 					+ " IS " + SQLUtils.quoteString(command.getObject(), command.getObject().getComment());
 			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct add table comment sql: " + sql);
 			actions.add(new SQLDatabasePersistAction("Comment table", sql));
+		}
+		final String copyNumKey = "copyNum";
+		if (command.getProperty(copyNumKey) != null) {
+			String sql = "ALTER TABLE " + command.getObject().getFullyQualifiedName(DBPEvaluationContext.DDL)
+					+ " SET COPY NUMBER " +command.getProperties().get(copyNumKey);
+			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct add table comment sql: " + sql);
+			actions.add(new SQLDatabasePersistAction("ALTER TABLE Copy Number", sql));
 		}
 	}
 

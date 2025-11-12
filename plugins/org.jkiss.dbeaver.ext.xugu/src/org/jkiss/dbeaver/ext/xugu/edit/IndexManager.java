@@ -22,6 +22,7 @@ import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Text;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.internal.Constants;
@@ -84,7 +85,8 @@ public class IndexManager extends SQLIndexManager<TableIndex, BaseTablePhysical>
 				indexTypes.add(Constants.INDEX_TYPE_BTREE);
 //				indexTypes.add(Constants.INDEX_TYPE_FULL_TEXT);
 //				indexTypes.add(Constants.INDEX_TYPE_BITMAP);
-				EditIndexPage editPage = new EditIndexPage(Messages.edit_index_manager_dialog_title, index, indexTypes);
+//				EditIndexPage editPage = new EditIndexPage(Messages.edit_index_manager_dialog_title, index, indexTypes);
+				InnerIndexPage editPage = new InnerIndexPage(Messages.edit_index_manager_dialog_title, index, indexTypes);
 				if (!editPage.edit()) {
 					return null;
 				}
@@ -98,6 +100,7 @@ public class IndexManager extends SQLIndexManager<TableIndex, BaseTablePhysical>
 				index.setUnique(editPage.isUnique());
 				index.setIndexType(editPage.getIndexType());
 				index.setLocal(true);
+				index.setCopyNum(editPage.getCopyNum());
 				int colIndex = 1;
 				for (DBSEntityAttribute tableColumn : editPage.getSelectedAttributes()) {
 					index.addColumn(new TableIndexColumn(index, (TableColumn) tableColumn, colIndex++,
@@ -176,6 +179,9 @@ public class IndexManager extends SQLIndexManager<TableIndex, BaseTablePhysical>
 		} else {
 			decl.append(" GLOBAL");
 		}
+		if (index.getCopyNum() > 0) {
+			decl.append(" COPY NUMBER ").append(index.getCopyNum());
+		}
 		actions.add(new SQLDatabasePersistAction(ModelMessages.model_jdbc_create_new_index, decl.toString()));
 	}
 
@@ -215,6 +221,8 @@ public class IndexManager extends SQLIndexManager<TableIndex, BaseTablePhysical>
 	private class InnerIndexPage extends EditIndexPage {
 		private Combo globalCombo;
 		private boolean flag;
+		private Text copyNumText;
+		private int copyNum;
 
 		public InnerIndexPage(String title, DBSTableIndex index, Collection<DBSIndexType> indexTypes) {
 			super(title, index, indexTypes);
@@ -224,33 +232,50 @@ public class IndexManager extends SQLIndexManager<TableIndex, BaseTablePhysical>
 		@Override
 		protected void createContentsBeforeColumns(Composite panel) {
 			super.createContentsBeforeColumns(panel);
-			UIUtils.createControlLabel(panel, "Is Local");
-			globalCombo = new Combo(panel, SWT.DROP_DOWN | SWT.READ_ONLY);
-			globalCombo.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-			globalCombo.add("GLOBAL");
-			globalCombo.add("LOCAL");
-			globalCombo.addSelectionListener(new SelectionListener() {
+//			UIUtils.createControlLabel(panel, Messages.create_index_is_local);
+//			globalCombo = new Combo(panel, SWT.DROP_DOWN | SWT.READ_ONLY);
+//			globalCombo.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+//			globalCombo.add("GLOBAL");
+//			globalCombo.add("LOCAL");
+//			globalCombo.addSelectionListener(new SelectionListener() {
+//
+//				@Override
+//				public void widgetSelected(SelectionEvent e) {
+//					String text = globalCombo.getText();
+//					final String flagGlobal = "GLOBAL";
+//					if (flagGlobal.equals(text)) {
+//						flag = false;
+//					} else {
+//						flag = true;
+//					}
+//				}
+//
+//				@Override
+//				public void widgetDefaultSelected(SelectionEvent e) {
+//				}
+//
+//			});
 
-				@Override
-				public void widgetSelected(SelectionEvent e) {
-					String text = globalCombo.getText();
-					final String flagGlobal = "GLOBAL";
-					if (flagGlobal.equals(text)) {
-						flag = false;
-					} else {
-						flag = true;
-					}
+			UIUtils.createControlLabel(panel, Messages.create_index_copy_number);
+			copyNumText = new Text(panel, SWT.BORDER);
+			copyNumText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+			copyNumText.addModifyListener(e -> {
+				String val = copyNumText.getText();
+				try {
+					copyNum = CommonUtils.toInt(val);
+					if (copyNum < 0) copyNum = 0;
+				} catch (Exception ex) {
+					copyNum = 0;
 				}
-
-				@Override
-				public void widgetDefaultSelected(SelectionEvent e) {
-				}
-
 			});
 		}
 
 		protected boolean isLocal() {
 			return flag;
+		}
+
+		protected int getCopyNum() {
+			return copyNum;
 		}
 	}
 

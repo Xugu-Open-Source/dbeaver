@@ -20,6 +20,7 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.impl.DBPositiveNumberTransformer;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTableIndex;
 import org.jkiss.dbeaver.model.meta.Property;
@@ -205,7 +206,7 @@ public class TableIndex extends JDBCTableIndex<Schema, BaseTablePhysical> {
 		this.unique = unique;
 	}
 
-	@Property(viewable = true, order = 6)
+//	@Property(viewable = true, order = 6)
 	public boolean isLocal() {
 		return local;
 	}
@@ -230,9 +231,16 @@ public class TableIndex extends JDBCTableIndex<Schema, BaseTablePhysical> {
 		return gstoNo;
 	}
 
+	@NotNull
+	@Property(viewable = true, /*editable = true, updatable = true, valueTransformer = DBPositiveNumberTransformer.class,*/ order = 7)
 	public int getCopyNum() {
 		return copyNum;
 	}
+
+	public void setCopyNum(int copyNum) {
+		this.copyNum = copyNum;
+	}
+
 
 	public int getBlockSize() {
 		return blockSize;
