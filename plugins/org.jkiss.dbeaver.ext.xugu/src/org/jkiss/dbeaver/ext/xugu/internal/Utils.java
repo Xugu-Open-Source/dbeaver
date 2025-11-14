@@ -61,8 +61,8 @@ import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import org.jkiss.dbeaver.model.struct.DBSTypedObjectEx;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTrigger;
 
-import com.xugu.parser.Parsing;
-import com.xugu.parser.Parsing.TableType;
+import org.jkiss.dbeaver.ext.xugu.internal.xugu.parser.Parsing;
+import org.jkiss.dbeaver.ext.xugu.internal.xugu.parser.Parsing.TableType;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
