@@ -252,6 +252,9 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 			}
 			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create table sql: " + tableDef);
 		}
+		if (table.getCopyNum() > 0){
+			tableDef += " copy number " + table.getCopyNum();
+		}
 		actions.add(new SQLDatabasePersistAction("Create table", tableDef));
 		actions.addAll(otherActions);
 	}
@@ -291,6 +294,12 @@ public class TableManager extends SQLTableManager<Table, Schema> implements DBEO
 			actions.add(new SQLDatabasePersistAction("Comment table", sql));
 		}
 		final String copyNumKey = "copyNum";
+		//copyNum 不支持和创建表分开执行，数据库会默认给未指定copy number赋予默认值3
+		for (DBEPersistAction action : actions) {
+			if (action.getTitle().equalsIgnoreCase("Create table")){
+				return;
+			}
+		}
 		if (command.getProperty(copyNumKey) != null) {
 			String sql = "ALTER TABLE " + command.getObject().getFullyQualifiedName(DBPEvaluationContext.DDL)
 					+ " SET COPY NUMBER " +command.getProperties().get(copyNumKey);
