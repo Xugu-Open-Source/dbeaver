@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,20 +16,26 @@
  */
 package org.jkiss.dbeaver.ext.xugu.model;
 
+import com.alibaba.druid.sql.dialect.xugu.api.XuguParserApi;
+import com.alibaba.druid.sql.dialect.xugu.api.bean.CreateFunctionBean;
+import com.alibaba.druid.sql.dialect.xugu.api.bean.CreatePackageBean;
+import com.alibaba.druid.sql.dialect.xugu.api.bean.CreateProcedureBean;
+import com.alibaba.druid.sql.dialect.xugu.api.exception.ParserBusinessException;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.ext.xugu.model.source.SourceObject;
 import org.jkiss.dbeaver.ext.xugu.internal.Utils;
+import org.jkiss.dbeaver.ext.xugu.model.source.SourceObject;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPMessageType;
-import org.jkiss.dbeaver.model.edit.DBEPersistAction;
-import org.jkiss.dbeaver.model.DBPScriptObjectExt;
 import org.jkiss.dbeaver.model.DBPRefreshableObject;
+import org.jkiss.dbeaver.model.DBPScriptObjectExt;
+import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCException;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
-import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
+import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectCache;
 import org.jkiss.dbeaver.model.meta.Association;
@@ -44,12 +50,6 @@ import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureContainer;
 import org.jkiss.dbeaver.runtime.DBeaverNotifications;
 import org.jkiss.utils.CommonUtils;
 
-import com.alibaba.druid.sql.dialect.xugu.api.XuguParserApi;
-import com.alibaba.druid.sql.dialect.xugu.api.bean.CreateFunctionBean;
-import com.alibaba.druid.sql.dialect.xugu.api.bean.CreatePackageBean;
-import com.alibaba.druid.sql.dialect.xugu.api.bean.CreateProcedureBean;
-import com.alibaba.druid.sql.dialect.xugu.api.exception.ParserBusinessException;
-
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -61,6 +61,7 @@ import java.util.*;
 public class Package extends BaseSchemaObject implements SourceObject, DBPScriptObjectExt, DBSObjectContainer,
 		DBSPackage, DBPRefreshableObject, DBSProcedureContainer  {
 	private final ProceduresCache proceduresCache = new ProceduresCache();
+    private int packId;
 	private Boolean valid;
 	private String comment;
 	private Timestamp createTime;
@@ -81,6 +82,7 @@ public class Package extends BaseSchemaObject implements SourceObject, DBPScript
 
 	public Package(Schema schema, ResultSet dbResult) {
 		super(schema, JDBCUtils.safeGetString(dbResult, "PACK_NAME"), true);
+        this.packId = JDBCUtils.safeGetInt(dbResult, "PACK_ID");
 		this.schema = schema;
 		this.valid = JDBCUtils.safeGetBoolean(dbResult, "VALID");
 		this.comment = JDBCUtils.safeGetString(dbResult, "COMMENTS");
@@ -204,6 +206,11 @@ public class Package extends BaseSchemaObject implements SourceObject, DBPScript
 		return valid;
 	}
 
+    @Property(viewable = true, editable = false, updatable = false, valueTransformer = DBObjectNameCaseTransformer.class, order = 5)
+    public int getPackId() {
+        return packId;
+    }
+
 	public CreatePackageBean getCreatePackageBean() {
 		return createPackageBean;
 	}
@@ -239,6 +246,10 @@ public class Package extends BaseSchemaObject implements SourceObject, DBPScript
 	public void setCreateTime(Timestamp createTime) {
 		this.createTime = createTime;
 	}
+
+    public void setPackId(int packId) {
+        this.packId = packId;
+    }
 
 	@Override
 	public SourceType getSourceType() {

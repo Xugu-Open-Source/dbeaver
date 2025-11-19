@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.jkiss.dbeaver.ext.xugu.model;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.ext.xugu.internal.Utils;
 import org.jkiss.dbeaver.ext.xugu.model.source.SourceObject;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPNamedObject;
@@ -34,7 +35,7 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectState;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTrigger;
-import org.jkiss.dbeaver.ext.xugu.internal.Utils;
+
 import java.sql.ResultSet;
 import java.sql.Timestamp;
 import java.util.Map;
@@ -75,6 +76,7 @@ public abstract class BaseTrigger<PARENT extends DBSObject> extends BaseObject<P
 	private int triggeringEvent;
 	private int triggerTime;
 	private int id;
+	private int trigId;
 	private String refName;
 	private ObjectStatus status;
 	private boolean valid;
@@ -110,6 +112,7 @@ public abstract class BaseTrigger<PARENT extends DBSObject> extends BaseObject<P
 		} else {
 			this.id = JDBCUtils.safeGetInt(dbResult, "VIEW_ID");
 		}
+        this.trigId = JDBCUtils.safeGetInt(dbResult, "TRIG_ID");
 		this.status = JDBCUtils.safeGetBoolean(dbResult, "ENABLE") ? ObjectStatus.ENABLED : ObjectStatus.DISABLED;
 		this.valid = JDBCUtils.safeGetBoolean(dbResult, "VALID");
 		this.allDefine = JDBCUtils.safeGetString(dbResult, "DEFINE");
@@ -124,6 +127,11 @@ public abstract class BaseTrigger<PARENT extends DBSObject> extends BaseObject<P
 	public int getId() {
 		return id;
 	}
+
+    @Property(viewable = false, editable = false, valueTransformer = DBObjectNameCaseTransformer.class, order = -1)
+    public int getTrigId() {
+        return trigId;
+    }
 
 	@NotNull
 	@Override
