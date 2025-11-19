@@ -152,6 +152,12 @@
                 id="org.jkiss.dbeaver.ext.xugu.tasks.TransactionKiller"
                 name="查杀数据库事务"
                 categoryId="org.jkiss.dbeaver.core.database"/>
+
+        <command id="org.jkiss.dbeaver.ext.xugu.tableDepend" name="%tools.tableDepend.label"/>
+        <command id="org.jkiss.dbeaver.ext.xugu.viewDepend" name="%tools.tableDepend.label"/>
+        <command id="org.jkiss.dbeaver.ext.xugu.triggerDepend" name="%tools.tableDepend.label"/>
+        <command id="org.jkiss.dbeaver.ext.xugu.packageDepend" name="%tools.tableDepend.label"/>
+        <command id="org.jkiss.dbeaver.ext.xugu.procedureDepend" name="%tools.tableDepend.label"/>
     </extension>
 
     <!-- 绑定命令处理器 -->
@@ -174,6 +180,17 @@
         <handler
                 commandId="org.jkiss.dbeaver.ext.xugu.tasks.TransactionKiller"
                 class="org.jkiss.dbeaver.ext.xugu.tasks.TransactionKiller"/>
+        <handler commandId="org.jkiss.dbeaver.ext.xugu.tableDepend"
+                 class="org.jkiss.dbeaver.ext.xugu.tools.XuguToolTableDependHandler"/>
+        <handler commandId="org.jkiss.dbeaver.ext.xugu.viewDepend"
+                 class="org.jkiss.dbeaver.ext.xugu.tools.XuguToolViewDependHandler"/>
+        <handler commandId="org.jkiss.dbeaver.ext.xugu.triggerDepend"
+                 class="org.jkiss.dbeaver.ext.xugu.tools.XuguToolTriggerDependHandler"/>
+        <handler commandId="org.jkiss.dbeaver.ext.xugu.packageDepend"
+                 class="org.jkiss.dbeaver.ext.xugu.tools.XuguToolPackageDependHandler"/>
+        <handler commandId="org.jkiss.dbeaver.ext.xugu.procedureDepend"
+                 class="org.jkiss.dbeaver.ext.xugu.tools.XuguToolProcedureDependHandler"/>
+
     </extension>
 
     <!-- 添加到菜单 -->
@@ -265,5 +282,36 @@
     </extension>
 
 
+    <extension point="org.jkiss.dbeaver.tools">
+        <tools>
+            <toolGroup
+                    id="org.jkiss.dbeaver.ext.xugu.tools.maintenance"
+                    label="Table Maintenance"
+                    icon="#tools"/>
+            <tool
+                    description="%tools.tableDepend.description"
+                    id="org.jkiss.dbeaver.ext.xugu.tools.XuGUToolTableDepend"
+                    group="org.jkiss.dbeaver.ext.xugu.tools.maintenance"
+                    label="%tools.tableDepend.label"
+                    icon="#tableDepend"
+                    singleton="false">
+                <command id="org.jkiss.dbeaver.ext.xugu.tableDepend">
+                    <objectType name="org.jkiss.dbeaver.ext.xugu.model.Table"/>
+                </command>
+                <command id="org.jkiss.dbeaver.ext.xugu.viewDepend">
+                    <objectType name="org.jkiss.dbeaver.ext.xugu.model.View"/>
+                </command>
+                <command id="org.jkiss.dbeaver.ext.xugu.triggerDepend">
+                    <objectType name="org.jkiss.dbeaver.ext.xugu.model.Trigger"/>
+                </command>
+                <command id="org.jkiss.dbeaver.ext.xugu.packageDepend">
+                    <objectType name="org.jkiss.dbeaver.ext.xugu.model.Package"/>
+                </command>
+                <command id="org.jkiss.dbeaver.ext.xugu.procedureDepend">
+                    <objectType name="org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone"/>
+                </command>
+            </tool>
+        </tools>
+    </extension>
 
 </plugin>

@@ -16,6 +16,16 @@
  */
 package org.jkiss.dbeaver.ext.xugu.model;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
 import com.alibaba.druid.sql.dialect.xugu.api.XuguParserApi;
 import com.alibaba.druid.sql.dialect.xugu.api.bean.CreateFunctionBean;
 import com.alibaba.druid.sql.dialect.xugu.api.bean.CreatePackageBean;
@@ -35,6 +45,7 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
+import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.cache.JDBCObjectCache;
 import org.jkiss.dbeaver.model.meta.Association;
@@ -49,17 +60,13 @@ import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureContainer;
 import org.jkiss.dbeaver.runtime.DBeaverNotifications;
 import org.jkiss.utils.CommonUtils;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.util.*;
-
 /**
  * 基本模式对象
  */
 public class Package extends BaseSchemaObject implements SourceObject, DBPScriptObjectExt, DBSObjectContainer,
 		DBSPackage, DBPRefreshableObject, DBSProcedureContainer  {
 	private final ProceduresCache proceduresCache = new ProceduresCache();
+    private int packId;
 	private Boolean valid;
 	private String comment;
 	private Timestamp createTime;
@@ -80,6 +87,7 @@ public class Package extends BaseSchemaObject implements SourceObject, DBPScript
 
 	public Package(Schema schema, ResultSet dbResult) {
 		super(schema, JDBCUtils.safeGetString(dbResult, "PACK_NAME"), true);
+        this.packId = JDBCUtils.safeGetInt(dbResult, "PACK_ID");
 		this.schema = schema;
 		this.valid = JDBCUtils.safeGetBoolean(dbResult, "VALID");
 		this.comment = JDBCUtils.safeGetString(dbResult, "COMMENTS");
@@ -203,6 +211,11 @@ public class Package extends BaseSchemaObject implements SourceObject, DBPScript
 		return valid;
 	}
 
+    @Property(viewable = true, editable = false, updatable = false, valueTransformer = DBObjectNameCaseTransformer.class, order = 5)
+    public int getPackId() {
+        return packId;
+    }
+
 	public CreatePackageBean getCreatePackageBean() {
 		return createPackageBean;
 	}
@@ -238,6 +251,10 @@ public class Package extends BaseSchemaObject implements SourceObject, DBPScript
 	public void setCreateTime(Timestamp createTime) {
 		this.createTime = createTime;
 	}
+
+    public void setPackId(int packId) {
+        this.packId = packId;
+    }
 
 	@Override
 	public SourceType getSourceType() {
