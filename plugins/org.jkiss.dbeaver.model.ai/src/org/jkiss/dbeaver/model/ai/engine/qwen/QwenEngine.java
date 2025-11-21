@@ -33,7 +33,6 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.utils.CommonUtils;
 
 import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -80,13 +79,14 @@ public class QwenEngine extends BaseCompletionEngine<QwenProperties> {
     public AIEngineResponse requestCompletion(DBRProgressMonitor monitor, AIEngineRequest request) throws DBException {
         // 构建请求
         HttpRequest httpRequest = buildRequest(request);
-        HttpResponse<String> response = client.getInstance().client.send(monitor,httpRequest);
+        String send = client.getInstance().client.send(monitor, httpRequest);
+//        HttpResponse<String> response = client.getInstance().client.send(monitor,httpRequest);
         // 解析消息体
-        return paseRValue(response.body(), response);
+        return paseRValue(send);
     }
 
-    public AIEngineResponse paseRValue(String body, HttpResponse<String> response)throws DBException{
-        if (response.statusCode() == 200) {
+    public AIEngineResponse paseRValue(String body/*, HttpResponse<String> response*/)throws DBException{
+//        if (response.statusCode() == 200) {
             QwenResponse qwenResponse = GSON.fromJson(body, QwenResponse.class);
             String text = null;
             try {
@@ -105,11 +105,11 @@ public class QwenEngine extends BaseCompletionEngine<QwenProperties> {
             ArrayList<String> strings = new ArrayList<>();
             strings.add(text);
             return new AIEngineResponse(AIMessageType.ASSISTANT, strings);
-        } else if (response.statusCode() == 429) {
-            throw new TooManyRequestsException("Too many requests: " + body);
-        } else {
-            throw new DBException("Qwen request failed: " + response.statusCode() + ", body=" + body);
-        }
+//        } else if (response.statusCode() == 429) {
+//            throw new TooManyRequestsException("Too many requests: " + body);
+//        } else {
+//            throw new DBException("Qwen request failed: " + response.statusCode() + ", body=" + body);
+//        }
     }
 
     public HttpRequest buildRequest( AIEngineRequest request) throws DBException {

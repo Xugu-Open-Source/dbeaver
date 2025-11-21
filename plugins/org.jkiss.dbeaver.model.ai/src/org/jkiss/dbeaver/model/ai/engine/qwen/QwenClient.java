@@ -28,7 +28,7 @@ public class QwenClient implements AutoCloseable {
     protected final String baseUrl;
     protected final String requestFilters;
 
-    protected final MonitoredHttpClient client = new MonitoredHttpClient(HttpClient.newBuilder().build());
+    protected final MonitoredHttpClient client = new MonitoredHttpClient(HttpClient.newBuilder().build(),null);
 
     public QwenClient(
             @NotNull String baseUrl,
