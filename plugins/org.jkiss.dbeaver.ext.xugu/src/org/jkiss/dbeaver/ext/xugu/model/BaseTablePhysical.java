@@ -150,7 +150,7 @@ public abstract class BaseTablePhysical extends BaseTable implements DBSObjectLa
 			builder.append("_TABLES T WHERE TABLE_NAME = '");
 			builder.append(table.getName());
 			builder.append("' AND SCHEMA_ID = ");
-			builder.append(table.getSchema().getId());
+			builder.append(table.getSchema().getId() + "and table_id =" + table.getId());
 			builder.append(") ON P.TABLE_ID = T.TABLE_ID");
 
 			final JDBCPreparedStatement dbStat = session.prepareStatement(builder.toString());
@@ -176,7 +176,7 @@ public abstract class BaseTablePhysical extends BaseTable implements DBSObjectLa
 			builder.append("_TABLES T WHERE TABLE_NAME = '");
 			builder.append(table.getName());
 			builder.append("' AND SCHEMA_ID = ");
-			builder.append(table.getSchema().getId());
+			builder.append(table.getSchema().getId() + "and table_id =" + table.getId());
 			builder.append(") ON SP.TABLE_ID = T.TABLE_ID");
 			final JDBCPreparedStatement dbStat = session.prepareStatement(builder.toString());
 			return dbStat;

@@ -883,12 +883,13 @@ public class Schema extends BaseGlobalObject
 			sql.append(roleFlag);
 			sql.append("_CONSTRAINTS F INNER JOIN (SELECT S.SCHEMA_NAME, T.TABLE_ID, T.TABLE_NAME FROM ");
 			sql.append(roleFlag);
-			sql.append("_SCHEMAS S INNER JOIN ");
+			sql.append("_SCHEMAS S  JOIN ");
 			sql.append(roleFlag);
-			sql.append("_TABLES T USING(SCHEMA_ID) ");
+			sql.append("_TABLES T ON S.SCHEMA_ID = T.SCHEMA_ID ");
 			if (forTable != null) {
 				sql.append("WHERE TABLE_ID=");
 				sql.append(forTable.getId());
+				sql.append(" AND S.SCHEMA_NAME = " + "'" + owner.getName() + "'");
 			}
 			sql.append(") USING(TABLE_ID) INNER JOIN (SELECT T2.TABLE_NAME, T2.TABLE_ID FROM ");
 			sql.append(roleFlag);
