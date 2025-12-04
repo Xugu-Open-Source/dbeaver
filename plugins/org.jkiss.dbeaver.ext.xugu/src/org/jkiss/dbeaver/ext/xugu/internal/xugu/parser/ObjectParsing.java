@@ -9,6 +9,7 @@ import org.jkiss.dbeaver.ext.xugu.internal.xugu.parser.Parsing;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.text.MessageFormat;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Vector;
@@ -462,8 +463,8 @@ public class ObjectParsing {
             // **********************************************源数据库表列信息****************************************************
             rs = dbmd.getColumns(null, removeDatabaseObjectQuota(parameters[0]), removeDatabaseObjectQuota(parameters[1]), null);
             String sqlStr = "select distinct col_name,type_name,\"VARYING\",NOT_NULL,IS_SERIAL,TIMESTAMP_T,DEF_VAL,COMMENTS,SCALE,COL_NO FROM " + tableType + "_COLUMNS A  "
-                    + "WHERE table_id=(select table_id from " + tableType + "_tables where  table_name =" + parameters[1]
-                    + "and schema_id in (select schema_id from " + tableType + "_schemas where schema_name =" + parameters[0] + ")) ORDER BY COL_NO";
+                    + "WHERE table_id=(select table_id from " + tableType + "_tables where "+"db_id = (select db_id from SYS_DATABASES WHERE DB_NAME = '"+fromConnection.getCatalog()+"') AND"+" table_name =" + parameters[1]
+                    + "and schema_id in (select schema_id from " + tableType + "_schemas where schema_name =" + parameters[0] + ")) "+"and db_id = (select db_id from SYS_DATABASES WHERE DB_NAME = '"+fromConnection.getCatalog()+"')"+"ORDER BY COL_NO";
             sta = fromConnection.createStatement();
             rsm = sta.executeQuery(sqlStr);
             while (rs.next()) {
@@ -887,13 +888,30 @@ public class ObjectParsing {
                     + "end as parti_type,case subparti_type when 1 then ''range'' when 2 then ''list'' "
                     + "when 3 then ''hash'' else null end as subparti_type,parti_key,subparti_key,parti_num,subparti_num,case auto_parti_type "
                     + "when 1 then ''year'' when 2 then ''month'' when 3 then ''day'' when 4 then ''hour'' end as auto_parti_type, auto_parti_span "
-                    + "from " + tableType + "_tables t left join " + tableType + "_schemas s on t.schema_id=s.schema_id where s.schema_name={0} and t.table_name={1} and t.parti_type is not null");
+                    + "from " + tableType + "_tables t left join " + tableType + "_schemas s on t.schema_id=s.schema_id "
+                    + "left join " + tableType +"_databases d on d.db_id = s.db_id "
+                    + "where s.schema_name={0} and t.table_name={1} and d.db_name = {4}  and t.db_id = d.db_id and s.db_id = d.db_id and t.parti_type is not null");
             messageFormatPartition = new MessageFormat("select s.schema_name,t.table_name,part.parti_name,part.parti_val from " + tableType + "_tables t "
                     + "left join " + tableType + "_schemas s on t.schema_id=s.schema_id left join " + tableType + "_partis part on t.table_id=part.table_id "
-                    + "where s.schema_name={0} and t.table_name={1} order by part.parti_no");
+                    + "left join " + tableType +"_databases d on d.db_id = s.db_id "
+                    + "where s.schema_name={0} and t.table_name={1} and d.db_name = {4} and t.db_id = d.db_id and s.db_id = d.db_id order by part.parti_no");
             messageFormatSubPartition = new MessageFormat("select s.schema_name,t.table_name,part.subparti_name,part.subparti_val "
                     + "from " + tableType + "_tables t left join " + tableType + "_schemas s on t.schema_id=s.schema_id left join " + tableType + "_subpartis part on t.table_id=part.table_id "
-                    + "where s.schema_name={0} and t.table_name={1} order by part.subparti_no");
+                    + "left join " + tableType +"_databases d on d.db_id = s.db_id "
+                    + "where s.schema_name={0} and t.table_name={1} and d.db_name = {4}  and t.db_id = d.db_id and s.db_id = d.db_id order by part.subparti_no");
+
+            ResultSet resultSet = fromConnection.createStatement().executeQuery("select current_database()");
+            String dbName = "";
+
+            while (resultSet.next()){
+                dbName = resultSet.getString(1);
+
+            }
+            String string ="'"+ dbName+"'";
+            String[] newParameters = (String[]) Arrays.copyOf(parameters, parameters.length + 1);
+            newParameters[newParameters.length - 1] = string;
+            parameters = newParameters;
+
             sql = messageFormat.format(parameters);
             stmt = fromConnection.createStatement();
             rs = stmt.executeQuery(sql);
@@ -991,6 +1009,7 @@ public class ObjectParsing {
         }
         return tabpart;
     }
+
 
     /**
      * 获取源数据库对应表自增信息
