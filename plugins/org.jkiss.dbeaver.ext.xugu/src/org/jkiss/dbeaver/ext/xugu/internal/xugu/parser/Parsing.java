@@ -295,6 +295,7 @@ public class Parsing {
 	 */
 	public String getObjectDDL(Connection conn,String schemaName,String objectName,String objectType,TableType tableType){
 		try{
+			XuguDDLUtils.initKeyWords(conn);
 			if( schemaName == null || objectName == null|| objectType == null){
 				throw new Exception("模式名或对象名或对象类型为空");
 			}

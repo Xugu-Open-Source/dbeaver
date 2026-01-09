@@ -4,7 +4,6 @@ package org.jkiss.dbeaver.ext.xugu.internal.xugu.parser;
 import org.jkiss.dbeaver.ext.xugu.internal.xugu.metadata.Constants.DatabaseObjectType;
 import org.jkiss.dbeaver.ext.xugu.internal.xugu.metadata.Constants.PartitionType;
 import org.jkiss.dbeaver.ext.xugu.internal.xugu.metadata.IndexMeta;
-import org.jkiss.dbeaver.ext.xugu.internal.xugu.parser.Parsing;
 
 import java.math.BigDecimal;
 import java.sql.*;
@@ -323,9 +322,9 @@ public class ObjectParsing {
         objectRow = new Vector<Object>();
 //		objectRow.add(databaseObjectType);                                           // 类型
         //源对象
-        objectRow.add(quotaDatabaseObjectDub(object[0], object[1]));
+        objectRow.add(XuguDDLUtils.schemaAndTable(quotaDatabaseObjectDub(object[0], object[1])));
         //目的对象
-        objectRow.add(quotaDatabaseObjectDub(object[0], object[1]));
+        objectRow.add(XuguDDLUtils.schemaAndTable(quotaDatabaseObjectDub(object[0], object[1])));
         // 转换为目的数据库表对象后的表列信息
         objectRow.add(fileSplit);
         // 源表列信息
@@ -463,8 +462,8 @@ public class ObjectParsing {
             // **********************************************源数据库表列信息****************************************************
             rs = dbmd.getColumns(null, removeDatabaseObjectQuota(parameters[0]), removeDatabaseObjectQuota(parameters[1]), null);
             String sqlStr = "select distinct col_name,type_name,\"VARYING\",NOT_NULL,IS_SERIAL,TIMESTAMP_T,DEF_VAL,COMMENTS,SCALE,COL_NO FROM " + tableType + "_COLUMNS A  "
-                    + "WHERE table_id=(select table_id from " + tableType + "_tables where "+"db_id = (select db_id from SYS_DATABASES WHERE DB_NAME = '"+fromConnection.getCatalog()+"') AND"+" table_name =" + parameters[1]
-                    + "and schema_id in (select schema_id from " + tableType + "_schemas where schema_name =" + parameters[0] + ")) "+"and db_id = (select db_id from SYS_DATABASES WHERE DB_NAME = '"+fromConnection.getCatalog()+"')"+"ORDER BY COL_NO";
+                    + "WHERE table_id=(select table_id from " + tableType + "_tables where "+"db_id = (select db_id from "+tableType+"_DATABASES WHERE DB_NAME = '"+fromConnection.getCatalog()+"') AND"+" table_name =" + parameters[1]
+                    + "and schema_id in (select schema_id from " + tableType + "_schemas where schema_name =" + parameters[0] + ")) "+"and db_id = (select db_id from "+tableType+"_DATABASES WHERE DB_NAME = '"+fromConnection.getCatalog()+"')"+"ORDER BY COL_NO";
             sta = fromConnection.createStatement();
             rsm = sta.executeQuery(sqlStr);
             while (rs.next()) {
@@ -623,19 +622,19 @@ public class ObjectParsing {
                 // 表模式
                 consRow.add(rs.getString(1));
                 // 表名称
-                consRow.add(rs.getString(2));
+                consRow.add(XuguDDLUtils.isKeyWordAddQuote(rs.getString(2)));
                 // 约束名
-                consRow.add(rs.getString(3));
+                consRow.add(XuguDDLUtils.isKeyWordAddQuote(rs.getString(3)));
                 // 约束类型
                 consRow.add(rs.getString(4));
                 // 约束字段
-                consRow.add(rs.getString(5));
+                consRow.add(XuguDDLUtils.isKeyWordAddQuote(rs.getString(5)));
                 // 主键表模式
                 consRow.add(rs.getString(6));
                 // 主键表名称
-                consRow.add(rs.getString(7));
+                consRow.add(XuguDDLUtils.isKeyWordAddQuote(rs.getString(7)));
                 // 主键表字段
-                consRow.add(rs.getString(8));
+                consRow.add(XuguDDLUtils.isKeyWordAddQuote(rs.getString(8)));
                 // 级联UPDATE RULE
                 consRow.add(rs.getString(9));
                 // 级联DELETE RULE
@@ -769,7 +768,7 @@ public class ObjectParsing {
                 ddl.setIndexName(removeDatabaseObjectQuota(parameters[2].toString()));
 //                ddl.setIndex_Columns(rs.getString("KEYS"));
                 //索引键
-                ddl.setIndexColumns(removeDatabaseObjectQuota(rs.getString("KEYS")));
+                ddl.setIndexColumns(XuguDDLUtils.isKeyWordAddQuote(removeDatabaseObjectQuota(rs.getString("KEYS"))));
                 //索引类型
                 ddl.setIndexType(rs.getInt("INDEX_TYPE"));
                 //是否为唯一值索引
@@ -1052,9 +1051,9 @@ public class ObjectParsing {
                 // 表模式
                 columnIdentityRow.add(rs.getString(1));
                 // 表名称
-                columnIdentityRow.add(rs.getString(2));
+                columnIdentityRow.add(XuguDDLUtils.isKeyWordAddQuote(rs.getString(2)));
                 // 表列名称
-                columnIdentityRow.add(rs.getString(3));
+                columnIdentityRow.add(XuguDDLUtils.isKeyWordAddQuote(rs.getString(3)));
                 // 表列数据类型
                 columnIdentityRow.add(rs.getString(4));
                 // 表列自增起始值
@@ -2025,7 +2024,7 @@ public class ObjectParsing {
         sqlBuffer.append(MARK_WRAP);
         for (int j = 0; j < column.size(); j++) {
             // 列名
-            sqlBuffer.append(column.get(j).get(0).toString());
+            sqlBuffer.append(XuguDDLUtils.isKeyWordAddQuote(column.get(j).get(0).toString()));
             sqlBuffer.append(" ");
             if ("NUMERIC".equals(column.get(j).get(1).toString())) {
                 // 数据类型

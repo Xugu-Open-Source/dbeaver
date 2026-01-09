@@ -2,6 +2,7 @@ package org.jkiss.dbeaver.ext.xugu.internal.xugu.metadata;
 
 import com.xugu.metadata.Constants;
 import com.xugu.parser.ObjectParsing;
+import org.jkiss.dbeaver.ext.xugu.internal.xugu.parser.XuguDDLUtils;
 
 import java.util.Vector;
 
@@ -431,9 +432,9 @@ public class IndexMeta implements Constants {
 		sql += isUnique() == true ? "unique " : "";
 
 			sql += "index ";
-			sql += getIndexName();
+			sql += "\""+getIndexName()+"\"";
 			sql += " on ";
-			sql += getRelationTable();
+			sql += XuguDDLUtils.schemaAndTable(getRelationTable());
 			sql += MARK_BGN_CURVES;
 			sql += getIndexColumns();
 			sql += MARK_END_CURVES;
