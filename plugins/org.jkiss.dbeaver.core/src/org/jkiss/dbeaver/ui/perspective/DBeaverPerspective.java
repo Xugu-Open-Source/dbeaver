@@ -63,7 +63,7 @@ public class DBeaverPerspective implements IPerspectiveFactory
             IPageLayout.BOTTOM,
             0.7f,
             FOLDER_NAVIGATION);
-        bottomLeft.addView(ProjectExplorerView.VIEW_ID);
+//        bottomLeft.addView(ProjectExplorerView.VIEW_ID);
         bottomLeft.addPlaceholder(DatabaseBrowserView.VIEW_ID);
 
         // Bottom right.
@@ -86,7 +86,7 @@ public class DBeaverPerspective implements IPerspectiveFactory
         // Add view shortcuts
         layout.addShowViewShortcut(DatabaseNavigatorView.VIEW_ID);
         layout.addShowViewShortcut(ProjectNavigatorView.VIEW_ID);
-        layout.addShowViewShortcut(ProjectExplorerView.VIEW_ID);
+//        layout.addShowViewShortcut(ProjectExplorerView.VIEW_ID);
         layout.addShowViewShortcut(QueryManagerView.VIEW_ID);
         layout.addShowViewShortcut(IActionConstants.LOG_VIEW_ID);
 

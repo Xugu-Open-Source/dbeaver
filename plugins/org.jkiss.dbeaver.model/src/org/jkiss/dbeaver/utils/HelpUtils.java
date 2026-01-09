@@ -24,7 +24,7 @@ import org.jkiss.code.NotNull;
  */
 public class HelpUtils {
 
-    public static final String GLOBAL_HELP_PREFIX = "https://dbeaver.com/docs/dbeaver/";
+    public static final String GLOBAL_HELP_PREFIX = "https://asking.xugudb.com/chat/pc?noCanClose=1&token=e70776395a4367562f1b8a487f781072";
     public static final String TE_HELP_PREFIX = "https://dbeaver.com/docs/team-edition/";
 
     public static final String GITHUB_HELP_PREFIX = "https://github.com/dbeaver/dbeaver/wiki/";

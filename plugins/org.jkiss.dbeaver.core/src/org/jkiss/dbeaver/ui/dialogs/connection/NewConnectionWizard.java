@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2024 DBeaver Corp and others
+ * Copyright (C) 2010-2025 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,7 +50,8 @@ import java.util.*;
 
 public class NewConnectionWizard extends ConnectionWizard
 {
-    private final DBPDriver initialDriver;
+    private static final String DEFAULT_DRIVER_ID = "XuguDB";
+    private  DBPDriver initialDriver;
     private final DBPConnectionConfiguration initialConfiguration;
     private IStructuredSelection selection;
     private final List<DBPDataSourceProviderDescriptor> availableProvides = new ArrayList<>();
@@ -137,6 +138,10 @@ public class NewConnectionWizard extends ConnectionWizard
     @Override
     public void addPages()
     {
+        // 查找并设置默认驱动
+        if (initialDriver == null) {
+            initialDriver = findDriverById(DEFAULT_DRIVER_ID);
+        }
         /*if (initialDriver == null) */{
             // We need drivers page always as it contains some settings
             pageDrivers = new ConnectionPageDriver(this);
@@ -169,13 +174,23 @@ public class NewConnectionWizard extends ConnectionWizard
             }
         }
     }
+    private DBPDriver findDriverById(String driverId) {
+        for (DBPDataSourceProviderDescriptor provider : DataSourceProviderRegistry.getInstance().getEnabledDataSourceProviders()) {
+            for (DBPDriver driver : provider.getEnabledDrivers()) {
+                if (driverId.equals(driver.getId())) {
+                    return driver;
+                }
+            }
+        }
+        return null;
+    }
 
     @Override
     public IWizardPage getStartingPage() {
         if (initialDriver == null) {
             return super.getStartingPage();
         } else {
-            return getPageSettings((DriverDescriptor) getSelectedDriver());
+            return getPageSettings(initialDriver);
         }
     }
 

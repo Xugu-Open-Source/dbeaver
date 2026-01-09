@@ -298,7 +298,7 @@ public class MySQLDataSource extends JDBCDataSource implements DBPObjectStatisti
             dataTypeCache.cacheObject(
                 new JDBCDataType<>(
                     this,
-                    java.sql.Types.OTHER,
+                    Types.OTHER,
                     MySQLConstants.TYPE_JSON,
                     MySQLConstants.TYPE_JSON,
                     false,
@@ -957,7 +957,7 @@ public class MySQLDataSource extends JDBCDataSource implements DBPObjectStatisti
         if (!CommonUtils.isEmpty(message)) {
             Matcher matcher = ERROR_POSITION_PATTERN.matcher(message);
             if (matcher.find()) {
-                DBPErrorAssistant.ErrorPosition pos = new DBPErrorAssistant.ErrorPosition();
+                ErrorPosition pos = new ErrorPosition();
                 pos.line = Integer.parseInt(matcher.group(1)) - 1;
                 return new ErrorPosition[]{pos};
             }

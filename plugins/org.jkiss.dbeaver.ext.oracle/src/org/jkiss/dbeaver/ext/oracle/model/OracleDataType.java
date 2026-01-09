@@ -159,7 +159,7 @@ public class OracleDataType extends OracleObject<DBSObject>
     private boolean flagFinal;
     private boolean flagInstantiable;
     private TypeDesc typeDesc;
-    private int valueType = java.sql.Types.OTHER;
+    private int valueType = Types.OTHER;
     private String sourceDeclaration;
     private String sourceDefinition;
     private OracleDataType componentType;
@@ -205,12 +205,12 @@ public class OracleDataType extends OracleObject<DBSObject>
             findTypeDesc(name);
         } else {
             if (TYPE_CODE_COLLECTION.equals(this.typeCode)) {
-                this.valueType = java.sql.Types.ARRAY;
+                this.valueType = Types.ARRAY;
             } else if (TYPE_CODE_OBJECT.equals(this.typeCode)) {
-                this.valueType = java.sql.Types.STRUCT;
+                this.valueType = Types.STRUCT;
             } else {
                 if (this.name.equals(OracleConstants.TYPE_NAME_XML) && owner.getName().equals(OracleConstants.SCHEMA_SYS)) {
-                    this.valueType = java.sql.Types.SQLXML;
+                    this.valueType = Types.SQLXML;
                 }
             }
         }

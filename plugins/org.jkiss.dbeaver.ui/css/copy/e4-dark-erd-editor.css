@@ -1,0 +1,31 @@
+/*
+ * DBeaver - Universal Database Manager
+ * Copyright (C) 2010-2025 DBeaver Corp and others
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+ IEclipsePreferences#org-eclipse-ui-workbench:dbeaver-erd-editor {
+        preferences:
+            'org.jkiss.dbeaver.erd.diagram.background=30,30,30'
+            'org.jkiss.dbeaver.erd.diagram.entity.regular.background=32,32,32'
+            'org.jkiss.dbeaver.erd.diagram.entity.primary.background=128,64,32'
+            'org.jkiss.dbeaver.erd.diagram.entity.association.background=64,64,64'
+            'org.jkiss.dbeaver.erd.diagram.entity.name.foreground=196,196,196'
+            'org.jkiss.dbeaver.erd.diagram.attributes.background=64,64,64'
+            'org.jkiss.dbeaver.erd.diagram.attributes.foreground=196,196,196'
+            'org.jkiss.dbeaver.erd.diagram.search.highlighting=155,130,0'
+            'org.jkiss.dbeaver.erd.diagram.fk.highlighting=65,125,35'
+            'org.jkiss.dbeaver.erd.diagram.notes.background=64,64,64'
+            'org.jkiss.dbeaver.erd.diagram.notes.foreground=196,196,196'
+            'org.jkiss.dbeaver.erd.diagram.lines.foreground=0, 100, 174'
+}

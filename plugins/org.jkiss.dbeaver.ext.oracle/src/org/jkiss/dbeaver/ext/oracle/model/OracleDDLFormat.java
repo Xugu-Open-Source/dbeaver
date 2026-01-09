@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2024 DBeaver Corp and others
+ * Copyright (C) 2010-2025 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ public enum OracleDDLFormat {
     private final boolean showSegments;
     private final boolean showTablespace;
 
-    private static final Log log = org.jkiss.dbeaver.Log.getLog(OracleDDLFormat.class);
+    private static final Log log = Log.getLog(OracleDDLFormat.class);
 
     private OracleDDLFormat(String title, boolean showStorage, boolean showSegments, boolean showTablespace)
     {

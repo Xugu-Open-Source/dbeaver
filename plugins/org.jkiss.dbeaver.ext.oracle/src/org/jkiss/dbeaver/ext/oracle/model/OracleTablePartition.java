@@ -224,12 +224,12 @@ public class OracleTablePartition extends OracleTablePhysical implements DBSTabl
             this.subpartitionType = subpartitionType;
         }
 
-        @Property(category = CAT_PARTITIONING, viewable = true, editable = true, visibleIf = OraclePartitionIntervalValidator.class, listProvider = OracleTablePartition.PartitionByIntervalKindListProvider.class, order = 122)
+        @Property(category = CAT_PARTITIONING, viewable = true, editable = true, visibleIf = OraclePartitionIntervalValidator.class, listProvider = PartitionByIntervalKindListProvider.class, order = 122)
         public PartitionByIntervalKind getPartitionByIntervalKind() {
             return PartitionByIntervalKind.recognize(partitionInterval);
         }
 
-        public void setPartitionByIntervalKind(OracleTablePartition.PartitionByIntervalKind kind) {
+        public void setPartitionByIntervalKind(PartitionByIntervalKind kind) {
             partitionInterval = CommonUtils.notNull(kind, PartitionByIntervalKind.NONE).changeExpression(partitionInterval);
         }
 

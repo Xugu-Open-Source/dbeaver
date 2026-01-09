@@ -50,7 +50,7 @@ public class ConfigImportWizardCustom extends ConfigImportWizard {
         return pageDriver.getSelectedDriver();
     }
 
-    public ConfigImportWizardCustom.ImportType getImportType() {
+    public ImportType getImportType() {
         return pageSettings.getImportType();
     }
 

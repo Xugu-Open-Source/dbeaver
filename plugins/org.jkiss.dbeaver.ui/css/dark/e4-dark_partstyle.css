@@ -1,0 +1,153 @@
+/*
+ * DBeaver - Universal Database Manager
+ * Copyright (C) 2010-2025 DBeaver Corp and others
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+/* ################################ CSS for .MParts ########################## */
+
+.MPart {
+    font-family: '#org-eclipse-ui-workbench-TAB_TEXT_FONT';
+    background-color: #292929;
+    color: #DDDDDD;
+}
+
+.MPart.busy {
+    font-style: italic;
+}
+
+.MPart.highlighted {
+    font-weight: bold;
+}
+
+.MPart Composite,
+.MPart Composite > *,
+.MPart Composite > * > *,
+.MPart Label,
+.MPart ScrolledForm,
+.MPart Form,
+.MPart Section,
+.MPart FormText,
+.MPart Link,
+.MPart Sash,
+.MPart Button,
+.MPart Group,
+.MPart SashForm,
+.MPart Tree,
+.MPart FilteredTree,
+.MPart RegistryFilteredTree,
+.MPart PageSiteComposite,
+.MPart DependenciesComposite,
+.MPart Text[style~='SWT.READ_ONLY'],
+.MPart FigureCanvas,
+.MPart ListEditorComposite,
+.MPart ScrolledComposite,
+.Mpart ScrolledComposite ProgressInfoItem,
+.MPart Form ScrolledPageBook,
+.MPart DependenciesComposite > SashForm > Section > * { /* Section > DependenciesComposite$... */
+    background-color: #2a2a2a;
+    color: #AAAAAA;
+}
+
+
+.MPart Section > Label {
+    background-color: #2a2a2a;
+    color: #ABCEDA;
+}
+
+.MPart Table,
+.MPart Browser,
+.Mpart OleFrame,
+.MPart ViewForm,
+.MPart ViewForm > CLabel,
+.MPart PageBook > Label,
+.MPart PageBook > SashForm {
+    background-color: #313538;
+    color: #CCC;
+}
+
+.MPart Section Tree {
+    background-color: #383A3B;
+    color: #DDDDDD;
+}
+
+.MPart DatePicker,
+.MPart DatePicker > Text,
+.MPart ScheduleDatePicker,
+.MPart ScheduleDatePicker > Text,
+.MPart CCombo,
+.MPart Spinner,
+.MPart Composite > StyledText,
+.MPart PageBook > SashForm Label,
+.MPart SashForm > Text[style~='SWT.BORDER'] {
+    background-color: #3f4447;
+    color: #BBBBBB;
+}
+
+.MPart FormHeading,
+.MPart FormHeading > TitleRegion,
+.MPart FormHeading > TitleRegion > Label,
+.MPart FormHeading > TitleRegion > StyledText {
+    background-color: #505f70;
+    color: #9ac9d8;
+}
+
+.MPart FormHeading,
+.MPart FormHeading > TitleRegion {
+    swt-background-mode: none;
+}
+.MPart FormHeading > CLabel {
+    background-color: #505f70;
+}
+
+.MPartFormHeaderCLabelError {
+	color:'#org-eclipse-ui-workbench-FORM_HEADING_ERROR_COLOR';
+}
+.MPartFormHeaderCLabelWarning {
+	color:'#org-eclipse-ui-workbench-FORM_HEADING_WARNING_COLOR';
+}
+.MPartFormHeaderCLabelInfo {
+	color:'#org-eclipse-ui-workbench-FORM_HEADING_INFO_COLOR';
+}
+
+/* ------------------------------------------------------------- */
+
+#org-eclipse-jdt-ui-SourceView StyledText,
+#org-eclipse-wst-jsdt-ui-SourceView StyledText {
+    background-color: #252525;
+}
+
+/* ------------------------------------------------------------- */
+
+#org-eclipse-ui-console-ConsoleView .MPart > Composite,
+#org-eclipse-ui-console-ConsoleView .MPart StyledText,
+#org-eclipse-ui-console-ConsoleView .MPart PageBook Label {
+    background-color: #2a2a2a;
+    color: #CCCCCC;
+}
+
+/* ------------------------------------------------------------- */
+
+#org-eclipse-e4-ui-compatibility-editor Canvas {
+	background-color: inherit;
+}
+
+#org-eclipse-e4-ui-compatibility-editor LayoutCanvas {
+    background-color: #252525;
+    color: #CCCCCC;
+}
+
+
+

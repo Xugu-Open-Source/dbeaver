@@ -85,7 +85,7 @@ public class OracleContentXML extends JDBCContentXML {
             return BeanUtils.invokeStaticMethod(
                 DriverUtils.getDriverClass(session.getExecutionContext().getDataSource(), OracleConstants.XMLTYPE_CLASS_NAME),
                 "createXML",
-                new Class[] {java.sql.Connection.class, java.io.InputStream.class},
+                new Class[] {java.sql.Connection.class, InputStream.class},
                 new Object[] {session.getOriginal(), stream});
         } catch (SQLException e) {
             throw new DBCException(e, session.getExecutionContext());

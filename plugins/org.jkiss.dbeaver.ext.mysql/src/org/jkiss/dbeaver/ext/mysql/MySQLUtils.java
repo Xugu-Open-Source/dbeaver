@@ -48,53 +48,53 @@ public class MySQLUtils {
     private static final Map<String, Integer> typeMap = new HashMap<>();
 
     static {
-        typeMap.put("bit", java.sql.Types.BIT);
-        typeMap.put("bool", java.sql.Types.BOOLEAN);
-        typeMap.put("boolean", java.sql.Types.BOOLEAN);
-        typeMap.put("tinyint", java.sql.Types.TINYINT);
-        typeMap.put("smallint", java.sql.Types.SMALLINT);
-        typeMap.put("mediumint", java.sql.Types.INTEGER);
-        typeMap.put("int", java.sql.Types.INTEGER);
-        typeMap.put("integer", java.sql.Types.INTEGER);
-        typeMap.put("int24", java.sql.Types.INTEGER);
-        typeMap.put("bigint", java.sql.Types.BIGINT);
-        typeMap.put("real", java.sql.Types.DOUBLE);
-        typeMap.put("float", java.sql.Types.REAL);
-        typeMap.put("decimal", java.sql.Types.DECIMAL);
-        typeMap.put("dec", java.sql.Types.DECIMAL);
-        typeMap.put("numeric", java.sql.Types.DECIMAL);
-        typeMap.put("double", java.sql.Types.DOUBLE);
-        typeMap.put("double precision", java.sql.Types.DOUBLE);
-        typeMap.put("char", java.sql.Types.CHAR);
-        typeMap.put("varchar", java.sql.Types.VARCHAR);
-        typeMap.put("date", java.sql.Types.DATE);
-        typeMap.put("time", java.sql.Types.TIME);
-        typeMap.put("year", java.sql.Types.DATE);
-        typeMap.put("timestamp", java.sql.Types.TIMESTAMP);
-        typeMap.put("datetime", java.sql.Types.TIMESTAMP);
+        typeMap.put("bit", Types.BIT);
+        typeMap.put("bool", Types.BOOLEAN);
+        typeMap.put("boolean", Types.BOOLEAN);
+        typeMap.put("tinyint", Types.TINYINT);
+        typeMap.put("smallint", Types.SMALLINT);
+        typeMap.put("mediumint", Types.INTEGER);
+        typeMap.put("int", Types.INTEGER);
+        typeMap.put("integer", Types.INTEGER);
+        typeMap.put("int24", Types.INTEGER);
+        typeMap.put("bigint", Types.BIGINT);
+        typeMap.put("real", Types.DOUBLE);
+        typeMap.put("float", Types.REAL);
+        typeMap.put("decimal", Types.DECIMAL);
+        typeMap.put("dec", Types.DECIMAL);
+        typeMap.put("numeric", Types.DECIMAL);
+        typeMap.put("double", Types.DOUBLE);
+        typeMap.put("double precision", Types.DOUBLE);
+        typeMap.put("char", Types.CHAR);
+        typeMap.put("varchar", Types.VARCHAR);
+        typeMap.put("date", Types.DATE);
+        typeMap.put("time", Types.TIME);
+        typeMap.put("year", Types.DATE);
+        typeMap.put("timestamp", Types.TIMESTAMP);
+        typeMap.put("datetime", Types.TIMESTAMP);
 
-        typeMap.put("tinyblob", java.sql.Types.BINARY);
-        typeMap.put("blob", java.sql.Types.LONGVARBINARY);
-        typeMap.put("mediumblob", java.sql.Types.LONGVARBINARY);
-        typeMap.put("longblob", java.sql.Types.LONGVARBINARY);
+        typeMap.put("tinyblob", Types.BINARY);
+        typeMap.put("blob", Types.LONGVARBINARY);
+        typeMap.put("mediumblob", Types.LONGVARBINARY);
+        typeMap.put("longblob", Types.LONGVARBINARY);
 
-        typeMap.put("tinytext", java.sql.Types.VARCHAR);
-        typeMap.put("text", java.sql.Types.VARCHAR);
-        typeMap.put("mediumtext", java.sql.Types.VARCHAR);
-        typeMap.put("longtext", java.sql.Types.VARCHAR);
+        typeMap.put("tinytext", Types.VARCHAR);
+        typeMap.put("text", Types.VARCHAR);
+        typeMap.put("mediumtext", Types.VARCHAR);
+        typeMap.put("longtext", Types.VARCHAR);
 
-        typeMap.put(MySQLConstants.TYPE_NAME_ENUM, java.sql.Types.CHAR);
-        typeMap.put(MySQLConstants.TYPE_NAME_SET, java.sql.Types.CHAR);
-        typeMap.put("geometry", java.sql.Types.BINARY);
-        typeMap.put("binary", java.sql.Types.BINARY);
-        typeMap.put("varbinary", java.sql.Types.VARBINARY);
+        typeMap.put(MySQLConstants.TYPE_NAME_ENUM, Types.CHAR);
+        typeMap.put(MySQLConstants.TYPE_NAME_SET, Types.CHAR);
+        typeMap.put("geometry", Types.BINARY);
+        typeMap.put("binary", Types.BINARY);
+        typeMap.put("varbinary", Types.VARBINARY);
         typeMap.put(MySQLConstants.TYPE_UUID, Types.CHAR);
     }
 
     public static int typeNameToValueType(String typeName)
     {
         Integer valueType = typeMap.get(typeName.toLowerCase(Locale.ENGLISH));
-        return valueType == null ? java.sql.Types.OTHER : valueType;
+        return valueType == null ? Types.OTHER : valueType;
     }
 
     public static List<String> collectPrivilegeNames(ResultSet resultSet)
