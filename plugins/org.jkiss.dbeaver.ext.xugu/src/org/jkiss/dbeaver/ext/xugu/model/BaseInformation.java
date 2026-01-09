@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,22 +14,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jkiss.dbeaver.ext.postgresql.model;
+package org.jkiss.dbeaver.ext.xugu.model;
 
 import org.jkiss.code.NotNull;
-import org.jkiss.dbeaver.model.DBPObjectWithLongId;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 
 /**
- * PostgreObject
+ * 基本信息类
  */
-public interface PostgreObject extends DBSObject, DBPObjectWithLongId {
+public abstract class BaseInformation implements DBSObject {
+	private DataSource dataSource;
 
-    @Override
-    @NotNull
-    PostgreDataSource getDataSource();
+	protected BaseInformation(DataSource dataSource) {
+		this.dataSource = dataSource;
+	}
 
-    @NotNull
-    PostgreDatabase getDatabase();
+	@Override
+	public DBSObject getParentObject() {
+		return getDataSource().getContainer();
+	}
 
+	@NotNull
+	@Override
+	public DataSource getDataSource() {
+		return dataSource;
+	}
+
+	@Override
+	public boolean isPersisted() {
+		return true;
+	}
+
+	@Override
+	public String toString() {
+		return getName();
+	}
 }

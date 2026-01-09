@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,19 +26,22 @@ import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.eclipse.ui.menus.UIElement;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.internal.Utils;
+import org.jkiss.dbeaver.ext.xugu.model.ObjectPersistAction;
+import org.jkiss.dbeaver.ext.xugu.model.Sequence;
 import org.jkiss.dbeaver.ext.xugu.model.source.SourceObject;
 import org.jkiss.dbeaver.model.DBPEvent;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCStatement;
+import org.jkiss.dbeaver.model.exec.DBCStatementType;
 import org.jkiss.dbeaver.model.exec.compile.DBCCompileError;
 import org.jkiss.dbeaver.model.exec.compile.DBCCompileLog;
 import org.jkiss.dbeaver.model.exec.compile.DBCCompileLogBase;
 import org.jkiss.dbeaver.model.exec.compile.DBCSourceHost;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
-import org.jkiss.dbeaver.model.impl.jdbc.exec.JDBCStatementImpl;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectState;
@@ -51,7 +54,6 @@ import org.jkiss.utils.ArrayUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.lang.reflect.InvocationTargetException;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -107,7 +109,7 @@ public class CompileHandler extends TaskHandler
                     UIUtils.runInProgressService(monitor -> {
                         try {
                             compileUnit(monitor, compileLog, unit);
-                        } catch (DBCException e) {
+                        } catch (DBException e) {
                             throw new InvocationTargetException(e);
                         }
                     });
@@ -203,11 +205,14 @@ public class CompileHandler extends TaskHandler
         }
     }
 
-    public static boolean compileUnit(DBRProgressMonitor monitor, DBCCompileLog compileLog, SourceObject unit) throws DBCException
-    {
+    public static boolean compileUnit(DBRProgressMonitor monitor, DBCCompileLog compileLog, SourceObject unit) throws DBException {
         final DBEPersistAction[] compileActions = unit.getCompileActions(monitor);
         if (ArrayUtils.isEmpty(compileActions)) {
-            return true;
+            if (unit instanceof Sequence) {
+                // Sequence can not be compiled
+                return false;
+            }
+            throw new DBCException("No compile actions associated with " + unit.getSourceType().name());
         }
 
         try (JDBCSession session = DBUtils.openUtilSession(monitor, unit, "Compile '" + unit.getName() + "'")) {
@@ -219,20 +224,25 @@ public class CompileHandler extends TaskHandler
                 if (monitor.isCanceled()) {
                     break;
                 }
-                try (DBCStatement dbStat = session.createStatement()){
-                	action.beforeExecute(session);
-                	JDBCStatementImpl dbStatImpl = ((JDBCStatementImpl)dbStat);
-                	dbStatImpl.setQueryString(script);
-                    dbStat.executeStatement();
+                try {
+                    try (DBCStatement dbStat = session.prepareStatement(
+                            DBCStatementType.QUERY,
+                            script,
+                            false, false, false))
+                    {
+                        action.beforeExecute(session);
+                        dbStat.executeStatement();
+                    }
                     action.afterExecute(session, null);
-                } catch (DBCException Dbce) {
-                    action.afterExecute(session, Dbce);
-                    throw Dbce;
-                } catch (SQLException Sqle) {
-                	action.afterExecute(session, Sqle);
-                	throw new DBCException("SQLException happened", Sqle);
-				}
-
+                } catch (DBCException e) {
+                    action.afterExecute(session, e);
+                    throw e;
+                }
+                if (action instanceof ObjectPersistAction) {
+                    if (!logObjectErrors(session, compileLog, unit, ((ObjectPersistAction) action).getObjectType())) {
+                        success = false;
+                    }
+                }
             }
             final DBSObjectState oldState = unit.getObjectState();
             unit.refreshObjectState(monitor);

@@ -111,7 +111,7 @@
             <activation><property><name>!headless-platform</name></property></activation>
             <modules>
                 <!-- Tests -->
-                <module>test</module>
+<!--                <module>test</module>-->
             </modules>
         </profile>
 

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ public abstract class BasePlatformImpl implements DBPPlatform, DBPApplicationCon
 
     private static final Log log = Log.getLog(BasePlatformImpl.class);
 
-    public static final String DBEAVER_DATA_DIR = "DBeaverData";
+    public static final String DBEAVER_DATA_DIR = "DBManager";
 
     private static final String APP_CONFIG_FILE = "dbeaver.ini";
     private static final String ECLIPSE_CONFIG_FILE = "eclipse.ini";
