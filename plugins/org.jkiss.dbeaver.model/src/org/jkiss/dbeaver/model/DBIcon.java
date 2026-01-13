@@ -128,7 +128,7 @@ public class DBIcon implements DBPImage {
     public static final DBIcon TYPE_TEXT = new DBIcon("text", "types/text.svg"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TYPE_JSON = new DBIcon("json", "types/json.svg"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TYPE_XML = new DBIcon("xml", "types/xml.svg"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon TYPE_LOB = new DBIcon("lob", "new_types/lob.svg"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon TYPE_LOB = new DBIcon("lob", "new_types/lob.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TYPE_ARRAY = new DBIcon("array", "types/array.svg"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TYPE_STRUCT = new DBIcon("struct", "types/struct.svg"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon TYPE_DOCUMENT = new DBIcon("document", "types/document.svg"); //$NON-NLS-1$ //$NON-NLS-2$
