@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,16 +22,11 @@
 @import url("platform:/plugin/org.jkiss.dbeaver.ui/css/dark/e4-dark_tabstyle.css");
 @import url("platform:/plugin/org.jkiss.dbeaver.ui/css/dark/e4-dark-drag-styling.css");
 @import url("platform:/plugin/org.jkiss.dbeaver.ui/css/dark/e4-dark_preferencestyle.css");
-/*!* 内部css*!*/
-@import url("platform:/plugin/org.jkiss.dbeaver.erd.ui/css/e4-dark-erd-editor.css");
-@import url("platform:/plugin/org.jkiss.dbeaver.core/css/e4-dark_dbeaver_prefstyle.css");
-@import url("platform:/plugin/org.jkiss.dbeaver.ui.editors.data/css/e4-dark-data-editor.css");
-@import url("platform:/plugin/org.jkiss.dbeaver.ui.editors.sql/css/e4-dark-sql-editor.css");
 /*!* 重写的css*!*/
-/*@import url("platform:/plugin/org.jkiss.dbeaver.ui/css/copy/e4-dark-erd-editor.css");*/
-/*@import url("platform:/plugin/org.jkiss.dbeaver.ui/css/copy/e4-dark_dbeaver_prefstyle.css");*/
-/*@import url("platform:/plugin/org.jkiss.dbeaver.ui/css/copy/e4-dark-data-editor.css");*/
-/*@import url("platform:/plugin/org.jkiss.dbeaver.ui/css/copy/e4-dark-sql-editor.css");*/
+@import url("platform:/plugin/org.jkiss.dbeaver.ui/css/copy/e4-dark-erd-editor.css");
+@import url("platform:/plugin/org.jkiss.dbeaver.ui/css/copy/e4-dark_dbeaver_prefstyle.css");
+@import url("platform:/plugin/org.jkiss.dbeaver.ui/css/copy/e4-dark-data-editor.css");
+@import url("platform:/plugin/org.jkiss.dbeaver.ui/css/copy/e4-dark-sql-editor.css");
 
 
 CTabFolder Canvas {
