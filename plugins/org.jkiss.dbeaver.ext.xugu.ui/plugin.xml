@@ -158,22 +158,22 @@
     <extension point="org.eclipse.ui.handlers">
         <handler
                 commandId="org.jkiss.dbeaver.ext.xugu.tasks.ExportTool"
-                class="org.jkiss.dbeaver.ext.xugu.tasks.ExportTool"/>.
+                class="org.jkiss.dbeaver.ext.xugu.tools.ExportTool"/>.
         <handler
                 commandId="org.jkiss.dbeaver.ext.xugu.tasks.BackupTool"
-                class="org.jkiss.dbeaver.ext.xugu.tasks.BackupTool"/>
+                class="org.jkiss.dbeaver.ext.xugu.tools.BackupTool"/>
         <handler
                 commandId="org.jkiss.dbeaver.ext.xugu.tasks.FileViewer"
-                class="org.jkiss.dbeaver.ext.xugu.tasks.FileViewer"/>
+                class="org.jkiss.dbeaver.ext.xugu.tools.FileViewer"/>
         <handler
                 commandId="org.jkiss.dbeaver.ext.xugu.tasks.RestoreTool"
-                class="org.jkiss.dbeaver.ext.xugu.tasks.RestoreTool"/>
+                class="org.jkiss.dbeaver.ext.xugu.tools.RestoreTool"/>
         <handler
                 commandId="org.jkiss.dbeaver.ext.xugu.tasks.ResourceViewer"
-                class="org.jkiss.dbeaver.ext.xugu.tasks.ResourceViewer"/>
+                class="org.jkiss.dbeaver.ext.xugu.tools.ResourceViewer"/>
         <handler
                 commandId="org.jkiss.dbeaver.ext.xugu.tasks.TransactionKiller"
-                class="org.jkiss.dbeaver.ext.xugu.tasks.TransactionKiller"/>
+                class="org.jkiss.dbeaver.ext.xugu.tools.TransactionKiller"/>
     </extension>
 
     <!-- 添加到菜单 -->

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,27 +17,34 @@
 package org.jkiss.dbeaver.ext.xugu.actions;
 
 import org.eclipse.core.commands.AbstractHandler;
+import org.eclipse.core.commands.ExecutionEvent;
+import org.eclipse.core.commands.ExecutionException;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.ISelectionProvider;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchPartSite;
+import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.commands.IElementUpdater;
+import org.eclipse.ui.handlers.HandlerUtil;
 import org.eclipse.ui.menus.UIElement;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.ext.xugu.model.ObjectType;
 import org.jkiss.dbeaver.ext.xugu.internal.Utils;
+import org.jkiss.dbeaver.ext.xugu.model.ObjectType;
 import org.jkiss.dbeaver.ext.xugu.model.source.SourceObject;
 import org.jkiss.dbeaver.ext.xugu.model.source.StatefulObject;
 import org.jkiss.dbeaver.model.exec.compile.DBCCompileError;
 import org.jkiss.dbeaver.model.exec.compile.DBCCompileLog;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
+import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.ui.navigator.NavigatorUtils;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
 
 import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
@@ -50,6 +57,21 @@ public abstract class TaskHandler extends AbstractHandler implements IElementUpd
 {
     private static final Log log = Log.getLog(TaskHandler.class);
 
+    @Override
+    public Object execute(ExecutionEvent event) throws ExecutionException {
+        IWorkbenchWindow window = HandlerUtil.getActiveWorkbenchWindow(event);
+        IWorkbenchPart part = HandlerUtil.getActivePart(event);
+        ISelection selection = HandlerUtil.getCurrentSelection(event);
+        DBSObject selectedObject = NavigatorUtils.getSelectedObject(selection);
+        Collection<DBSObject> result  = new ArrayList<>();
+        result.add(selectedObject);
+
+        XuguToolSubclassReach( window, part,  result);
+        return null;
+    }
+
+    public abstract void XuguToolSubclassReach(IWorkbenchWindow window, IWorkbenchPart part, Collection<DBSObject> result) ;
+    
     protected List<SourceObject> getSourceObjects(UIElement element) {
         List<SourceObject> objects = new ArrayList<>();
         IWorkbenchPartSite partSite = UIUtils.getWorkbenchPartSite(element.getServiceLocator());

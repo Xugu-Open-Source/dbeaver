@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jkiss.dbeaver.ext.xugu.tasks;
+package org.jkiss.dbeaver.ext.xugu.tools;
 
-import static org.eclipse.swt.events.SelectionListener.widgetSelectedAdapter;
-import static org.eclipse.swt.events.MouseListener.mouseDownAdapter;
+import com.xugu.parser.DatabaseParsing;
+import com.xugu.parser.Parsing;
+import com.xugu.parser.Parsing.TableType;
+import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.TableEditor;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.FileDialog;
+import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.TableColumn;
+import org.eclipse.swt.widgets.TableItem;
+import org.eclipse.swt.widgets.Text;
+import org.eclipse.ui.IWorkbenchPart;
+import org.eclipse.ui.IWorkbenchWindow;
+import org.jkiss.dbeaver.ext.xugu.model.DataSource;
+import org.jkiss.dbeaver.ext.xugu.model.Database;
+import org.jkiss.dbeaver.ext.xugu.model.Package;
+import org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone;
+import org.jkiss.dbeaver.ext.xugu.model.Role;
+import org.jkiss.dbeaver.ext.xugu.model.SchedulerJob;
+import org.jkiss.dbeaver.ext.xugu.model.Schema;
+import org.jkiss.dbeaver.ext.xugu.model.Sequence;
+import org.jkiss.dbeaver.ext.xugu.model.Synonym;
+import org.jkiss.dbeaver.ext.xugu.model.Table;
+import org.jkiss.dbeaver.ext.xugu.model.Trigger;
+import org.jkiss.dbeaver.ext.xugu.model.Udt;
+import org.jkiss.dbeaver.ext.xugu.model.User;
+import org.jkiss.dbeaver.ext.xugu.model.View;
+import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
+import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureType;
+import org.jkiss.dbeaver.registry.DataSourceDescriptor;
+import org.jkiss.dbeaver.utils.RuntimeUtils;
 
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
@@ -37,45 +70,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.eclipse.jface.dialogs.MessageDialog;
-import org.eclipse.swt.SWT;
-import org.eclipse.swt.custom.TableEditor;
-import org.eclipse.swt.layout.GridData;
-import org.eclipse.swt.layout.GridLayout;
-import org.eclipse.swt.widgets.Button;
-import org.eclipse.swt.widgets.FileDialog;
-import org.eclipse.swt.widgets.Shell;
-import org.eclipse.swt.widgets.TableColumn;
-import org.eclipse.swt.widgets.TableItem;
-import org.eclipse.swt.widgets.Text;
-import org.eclipse.ui.IWorkbenchPart;
-import org.eclipse.ui.IWorkbenchWindow;
-import org.jkiss.dbeaver.ext.xugu.model.DataSource;
-import org.jkiss.dbeaver.ext.xugu.model.Database;
-import org.jkiss.dbeaver.ext.xugu.model.Trigger;
-import org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone;
-import org.jkiss.dbeaver.ext.xugu.model.Role;
-import org.jkiss.dbeaver.ext.xugu.model.SchedulerJob;
-import org.jkiss.dbeaver.ext.xugu.model.Schema;
-import org.jkiss.dbeaver.ext.xugu.model.Sequence;
-import org.jkiss.dbeaver.ext.xugu.model.Synonym;
-import org.jkiss.dbeaver.ext.xugu.model.Table;
-import org.jkiss.dbeaver.ext.xugu.model.Package;
-import org.jkiss.dbeaver.ext.xugu.model.Udt;
-import org.jkiss.dbeaver.ext.xugu.model.User;
-import org.jkiss.dbeaver.ext.xugu.model.View;
-import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
-import org.jkiss.dbeaver.model.struct.DBSObject;
-import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureType;
-import org.jkiss.dbeaver.registry.DataSourceDescriptor;
+import static org.eclipse.swt.events.MouseListener.mouseDownAdapter;
+import static org.eclipse.swt.events.SelectionListener.widgetSelectedAdapter;
 
-import org.jkiss.dbeaver.utils.RuntimeUtils;
-
-import com.xugu.parser.DatabaseParsing;
-import com.xugu.parser.Parsing;
-import com.xugu.parser.Parsing.TableType;
-
-public class ExportTool  extends XuguToolAbstractHandler{
+public class ExportTool extends XuguToolAbstractHandler {
 	private final SimpleDateFormat format = new SimpleDateFormat("yyyyMMddHHmmss");
 
 

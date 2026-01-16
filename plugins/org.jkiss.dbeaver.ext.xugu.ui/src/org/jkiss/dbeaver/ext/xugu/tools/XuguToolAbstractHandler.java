@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jkiss.dbeaver.ext.xugu.tasks;
+package org.jkiss.dbeaver.ext.xugu.tools;
 
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
@@ -29,7 +29,7 @@ import org.jkiss.dbeaver.ui.navigator.NavigatorUtils;
 import java.util.ArrayList;
 import java.util.Collection;
 
-public abstract class XuguToolAbstractHandler  extends AbstractHandler {
+public abstract class XuguToolAbstractHandler extends AbstractHandler {
 
     @Override
     public Object execute(ExecutionEvent event) throws ExecutionException {
