@@ -183,7 +183,7 @@
             </tree>
 
             <drivers managable="true">
-                <driver class="com.xugu.cloudjdbc.Driver" defaultPort="5138" description="Xugu JDBC driver." icon="icons/icon.png" iconBig="icons/icon_big.png" id="Xugu SQL Server" label="XuguDB" promoted="9999" sampleURL="jdbc:xugu://{host}[:{port}]/{database}" useURL="false" webURL="https://gitee.com/XuguDB/org.jkiss.dbeaver.ext.xugu/tree/develop/drivers" categories="sql">
+                <driver class="com.xugu.cloudjdbc.Driver" defaultPort="5138" description="Xugu JDBC driver." icon="icons/icon.png" iconBig="icons/icon_big.png" id="XuguDB" label="XuguDB" promoted="9999" sampleURL="jdbc:xugu://{host}[:{port}]/{database}" useURL="false" webURL="https://gitee.com/XuguDB/org.jkiss.dbeaver.ext.xugu/tree/develop/drivers" categories="sql">
                     <replace provider="generic" driver="xugu"/>
                     <replace provider="xugu" driver="xugu"/>
                     <replace provider="xugu" driver="xugu_oci"/>
@@ -202,8 +202,9 @@
 
                     <!--<file path="maven:/com.Xugu.jdbc:ojdbc8:RELEASE" type="jar"/>-->
 
-                    <file type="license" path="drivers/xugu/LICENSE.txt" bundle="drivers.xugu"/>
-                    <file type="jar" path="drivers/xugu/cloudjdbc-11.0.8.jar" bundle="drivers.xugu"/>
+                    <file type="jar" path="maven:/com.xugudb:xugu-jdbc:RELEASE[12.3.5]" bundle="!drivers.xugu"/>
+                    <file type="license" path="drivers/xugu/LICENSE.txt"/>
+                    <file type="jar" path="drivers/xugu" bundle="drivers.xugu"/>
 
                 </driver>
             </drivers>
