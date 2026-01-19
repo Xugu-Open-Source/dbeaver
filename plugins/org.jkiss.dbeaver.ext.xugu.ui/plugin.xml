@@ -99,6 +99,12 @@
         <configurator class="org.jkiss.dbeaver.ext.xugu.config.XuguConstraintConfigurator">
             <objectType name="org.jkiss.dbeaver.ext.xugu.model.TableConstraint"/>
         </configurator>
+        <configurator class="org.jkiss.dbeaver.ext.xugu.config.XuguTablePartitionConfigurator">
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.TablePartition"/>
+        </configurator>
+        <configurator class="org.jkiss.dbeaver.ext.xugu.config.XuguTableSubPartitionConfigurator">
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.TableSubPartition"/>
+        </configurator>
 
     </extension>
 

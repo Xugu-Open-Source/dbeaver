@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,15 @@
  */
 package org.jkiss.dbeaver.ext.xugu.model;
 
+import org.jkiss.dbeaver.model.struct.rdb.DBSTable;
+import org.jkiss.dbeaver.model.struct.rdb.DBSTablePartition;
+
 import java.sql.ResultSet;
 
 /**
  * 表分区衍生类
  */
-public class TablePartition extends BasePartition<BaseTablePhysical> {
+public class TablePartition extends BasePartition<BaseTablePhysical> implements DBSTablePartition {
 	public TablePartition(BaseTablePhysical table, boolean subpartition, String name) {
 		super(table, subpartition, name);
 	}
@@ -33,4 +36,14 @@ public class TablePartition extends BasePartition<BaseTablePhysical> {
 	public TablePartition(BaseTablePhysical table, boolean subpartition, TablePartition srcPartition) {
 		super(table, subpartition, srcPartition);
 	}
+
+    @Override
+    public DBSTable getParentTable() {
+        return parent;
+    }
+
+    @Override
+    public DBSTablePartition getPartitionParent() {
+        return null;
+    }
 }
