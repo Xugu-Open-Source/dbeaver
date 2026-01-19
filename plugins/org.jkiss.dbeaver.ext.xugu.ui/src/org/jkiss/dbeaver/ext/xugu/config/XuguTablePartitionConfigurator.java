@@ -32,6 +32,7 @@ import org.eclipse.swt.widgets.Text;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.xugu.internal.Messages;
 import org.jkiss.dbeaver.ext.xugu.model.BaseTablePhysical;
 import org.jkiss.dbeaver.ext.xugu.model.TablePartition;
@@ -52,11 +53,12 @@ import java.util.Map;
  * 分区表配置
  */
 public class XuguTablePartitionConfigurator implements DBEObjectConfigurator<TablePartition> {
+    private static final Log log = Log.getLog(XuguTablePartitionConfigurator.class);
     @Override
     public TablePartition configureObject(@NotNull DBRProgressMonitor monitor, @Nullable DBECommandContext commandContext, @Nullable Object container, @NotNull TablePartition partition, @NotNull Map<String, Object> options) {
         BaseTablePhysical parent = (BaseTablePhysical) container;
         // 禁止对没有分区定义的表进行添加分区操作
-        if (parent.isPersisted() == true && parent.partitionCache.getCachedObjects().size() == 0) {
+        if (parent.isPersisted() && parent.partitionCache.getCachedObjects().isEmpty()) {
             new UITask<String>() {
                 @Override
                 protected String runTask() {
@@ -87,7 +89,7 @@ public class XuguTablePartitionConfigurator implements DBEObjectConfigurator<Tab
                 return null;
             }
         } catch (DBException e) {
-            e.printStackTrace();
+            log.error(e.getMessage(), e);
         }
 
         return new UITask<TablePartition>() {
@@ -102,8 +104,8 @@ public class XuguTablePartitionConfigurator implements DBEObjectConfigurator<Tab
                 if (parent.isPersisted()) {
                     ArrayList<TablePartition> partList = (ArrayList<TablePartition>) parent.partitionCache
                             .getCachedObjects();
-                    if (partList.size() != 0) {
-                        TablePartition model = partList.get(0);
+                    if (!partList.isEmpty()) {
+                        TablePartition model = partList.getFirst();
                         newTablePartition.setPartiType(model.getPartiType());
                         newTablePartition.setPartiKey(model.getPartiKey());
                     }

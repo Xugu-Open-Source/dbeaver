@@ -16,29 +16,20 @@
  */
 package org.jkiss.dbeaver.ext.xugu.edit;
 
-import org.eclipse.jface.dialogs.Dialog;
-import org.eclipse.jface.dialogs.IDialogConstants;
-import org.eclipse.swt.layout.GridData;
-import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Control;
-import org.eclipse.swt.widgets.Label;
-import org.eclipse.swt.widgets.Shell;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
-import org.jkiss.dbeaver.ext.xugu.internal.Messages;
 import org.jkiss.dbeaver.ext.xugu.model.BaseTablePhysical;
 import org.jkiss.dbeaver.ext.xugu.model.TableSubPartition;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
+import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
-import org.jkiss.dbeaver.ui.UITask;
-import org.jkiss.dbeaver.ui.UIUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -64,37 +55,25 @@ public class TableSubPartitionManager extends SQLObjectEditor<TableSubPartition,
 			SQLObjectEditor<TableSubPartition, BaseTablePhysical>.ObjectCreateCommand command,
 			Map<String, Object> options) throws DBException {
 		// 表存在时，禁用二级分区操作
-		if (command.getObject().getParentObject().isPersisted() == true) {
-			new UITask<String>() {
-				@Override
-				protected String runTask() {
-					WarningDialog dialog2 = new WarningDialog(UIUtils.getActiveWorkbenchShell(), "Can't create sub partition on existed table");
-					if (dialog2.open() != IDialogConstants.OK_ID) {
-						return null;
-					}
-					return null;
-				}
-			}.execute();
+		if (command.getObject().getParentObject().isPersisted()) {
+            throw new DBCException("Can't create sub partition on existed table");
 		}
 	}
 
-	@Override
+    @Override
+    public boolean canDeleteObject(TableSubPartition object) {
+        // 不允许对二级分区进行删除操作
+        return !object.getParentObject().isPersisted();
+    }
+
+    @Override
 	protected void addObjectDeleteActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,
 			List<DBEPersistAction> actions,
 			SQLObjectEditor<TableSubPartition, BaseTablePhysical>.ObjectDeleteCommand command,
-			Map<String, Object> options) {
+			Map<String, Object> options) throws DBCException {
 		// 不允许对二级分区进行删除操作
-		if (command.getObject().getParentObject().isPersisted() == true) {
-			new UITask<String>() {
-				@Override
-				protected String runTask() {
-					WarningDialog dialog2 = new WarningDialog(UIUtils.getActiveWorkbenchShell(), "Can't delete sub partition on existed table");
-					if (dialog2.open() != IDialogConstants.OK_ID) {
-						return null;
-					}
-					return null;
-				}
-			}.execute();
+		if (command.getObject().getParentObject().isPersisted()) {
+            throw new DBCException("Can't delete sub partition on existed table");
 		}
 		// 若是新增表情况时则直接将改对象从缓存中剔除
 		else {
@@ -118,29 +97,6 @@ public class TableSubPartitionManager extends SQLObjectEditor<TableSubPartition,
 
 			log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct add subpartition sql: " + sql.toString());
 			actionList.add(new SQLDatabasePersistAction("Alter Partition", sql.toString()));
-		}
-	}
-
-	public static class WarningDialog extends Dialog {
-		private String warningInfo;
-
-		public WarningDialog(Shell parentShell, String info) {
-			super(parentShell);
-			this.warningInfo = info;
-		}
-
-		@Override
-		protected Control createDialogArea(Composite parent) {
-			getShell().setText(Messages.dialog_tablePartition_create_title);
-
-			Control container = super.createDialogArea(parent);
-			Composite composite = UIUtils.createPlaceholder((Composite) container, 2, 5);
-			composite.setLayoutData(new GridData(GridData.FILL_BOTH));
-
-			Label infoText = UIUtils.createLabel(composite, "Warning: " + this.warningInfo);
-			infoText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-
-			return parent;
 		}
 	}
 

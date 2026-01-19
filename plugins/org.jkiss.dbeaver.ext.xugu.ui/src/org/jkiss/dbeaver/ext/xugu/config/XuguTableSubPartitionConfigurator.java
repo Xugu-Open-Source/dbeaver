@@ -29,6 +29,7 @@ import org.eclipse.swt.widgets.Text;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.xugu.internal.Messages;
 import org.jkiss.dbeaver.ext.xugu.internal.Utils;
 import org.jkiss.dbeaver.ext.xugu.model.BaseTablePhysical;
@@ -50,47 +51,55 @@ import java.util.Map;
  * 分区表配置
  */
 public class XuguTableSubPartitionConfigurator implements DBEObjectConfigurator<TableSubPartition> {
+    private static final Log log = Log.getLog(XuguTableSubPartitionConfigurator.class);
     @Override
     public TableSubPartition configureObject(@NotNull DBRProgressMonitor monitor, @Nullable DBECommandContext commandContext, @Nullable Object container, @NotNull TableSubPartition partition, @NotNull Map<String, Object> options) {
         BaseTablePhysical parent = (BaseTablePhysical) container;
         // 仅允许对新创建的表进行添加二级分区操作
-        if (parent.isPersisted() == false) {
-            return new UITask<TableSubPartition>() {
-                @Override
-                protected TableSubPartition runTask() {
-                    NewTablePartitionDialog dialog = new NewTablePartitionDialog(UIUtils.getActiveWorkbenchShell(),
-                            monitor, parent);
-                    if (dialog.open() != IDialogConstants.OK_ID) {
-                        return null;
-                    }
-                    TableSubPartition newTablePartition = dialog.getTablePartition();
-                    if (parent.isPersisted()) {
-                        ArrayList<TableSubPartition> partList = (ArrayList<TableSubPartition>) parent.subPartitionCache
-                                .getCachedObjects();
-                        if (partList.size() != 0) {
-                            TableSubPartition model = partList.get(0);
-                            newTablePartition.setPartiType(model.getPartiType());
-                            newTablePartition.setPartiKey(model.getPartiKey());
-                        }
-                    }
-                    if (newTablePartition.isSubPartition()) {
-                        parent.subPartitionCache.cacheObject(newTablePartition);
-                    }
-                    return newTablePartition;
+        if (parent.isPersisted()) {
+            return UITask.run(()->{
+                WarningDialog dialog2 = new WarningDialog(UIUtils.getActiveWorkbenchShell(), "Can't create sub partition on existed table");
+                if (dialog2.open() != IDialogConstants.OK_ID) {
+                    return null;
                 }
-            }.execute();
+                return null;
+            });
         }
-        new UITask<String>() {
-            @Override
-            protected String runTask() {
+        // 禁止对没有分区的表添加子分区操作
+        if (parent.partitionCache.isEmpty()) {
+            return UITask.run(()->{
                 WarningDialog dialog2 = new WarningDialog(UIUtils.getActiveWorkbenchShell(), "Can't create new partition on table with no partition");
                 if (dialog2.open() != IDialogConstants.OK_ID) {
                     return null;
                 }
                 return null;
+            });
+        }
+
+        return new UITask<TableSubPartition>() {
+            @Override
+            protected TableSubPartition runTask() {
+                NewTablePartitionDialog dialog = new NewTablePartitionDialog(UIUtils.getActiveWorkbenchShell(),
+                        monitor, parent);
+                if (dialog.open() != IDialogConstants.OK_ID) {
+                    return null;
+                }
+                TableSubPartition newTablePartition = dialog.getTablePartition();
+                if (parent.isPersisted()) {
+                    ArrayList<TableSubPartition> partList = (ArrayList<TableSubPartition>) parent.subPartitionCache
+                            .getCachedObjects();
+                    if (!partList.isEmpty()) {
+                        TableSubPartition model = partList.getFirst();
+                        newTablePartition.setPartiType(model.getPartiType());
+                        newTablePartition.setPartiKey(model.getPartiKey());
+                    }
+                }
+                if (newTablePartition.isSubPartition()) {
+                    parent.subPartitionCache.cacheObject(newTablePartition);
+                }
+                return newTablePartition;
             }
         }.execute();
-        return null;
     }
 
     static class NewTablePartitionDialog extends Dialog {
@@ -154,7 +163,7 @@ public class XuguTableSubPartitionConfigurator implements DBEObjectConfigurator<
                     }
                 }
             } catch (DBException e) {
-                e.printStackTrace();
+                log.error(e.getMessage(), e);
             }
 
             UIUtils.createInfoLabel(composite, Messages.dialog_tablePartition_create_info, GridData.FILL_HORIZONTAL, 2);
