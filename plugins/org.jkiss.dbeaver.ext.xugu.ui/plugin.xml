@@ -105,6 +105,9 @@
         <configurator class="org.jkiss.dbeaver.ext.xugu.config.XuguTableSubPartitionConfigurator">
             <objectType name="org.jkiss.dbeaver.ext.xugu.model.TableSubPartition"/>
         </configurator>
+        <configurator class="org.jkiss.dbeaver.ext.xugu.config.XuguSchemaConfigurator">
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.Schema"/>
+        </configurator>
 
     </extension>
 
