@@ -114,6 +114,9 @@
         <configurator class="org.jkiss.dbeaver.ext.xugu.config.XuguRoleConfigurator">
             <objectType name="org.jkiss.dbeaver.ext.xugu.model.Role"/>
         </configurator>
+        <configurator class="org.jkiss.dbeaver.ext.xugu.config.XuguTablespaceConfigurator">
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.Tablespace"/>
+        </configurator>
     </extension>
 
     <extension point="org.eclipse.ui.menus">
