@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,12 @@
  */
 package org.jkiss.dbeaver.ext.xugu.model;
 
+import com.xugu.parser.Parsing;
+import com.xugu.parser.Parsing.TableType;
+import com.xugu.permission.LoadPermission;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource.UserRoleFlag;
-import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPRefreshableObject;
 import org.jkiss.dbeaver.model.DBPSaveableObject;
@@ -32,16 +35,10 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 
-import java.sql.Statement;
-
-import com.xugu.parser.DatabaseParsing;
-import com.xugu.parser.Parsing;
-import com.xugu.parser.Parsing.TableType;
-import com.xugu.permission.LoadPermission;
-
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -141,12 +138,13 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 			if(!this.getDataSource().getRoleFlag().equalsIgnoreCase("all")) {
 				String sql = "SELECT USER_NAME FROM ";
 				 
-				//sql += "ALL_USERS  SU WHERE SU.USER_ID IN(SELECT ROLE_ID FROM DBA_ROLE_MEMBERS SRM WHERE SRM.USER_ID=";
-				sql += this.getDataSource().getRoleFlag()+"_USERS  SU WHERE SU.USER_ID IN(SELECT ROLE_ID FROM "+this.getDataSource().getRoleFlag()+"_ROLE_MEMBERS SRM WHERE SRM.USER_ID=";
+				//sql += "ALL_ROLES  SU WHERE SU.USER_ID IN(SELECT ROLE_ID FROM DBA_ROLE_MEMBERS SRM WHERE SRM.USER_ID=";
+                sql += UserRoleFlag.SYS.name().equalsIgnoreCase(this.getDataSource().getRoleFlag()) ? UserRoleFlag.DBA.name() : this.getDataSource().getRoleFlag();
+				sql += "_ROLES DR WHERE DR.USER_ID IN(SELECT ROLE_ID FROM "+this.getDataSource().getRoleFlag()+"_ROLE_MEMBERS SRM WHERE SRM.USER_ID=";
 				sql += this.userId;
 				sql += " AND SRM.DB_ID = ";
 				sql += this.dbId;
-				sql += " ) AND SU.DB_ID=";
+				sql += " ) AND DR.DB_ID=";
 				sql += this.dbId;
 				sql += " AND IS_ROLE=TRUE";
 				ResultSet rs = stmt.executeQuery(sql);

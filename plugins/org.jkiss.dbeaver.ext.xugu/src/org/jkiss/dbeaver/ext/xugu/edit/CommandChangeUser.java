@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,12 @@ import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.utils.CommonUtils;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * 用户属性修改逻辑，根据界面上设置的用户相关属性生成指定数据库操作 action
@@ -65,13 +70,14 @@ public class CommandChangeUser extends DBECommandComposite<User, UserPropertyHan
 		}
 	}
 
-	public void validateCommand() throws DBException {
-		String passValue = CommonUtils.toString(getProperty(UserPropertyHandler.PASSWORD));
-		String confirmValue = CommonUtils.toString(getProperty(UserPropertyHandler.PASSWORD_CONFIRM));
-		if (!CommonUtils.isEmpty(passValue) && !CommonUtils.equalObjects(passValue, confirmValue)) {
-			throw new DBException("Password confirmation value is invalid");
-		}
-	}
+    @Override
+    public void validateCommand(DBRProgressMonitor monitor, Map<String, Object> options) throws DBException {
+        String passValue = CommonUtils.toString(getProperty(UserPropertyHandler.PASSWORD));
+        String confirmValue = CommonUtils.toString(getProperty(UserPropertyHandler.PASSWORD_CONFIRM));
+        if (!CommonUtils.isEmpty(passValue) && !CommonUtils.equalObjects(passValue, confirmValue)) {
+            throw new DBException("Password confirmation value is invalid");
+        }
+    }
 
 	@Override
 	public DBEPersistAction[] getPersistActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,

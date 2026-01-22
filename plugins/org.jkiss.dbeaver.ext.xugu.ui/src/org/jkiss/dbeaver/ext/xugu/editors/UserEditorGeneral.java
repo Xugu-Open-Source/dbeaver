@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,28 +21,25 @@ import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.CTabItem;
 import org.eclipse.swt.events.MouseAdapter;
 import org.eclipse.swt.events.MouseEvent;
-
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.layout.GridData;
-import org.eclipse.swt.widgets.*;
-import org.jkiss.dbeaver.ext.xugu.internal.Messages;
-
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Combo;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Text;
 import org.jkiss.dbeaver.ext.xugu.edit.UserPropertyHandler;
 import org.jkiss.dbeaver.ext.xugu.internal.Constants;
-
-
+import org.jkiss.dbeaver.ext.xugu.internal.Messages;
 import org.jkiss.dbeaver.ext.xugu.model.User;
 import org.jkiss.dbeaver.ext.xugu.model.UserAuthority;
+import org.jkiss.dbeaver.model.impl.edit.DBECommandAdapter;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.runtime.load.DatabaseLoadService;
 import org.jkiss.dbeaver.ui.LoadingJob;
+import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.editors.ControlPropertyCommandListener;
 
-
-
-import org.jkiss.dbeaver.model.impl.edit.DBECommandAdapter;
-import org.jkiss.dbeaver.model.runtime.load.DatabaseLoadService;
-import org.jkiss.dbeaver.ui.UIUtils;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -226,9 +223,12 @@ public class UserEditorGeneral extends BaseUserEditor {
 				}
 			});
 			// 加载用户当前的角色信息
-			for (String role : getDatabaseObject().getRoleList().split(",")) {
-				roleList.add(role);
-			}
+            String roleString = getDatabaseObject().getRoleList();
+            if (!roleString.isBlank()) {
+                for (String role : roleString.split(",")) {
+                    roleList.add(role);
+                }
+            }
 			// 加载全部角色信息
 			if (User.roleNames.size() > 0) {
 				for (String roleName : User.roleNames) {

@@ -43,22 +43,9 @@ import java.util.Map;
  * 模式管理器，进行模式的创建和删除，修改（重命名或添加注释信息）包含一个内部界面类，用于进行属性设定
  */
 public class SchemaManager extends SQLObjectEditor<Schema, DataSource> implements DBEObjectRenamer<Schema> {
-	
-	
-	
-	 private  Object currentContainer = null;
-	 private  String userName = null;
-	
-	
 	@Override
 	public long getMakerOptions(DBPDataSource dataSource) {
 		return FEATURE_SAVE_IMMEDIATELY;
-	}
-
-	protected void validateObjectProperties(ObjectChangeCommand command) throws DBException {
-		if (CommonUtils.isEmpty(command.getObject().getName())) {
-			throw new DBException("Schema name can not be empty");
-		}
 	}
 
 	@Nullable
@@ -70,7 +57,6 @@ public class SchemaManager extends SQLObjectEditor<Schema, DataSource> implement
 	@Override
 	protected Schema createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context, final Object container,
 			Object from, Map<String, Object> options) {
-		currentContainer = container;
 		return new Schema((DataSource)container,-1,"NewSchema");
 	}
 

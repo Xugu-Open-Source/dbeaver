@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,17 @@ public enum UserPropertyHandler implements DBEPropertyHandler<User>, DBEProperty
 	/**
 	 * 用户属性枚举
 	 */
-	NAME, HOST, PASSWORD, PASSWORD_CONFIRM, LOCKED, EXPIRED, UNTIL_TIME, ROLE_LIST, DATABASE_AUTHORITY,
+	NAME, HOST, PASSWORD, PASSWORD_CONFIRM,
+    LOCKED{
+        @Override
+        public void reflectValueChange(User object, Object oldValue, Object newValue) {
+            if (object == null || !(newValue instanceof Boolean)) {
+                return;
+            }
+            object.setLocked((Boolean) newValue);
+        }
+    },
+    EXPIRED, UNTIL_TIME, ROLE_LIST, DATABASE_AUTHORITY,
 	OBJECT_AUTHORITY, SUB_OBJECT_AUTHORITY, TARGET_SCHEMA, TARGET_TYPE, TARGET_OBJECT, SUB_TARGET_TYPE,
 	SUB_TARGET_OBJECT, MAX_QUERIES, MAX_UPDATES, MAX_CONNECTIONS, MAX_USER_CONNECTIONS;
 

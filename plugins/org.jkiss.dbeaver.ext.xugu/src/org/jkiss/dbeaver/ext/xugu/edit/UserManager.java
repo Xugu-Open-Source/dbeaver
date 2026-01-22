@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,35 +16,25 @@
  */
 package org.jkiss.dbeaver.ext.xugu.edit;
 
-import org.eclipse.jface.dialogs.Dialog;
-import org.eclipse.jface.dialogs.IDialogConstants;
-import org.eclipse.swt.graphics.Point;
-import org.eclipse.swt.layout.GridData;
-import org.eclipse.swt.widgets.Combo;
-import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Control;
-import org.eclipse.swt.widgets.Shell;
-import org.eclipse.swt.widgets.Text;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.ext.xugu.internal.Messages;
-import org.jkiss.dbeaver.ext.xugu.internal.Utils;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource;
 import org.jkiss.dbeaver.ext.xugu.model.Role;
 import org.jkiss.dbeaver.ext.xugu.model.User;
-
 import org.jkiss.dbeaver.model.DBPDataSource;
-import org.jkiss.dbeaver.model.edit.*;
+import org.jkiss.dbeaver.model.edit.DBECommandContext;
+import org.jkiss.dbeaver.model.edit.DBECommandFilter;
+import org.jkiss.dbeaver.model.edit.DBECommandQueue;
+import org.jkiss.dbeaver.model.edit.DBEObjectMaker;
+import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
-import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
-import org.jkiss.dbeaver.ui.UITask;
-import org.jkiss.dbeaver.ui.UIUtils;
-import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
+import org.jkiss.utils.CommonUtils;
 
 import java.util.Collection;
 import java.util.List;
@@ -84,152 +74,8 @@ public class UserManager extends SQLObjectEditor<User, DataSource>
 	public boolean canDeleteObject(User object) {
 		return true;
 	}
-	
-	
-	static class CreateUserDialog extends Dialog{
-		private DataSource dataSource;
-		private Combo roleCombo;
-		private Text userNameText;
-		private Text passwordText;
-		private Text roleText;
-		private Text isLockedText;
-		private Text expiredText;
-		private Text validUntilText;
-		
-		
-		private Role role;
-		private User user;
-		private String roleName;
-		private String userName;
-		private String password;
-		private String isLocked;
-		private String expired;
-		private String validUntil;
 
-			
-		private DBRProgressMonitor monitor;
-		
-		public CreateUserDialog(Shell shell, DataSource dataSource, DBRProgressMonitor monitor) {
-			super(shell);
-			this.user = new User(dataSource, monitor, false);
-			this.dataSource = dataSource;
-			this.monitor = monitor;
-		}
-		
-		public Role getRole() {
-			return role;
-		}
-		
-	
-		
-		public User user() {
-			return user;
-		}
-		
-		public String getUserName() {
-			return userName;
-		}
-		
-		public String getPassword() {
-			return password;
-		}
-		
-		public String getRoleName() {
-			return roleName;
-		}
-		
-		public String getIsLocked() {
-			return isLocked;
-		}
-		
-		public String getExpired() {
-			return expired;
-		}
-		
-		public String getValidUntil() {
-			return validUntil;
-		}
-				
-		@Override
-		protected boolean isResizable() {
-			return true;
-		}
-
-		@Override
-		protected Point getInitialSize() {
-			return new Point(300, 200);
-		}
-
-		@Override
-		protected Control createDialogArea(Composite parent) {
-			getShell().setText(Messages.dialog_user_create_title);
-
-			Control container = super.createDialogArea(parent);
-			Composite composite = UIUtils.createPlaceholder((Composite) container, 2, 3);
-			composite.setLayoutData(new GridData(GridData.FILL_BOTH));
-
-			userNameText = UIUtils.createLabelText(composite, Messages.dialog_connection_user_name, null);
-			userNameText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-
-//			passwordText = UIUtils.createLabelText(composite, Messages.dialog_connection_password, null);
-//			passwordText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-//			
-//			isLockedText = UIUtils.createLabelText(composite, Messages.dialog_connection_islocked, null);
-//			isLockedText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-//			
-//			expiredText = UIUtils.createLabelText(composite, Messages.dialog_connection_expired, null);
-//			expiredText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-//			
-//			validUntilText = UIUtils.createLabelText(composite, Messages.dialog_connection_valid_until, null);
-//			validUntilText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-//			
-//			roleCombo = UIUtils.createLabelCombo(composite, Messages.dialog_connection_role, 8);
-//			roleCombo.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-		
-			try {
-				roleList = this.dataSource.roleCache.getAllObjects(monitor, this.dataSource);
-//				Iterator<Role> it = roleList.iterator();
-//				while(it.hasNext()) {
-//					Role role = it.next();
-//					roleCombo.add(role.getName());
-//				}
-			} catch (DBException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			UIUtils.createInfoLabel(composite, Messages.dialog_user_create_info, GridData.FILL_HORIZONTAL, 4);
-			return parent;
-		}
-
-		@Override
-		protected void okPressed() {
-			if (Utils.checkString(userNameText.getText())) {
-//				user = new User(null,DBObjectNameCaseTransformer.transformObjectName(user, schemaOwner.getText()));
-//				user.setName(DBObjectNameCaseTransformer.transformObjectName(user, schemaOwner.getText()));
-//				userNameString = DBObjectNameCaseTransformer.transformObjectName(schema, schemaOwner.getText());
-//				schema.setName(DBObjectNameCaseTransformer.transformObjectName(schema, nameText.getText()));
-//				schema.setUser(user);
-				userName = DBObjectNameCaseTransformer.transformName(dataSource, userNameText.getText());
-//				password = DBObjectNameCaseTransformer.transformName(dataSource, passwordText.getText());
-//				isLocked = DBObjectNameCaseTransformer.transformName(dataSource, isLockedText.getText());
-//				validUntil = DBObjectNameCaseTransformer.transformName(dataSource, validUntilText.getText());
-//				expired = DBObjectNameCaseTransformer.transformName(dataSource, expiredText.getText());
-//				roleName = DBObjectNameCaseTransformer.transformName(dataSource, roleCombo.getText());
-				user.setName(userName);
-//				user.setPassword(password);
-//				user.setLocked(Boolean.getBoolean(isLocked));
-//				user.setUntilTime(validUntil);
-//				user.setExpired(Boolean.getBoolean(expired));
-//				user.setRoleList(roleName);
-				super.okPressed();
-			} else {
-				WarningDialog warnDialog = new WarningDialog(UIUtils.getActiveWorkbenchShell(), "user name can not be empty");
-				warnDialog.open();
-			}
-		}
-	}
-
-	/**
+    /**
 	 * 新建用户界面显示前的准备工作
 	 */
 	@Override
@@ -240,27 +86,13 @@ public class UserManager extends SQLObjectEditor<User, DataSource>
 		User newUser = new User(parent, monitor, false);
 		
 		// 修改已存在用户
-		if (from instanceof User) {
-			User tplUser = (User) from;
-			newUser.setName(tplUser.getName());
-			newUser.setPassword(tplUser.getPassword());
+		if (from instanceof User tplUser) {
+            newUser.setName(tplUser.getName());
+			// newUser.setPassword(tplUser.getPassword());
 			newUser.setLocked(tplUser.isLocked());
 			newUser.setExpired(tplUser.isExpired());
+			newUser.setRoleList(tplUser.getRoleList());
 			newUser.setPersisted(true);
-		}
-		// 创建新用户
-		else {
-			return new UITask<User>() {
-				@Override
-				protected User runTask() {
-					CreateUserDialog dialog = new CreateUserDialog(UIUtils.getActiveWorkbenchShell(), parent, monitor);
-					if (dialog.open() != IDialogConstants.OK_ID) {
-						return null;
-					}
-					User newUser = new User(parent,dialog.getUserName(), false);
-					return newUser;
-				}
-			}.execute();			
 		}
 		return newUser;
 	}
@@ -275,8 +107,8 @@ public class UserManager extends SQLObjectEditor<User, DataSource>
 		User user = command.getObject();
 		if (command.getProperties() != null) {
 //			String name = command.getProperties().get(UserPropertyHandler.NAME.toString()).toString();
-			String key1 = command.getProperties().get(UserPropertyHandler.PASSWORD.toString()).toString();
-			String key2 = command.getProperties().get(UserPropertyHandler.PASSWORD_CONFIRM.toString()).toString();
+            String key1 = CommonUtils.toString(command.getProperties().get(UserPropertyHandler.PASSWORD.toString()));
+            String key2 = CommonUtils.toString(command.getProperties().get(UserPropertyHandler.PASSWORD_CONFIRM.toString()));
 			String untilTimeString = null;
 			if(command.getProperties().get(UserPropertyHandler.UNTIL_TIME.toString())!=null) {
 			 untilTimeString =  command.getProperties().get(UserPropertyHandler.UNTIL_TIME.toString()).toString();
