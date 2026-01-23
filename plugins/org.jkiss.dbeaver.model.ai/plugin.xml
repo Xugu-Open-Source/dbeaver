@@ -21,6 +21,13 @@
             properties="org.jkiss.dbeaver.model.ai.engine.copilot.CopilotProperties"
             supportsFunctions="true"
             fallbacks="copilot-pro"/>
+            supportsFunctions="true"/>
+        <completionEngine id="qwen"
+                          label="Qwen"
+                          class="org.jkiss.dbeaver.model.ai.engine.qwen.QwenEngine"
+                          properties="org.jkiss.dbeaver.model.ai.engine.qwen.QwenProperties"
+                          default="true"
+                          supportsFunctions="true"/>
     </extension>
 
     <extension point="com.dbeaver.ai.assistant">

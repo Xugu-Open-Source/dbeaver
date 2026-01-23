@@ -116,8 +116,7 @@ public class PrefPageDatabaseUserInterface extends AbstractPrefPage implements I
                 2);
         }
         if (isStandalone) {
-            Composite regionalSettingsGroup = UIUtils.createTitledComposite(
-                composite,
+            Group regionalSettingsGroup = UIUtils.createControlGroup(composite,
                 CoreMessages.pref_page_ui_general_group_regional,
                 2,
                 GridData.FILL_HORIZONTAL | GridData.VERTICAL_ALIGN_BEGINNING,
