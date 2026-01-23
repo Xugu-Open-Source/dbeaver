@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
  */
 package org.jkiss.dbeaver.ext.xugu.model;
 
+import com.xugu.parser.Parsing;
+import com.xugu.parser.Parsing.TableType;
 import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.model.DataSource.UserRoleFlag;
@@ -30,9 +32,6 @@ import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSAlias;
 import org.jkiss.dbeaver.model.struct.DBSObject;
-
-import com.xugu.parser.Parsing;
-import com.xugu.parser.Parsing.TableType;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -54,6 +53,7 @@ public class Synonym extends BaseSchemaObject implements DBSAlias, DBPScriptObje
 	private String objectName;
 	private String targetSchemaName;
 	private String targetName;
+	private int targetType;
 	private boolean isPublic;
 	private boolean valid;
 	private Timestamp createTime;
@@ -74,6 +74,7 @@ public class Synonym extends BaseSchemaObject implements DBSAlias, DBPScriptObje
 		this.objectName = JDBCUtils.safeGetString(dbResult, "SYNO_NAME");
 		this.targetSchemaName = JDBCUtils.safeGetString(dbResult, "TARG_SC");
 		this.targetName = JDBCUtils.safeGetString(dbResult, "TARG_NAME");
+		this.targetType = JDBCUtils.safeGetInt(dbResult, "OBJ_TYPE");
 		this.isPublic = JDBCUtils.safeGetBoolean(dbResult, "IS_PUBLIC");
 		this.valid = JDBCUtils.safeGetBoolean(dbResult, "VALID");
 		this.createTime = JDBCUtils.safeGetTimestamp(dbResult, "CREATE_TIME");
@@ -141,6 +142,14 @@ public class Synonym extends BaseSchemaObject implements DBSAlias, DBPScriptObje
 		return objectDbId;
 	}
 
+    public int getTargetType() {
+        return targetType;
+    }
+
+    public void setTargetType(int targetType) {
+        this.targetType = targetType;
+    }
+
 	public void setObjectDbId(int objectDbId) {
 		this.objectDbId = objectDbId;
 	}
@@ -194,7 +203,18 @@ public class Synonym extends BaseSchemaObject implements DBSAlias, DBPScriptObje
 	}
 
 	public Object getObject(DBRProgressMonitor monitor) throws DBException {
-		return ObjectType.resolveObject(monitor, getDataSource(), null, "SYNONYM", objectSchemaName, objectName);
+        String targetTypeName = switch (targetType) {
+            case 5 -> ObjectType.TABLE.getTypeName();
+            case 7 -> ObjectType.PROCEDURE.getTypeName();
+            case 8 -> ObjectType.SEQUENCE.getTypeName();
+            case 9 -> ObjectType.VIEW.getTypeName();
+            case 11 -> ObjectType.TRIGGER.getTypeName();
+            case 15, 35 -> ObjectType.SYNONYM.getTypeName();
+            case 18 -> ObjectType.PACKAGE.getTypeName();
+            case 19 -> ObjectType.UDT.getTypeName();
+            default -> "";
+        };
+        return ObjectType.resolveObject(monitor, getDataSource(), null, targetTypeName, targetSchemaName, targetName);
 	}
 
 

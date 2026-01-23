@@ -1221,21 +1221,27 @@ public class Schema extends BaseGlobalObject
 			String roleFlag = owner.getRoleFlag();
 			StringBuilder sql = new StringBuilder();
 			if(owner.getName()==Constants.USER_PUBLIC) {
-				sql.append("select s3.schema_name TARG_SC, s1.*  from ");
+				sql.append("select s3.schema_name TARG_SC, s4.OBJ_TYPE, s1.*  from ");
 				sql.append(roleFlag);
 				sql.append("_synonyms s1 left join ");
 				sql.append(roleFlag);
-				sql.append("_schemas s3  ON s3.schema_id=s1.targ_sche_id AND s3.db_id=current_db_id  ");
-				sql.append( " where s1.is_public = true");
+				sql.append("_schemas s3  ON s3.schema_id=s1.targ_sche_id AND s3.db_id=s1.db_id  ");
+                sql.append("left join ");
+                sql.append(roleFlag);
+                sql.append("_OBJECTS s4 on s1.TARG_NAME =s4.OBJ_NAME and s1.db_id = s4.db_id and s1.TARG_SCHE_ID = s4.schema_id");
+				sql.append( " where s1.db_id=current_db_id and s1.is_public = true");
 			}else {	
-				sql.append("select s2.schema_name CURR_SC,s3.schema_name TARG_SC, s1.*  from ");
+				sql.append("select s2.schema_name CURR_SC,s3.schema_name TARG_SC, s4.OBJ_TYPE, s1.*  from ");
 				sql.append(roleFlag);
 				sql.append("_synonyms s1 left join ");
 				sql.append(roleFlag);
-				sql.append("_schemas s2 ON s2.schema_id=s1.schema_id AND s2.db_id=current_db_id  left join ");
+				sql.append("_schemas s2 ON s2.schema_id=s1.schema_id AND s2.db_id=s1.db_id  left join ");
 				sql.append(roleFlag);
-				sql.append("_schemas s3  ON s3.schema_id=s1.targ_sche_id AND s3.db_id=current_db_id  ");
-				sql.append(" where s1.schema_id = ");
+				sql.append("_schemas s3  ON s3.schema_id=s1.targ_sche_id AND s3.db_id=s1.db_id  ");
+                sql.append("left join ");
+                sql.append(roleFlag);
+                sql.append("_OBJECTS s4 on s1.TARG_NAME =s4.OBJ_NAME and s1.db_id = s4.db_id and s1.TARG_SCHE_ID = s4.schema_id");
+				sql.append(" where s1.db_id=current_db_id and s1.schema_id = ");
 				sql.append(owner.getId());
 				sql.append( " and s1.is_public = false");
 			}
