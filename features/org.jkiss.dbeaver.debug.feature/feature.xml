@@ -16,7 +16,5 @@
 
    <plugin id="org.jkiss.dbeaver.debug.core" version="0.0.0" />
    <plugin id="org.jkiss.dbeaver.debug.ui" version="0.0.0" />
-   <plugin id="org.jkiss.dbeaver.ext.postgresql.debug.core" version="0.0.0" />
-   <plugin id="org.jkiss.dbeaver.ext.postgresql.debug.ui" version="0.0.0" />
 
 </feature>

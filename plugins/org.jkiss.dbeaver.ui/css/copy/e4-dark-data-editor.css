@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,12 @@
             'org.jkiss.dbeaver.sql.resultset.color.cell.odd.background=37,37,37'
             'org.jkiss.dbeaver.sql.resultset.color.cell.modified.background=150,48,0'
             'org.jkiss.dbeaver.sql.resultset.color.cell.error.background=128,0,0'
-            'org.jkiss.dbeaver.sql.resultset.color.cell.new.background=0,48,0'
-            'org.jkiss.dbeaver.sql.resultset.color.cell.deleted.background=48,0,0'
+            'org.jkiss.dbeaver.sql.resultset.color.cell.new.background=0,64,0'
+            'org.jkiss.dbeaver.sql.resultset.color.cell.deleted.background=64,0,0'
             'org.jkiss.dbeaver.sql.resultset.color.cell.matched.background=139,69,19'
             'org.jkiss.dbeaver.sql.resultset.color.selection.background=80,80,80'
             'org.jkiss.dbeaver.sql.resultset.color.selection.foreground=244,244,244'
-            'org.jkiss.dbeaver.sql.resultset.color.lines.normal=30,30,30'
+            'org.jkiss.dbeaver.sql.resultset.color.lines.normal=47,47,47'
             'org.jkiss.dbeaver.sql.resultset.color.lines.selected=105,105,105'
             'org.jkiss.dbeaver.sql.resultset.color.header.background=57,66,72'
             'org.jkiss.dbeaver.sql.resultset.color.header.foreground=224,224,224'
