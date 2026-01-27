@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -100,11 +100,11 @@ public class QwenEngine extends BaseCompletionEngine<QwenProperties> {
                 }
             }
             if (text.isEmpty()){
-                return new AIEngineResponse(AIMessageType.ASSISTANT, List.of(AIMessages.ai_empty_engine_response));
+                return new AIEngineResponse(AIMessageType.ASSISTANT, List.of(AIMessages.ai_empty_engine_response), null);
             }
             ArrayList<String> strings = new ArrayList<>();
             strings.add(text);
-            return new AIEngineResponse(AIMessageType.ASSISTANT, strings);
+            return new AIEngineResponse(AIMessageType.ASSISTANT, strings, null);
 //        } else if (response.statusCode() == 429) {
 //            throw new TooManyRequestsException("Too many requests: " + body);
 //        } else {

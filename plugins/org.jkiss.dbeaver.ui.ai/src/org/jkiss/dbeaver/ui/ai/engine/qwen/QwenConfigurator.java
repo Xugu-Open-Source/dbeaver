@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -171,12 +171,14 @@ public class QwenConfigurator implements AIIObjectPropertyConfigurator<AIEngineD
 //            return QwenModels.KNOWN_MODELS.entrySet().stream().map(entry -> entry.getKey()).toList(); todo
             return List.of("qwen-max", "qwen-turbo", "qwen-plus");
         };
+        SelectionListener selectionListener = SelectionListener.widgetSelectedAdapter(e -> {
 
+        });
         modelSelectorField = ModelSelectorField.builder()
             .withParent(parent)
             .withGridData(new GridData(GridData.FILL_HORIZONTAL))
             .withModelListSupplier(modelListProvider)
-            .withSelectionListener(SelectionListener.widgetSelectedAdapter(e -> {
+            .withModifyListener(()->{
                 // 根据选择的模型设置默认值
                 String selectedModel = modelSelectorField.getSelectedModel();
                 if (selectedModel != null) {
@@ -189,7 +191,8 @@ public class QwenConfigurator implements AIIObjectPropertyConfigurator<AIEngineD
                         temperatureText.setText("0.7");
                     }
                 }
-            }))
+            }
+            )
             .build();
 
         contextWindowSizeField = ContextWindowSizeField.builder()
