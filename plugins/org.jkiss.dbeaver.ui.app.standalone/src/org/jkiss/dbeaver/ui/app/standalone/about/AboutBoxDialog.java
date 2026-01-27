@@ -18,7 +18,6 @@ package org.jkiss.dbeaver.ui.app.standalone.about;
 
 import org.eclipse.core.runtime.IProduct;
 import org.eclipse.core.runtime.Platform;
-import org.eclipse.help.internal.toc.Link;
 import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.jface.resource.JFaceColors;
 import org.eclipse.jface.resource.JFaceResources;
@@ -44,7 +43,6 @@ import org.jkiss.dbeaver.ui.controls.decorations.HolidayDecorations;
 import org.jkiss.dbeaver.ui.dialogs.InformationDialog;
 import org.jkiss.utils.CommonUtils;
 
-import java.awt.*;
 import java.io.InputStream;
 import java.net.URL;
 
