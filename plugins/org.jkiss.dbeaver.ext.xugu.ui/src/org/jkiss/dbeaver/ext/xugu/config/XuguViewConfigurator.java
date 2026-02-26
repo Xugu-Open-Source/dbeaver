@@ -20,6 +20,7 @@ import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Shell;
@@ -28,9 +29,9 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.ext.xugu.internal.Messages;
 import org.jkiss.dbeaver.ext.xugu.internal.Utils;
-import org.jkiss.dbeaver.ext.xugu.model.DataSource;
-import org.jkiss.dbeaver.ext.xugu.model.Role;
+import org.jkiss.dbeaver.ext.xugu.model.View;
 import org.jkiss.dbeaver.ext.xugu.views.WarningDialog;
+import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
 import org.jkiss.dbeaver.model.edit.DBEObjectConfigurator;
 import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
@@ -41,39 +42,60 @@ import org.jkiss.dbeaver.ui.UIUtils;
 import java.util.Map;
 
 /**
- * Role配置
+ * View配置
  */
-public class XuguRoleConfigurator implements DBEObjectConfigurator<Role> {
+public class XuguViewConfigurator implements DBEObjectConfigurator<View> {
 
 
     @Override
-    public Role configureObject(@NotNull DBRProgressMonitor monitor, @Nullable DBECommandContext commandContext,
-                                @Nullable Object container, @NotNull Role role, @NotNull Map<String, Object> options) {
-        DataSource parent = (DataSource) container;
+    public View configureObject(@NotNull DBRProgressMonitor monitor, @Nullable DBECommandContext commandContext,
+                                @Nullable Object container, @NotNull View view, @NotNull Map<String, Object> options) {
         return UITask.run(() -> {
-            InnerDialog dialog = new InnerDialog(UIUtils.getActiveWorkbenchShell(), monitor, parent);
+            NewViewDialog dialog = new NewViewDialog(UIUtils.getActiveWorkbenchShell(), view);
             if (dialog.open() != IDialogConstants.OK_ID) {
                 return null;
             }
-            Role newRole = dialog.getRole();
-            role.setName(newRole.getName());
-            role.setUserDesc(newRole.getUserDesc());
-            return role;
+
+            View newView = dialog.getView();
+            boolean replace = dialog.getViewReplace();
+            boolean force = dialog.getViewRorce();
+            newView.setViewText("CREATE " + (replace ? "OR REPLACE " : "") + (force ? "FORCE " : "") + "VIEW "
+                    + newView.getFullyQualifiedName(DBPEvaluationContext.DDL) + " AS\nSELECT");
+            return newView;
         });
     }
 
-    static class InnerDialog extends Dialog {
-        private Role role;
-        private Text roleText;
-        private Text userNameText;
+    static class NewViewDialog extends Dialog {
+        private View view;
+        private Text nameText;
+        private boolean viewReplace;
+        private boolean viewRorce;
+        private Button replaceCheck;
+        private Button forceCheck;
 
-        public InnerDialog(Shell parentShell, DBRProgressMonitor monitor, DataSource dataSource) {
+        public NewViewDialog(Shell parentShell, View view) {
             super(parentShell);
-            this.role = new Role(dataSource, monitor, null);
+            this.view = view;
         }
 
-        public Role getRole() {
-            return role;
+        public View getView() {
+            return view;
+        }
+
+        public boolean getViewReplace() {
+            return viewReplace;
+        }
+
+        public void setViewReplace(boolean viewReplace) {
+            this.viewReplace = viewReplace;
+        }
+
+        public boolean getViewRorce() {
+            return viewRorce;
+        }
+
+        public void setViewRorce(boolean viewRorce) {
+            this.viewRorce = viewRorce;
         }
 
         @Override
@@ -88,30 +110,35 @@ public class XuguRoleConfigurator implements DBEObjectConfigurator<Role> {
 
         @Override
         protected Control createDialogArea(Composite parent) {
-            getShell().setText(Messages.dialog_role_create_title);
+            getShell().setText(Messages.dialog_view_create_title);
 
             Control container = super.createDialogArea(parent);
             Composite composite = UIUtils.createPlaceholder((Composite) container, 2, 5);
             composite.setLayoutData(new GridData(GridData.FILL_BOTH));
 
-            roleText = UIUtils.createLabelText(composite, Messages.dialog_role_name, null);
-            roleText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-
-            userNameText = UIUtils.createLabelText(composite, Messages.dialog_role_user, null);
-            userNameText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+            nameText = UIUtils.createLabelText(composite, Messages.dialog_view_name, null);
+            nameText.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+//
+//			replaceCheck = UIUtils.createLabelCheckbox(composite, Messages.dialog_view_replace, false);
+//			replaceCheck.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+//
+//			forceCheck = UIUtils.createLabelCheckbox(composite, Messages.dialog_view_force, false);
+//			forceCheck.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 
             return parent;
         }
 
         @Override
         protected void okPressed() {
-            if (Utils.checkString(roleText.getText())) {
-                role.setName(DBObjectNameCaseTransformer.transformObjectName(role, roleText.getText()));
-                role.setUserDesc(DBObjectNameCaseTransformer.transformObjectName(role, userNameText.getText()));
+
+            if (Utils.checkString(nameText.getText())) {
+                view.setName(DBObjectNameCaseTransformer.transformObjectName(view, nameText.getText()));
+//				this.viewReplace = replaceCheck.getSelection();
+//				this.viewRorce = forceCheck.getSelection();
                 super.okPressed();
             } else {
                 WarningDialog warnDialog = new WarningDialog(UIUtils.getActiveWorkbenchShell(),
-                        "Role name cannot be null");
+                        "View name cannot be null");
                 warnDialog.open();
             }
         }
