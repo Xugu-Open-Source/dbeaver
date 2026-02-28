@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,6 @@
  */
 package org.jkiss.dbeaver.ext.xugu.edit;
 
-import java.util.List;
-import java.util.Map;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 import org.jkiss.dbeaver.ext.xugu.model.Schema;
@@ -28,16 +26,16 @@ import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
-import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
-import org.jkiss.dbeaver.model.struct.DBSEntityType;
 import org.jkiss.dbeaver.model.struct.DBSObject;
-import org.jkiss.dbeaver.ui.UITask;
-import org.jkiss.dbeaver.ui.editors.object.struct.EntityEditPage;
+import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.utils.CommonUtils;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * 自定义类型管理器，进行自定义类型的创建和删除，不支  持修改
@@ -75,24 +73,9 @@ public class UdtManager extends SQLObjectEditor<Udt, Schema> {
 	protected Udt createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context, final Object container,
 			Object from, Map<String, Object> options) throws DBException {
 		Schema schema = (Schema) container;
-		return new UITask<Udt>() {
-			@Override
-			protected Udt runTask() {
-				EntityEditPage page = new EntityEditPage(schema.getDataSource(), DBSEntityType.TYPE);
-				if (!page.edit()) {
-					return null;
-				}
-
-				Udt udt = new Udt(schema, page.getEntityName());
-				udt.setTypeName(page.getEntityName());
-				udt.setObjectDefinitionText(
-						"CREATE TYPE " + schema.getName() + "." + page.getEntityName() + " AS OBJECT");
-				udt.setExtendedDefinitionText(
-						"-- CREATE TYPE BODY " + schema.getName() + "." + page.getEntityName() + " AS ");
-				udt.setValid(true);
-				return udt;
-			}
-		}.execute();
+        Udt udt = new Udt(schema, "DataType");
+        udt.setObjectDefinitionText("CREATE TYPE " + schema.getName() + "." + udt.getName() + " AS OBJECT");
+        return udt;
 	}
 	
 	

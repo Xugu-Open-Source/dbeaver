@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,28 +16,28 @@
  */
 package org.jkiss.dbeaver.ext.xugu.edit;
 
-import java.util.List;
-import java.util.Map;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.ext.xugu.internal.Messages;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
-import org.jkiss.dbeaver.ext.xugu.model.*;
+import org.jkiss.dbeaver.ext.xugu.model.BaseTable;
+import org.jkiss.dbeaver.ext.xugu.model.ObjectStatus;
+import org.jkiss.dbeaver.ext.xugu.model.TableForeignKey;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
-import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
 import org.jkiss.dbeaver.model.impl.sql.edit.struct.SQLForeignKeyManager;
 import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.model.struct.rdb.DBSForeignKeyModifyRule;
-import org.jkiss.dbeaver.ui.UITask;
-import org.jkiss.dbeaver.ui.editors.object.struct.EditForeignKeyPage;
 import org.jkiss.utils.CommonUtils;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * 外键管理器，进行外键的增加
@@ -53,33 +53,15 @@ public class ForeignKeyManager extends SQLForeignKeyManager<TableForeignKey, Bas
 	protected TableForeignKey createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context,
 			final Object container, Object from, Map<String, Object> options) {
 		BaseTable table = (BaseTable) container;
-		return new UITask<TableForeignKey>() {
-			@Override
-			protected TableForeignKey runTask() {
-				EditForeignKeyPage editPage = new EditForeignKeyPage(Messages.edit_foreign_key_manager_dialog_title,
-						new TableForeignKey(table, null, ObjectStatus.ENABLED, null, DBSForeignKeyModifyRule.NO_ACTION,
-								DBSForeignKeyModifyRule.NO_ACTION),
-						new DBSForeignKeyModifyRule[] { DBSForeignKeyModifyRule.NO_ACTION,
-								DBSForeignKeyModifyRule.CASCADE, DBSForeignKeyModifyRule.SET_NULL,
-								DBSForeignKeyModifyRule.SET_DEFAULT }, options);
-				if (!editPage.edit()) {
-					return null;
-				}
-
-				final TableForeignKey foreignKey = new TableForeignKey(table, null, ObjectStatus.ENABLED,
-						(TableConstraint) editPage.getUniqueConstraint(), editPage.getOnDeleteRule(),
-						editPage.getOnUpdateRule());
-				foreignKey.setName(getNewConstraintName(monitor, foreignKey));
-				foreignKey.setEnable(foreignKey.getStatus() == ObjectStatus.ENABLED);
-				int colIndex = 1;
-				for (EditForeignKeyPage.FKColumnInfo tableColumn : editPage.getColumns()) {
-					foreignKey.addColumn(new TableForeignKeyColumn(foreignKey, (TableColumn) tableColumn.getOwnColumn(),
-							colIndex++, (TableColumn) tableColumn.getRefColumn()));
-				}
-				return foreignKey;
-			}
-		}.execute();
-	}
+        TableForeignKey foreignKey = new TableForeignKey(table,
+                "",
+                ObjectStatus.ENABLED,
+                null,
+                DBSForeignKeyModifyRule.NO_ACTION,
+                DBSForeignKeyModifyRule.NO_ACTION);
+        foreignKey.setName(getNewConstraintName(monitor, foreignKey));
+        return foreignKey;
+    }
 
 	@Override
 	protected void addObjectCreateActions(DBRProgressMonitor monitor, DBCExecutionContext executionContext,

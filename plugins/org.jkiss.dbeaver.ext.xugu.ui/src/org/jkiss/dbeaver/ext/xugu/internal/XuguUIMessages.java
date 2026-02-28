@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -153,6 +153,8 @@ public final class XuguUIMessages extends NLS {
     public static String controls_privilege_table_column_privilege_description_tip;
     public static String controls_privilege_table_push_button_check_all;
     public static String controls_privilege_table_push_button_clear_all;
+
+    public static String tree_procedures_node_name;
 
     private XuguUIMessages() {
     }

@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,15 +26,12 @@ import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
-import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
-import org.jkiss.dbeaver.model.struct.DBSEntityType;
 import org.jkiss.dbeaver.model.struct.DBSObject;
-import org.jkiss.dbeaver.ui.UITask;
-import org.jkiss.dbeaver.ui.editors.object.struct.EntityEditPage;
+import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.utils.CommonUtils;
 
 import java.math.BigDecimal;
@@ -65,20 +62,8 @@ public class SequenceManager extends SQLObjectEditor<Sequence, Schema> {
 	@Override
 	protected Sequence createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context,
 			final Object container, Object copyFrom, Map<String, Object> options) {
-		Schema schema = (Schema) container;
-		return new UITask<Sequence>() {
-			@Override
-			protected Sequence runTask() {
-				EntityEditPage page = new EntityEditPage(schema.getDataSource(), DBSEntityType.SEQUENCE);
-				if (!page.edit()) {
-					return null;
-				}
-
-				Sequence sequence = new Sequence(schema, page.getEntityName());
-				sequence.setSeqName(page.getEntityName());
-				return sequence;
-			}
-		}.execute();
+        Schema schema = (Schema) container;
+        return new Sequence(schema, "NEW_SEQUENCE");
 	}
 
 	@Override

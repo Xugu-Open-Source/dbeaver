@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,13 +20,13 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
-
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTableConstraint;
 import org.jkiss.dbeaver.model.impl.jdbc.struct.JDBCTableForeignKey;
+import org.jkiss.dbeaver.model.meta.IPropertyValueListProvider;
 import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSEntity;
@@ -39,7 +39,6 @@ import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
 import org.jkiss.dbeaver.model.struct.rdb.DBSForeignKeyModifyRule;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableForeignKey;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableForeignKeyColumn;
-import org.jkiss.dbeaver.model.meta.IPropertyValueListProvider;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -214,7 +213,19 @@ public class TableForeignKey extends BaseTableConstraint implements DBSTableFore
 		this.enable = enable;
 	}
 
-	@Override
+    public void setReferencedConstraint(TableConstraint referencedKey) {
+        this.referencedKey = referencedKey;
+    }
+
+    public void setUpdateRule(DBSForeignKeyModifyRule updateRule) {
+        this.updateRule = updateRule;
+    }
+
+    public void setDeleteRule(DBSForeignKeyModifyRule deleteRule) {
+        this.deleteRule = deleteRule;
+    }
+
+    @Override
 	public BaseTable getAssociatedEntity() {
 		return getReferencedTable();
 	}

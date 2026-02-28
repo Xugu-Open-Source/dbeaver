@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,45 +16,31 @@
  */
 package org.jkiss.dbeaver.ext.xugu.edit;
 
-import org.eclipse.swt.SWT;
-import org.eclipse.swt.events.SelectionEvent;
-import org.eclipse.swt.events.SelectionListener;
-import org.eclipse.swt.layout.GridData;
-import org.eclipse.swt.widgets.Combo;
-import org.eclipse.swt.widgets.Composite;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.ext.xugu.internal.Constants;
-import org.jkiss.dbeaver.ext.xugu.internal.Messages;
+import org.jkiss.dbeaver.ext.xugu.model.BaseTablePhysical;
 import org.jkiss.dbeaver.ext.xugu.model.TableColumn;
 import org.jkiss.dbeaver.ext.xugu.model.TableConstraint;
 import org.jkiss.dbeaver.ext.xugu.model.TableConstraintColumn;
 import org.jkiss.dbeaver.ext.xugu.model.TableIndex;
 import org.jkiss.dbeaver.ext.xugu.model.TableIndexColumn;
-import org.jkiss.dbeaver.ext.xugu.model.BaseTablePhysical;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
-import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
-import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.model.impl.edit.DBECommandAbstract;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.sql.edit.struct.SQLIndexManager;
 import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
-import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.model.struct.rdb.DBSIndexType;
-import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndexColumn;
-import org.jkiss.dbeaver.ui.UITask;
-import org.jkiss.dbeaver.ui.UIUtils;
-import org.jkiss.dbeaver.ui.editors.object.struct.EditIndexPage;
 import org.jkiss.utils.CommonUtils;
-import java.util.ArrayList;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -76,37 +62,7 @@ public class IndexManager extends SQLIndexManager<TableIndex, BaseTablePhysical>
 			final Object container, Object from, Map<String, Object> options) {
 		BaseTablePhysical table = (BaseTablePhysical) container;
 
-		final TableIndex index = new TableIndex(table.getSchema(), table, "INDEX", true, DBSIndexType.UNKNOWN);
-		return new UITask<TableIndex>() {
-			@Override
-			protected TableIndex runTask() {
-				List<DBSIndexType> indexTypes = new ArrayList<>();
-				indexTypes.add(Constants.INDEX_TYPE_BTREE);
-//				indexTypes.add(Constants.INDEX_TYPE_FULL_TEXT);
-//				indexTypes.add(Constants.INDEX_TYPE_BITMAP);
-				EditIndexPage editPage = new EditIndexPage(Messages.edit_index_manager_dialog_title, index, indexTypes);
-				if (!editPage.edit()) {
-					return null;
-				}
-
-				StringBuilder idxName = new StringBuilder(64);
-				idxName.append(CommonUtils.escapeIdentifier(table.getName())).append("_")
-						.append(CommonUtils
-								.escapeIdentifier(editPage.getSelectedAttributes().iterator().next().getName()))
-						.append("_IDX");
-				index.setName(DBObjectNameCaseTransformer.transformName(table.getDataSource(), idxName.toString()));
-				index.setUnique(editPage.isUnique());
-				index.setIndexType(editPage.getIndexType());
-				index.setLocal(true);
-				int colIndex = 1;
-				for (DBSEntityAttribute tableColumn : editPage.getSelectedAttributes()) {
-					index.addColumn(new TableIndexColumn(index, (TableColumn) tableColumn, colIndex++,
-							!Boolean.TRUE.equals(editPage.getAttributeProperty(tableColumn, EditIndexPage.PROP_DESC)),
-							null));
-				}
-				return index;
-			}
-		}.execute();
+		return new TableIndex(table.getSchema(), table, "INDEX", true, DBSIndexType.UNKNOWN);
 	}
 
 	/**
@@ -207,51 +163,6 @@ public class IndexManager extends SQLIndexManager<TableIndex, BaseTablePhysical>
 	@Override
 	protected String getDropIndexPattern(TableIndex index) {
 		return "DROP INDEX " + PATTERN_ITEM_TABLE + "." + PATTERN_ITEM_INDEX;
-	}
-
-	/**
-	 * 为了设置local属性实现的继承自EditIndexPage的界面类
-	 */
-	private class InnerIndexPage extends EditIndexPage {
-		private Combo globalCombo;
-		private boolean flag;
-
-		public InnerIndexPage(String title, DBSTableIndex index, Collection<DBSIndexType> indexTypes) {
-			super(title, index, indexTypes);
-			// TODO Auto-generated constructor stub
-		}
-
-		@Override
-		protected void createContentsBeforeColumns(Composite panel) {
-			super.createContentsBeforeColumns(panel);
-			UIUtils.createControlLabel(panel, "Is Local");
-			globalCombo = new Combo(panel, SWT.DROP_DOWN | SWT.READ_ONLY);
-			globalCombo.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-			globalCombo.add("GLOBAL");
-			globalCombo.add("LOCAL");
-			globalCombo.addSelectionListener(new SelectionListener() {
-
-				@Override
-				public void widgetSelected(SelectionEvent e) {
-					String text = globalCombo.getText();
-					final String flagGlobal = "GLOBAL";
-					if (flagGlobal.equals(text)) {
-						flag = false;
-					} else {
-						flag = true;
-					}
-				}
-
-				@Override
-				public void widgetDefaultSelected(SelectionEvent e) {
-				}
-
-			});
-		}
-
-		protected boolean isLocal() {
-			return flag;
-		}
 	}
 
 	@Override

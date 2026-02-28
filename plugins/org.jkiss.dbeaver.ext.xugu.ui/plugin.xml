@@ -125,6 +125,24 @@
         <configurator class="org.jkiss.dbeaver.ext.xugu.config.XuguViewConfigurator">
             <objectType name="org.jkiss.dbeaver.ext.xugu.model.View"/>
         </configurator>
+        <configurator class="org.jkiss.dbeaver.ext.xugu.config.XuguIndexConfigurator">
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.TableIndex"/>
+        </configurator>
+        <configurator class="org.jkiss.dbeaver.ext.xugu.config.XuguForeignKeyConfigurator">
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.TableForeignKey"/>
+        </configurator>
+        <configurator class="org.jkiss.dbeaver.ext.xugu.config.XuguSequenceConfigurator">
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.Sequence"/>
+        </configurator>
+        <configurator class="org.jkiss.dbeaver.ext.xugu.config.XuguPackageConfigurator">
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.Package"/>
+        </configurator>
+        <configurator class="org.jkiss.dbeaver.ext.xugu.config.XuguProcedureConfigurator">
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone"/>
+        </configurator>
+        <configurator class="org.jkiss.dbeaver.ext.xugu.config.XuguUdtConfigurator">
+            <objectType name="org.jkiss.dbeaver.ext.xugu.model.Udt"/>
+        </configurator>
     </extension>
 
     <extension point="org.eclipse.ui.menus">
@@ -289,6 +307,15 @@
         </menuContribution>
     </extension>
 
-
+    <!--注册数据库查工具视图控制-->
+    <extension point="org.eclipse.core.expressions.propertyTesters">
+        <propertyTester
+                id="org.jkiss.dbeaver.ext.xugu.propertyTester.isSystemDatabase"
+                type="org.jkiss.dbeaver.model.struct.DBSObject"
+                namespace="org.jkiss.dbeaver.ext.xugu"
+                properties="isSystemDatabase"
+                class="org.jkiss.dbeaver.ext.xugu.tools.XuguSystemDatabaseTester"
+                multiple="false"/>
+    </extension>
 
 </plugin>

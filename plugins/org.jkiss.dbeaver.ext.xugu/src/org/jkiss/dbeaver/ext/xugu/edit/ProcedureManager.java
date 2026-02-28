@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,26 +17,26 @@
 package org.jkiss.dbeaver.ext.xugu.edit;
 
 import org.jkiss.code.Nullable;
-import org.jkiss.dbeaver.ext.xugu.model.*;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
+import org.jkiss.dbeaver.ext.xugu.internal.Utils;
+import org.jkiss.dbeaver.ext.xugu.model.ObjectType;
+import org.jkiss.dbeaver.ext.xugu.model.ObjectValidateAction;
+import org.jkiss.dbeaver.ext.xugu.model.ProcedureStandalone;
+import org.jkiss.dbeaver.ext.xugu.model.Schema;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
-import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureType;
-import org.jkiss.dbeaver.ui.UITask;
-import org.jkiss.dbeaver.ui.editors.object.struct.CreateProcedurePage;
-import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
-import org.jkiss.dbeaver.ext.xugu.internal.Utils;
-import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 
 import java.util.List;
 import java.util.Map;
@@ -71,56 +71,7 @@ public class ProcedureManager extends SQLObjectEditor<ProcedureStandalone, Schem
 			procedure = new ProcedureStandalone(monitor, schema, (ProcedureStandalone) from);
 			procedure.setName(getNewChildName(monitor, schema, ((ProcedureStandalone) from).getName()));
 		} else if (from == null) {
-			procedure = new UITask<ProcedureStandalone>() {
-				@Override
-				protected ProcedureStandalone runTask() {
-					ProcedureStandalone newProcedure;
-					if ("存储过程".equals(options.get("container").toString())) {
-						newProcedure = new ProcedureStandalone((Schema) container, "", DBSProcedureType.PROCEDURE);
-					} else {
-						newProcedure = new ProcedureStandalone((Schema) container, "", DBSProcedureType.FUNCTION);
-					}
-					CreateProcedurePage editPage = new CreateProcedurePage(newProcedure);
-					if (!editPage.edit()) {
-						return null;
-					}
-
-					StringBuilder desc = new StringBuilder(100);
-					desc.append("CREATE OR REPLACE ");
-					desc.append(editPage.getProcedureType());
-					desc.append(" ");
-					desc.append(newProcedure.getSchema().getName());
-					desc.append(".");
-					desc.append(editPage.getProcedureName());
-					if (editPage.getProcedureType().equals(DBSProcedureType.PROCEDURE)) {
-						desc.append(GeneralUtils.getDefaultLineSeparator());
-						desc.append("IS ");
-						desc.append(GeneralUtils.getDefaultLineSeparator());
-						desc.append("BEGIN ");
-					} else {
-						desc.append(GeneralUtils.getDefaultLineSeparator());
-						desc.append("-- Return DataType --");
-						desc.append(GeneralUtils.getDefaultLineSeparator());
-						desc.append("RETURN ");
-						desc.append(GeneralUtils.getDefaultLineSeparator());
-						desc.append("AS ");
-						desc.append(GeneralUtils.getDefaultLineSeparator());
-						desc.append("-- Variable Declaration --");
-						desc.append(GeneralUtils.getDefaultLineSeparator());
-						desc.append("BEGIN ");
-					}
-					desc.append(GeneralUtils.getDefaultLineSeparator());
-					desc.append("-- Procedure/Function body --");
-					desc.append(GeneralUtils.getDefaultLineSeparator());
-					desc.append("END ");
-					desc.append(";");
-
-					newProcedure.setName(editPage.getProcedureName());
-					newProcedure.setObjectDefinitionText(desc.toString());
-					newProcedure.setValid(true);
-					return newProcedure;
-				}
-			}.execute();
+            procedure = new ProcedureStandalone((Schema) container, "", DBSProcedureType.PROCEDURE);
 		} else {
 			throw new DBException("无法依据 '" + from + "' 创建存储过程/存储函数");
 		}

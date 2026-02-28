@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,25 +19,25 @@ package org.jkiss.dbeaver.ext.xugu.edit;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
-import org.jkiss.dbeaver.ext.xugu.model.*;
+import org.jkiss.dbeaver.ext.xugu.model.ObjectType;
+import org.jkiss.dbeaver.ext.xugu.model.ObjectValidateAction;
 import org.jkiss.dbeaver.ext.xugu.model.Package;
+import org.jkiss.dbeaver.ext.xugu.model.Schema;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBPScriptObject;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
-import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
-import org.jkiss.dbeaver.model.struct.DBSEntityType;
 import org.jkiss.dbeaver.model.struct.DBSObject;
-import org.jkiss.dbeaver.ui.UITask;
-import org.jkiss.dbeaver.ui.editors.object.struct.EntityEditPage;
+import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.utils.CommonUtils;
+
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -70,24 +70,7 @@ public class PackageManager extends SQLObjectEditor<Package, Schema> {
 	@Override
 	protected Package createDatabaseObject(DBRProgressMonitor monitor, DBECommandContext context,
 			final Object container, Object from, Map<String, Object> options) {
-		Schema schema = (Schema) container;
-		return new UITask<Package>() {
-			@Override
-			protected Package runTask() {
-				EntityEditPage editPage = new EntityEditPage(schema.getDataSource(), DBSEntityType.PACKAGE);
-				if (!editPage.edit()) {
-					return null;
-				}
-				String packName = editPage.getEntityName();
-				Package pkg = new Package(schema, packName);
-				pkg.setObjectDefinitionText("CREATE OR REPLACE PACKAGE " + schema.getName() + "." + packName + "\n"
-						+ "AS\n" + "-- Package header\n" + "END;");
-				pkg.setExtendedDefinitionText("CREATE OR REPLACE PACKAGE BODY " + schema.getName() + "." + packName
-						+ "\n" + "AS\n" + "-- Package body\n" + "END;");
-				pkg.setValid(true);
-				return pkg;
-			}
-		}.execute();
+        return new Package((Schema) container,"NEW_PACKAGE");
 	}
 
 	@Override

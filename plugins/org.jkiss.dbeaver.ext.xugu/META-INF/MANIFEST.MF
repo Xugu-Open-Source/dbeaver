@@ -6,20 +6,14 @@ Bundle-SymbolicName: org.jkiss.dbeaver.ext.xugu;singleton:=true
 Bundle-Version: 1.4.201.qualifier
 Bundle-Release-Date: 20220627
 Bundle-Activator: org.jkiss.dbeaver.ext.xugu.internal.Activator
-Require-Bundle: org.eclipse.ui,
- org.eclipse.core.runtime,
- org.eclipse.ui.views,
- org.eclipse.jface,
- org.eclipse.jface.text,
- org.jkiss.dbeaver.core;visibility:=reexport,
- org.eclipse.ui.workbench.texteditor,
- org.eclipse.ui.editors,
+Require-Bundle: org.eclipse.core.runtime,
  com.github.jsqlparser,
  org.jkiss.dbeaver.model,
  org.jkiss.dbeaver.data.gis,
  org.jkiss.dbeaver.model;visibility:=reexport,
  org.jkiss.dbeaver.model.jdbc;visibility:=reexport,
  org.jkiss.dbeaver.model.sql,
+ org.jkiss.dbeaver.registry,
  org.jkiss.dbeaver.tasks.native;visibility:=reexport
 Export-Package: org.jkiss.dbeaver.ext.xugu,
  org.jkiss.dbeaver.ext.xugu.data,
@@ -40,9 +34,7 @@ Bundle-ClassPath: .,
  lib/xugu-permission-1.2.0.jar,
  lib/xugu-parser-1.1.0.jar,
  lib/hutool-all-5.4.1.jar,
- lib/xugu-backup-1.1.0.jar,
  lib/default-driver.jar
-Import-Package: org.jkiss.dbeaver.tasks.nativetool,
- org.jkiss.dbeaver.tasks.ui.nativetool
+Import-Package: org.jkiss.dbeaver.tasks.nativetool
 Bundle-Localization: OSGI-INF/l10n/bundle
 
