@@ -137,10 +137,7 @@ public class User extends BaseGlobalObject implements DBAUser, DBPRefreshableObj
 			String text = "";
 			if(!this.getDataSource().getRoleFlag().equalsIgnoreCase("all")) {
 				String sql = "SELECT USER_NAME FROM ";
-				 
-				//sql += "ALL_ROLES  SU WHERE SU.USER_ID IN(SELECT ROLE_ID FROM DBA_ROLE_MEMBERS SRM WHERE SRM.USER_ID=";
-                sql += UserRoleFlag.SYS.name().equalsIgnoreCase(this.getDataSource().getRoleFlag()) ? UserRoleFlag.DBA.name() : this.getDataSource().getRoleFlag();
-				sql += "_ROLES DR WHERE DR.USER_ID IN(SELECT ROLE_ID FROM "+this.getDataSource().getRoleFlag()+"_ROLE_MEMBERS SRM WHERE SRM.USER_ID=";
+				sql += "DBA_ROLES DR WHERE DR.USER_ID IN(SELECT ROLE_ID FROM "+this.getDataSource().getRoleFlag()+"_ROLE_MEMBERS SRM WHERE SRM.USER_ID=";
 				sql += this.userId;
 				sql += " AND SRM.DB_ID = ";
 				sql += this.dbId;

@@ -1038,8 +1038,9 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 			String dbName = session.getCatalog();
 			try {
 				sql.append("SELECT * FROM ");
-				sql.append(UserRoleFlag.SYS.name().equalsIgnoreCase(owner.getRoleFlag()) ? UserRoleFlag.DBA.name() : owner.getRoleFlag());
-				sql.append("_ROLES WHERE IS_ROLE=true");
+                // normal 用户是目前无法查询到角色，不存在视图ALL_ROLES
+				sql.append(UserRoleFlag.ALL.name().equalsIgnoreCase(owner.getRoleFlag()) ? "ALL_USERS" : "DBA_ROLES");
+				sql.append(" WHERE IS_ROLE=true");
 				sql.append(" AND DB_ID=");
 				sql.append("(SELECT db_id FROM all_databases WHERE db_name = '"+owner.getDatabase().getName()+"')");
 			} catch (Exception e) {

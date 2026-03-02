@@ -215,6 +215,11 @@
                     <file type="jar" path="drivers/xugu" bundle="drivers.xugu"/>
 
                 </driver>
+                <provider-properties>
+                    <propertyGroup label="Misc">
+                        <property id="SYSDBA" label="Role" type="string" description="Connect as role" defaultValue="NORMAL" validValues="NORMAL,SYSDBA,DBA"/>
+                    </propertyGroup>
+                </provider-properties>
             </drivers>
             <templates>
                 <resolver type="SYSDBA" class="org.jkiss.dbeaver.ext.xugu.model.resolvers.UserResolver" description="Current  user"/>
