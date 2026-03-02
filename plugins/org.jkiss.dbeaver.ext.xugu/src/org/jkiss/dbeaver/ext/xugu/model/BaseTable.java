@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -213,6 +213,10 @@ public abstract class BaseTable extends JDBCTable<DataSource, Schema>
 	@LazyProperty(cacheValidator = CommentsValidator.class)
 	public String getComment(DBRProgressMonitor monitor) throws DBException {
 		if (comment == null) {
+			// 如果monitor为null，创建一个虚拟的monitor或者直接返回空字符串
+			if (monitor == null) {
+				return "";
+			}
 			int tableType = 0;
 			final String viewType = "VIEW";
 			if (viewType.equals(getTableTypeName())) {

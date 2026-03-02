@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,9 +34,12 @@ import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
 import org.jkiss.dbeaver.model.edit.DBEObjectRenamer;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
+import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
+import org.jkiss.dbeaver.model.exec.DBCSession;
 import org.jkiss.dbeaver.model.impl.DBObjectNameCaseTransformer;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
+import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistActionAtomic;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLUtils;
@@ -122,7 +125,7 @@ public class SchemaManager extends SQLObjectEditor<Schema, DataSource> implement
 		}
 
 		log.debug("[" + OemConfig.OEM_NAME_EN + "] Construct create schema sql: " + desc.toString());
-		actions.add(new SQLDatabasePersistAction("create schema", desc.toString()));
+		actions.add(new CreateSchemaAction(schema, new StringBuilder(desc.toString())));
 	}
 
 	@Override
@@ -278,5 +281,30 @@ public class SchemaManager extends SQLObjectEditor<Schema, DataSource> implement
 			return "ALTER SCHEMA \"" + schema.getName() + "\" OWNER TO \"" + schema.getOwner() + "\"";
 		}
 		return null;
+	}
+
+	private static class CreateSchemaAction extends SQLDatabasePersistActionAtomic {
+		private final Schema schema;
+
+		public CreateSchemaAction(Schema schema, StringBuilder sql) {
+			super("Create schema", sql.toString());
+			this.schema = schema;
+		}
+
+		@Override
+		public void afterExecute(DBCSession session, Throwable error) throws DBCException {
+			super.afterExecute(session, error);
+			if (error == null) {
+				// 刷新schema信息，重新从数据库加载
+				try {
+					DataSource dataSource = schema.getDataSource();
+					if (dataSource != null && dataSource.schemaCache != null) {
+						dataSource.schemaCache.refreshObject(session.getProgressMonitor(), dataSource.getDatabase(), schema);
+					}
+				} catch (Exception e) {
+					log.warn("Failed to refresh schema after creation: " + e.getMessage());
+				}
+			}
+		}
 	}
 }

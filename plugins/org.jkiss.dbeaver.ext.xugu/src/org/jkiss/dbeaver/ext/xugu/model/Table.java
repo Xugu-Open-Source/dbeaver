@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,10 +25,7 @@ import org.jkiss.dbeaver.model.data.DBDPseudoAttribute;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCUtils;
 import org.jkiss.dbeaver.model.meta.Association;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
-import org.jkiss.dbeaver.model.struct.DBSEntity;
-import org.jkiss.dbeaver.model.struct.DBSEntityAssociation;
-import org.jkiss.dbeaver.model.struct.DBSEntityConstraint;
-import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTable;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
 import org.jkiss.utils.CommonUtils;
@@ -42,7 +39,7 @@ import java.util.Map;
 /**
  * 表信息衍生类，包含表相关的基本信息
  */
-public class Table extends BaseTablePhysical implements DBPScriptObject {
+public class Table extends BaseTablePhysical implements DBPScriptObject, DBSDataContainer {
 	private static final Log log = Log.getLog(Table.class);
 
 	/**
@@ -393,6 +390,16 @@ public class Table extends BaseTablePhysical implements DBPScriptObject {
 			this.allPseudoAttributes = attrs.toArray(DBDPseudoAttribute.EMPTY_ARRAY);
 		}
 		return this.allPseudoAttributes;
+	}
+
+	// 实现DBSDataContainer接口的方法
+	@Override
+	public String[] getSupportedFeatures() {
+		return new String[] {
+			FEATURE_DATA_SELECT,
+			FEATURE_DATA_COUNT,
+			FEATURE_DATA_FILTER
+		};
 	}
 
 }

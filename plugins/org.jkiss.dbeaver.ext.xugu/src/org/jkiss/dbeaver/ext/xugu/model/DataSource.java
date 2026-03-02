@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,38 +16,6 @@
  */
 package org.jkiss.dbeaver.ext.xugu.model;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
-import java.io.StringReader;
-import java.lang.reflect.Method;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.sql.CallableStatement;
-import java.sql.Connection;
-import java.sql.Driver;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
-import java.sql.Statement;
-import java.sql.Types;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Vector;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import org.eclipse.core.runtime.IAdaptable;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
@@ -59,22 +27,11 @@ import org.jkiss.dbeaver.ext.xugu.internal.Constants;
 import org.jkiss.dbeaver.ext.xugu.internal.Utils;
 import org.jkiss.dbeaver.ext.xugu.model.Schema.SynonymCache;
 import org.jkiss.dbeaver.ext.xugu.model.plan.PlanAnalyser;
-import org.jkiss.dbeaver.model.DBPDataKind;
-import org.jkiss.dbeaver.model.DBPDataSource;
-import org.jkiss.dbeaver.model.DBPDataSourceContainer;
-import org.jkiss.dbeaver.model.DBPErrorAssistant;
-import org.jkiss.dbeaver.model.DBUtils;
+import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
 import org.jkiss.dbeaver.model.data.DBDValueHandlerProvider;
-import org.jkiss.dbeaver.model.exec.DBCException;
-import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
-import org.jkiss.dbeaver.model.exec.DBCExecutionPurpose;
-import org.jkiss.dbeaver.model.exec.DBCExecutionResult;
-import org.jkiss.dbeaver.model.exec.DBCQueryTransformType;
-import org.jkiss.dbeaver.model.exec.DBCQueryTransformer;
-import org.jkiss.dbeaver.model.exec.DBCSession;
-import org.jkiss.dbeaver.model.exec.DBCStatement;
+import org.jkiss.dbeaver.model.exec.*;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
@@ -107,6 +64,18 @@ import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.utils.BeanUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.StandardConstants;
+
+import java.io.*;
+import java.lang.reflect.Method;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.sql.*;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 数据源类，包含连接信息以及模式级别的对象缓存（模式、角色、用户、表空间、数据类型） 负责创建连接、初始化上下文等
@@ -452,16 +421,25 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
         // 查询数据库中基础数据类型进行缓存
         dataTypeCache.setFullCache(false);
         dataTypeCache.loadObjects(monitor, this);
+		// 手动维护数组类型，排除一些特殊类型 和 ARRAY类型
+		List<DataType> original = new ArrayList<>(dataTypeCache.getCachedObjects());
+		List<DataType> list = original.stream().filter(dataType -> !"JSON 、BOOLEAN 、GUID、VARBIT、ARRAY".contains(dataType.getName())).toList();
+		for (DataType dataType : list) {
+			DataType arrayType =
+					new DataType(this, dataType.getName() + "[]", true);
 
+			dataTypeCache.cacheObject(arrayType);
+		}
+		dataTypeCache.removeObject(dataTypeCache.getCachedObject("ARRAY"), false);
 		// 同名数据类型使用代码中预设值覆盖
-        for (Map.Entry<String, DataType.TypeDesc> predefinedType : DataType.PREDEFINED_TYPES.entrySet()) {
-            DataType dataType = new DataType(this, predefinedType.getKey(), true);
-            DataType oldCachedObject = dataTypeCache.getCachedObject(dataType.getName());
-            if (oldCachedObject != null) {
-                dataTypeCache.removeObject(oldCachedObject, false);
-            }
-            dataTypeCache.cacheObject(dataType);
-        }
+//        for (Map.Entry<String, DataType.TypeDesc> predefinedType : DataType.PREDEFINED_TYPES.entrySet()) {
+//            DataType dataType = new DataType(this, predefinedType.getKey(), true);
+//            DataType oldCachedObject = dataTypeCache.getCachedObject(dataType.getName());
+//            if (oldCachedObject != null) {
+//                dataTypeCache.removeObject(oldCachedObject, false);
+//            }
+//            dataTypeCache.cacheObject(dataType);
+//        }
 	}
 
 	@Override
@@ -954,7 +932,7 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
             HashSet<String> set = new HashSet<>();
             set.add(null);
             set.add("NULL");
-            set.add("ARRAY");
+//            set.add("ARRAY");
             set.add("POINT");
             set.add("LINE");
             set.add("LSEG");
