@@ -116,8 +116,7 @@ public class PrefPageDatabaseUserInterface extends AbstractPrefPage implements I
                 2);
         }
         if (isStandalone) {
-            Composite regionalSettingsGroup = UIUtils.createTitledComposite(
-                composite,
+            Composite regionalSettingsGroup = UIUtils.createControlGroup(composite,
                 CoreMessages.pref_page_ui_general_group_regional,
                 2,
                 GridData.FILL_HORIZONTAL | GridData.VERTICAL_ALIGN_BEGINNING);
@@ -265,7 +264,7 @@ public class PrefPageDatabaseUserInterface extends AbstractPrefPage implements I
             browserCombo.select(SWTBrowserRegistry.getActiveBrowser().ordinal());
             useEmbeddedBrowserAuth.setEnabled(!SWTBrowserRegistry.getActiveBrowser().equals(SWTBrowserRegistry.BrowserSelection.IE));
         }
-        if (isStandalone) { 
+        if (isStandalone) {
             if (!ApplicationPolicyService.getInstance().isInstallUpdateDisabled()) {
                 automaticUpdateCheck.setSelection(store.getBoolean(DBeaverPreferences.UI_AUTO_UPDATE_CHECK));
             }
