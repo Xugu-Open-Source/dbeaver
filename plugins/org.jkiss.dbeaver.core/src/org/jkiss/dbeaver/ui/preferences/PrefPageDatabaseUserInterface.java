@@ -103,27 +103,28 @@ public class PrefPageDatabaseUserInterface extends AbstractPrefPage implements I
 
         if (isStandalone && !ApplicationPolicyService.getInstance().isInstallUpdateDisabled()) {
             Composite groupObjects = UIUtils.createTitledComposite(
-                composite,
-                CoreMessages.pref_page_ui_general_group_general,
-                2,
-                GridData.VERTICAL_ALIGN_BEGINNING
+                    composite,
+                    CoreMessages.pref_page_ui_general_group_general,
+                    2,
+                    GridData.VERTICAL_ALIGN_BEGINNING
             );
             automaticUpdateCheck = UIUtils.createCheckbox(
-                groupObjects,
-                CoreMessages.pref_page_ui_general_checkbox_automatic_updates,
-                null,
-                false,
-                2);
+                    groupObjects,
+                    CoreMessages.pref_page_ui_general_checkbox_automatic_updates,
+                    null,
+                    false,
+                    2);
         }
         if (isStandalone) {
-            Composite regionalSettingsGroup = UIUtils.createControlGroup(composite,
-                CoreMessages.pref_page_ui_general_group_regional,
-                2,
-                GridData.FILL_HORIZONTAL | GridData.VERTICAL_ALIGN_BEGINNING);
+            Composite regionalSettingsGroup = UIUtils.createTitledComposite(
+                    composite,
+                    CoreMessages.pref_page_ui_general_group_regional,
+                    2,
+                    GridData.FILL_HORIZONTAL | GridData.VERTICAL_ALIGN_BEGINNING);
             workspaceLanguage = UIUtils.createLabelCombo(regionalSettingsGroup,
-                CoreMessages.pref_page_ui_general_combo_language,
-                CoreMessages.pref_page_ui_general_combo_language_tip,
-                SWT.READ_ONLY | SWT.DROP_DOWN
+                    CoreMessages.pref_page_ui_general_combo_language,
+                    CoreMessages.pref_page_ui_general_combo_language_tip,
+                    SWT.READ_ONLY | SWT.DROP_DOWN
             );
             workspaceLanguage.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING));
             List<PlatformLanguageDescriptor> languages = PlatformLanguageRegistry.getInstance().getLanguages();
@@ -140,9 +141,9 @@ public class PrefPageDatabaseUserInterface extends AbstractPrefPage implements I
             }
 
             clientTimezone = UIUtils.createLabelCombo(regionalSettingsGroup,
-                CoreMessages.pref_page_ui_general_combo_timezone,
-                CoreMessages.pref_page_ui_general_combo_timezone_tip,
-                SWT.DROP_DOWN
+                    CoreMessages.pref_page_ui_general_combo_timezone,
+                    CoreMessages.pref_page_ui_general_combo_timezone_tip,
+                    SWT.DROP_DOWN
             );
             clientTimezone.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING));
             clientTimezone.add(DBConstants.DEFAULT_TIMEZONE);
@@ -165,49 +166,49 @@ public class PrefPageDatabaseUserInterface extends AbstractPrefPage implements I
             ContentAssistUtils.installContentProposal(clientTimezone, new ComboContentAdapter(), proposalProvider);
 
             Control tipLabelRestart = UIUtils.createInfoLabel(regionalSettingsGroup,
-                CoreMessages.pref_page_ui_general_label_options_take_effect_after_restart
+                    CoreMessages.pref_page_ui_general_label_options_take_effect_after_restart
             );
             tipLabelRestart.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING,
-                GridData.VERTICAL_ALIGN_BEGINNING,
-                false,
-                false,
-                2,
-                1
+                    GridData.VERTICAL_ALIGN_BEGINNING,
+                    false,
+                    false,
+                    2,
+                    1
             ));
 
             Composite groupObjects = UIUtils.createTitledComposite(
-                composite,
-                CoreMessages.pref_page_ui_general_group_browser,
-                2,
-                GridData.FILL_HORIZONTAL | GridData.VERTICAL_ALIGN_BEGINNING
+                    composite,
+                    CoreMessages.pref_page_ui_general_group_browser,
+                    2,
+                    GridData.FILL_HORIZONTAL | GridData.VERTICAL_ALIGN_BEGINNING
             );
             if (RuntimeUtils.isWindows()) {
                 browserCombo = UIUtils.createLabelCombo(groupObjects, CoreMessages.pref_page_ui_general_combo_browser,
-                    SWT.READ_ONLY
+                        SWT.READ_ONLY
                 );
                 browserCombo.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING));
                 for (SWTBrowserRegistry.BrowserSelection value : SWTBrowserRegistry.BrowserSelection.values()) {
                     browserCombo.add(value.getFullName(), value.ordinal());
                 }
                 Control tipLabel =
-                    UIUtils.createInfoLabel(groupObjects, CoreMessages.pref_page_ui_general_combo_browser_tip);
+                        UIUtils.createInfoLabel(groupObjects, CoreMessages.pref_page_ui_general_combo_browser_tip);
                 tipLabel.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING,
-                    GridData.VERTICAL_ALIGN_BEGINNING, false, false, 2, 1
+                        GridData.VERTICAL_ALIGN_BEGINNING, false, false, 2, 1
                 ));
             }
 
             useEmbeddedBrowserAuth = UIUtils.createCheckbox(groupObjects,
-                CoreMessages.pref_page_ui_general_check_browser_auth,
-                CoreMessages.pref_page_ui_general_check_browser_auth_tip,
-                false,
-                2
+                    CoreMessages.pref_page_ui_general_check_browser_auth,
+                    CoreMessages.pref_page_ui_general_check_browser_auth_tip,
+                    false,
+                    2
             );
             useEmbeddedBrowserAuth.setLayoutData(new GridData(GridData.HORIZONTAL_ALIGN_BEGINNING,
-                GridData.VERTICAL_ALIGN_BEGINNING,
-                false,
-                false,
-                2,
-                1
+                    GridData.VERTICAL_ALIGN_BEGINNING,
+                    false,
+                    false,
+                    2,
+                    1
             ));
             if (browserCombo != null) {
                 browserCombo.addSelectionListener(new SelectionAdapter() {
@@ -225,20 +226,20 @@ public class PrefPageDatabaseUserInterface extends AbstractPrefPage implements I
         }
 
         Composite breadcrumbs = UIUtils.createTitledComposite(
-            composite,
-            CoreMessages.pref_page_ui_status_bar,
-            2,
-            GridData.FILL_HORIZONTAL | GridData.VERTICAL_ALIGN_BEGINNING
+                composite,
+                CoreMessages.pref_page_ui_status_bar,
+                2,
+                GridData.FILL_HORIZONTAL | GridData.VERTICAL_ALIGN_BEGINNING
         );
         statusBarShowBreadcrumbsCheck = UIUtils.createCheckbox(
-            breadcrumbs,
-            CoreMessages.pref_page_ui_status_bar_show_breadcrumbs_check_label,
-            CoreMessages.pref_page_ui_status_bar_show_breadcrumbs_check_tip,
-            true,
-            1
+                breadcrumbs,
+                CoreMessages.pref_page_ui_status_bar_show_breadcrumbs_check_label,
+                CoreMessages.pref_page_ui_status_bar_show_breadcrumbs_check_tip,
+                true,
+                1
         );
         statusBarShowBreadcrumbsCheck.addSelectionListener(SelectionListener.widgetSelectedAdapter(e ->
-            statusBarBreadcrumbPositionCombo.setEnabled(statusBarShowBreadcrumbsCheck.getSelection())));
+                statusBarBreadcrumbPositionCombo.setEnabled(statusBarShowBreadcrumbsCheck.getSelection())));
 
         statusBarBreadcrumbPositionCombo = new Combo(breadcrumbs, SWT.READ_ONLY | SWT.DROP_DOWN);
         statusBarBreadcrumbPositionCombo.add(CoreMessages.pref_page_ui_status_bar_show_breadcrumbs_status_bar_label);
@@ -246,16 +247,17 @@ public class PrefPageDatabaseUserInterface extends AbstractPrefPage implements I
         statusBarBreadcrumbPositionCombo.select(0);
 
         statusBarShowStatusCheck = UIUtils.createCheckbox(
-            breadcrumbs,
-            CoreMessages.pref_page_ui_status_bar_show_status_line_check_label,
-            CoreMessages.pref_page_ui_status_bar_show_status_line_check_tip,
-            true,
-            2
+                breadcrumbs,
+                CoreMessages.pref_page_ui_status_bar_show_status_line_check_label,
+                CoreMessages.pref_page_ui_status_bar_show_status_line_check_tip,
+                true,
+                2
         );
 
         setSettings();
         return composite;
     }
+
 
     private void setSettings() {
         DBPPreferenceStore store = DBWorkbench.getPlatform().getPreferenceStore();
