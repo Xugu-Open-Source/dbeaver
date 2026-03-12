@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,13 @@ import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
-import org.jkiss.dbeaver.model.*;
+import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
+import org.jkiss.dbeaver.ext.xugu.internal.Constants;
+import org.jkiss.dbeaver.model.DBPNamedObject2;
+import org.jkiss.dbeaver.model.DBPObjectStatisticsCollector;
+import org.jkiss.dbeaver.model.DBPRefreshableObject;
+import org.jkiss.dbeaver.model.DBPSystemObject;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
@@ -35,19 +41,18 @@ import org.jkiss.dbeaver.model.meta.Property;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.LoggingProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSDataType;
-import org.jkiss.dbeaver.model.struct.DBSEntity;
 import org.jkiss.dbeaver.model.struct.DBSEntityConstraintType;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureContainer;
 import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureType;
 import org.jkiss.dbeaver.model.struct.rdb.DBSSchema;
 import org.jkiss.utils.CommonUtils;
-import org.jkiss.dbeaver.ext.xugu.internal.Constants;
-import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 /**
  * 模式信息类，包含模式相关的基本信息，以及表级对象缓存（表、视图、约束、外键、索引、序列、包、存储过程、作业、同义词、自定义类型）
@@ -485,7 +490,7 @@ public class Schema extends BaseGlobalObject
 
 	@Override
 	public Class<? extends DBSObject> getPrimaryChildType(DBRProgressMonitor monitor) throws DBException {
-		return DBSEntity.class;
+		return Table.class;
 	}
 
 	@Override
