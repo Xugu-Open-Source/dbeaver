@@ -1042,7 +1042,7 @@
     </extension>
 
     <extension point="org.eclipse.ui.exportWizards">
-        <category id="org.jkiss.dbeaver.core.export.resources" name="%category.org.jkiss.dbeaver.core.export.resources.name"/>
+        <category id="org.jkiss.dbeaver.core.export.resources" name="DBManager"/>
         <wizard
              category="org.jkiss.dbeaver.core.export.resources"
              class="org.jkiss.dbeaver.tools.project.ProjectExportWizard"
@@ -1077,7 +1077,7 @@
     </extension>
 
     <extension point="org.eclipse.ui.importWizards">
-        <category id="org.jkiss.dbeaver.core.import.resources" name="%category.org.jkiss.dbeaver.core.import.resources.name"/>
+        <category id="org.jkiss.dbeaver.core.import.resources" name="DBManager"/>
         <wizard
             category="org.jkiss.dbeaver.core.import.resources"
             class="org.jkiss.dbeaver.tools.project.ProjectImportWizard"

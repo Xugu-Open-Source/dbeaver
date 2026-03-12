@@ -45,7 +45,7 @@
     </extension>
 
     <extension point="org.eclipse.ui.newWizards">
-        <category id="org.jkiss.dbeaver.core.new.general" name="%category.org.jkiss.dbeaver.core.new.general.name"/>
+        <category id="org.jkiss.dbeaver.core.new.general" name="DBManager"/>
     </extension>
 
     <extension point="org.eclipse.ui.commands">
