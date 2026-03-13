@@ -46,6 +46,7 @@ import org.jkiss.dbeaver.model.struct.rdb.DBSProcedureType;
 import org.jkiss.dbeaver.model.struct.rdb.DBSSchema;
 import org.jkiss.utils.CommonUtils;
 
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -682,13 +683,45 @@ public class Schema extends BaseGlobalObject
 		@Override
 		protected BaseTable fetchObject(@NotNull JDBCSession session, @NotNull Schema owner,
 				@NotNull JDBCResultSet dbResult) throws SQLException, DBException {
-			// xfc 修改object_type字段为table_type 并修改为int类型
-			int tableType = JDBCUtils.safeGetInt(dbResult, "TABLE_TYPE");
-			if (tableType == 0) {
-				return new Table(session.getProgressMonitor(), owner, dbResult);
-			} else {
-				return new View(session.getProgressMonitor(), session, owner, dbResult);
+//			// xfc 修改object_type字段为table_type 并修改为int类型
+//			Integer dbKernelVersion = 0;
+//			// xugudb v13 系统表 TABLE_TYPE 类型变更为了 String类型
+//			try (Connection connection = owner.getDataSource().getConnection()){
+//				ResultSet resultSet = connection.createStatement().executeQuery("show db_kernel;");
+//				while (resultSet.next()) {
+//					String dbKernel = resultSet.getString(1);
+//					 dbKernelVersion = Integer.parseInt(dbKernel.split("\\.")[0]);
+//				}
+//			}catch (Exception e){
+//				throw new DBException(e.getMessage());
+//			}
+
+//			if (dbKernelVersion.intValue() >=13){
+//				String tableType = JDBCUtils.safeGetString(dbResult, "TABLE_TYPE");
+//
+//				if ("HEAP TABLE".equals(tableType)){
+//					return new Table(session.getProgressMonitor(), owner, dbResult);
+//				}else {
+//					return new View(session.getProgressMonitor(), session, owner, dbResult);
+//				}
+//			}else {
+//				int tableType = JDBCUtils.safeGetInt(dbResult, "TABLE_TYPE");
+//				if (tableType == 0) {
+//					return new Table(session.getProgressMonitor(), owner, dbResult);
+//				} else {
+//					return new View(session.getProgressMonitor(), session, owner, dbResult);
+//				}
+//			}
+			// 优化写法
+			// xugudb v13 系统表 TABLE_TYPE 类型变更为了 String类型
+			String tableType = JDBCUtils.safeGetString(dbResult, "TABLE_TYPE");
+			switch (tableType){
+				case "HEAP TABLE","0":
+					return new Table(session.getProgressMonitor(), owner, dbResult);
+				default:
+					return new View(session.getProgressMonitor(), session, owner, dbResult);
 			}
+
 		}
 
 		// 获取列信息

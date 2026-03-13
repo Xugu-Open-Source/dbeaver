@@ -44,7 +44,8 @@ import java.sql.SQLException;
 import java.sql.Types;
 
 /**
- * Postgre geometry handler
+ * Xugu geometry handler
+ * Supports both WKT and WKB formats with proper Z/M dimension handling
  */
 public class GeometryValueHandler extends JDBCAbstractValueHandler {
 	
@@ -56,22 +57,42 @@ public class GeometryValueHandler extends JDBCAbstractValueHandler {
     protected Object fetchColumnValue(DBCSession session, JDBCResultSet resultSet, DBSTypedObject type, int index) throws DBCException, SQLException {
         try {
             Object object = resultSet.getObject(index);
-            return getValueFromObject(session, type, object,false, false);
+            return getValueFromObject(session, type, object, false, false);
         } catch (SQLException e) {
-            if (e.getCause() instanceof IllegalArgumentException) {
-                // Try to parse as WKG
-                String wkbValue = resultSet.getString(index);
-                return WKGUtils.parseWKB(wkbValue);
-            } else {
-                throw e;
+            if (e.getCause() instanceof IllegalArgumentException || e.getCause() instanceof ParseException) {
+                // Try to parse as WKT directly (most common case for Xugu)
+                String stringValue = resultSet.getString(index);
+                if (stringValue != null) {
+                    return parseGeometryString(session, stringValue);
+                }
             }
+            throw e;
         } catch (DBCException e) {
-        	if (e.getCause() instanceof ParseException) {
-                // Try to parse as WKG
-                String wkbValue = resultSet.getString(index);
-                return WKGUtils.parseWKB(wkbValue);
+            if (e.getCause() instanceof IllegalArgumentException || e.getCause() instanceof ParseException) {
+                // Try to parse as WKT directly (most common case for Xugu)
+                String stringValue = resultSet.getString(index);
+                if (stringValue != null) {
+                    return parseGeometryString(session, stringValue);
+                }
+            }
+            throw e;
+        }
+    }
+    
+    private DBGeometry parseGeometryString(DBCSession session, String stringValue) throws DBCException {
+        try {
+            // 首先尝试WKT解析
+            return makeGeometryFromWKT(session, stringValue);
+        } catch (DBCException wktException) {
+            // 如果WKT失败并且字符串看起来像十六进制尝试WKB
+            if (stringValue.trim().matches("[0-9A-Fa-f]+")) {
+                try {
+                    return makeGeometryFromWKB(stringValue);
+                } catch (Exception wkbException) {
+                    throw wktException;
+                }
             } else {
-                throw e;
+                throw wktException;
             }
         }
     }
@@ -126,13 +147,14 @@ public class GeometryValueHandler extends JDBCAbstractValueHandler {
         } else if (object instanceof Geometry) {
             return new DBGeometry((Geometry) object);
         } else if (object instanceof String) {
-            return makeGeometryFromWKT(session, (String) object);
+            return parseGeometryString(session, (String) object);
         } else if (object.getClass().getName().equals(Constants.XUGU_GEOMETRY_CLASS)) {
             return makeGeometryFromPGGeometry(session, object);
         } else if (Utils.isXuguObject(object)) {
-            return makeGeometryFromWKB(CommonUtils.toString(Utils.extractPGObjectValue(object)));
+            String stringValue = CommonUtils.toString(Utils.extractPGObjectValue(object));
+            return parseGeometryString(session, stringValue);
         } else {
-            return makeGeometryFromWKT(session, object.toString());
+            return parseGeometryString(session, object.toString());
         }
     }
 
@@ -151,7 +173,36 @@ public class GeometryValueHandler extends JDBCAbstractValueHandler {
     }
 
     protected DBGeometry makeGeometryFromWKB(String hexString) throws DBCException {
+        // Enhanced format detection
+        if (!isLikelyWKBHex(hexString)) {
+            throw new DBCException("String appears to be WKT format, not WKB hex: " + hexString.substring(0, Math.min(50, hexString.length())));
+        }
         return makeGeometryFromWKB(WKBReader.hexToBytes(hexString));
+    }
+    
+    /**
+     * Determines if a string is likely WKB hex format rather than WKT format
+     */
+    private boolean isLikelyWKBHex(String str) {
+        if (CommonUtils.isEmpty(str)) {
+            return false;
+        }
+        
+        // Remove whitespace
+        str = str.trim();
+        
+        // Check for WKT keywords (case insensitive)
+        String upperStr = str.toUpperCase();
+        if (upperStr.startsWith("POINT") || upperStr.startsWith("LINESTRING") || 
+            upperStr.startsWith("POLYGON") || upperStr.startsWith("MULTIPOINT") || 
+            upperStr.startsWith("MULTILINESTRING") || upperStr.startsWith("MULTIPOLYGON") ||
+            upperStr.startsWith("GEOMETRYCOLLECTION") || upperStr.startsWith("SRID=")) {
+            return false;
+        }
+        
+        // Check if it's all hex digits and reasonable length
+        // WKB hex should be even length and only contain 0-9, A-F, a-f
+        return str.length() % 2 == 0 && str.matches("[0-9A-Fa-f]+") && str.length() >= 10;
     }
 
     protected DBGeometry makeGeometryFromWKB(byte[] binary) throws DBCException {
@@ -210,30 +261,77 @@ public class GeometryValueHandler extends JDBCAbstractValueHandler {
         }
     }
 
+
+
     protected DBGeometry makeGeometryFromWKT(DBCSession session, String pgString) throws DBCException {
         if (CommonUtils.isEmpty(pgString)) {
             return new DBGeometry();
         }
+        
         final String geometry;
         final int srid;
 
+        // Handle SRID prefix
         if (pgString.startsWith("SRID=") && pgString.indexOf(';') > 5) {
             final int index = pgString.indexOf(';');
-            geometry = pgString.substring(index + 1);
+            geometry = pgString.substring(index + 1).trim();
             srid = CommonUtils.toInt(pgString.substring(5, index));
         } else {
-            geometry = pgString;
+            geometry = pgString.trim();
             srid = 0;
         }
+        
         try {
-            final Geometry result = new WKTReader().read(geometry);
+            // Try enhanced WKT parsing with dimension support first
+            final Geometry result = parseGeometryWithDimensions(geometry);
             result.setSRID(srid);
-
             return new DBGeometry(result);
-        } catch (Throwable ignored) {
-            // May happen when geometry value was stored inside composite
-            return makeGeometryFromWKB(geometry);
+        } catch (Throwable e) {
+            // Fall back to standard WKT parsing
+            try {
+                final Geometry result = new WKTReader().read(geometry);
+                result.setSRID(srid);
+                return new DBGeometry(result);
+            } catch (Throwable e2) {
+                // As last resort, try WKGUtils which may handle more formats
+                try {
+                    return WKGUtils.parseWKT(pgString);
+                } catch (Throwable e3) {
+                    throw new DBCException("Failed to parse geometry '" + pgString + "'. Tried enhanced WKT, standard WKT, and WKG parsing.", e2);
+                }
+            }
         }
+    }
+    
+    /**
+     * Parses WKT strings with Z, M, and ZM dimension modifiers
+     */
+    private Geometry parseGeometryWithDimensions(String wkt) throws ParseException {
+        // Normalize the WKT by removing dimension modifiers for standard parsing
+        // We handle the most common geometry types with dimensions
+        String normalizedWkt = wkt.replaceAll("(?i)^POINT\\s+ZM\\s*\\(", "POINT(")
+                                 .replaceAll("(?i)^POINT\\s+Z\\s*\\(", "POINT(")
+                                 .replaceAll("(?i)^POINT\\s+M\\s*\\(", "POINT(")
+                                 .replaceAll("(?i)^LINESTRING\\s+ZM\\s*\\(", "LINESTRING(")
+                                 .replaceAll("(?i)^LINESTRING\\s+Z\\s*\\(", "LINESTRING(")
+                                 .replaceAll("(?i)^LINESTRING\\s+M\\s*\\(", "LINESTRING(")
+                                 .replaceAll("(?i)^POLYGON\\s+ZM\\s*\\(", "POLYGON(")
+                                 .replaceAll("(?i)^POLYGON\\s+Z\\s*\\(", "POLYGON(")
+                                 .replaceAll("(?i)^POLYGON\\s+M\\s*\\(", "POLYGON(")
+                                 .replaceAll("(?i)^MULTIPOINT\\s+ZM\\s*\\(", "MULTIPOINT(")
+                                 .replaceAll("(?i)^MULTIPOINT\\s+Z\\s*\\(", "MULTIPOINT(")
+                                 .replaceAll("(?i)^MULTIPOINT\\s+M\\s*\\(", "MULTIPOINT(")
+                                 .replaceAll("(?i)^MULTILINESTRING\\s+ZM\\s*\\(", "MULTILINESTRING(")
+                                 .replaceAll("(?i)^MULTILINESTRING\\s+Z\\s*\\(", "MULTILINESTRING(")
+                                 .replaceAll("(?i)^MULTILINESTRING\\s+M\\s*\\(", "MULTILINESTRING(")
+                                 .replaceAll("(?i)^MULTIPOLYGON\\s+ZM\\s*\\(", "MULTIPOLYGON(")
+                                 .replaceAll("(?i)^MULTIPOLYGON\\s+Z\\s*\\(", "MULTIPOLYGON(")
+                                 .replaceAll("(?i)^MULTIPOLYGON\\s+M\\s*\\(", "MULTIPOLYGON(")
+                                 .replaceAll("(?i)^GEOMETRYCOLLECTION\\s+ZM\\s*\\(", "GEOMETRYCOLLECTION(")
+                                 .replaceAll("(?i)^GEOMETRYCOLLECTION\\s+Z\\s*\\(", "GEOMETRYCOLLECTION(")
+                                 .replaceAll("(?i)^GEOMETRYCOLLECTION\\s+M\\s*\\(", "GEOMETRYCOLLECTION(");
+        
+        return new WKTReader().read(normalizedWkt);
     }
 
     private String getStringFromGeometry(JDBCSession session, Geometry geometry) throws DBCException {
