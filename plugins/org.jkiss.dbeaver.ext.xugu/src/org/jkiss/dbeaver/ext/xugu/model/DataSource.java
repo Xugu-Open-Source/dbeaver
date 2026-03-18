@@ -430,16 +430,20 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 
 			dataTypeCache.cacheObject(arrayType);
 		}
-		dataTypeCache.removeObject(dataTypeCache.getCachedObject("ARRAY"), false);
+		//缺少一些非基本数据 show data_types; 查询不出来的数据类型
+//		dataTypeCache.cacheObject(new DataType(this, "VARCHAR", true));
+		dataTypeCache.cacheObject(new DataType(this, "VARCHAR[]", true));
 		// 同名数据类型使用代码中预设值覆盖
-//        for (Map.Entry<String, DataType.TypeDesc> predefinedType : DataType.PREDEFINED_TYPES.entrySet()) {
-//            DataType dataType = new DataType(this, predefinedType.getKey(), true);
-//            DataType oldCachedObject = dataTypeCache.getCachedObject(dataType.getName());
-//            if (oldCachedObject != null) {
-//                dataTypeCache.removeObject(oldCachedObject, false);
-//            }
-//            dataTypeCache.cacheObject(dataType);
-//        }
+        for (Map.Entry<String, DataType.TypeDesc> predefinedType : DataType.PREDEFINED_TYPES.entrySet()) {
+            DataType dataType = new DataType(this, predefinedType.getKey(), true);
+            DataType oldCachedObject = dataTypeCache.getCachedObject(dataType.getName());
+            if (oldCachedObject != null) {
+                dataTypeCache.removeObject(oldCachedObject, false);
+            }
+            dataTypeCache.cacheObject(dataType);
+        }
+		dataTypeCache.removeObject(dataTypeCache.getCachedObject("ARRAY"), false);
+
 	}
 
 	@Override

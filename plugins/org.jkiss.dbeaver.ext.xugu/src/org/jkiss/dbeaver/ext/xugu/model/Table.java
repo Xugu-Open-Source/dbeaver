@@ -395,11 +395,25 @@ public class Table extends BaseTablePhysical implements DBPScriptObject, DBSData
 	// 实现DBSDataContainer接口的方法
 	@Override
 	public String[] getSupportedFeatures() {
-		return new String[] {
-			FEATURE_DATA_SELECT,
-			FEATURE_DATA_COUNT,
-			FEATURE_DATA_FILTER
-		};
+
+		if (isTruncateSupported()) {
+			return new String[] {
+					FEATURE_DATA_COUNT,
+					FEATURE_DATA_FILTER,
+					FEATURE_DATA_SEARCH,
+					FEATURE_DATA_INSERT,
+					FEATURE_DATA_UPDATE,
+					FEATURE_DATA_DELETE,
+					FEATURE_DATA_TRUNCATE};
+		} else {
+			return new String[] {
+					FEATURE_DATA_COUNT,
+					FEATURE_DATA_FILTER,
+					FEATURE_DATA_SEARCH,
+					FEATURE_DATA_INSERT,
+					FEATURE_DATA_UPDATE,
+					FEATURE_DATA_DELETE};
+		}
 	}
 
 }
