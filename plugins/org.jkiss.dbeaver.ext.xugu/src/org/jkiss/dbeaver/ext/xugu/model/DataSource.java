@@ -27,11 +27,22 @@ import org.jkiss.dbeaver.ext.xugu.internal.Constants;
 import org.jkiss.dbeaver.ext.xugu.internal.Utils;
 import org.jkiss.dbeaver.ext.xugu.model.Schema.SynonymCache;
 import org.jkiss.dbeaver.ext.xugu.model.plan.PlanAnalyser;
-import org.jkiss.dbeaver.model.*;
+import org.jkiss.dbeaver.model.DBPDataKind;
+import org.jkiss.dbeaver.model.DBPDataSource;
+import org.jkiss.dbeaver.model.DBPDataSourceContainer;
+import org.jkiss.dbeaver.model.DBPErrorAssistant;
+import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.connection.DBPDriver;
 import org.jkiss.dbeaver.model.data.DBDValueHandlerProvider;
-import org.jkiss.dbeaver.model.exec.*;
+import org.jkiss.dbeaver.model.exec.DBCException;
+import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
+import org.jkiss.dbeaver.model.exec.DBCExecutionPurpose;
+import org.jkiss.dbeaver.model.exec.DBCExecutionResult;
+import org.jkiss.dbeaver.model.exec.DBCQueryTransformType;
+import org.jkiss.dbeaver.model.exec.DBCQueryTransformer;
+import org.jkiss.dbeaver.model.exec.DBCSession;
+import org.jkiss.dbeaver.model.exec.DBCStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCPreparedStatement;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCResultSet;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
@@ -65,12 +76,32 @@ import org.jkiss.utils.BeanUtils;
 import org.jkiss.utils.CommonUtils;
 import org.jkiss.utils.StandardConstants;
 
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.io.StringReader;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.sql.*;
-import java.util.*;
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.Driver;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
+import java.sql.Statement;
+import java.sql.Types;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Vector;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
@@ -912,7 +943,9 @@ public class DataSource extends JDBCDataSource implements DBCQueryPlanner, IAdap
 		@Override
 		protected JDBCStatement prepareObjectsStatement(@NotNull JDBCSession session, @NotNull DataSource owner)
 				throws SQLException {
-            return session.prepareStatement("show DATA_TYPES;");
+			JDBCStatement statement = session.createStatement().executeQuery("show DATA_TYPES;").getSourceStatement();
+			return statement;
+//            return session.prepareStatement("show DATA_TYPES;");
 		}
 
 		@Override

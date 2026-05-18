@@ -1,3 +1,19 @@
+/*
+ * DBeaver - Universal Database Manager
+ * Copyright (C) 2010-2026 DBeaver Corp and others
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.jkiss.dbeaver.ext.xugu.internal.xugu.parser;
 
 
@@ -6,8 +22,13 @@ import org.jkiss.dbeaver.ext.xugu.internal.xugu.metadata.Constants.PartitionType
 import org.jkiss.dbeaver.ext.xugu.internal.xugu.metadata.IndexMeta;
 
 import java.math.BigDecimal;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.text.MessageFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -914,6 +935,8 @@ public class ObjectParsing {
             sql = messageFormat.format(parameters);
             stmt = fromConnection.createStatement();
             rs = stmt.executeQuery(sql);
+            ArrayList<Integer> number7 = new ArrayList<>();
+            ArrayList<Integer> number8 = new ArrayList<>();
             while (rs.next()) {
                 tabpart = new Vector<Object>();
                 //分区表模式
@@ -928,7 +951,19 @@ public class ObjectParsing {
                 tabpart.add(rs.getString(5));
                 //分区表子分区键
                 tabpart.add(rs.getString(6));
-                if (rs.getInt(7) > 0) {
+
+                number7.add(rs.getInt(7));
+
+                number8.add(rs.getInt(8));
+
+                //是否自动扩展分区
+                tabpart.add(rs.getString(9));
+                //自动扩展分区间隔
+                tabpart.add(rs.getString(10));
+            }
+            rs.close();
+            for (Integer i : number7) {
+                if (i > 0) {
                     Vector<Object> partVal;
                     ResultSet rs1;
                     Vector<Object> mainpart = new Vector<Object>();
@@ -949,13 +984,14 @@ public class ObjectParsing {
                         mainpart.add(partVal);
                     }
                     tabpart.add(mainpart);
-                    if(rs1!=null){
-                        rs1.close();
-                    }
+                    rs1.close();
                 } else {
                     tabpart.add(null);
                 }
-                if (rs.getInt(8) > 0) {
+            }
+
+            for (Integer i : number8) {
+                if (i > 0) {
                     Vector<Object> partVal;
                     Vector<Object> subpart = new Vector<Object>();
                     ResultSet rs2;
@@ -976,16 +1012,10 @@ public class ObjectParsing {
                         subpart.add(partVal);
                     }
                     tabpart.add(subpart);
-                    if(rs2!=null){
-                        rs2.close();
-                    }
+                    rs2.close();
                 } else {
                     tabpart.add(null);
                 }
-                //是否自动扩展分区
-                tabpart.add(rs.getString(9));
-                //自动扩展分区间隔
-                tabpart.add(rs.getString(10));
             }
         } catch (SQLException e) {
 //		log.error(e.toString());
@@ -2145,13 +2175,28 @@ public class ObjectParsing {
                         sqlBuffer.append(MARK_BGN_CURVES + removeDatabaseObjectQuota(partition.get(4)) + MARK_END_CURVES + " interval " + removeDatabaseObjectQuota(partition.get(9)) + " " + removeDatabaseObjectQuota(partition.get(8)) + " partitions");
                         sqlBuffer.append(MARK_BGN_CURVES);
                         sqlBuffer.append(MARK_WRAP);
-                        sqlBuffer.append(quotaDatabaseObjectDub(((Vector<Object>) mainPart.get(0)).get(2)));
-                        sqlBuffer.append(" values less than ");
-                        sqlBuffer.append(MARK_BGN_CURVES);
-                        sqlBuffer.append(((Vector<Object>) mainPart.get(0)).get(3));
-                        sqlBuffer.append(MARK_END_CURVES);
-                        sqlBuffer.append(MARK_WRAP);
-                        sqlBuffer.append(MARK_END_CURVES);
+                        if (!mainPart.isEmpty()){
+                            for (int m = 0; m < mainPart.size(); m++) {
+                                sqlBuffer.append(((Vector<Object>) mainPart.get(m)).get(2));
+                                sqlBuffer.append(" values less than ");
+                                sqlBuffer.append(MARK_BGN_CURVES);
+                                sqlBuffer.append("maxvalue".equalsIgnoreCase(((Vector<Object>) mainPart.get(m)).get(3).toString()) ? "maxvalues" : ((Vector<Object>) mainPart.get(m)).get(3));
+                                sqlBuffer.append(MARK_END_CURVES);
+                                if (m != mainPart.size() - 1) {
+                                    sqlBuffer.append(MARK_COMMA);
+                                }
+                                sqlBuffer.append(MARK_WRAP);
+                            }
+                            sqlBuffer.append(MARK_END_CURVES);
+                        }else {
+                            sqlBuffer.append(quotaDatabaseObjectDub(((Vector<Object>) mainPart.get(0)).get(2)));
+                            sqlBuffer.append(" values less than ");
+                            sqlBuffer.append(MARK_BGN_CURVES);
+                            sqlBuffer.append(((Vector<Object>) mainPart.get(0)).get(3));
+                            sqlBuffer.append(MARK_END_CURVES);
+                            sqlBuffer.append(MARK_WRAP);
+                            sqlBuffer.append(MARK_END_CURVES);
+                        }
                     }
                     break;
                 //列表分区

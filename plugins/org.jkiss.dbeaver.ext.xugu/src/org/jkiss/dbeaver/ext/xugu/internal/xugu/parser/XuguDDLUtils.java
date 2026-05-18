@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.jkiss.dbeaver.ext.xugu.internal.xugu.parser;
 
 import com.alibaba.druid.util.StringUtils;
+import org.jkiss.dbeaver.ext.xugu.internal.xugu.metadata.Constants;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -27,6 +28,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * @author jiangnan
@@ -43,7 +45,30 @@ public class XuguDDLUtils {
     public static final String MARK_COMMA = ",";
 
     public static void initKeyWords(Connection conn) {
-        if (concurrentHashMap.containsKey(MAP_KEY)) return;
+        concurrentHashMap.clear();
+//      不做存在检查  if (concurrentHashMap.containsKey(MAP_KEY)) return;
+
+        Integer dbKernelVersion = 0;
+        // 考虑V11 情况不存在 ALL_KEYWORDS 系统表
+        try (ResultSet resultSet = conn.createStatement().executeQuery("SHOW VERSION;");){
+            while (resultSet.next()) {
+                String dbKernel = resultSet.getString(1);
+                String[] split = dbKernel.split(" ");
+                dbKernelVersion = Integer.parseInt(split[split.length-1].split("\\.")[0]);
+            }
+        }catch (Exception e){
+            throw new RuntimeException(e.getMessage());
+        }
+        if (dbKernelVersion < 12) {
+            initKeyWordsV11(conn);
+        }else {
+            initKeyWordsV12(conn);
+
+        }
+
+    }
+    private static void initKeyWordsV12(Connection conn) {
+        // 正常V12 情况
         try(Statement statement = conn.createStatement()) {
             ResultSet resultSet = statement.executeQuery(keyWordsSql);
             List<String> keyWords = new  ArrayList<>();
@@ -55,6 +80,16 @@ public class XuguDDLUtils {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
+
+    }
+
+    //V11 手动维护
+    private static void initKeyWordsV11(Connection conn) {
+        List<String> keywordsSet = Arrays.stream(Constants.KEYWORDS.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
+        concurrentHashMap.put(MAP_KEY, keywordsSet);
     }
 
     /**
