@@ -2320,6 +2320,9 @@ public class ObjectParsing {
         switch (consType) {
             //主键约束
             case PrimaryKey:
+                if (isIdentityPrimaryKey(constraint, identityCols)) {
+                    break;
+                }
                 sqlBuffer.append(MARK_WRAP);
                 sqlBuffer.append("-- Alter Table Add PrimaryKey Constraint --");
                 sqlBuffer.append(MARK_WRAP);
@@ -2396,6 +2399,26 @@ public class ObjectParsing {
                 break;
         }
         return sqlBuffer.toString();
+    }
+    private boolean isIdentityPrimaryKey(Vector<Object> constraint, List<Object> identityCols) {
+        if (identityCols == null || identityCols.isEmpty() || constraint == null || constraint.size() <= 4 || constraint.get(4) == null) {
+            return false;
+        }
+        String[] pkCols = constraint.get(4).toString().split(MARK_COMMA);
+        if (pkCols.length != 1) {
+            return false;
+        }
+        String pkCol = normalizeColumnName(pkCols[0]);
+        for (Object identityCol : identityCols) {
+            if (identityCol != null && pkCol.equals(normalizeColumnName(identityCol.toString()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String normalizeColumnName(String columnName) {
+        return removeDatabaseObjectQuota(columnName == null ? "" : columnName.trim()).toUpperCase();
     }
 
 

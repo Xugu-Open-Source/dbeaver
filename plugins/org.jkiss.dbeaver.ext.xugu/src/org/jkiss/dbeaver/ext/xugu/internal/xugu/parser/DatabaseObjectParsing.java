@@ -1,14 +1,32 @@
+/*
+ * DBeaver - Universal Database Manager
+ * Copyright (C) 2010-2026 DBeaver Corp and others
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.jkiss.dbeaver.ext.xugu.internal.xugu.parser;
 
 
 import org.jkiss.dbeaver.ext.xugu.internal.xugu.metadata.Constants.DatabaseObjectType;
 import org.jkiss.dbeaver.ext.xugu.internal.xugu.metadata.Constants.PartitionType;
 import org.jkiss.dbeaver.ext.xugu.internal.xugu.metadata.IndexMeta;
-import org.jkiss.dbeaver.ext.xugu.internal.xugu.parser.ObjectParsing;
-import org.jkiss.dbeaver.ext.xugu.internal.xugu.parser.Parsing;
 
 import java.math.BigDecimal;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.text.MessageFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -2085,6 +2103,9 @@ public class DatabaseObjectParsing {
         switch (consType) {
             //添加主键定义
             case PrimaryKey:
+                if (isIdentityPrimaryKey(constraint, identityCols)) {
+                    break;
+                }
                 sqlBuffer.append("-- Alter Table Add PrimaryKey Constraint --");
                 sqlBuffer.append(MARK_WRAP);
                 sqlBuffer.append("alter table " + objectName)
@@ -2158,6 +2179,27 @@ public class DatabaseObjectParsing {
                 break;
         }
         return sqlBuffer.toString();
+    }
+
+    private boolean isIdentityPrimaryKey(Vector<Object> constraint, List<Object> identityCols) {
+        if (identityCols == null || identityCols.isEmpty() || constraint == null || constraint.size() <= 4 || constraint.get(4) == null) {
+            return false;
+        }
+        String[] pkCols = constraint.get(4).toString().split(MARK_COMMA);
+        if (pkCols.length != 1) {
+            return false;
+        }
+        String pkCol = normalizeColumnName(pkCols[0]);
+        for (Object identityCol : identityCols) {
+            if (identityCol != null && pkCol.equals(normalizeColumnName(identityCol.toString()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String normalizeColumnName(String columnName) {
+        return removeDatabaseObjectQuota(columnName == null ? "" : columnName.trim()).toUpperCase();
     }
 
 
