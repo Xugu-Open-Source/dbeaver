@@ -62,7 +62,7 @@ public class DBeaverVersionChecker extends AbstractJob {
         }
 
         OVERRIDE_PRODUCT_VERSION = version;
-        SKIP_VERSION_CHECK = CommonUtils.toBoolean(System.getProperty("dbeaver.debug.skip-version-check"));
+        SKIP_VERSION_CHECK = CommonUtils.toBoolean(false);
     }
 
     private final boolean showAlways;
