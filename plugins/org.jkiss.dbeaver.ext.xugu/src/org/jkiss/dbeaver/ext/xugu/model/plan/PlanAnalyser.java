@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.exec.jdbc.JDBCStatement;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlan;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlanNode;
+import org.jkiss.dbeaver.model.exec.plan.DBCPlanSourceFormat;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -56,6 +57,16 @@ public class PlanAnalyser implements DBCPlan {
 	@Override
 	public String getPlanQueryString() throws DBException {
 		return "EXPLAIN  VERBOSE " + query;
+	}
+
+	@Override
+	public DBCPlanSourceFormat getPlanSourceDataFormat() {
+		return DBCPlanSourceFormat.JSON;
+	}
+
+	@Override
+	public Object getPlanSourceData() {
+		return query;
 	}
 
 	public Collection<PlanNode> getPlanNodes() {

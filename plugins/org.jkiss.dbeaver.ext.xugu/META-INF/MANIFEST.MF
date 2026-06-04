@@ -36,7 +36,7 @@ Bundle-RequiredExecutionEnvironment: JavaSE-21
 Bundle-Vendor: %Bundle-Vendor
 Bundle-ClassPath: .,
  lib/out-jar-1.0.jar,
- lib/xugu-metadata-1.2.2.jar,
+ lib/xugu-metadata-1.2.4.jar,
  lib/xugu-permission-1.2.0.jar,
  lib/xugu-parser-1.1.0.jar,
  lib/hutool-all-5.8.41.jar,
