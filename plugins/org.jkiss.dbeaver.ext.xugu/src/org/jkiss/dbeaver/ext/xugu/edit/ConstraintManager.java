@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,20 +16,20 @@
  */
 package org.jkiss.dbeaver.ext.xugu.edit;
 
-import java.util.List;
-import java.util.Map;
-
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
-import org.jkiss.dbeaver.ext.xugu.internal.Messages;
+import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.xugu.config.OemConfig;
-import org.jkiss.dbeaver.ext.xugu.model.*;
+import org.jkiss.dbeaver.ext.xugu.model.BaseTable;
+import org.jkiss.dbeaver.ext.xugu.model.ObjectStatus;
+import org.jkiss.dbeaver.ext.xugu.model.TableColumn;
+import org.jkiss.dbeaver.ext.xugu.model.TableConstraint;
+import org.jkiss.dbeaver.ext.xugu.model.TableConstraintColumn;
 import org.jkiss.dbeaver.model.DBPEvaluationContext;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.edit.DBECommandContext;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
-import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.model.impl.edit.DBECommandAbstract;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
 import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
@@ -41,10 +41,11 @@ import org.jkiss.dbeaver.model.struct.DBSEntityAttribute;
 import org.jkiss.dbeaver.model.struct.DBSEntityAttributeRef;
 import org.jkiss.dbeaver.model.struct.DBSEntityConstraintType;
 import org.jkiss.dbeaver.model.struct.DBSObject;
-import org.jkiss.dbeaver.ui.UITask;
-import org.jkiss.dbeaver.ui.editors.object.struct.EditConstraintPage;
+import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.utils.CommonUtils;
-import org.jkiss.dbeaver.DBException;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * 约束管理器，进行约束的增加删除和修改
@@ -97,7 +98,7 @@ public class ConstraintManager extends SQLConstraintManager<TableConstraint, Bas
 		// 当为单列主键时，已在列中添加 PRIMARY KEY 以生成主键，此处更改表添加主键需跳过
 		if (constraint.getConstraintType() == DBSEntityConstraintType.PRIMARY_KEY) {
 			List<TableConstraintColumn> columns = constraint.getAttributeReferences(monitor);
-			if ("列".equalsIgnoreCase(command.getOptions().get("container").toString())){
+			if ("列".equalsIgnoreCase(String.valueOf(command.getOptions().get("container")))){
 				if (columns.size() == 1) {
 					return;
 				}

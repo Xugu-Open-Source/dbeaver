@@ -1,18 +1,36 @@
+/*
+ * DBeaver - Universal Database Manager
+ * Copyright (C) 2010-2026 DBeaver Corp and others
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.jkiss.dbeaver.ext.xugu.internal.xugu.parser;
 
+import com.xugu.permission.LoadPermission;
 import org.jkiss.dbeaver.ext.xugu.internal.xugu.metadata.Constants.DatabaseObjectType;
 import org.jkiss.dbeaver.ext.xugu.internal.xugu.metadata.IndexMeta;
-import org.jkiss.dbeaver.ext.xugu.internal.xugu.parser.DatabaseObjectParsing;
-import org.jkiss.dbeaver.ext.xugu.internal.xugu.parser.DatabaseParsing;
-import org.jkiss.dbeaver.ext.xugu.internal.xugu.parser.ObjectParsing;
-import com.xugu.permission.LoadPermission;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
+import java.util.Vector;
 
 
 /**
@@ -1412,7 +1430,7 @@ public class Parsing {
 			throw new IllegalStateException(e);
 		}
 		// 创建用户对象（不含角色）
-		builder.append(String.format("CREATE USER \"%s\" IDENTIFIED BY '%s' VALID UNTIL '%s';\r\n", userName, password, untilTime));
+		builder.append(String.format("CREATE USER `%s` IDENTIFIED BY '%s' VALID UNTIL '%s';\r\n", userName, password, untilTime));
 		// 授予用户权限（不含角色）
 		if (tableType != TableType.ALL) {
 			LoadPermission loadPermission = new LoadPermission();
@@ -1440,7 +1458,7 @@ public class Parsing {
 	public String loadTheRoleDDL(Connection connection, String roleName) {
 		StringBuilder builder = new StringBuilder("-- Create Role --\r\n");
 		// 创建用户拥有的角色
-		builder.append(String.format("CREATE ROLE \"%s\";\r\n", roleName));
+		builder.append(String.format("CREATE ROLE `%s`;\r\n", roleName));
 		// 授予角色权限
 		Map<String, String> rolePermissions = new LoadPermission().loadPermissionSql(connection, roleName);
 		for (Entry<String, String> entry: rolePermissions.entrySet()) {
@@ -1471,7 +1489,7 @@ public class Parsing {
 		} catch (SQLException e) {
 			throw new IllegalStateException(e);
 		}
-		builder.append(String.format("CREATE SCHEMA \"%s\" AUTHORIZATION \"%s\";\r\n", schemaName, ownerName));
+		builder.append(String.format("CREATE SCHEMA `%s` AUTHORIZATION `%s`;\r\n", schemaName, ownerName));
 		return builder.toString();
 	}
 
@@ -1499,7 +1517,7 @@ public class Parsing {
 		} catch (SQLException e) {
 			throw new IllegalStateException(e);
 		}
-		builder.append(String.format("CREATE DATABASE \"%s\" CHARACTER SET '%s' TIME ZONE '%s';\r\n", databaseName, charset, timezone));
+		builder.append(String.format("CREATE DATABASE `%s` CHARACTER SET '%s' TIME ZONE '%s';\r\n", databaseName, charset, timezone));
 		return builder.toString();
 	}
 }

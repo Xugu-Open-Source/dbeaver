@@ -156,7 +156,7 @@ public class DatabaseObjectParsing {
      * 去除objectName的引号 返回前后加上双引号的字符串
      */
     public static String quotaDatabaseObjectDub(Object objectName) {
-        return MARK_DUB_QUOTATION + removeDatabaseObjectQuota(objectName.toString()) + MARK_DUB_QUOTATION;
+        return MARK_MYSQL_QUOTATION + removeDatabaseObjectQuota(objectName.toString()) + MARK_MYSQL_QUOTATION;
     }
 
     /**
@@ -167,7 +167,7 @@ public class DatabaseObjectParsing {
         if (objectString == null) {
             return null;
         }
-        return objectString.toString().replace(MARK_DUB_QUOTATION, "").replace(MARK_SIN_QUOTATION, "");
+        return objectString.toString().replace(MARK_DUB_QUOTATION, "").replace(MARK_MYSQL_QUOTATION, "").replace(MARK_SIN_QUOTATION, "");
     }
 
     /**
@@ -179,7 +179,7 @@ public class DatabaseObjectParsing {
         if(objectString == null){
             return null;
         }
-        return objectString.toString().replace(MARK_DUB_QUOTATION,"");
+        return objectString.toString().replace(MARK_DUB_QUOTATION, "").replace(MARK_MYSQL_QUOTATION, "");
     }
 
     /**
@@ -2109,7 +2109,7 @@ public class DatabaseObjectParsing {
                 sqlBuffer.append("-- Alter Table Add PrimaryKey Constraint --");
                 sqlBuffer.append(MARK_WRAP);
                 sqlBuffer.append("alter table " + objectName)
-                        .append(" add constraint " + "\""+constraint.get(2)+"\"")
+                        .append(" add constraint " + MARK_MYSQL_QUOTATION + removeDatabaseObjectQuota(constraint.get(2)) + MARK_MYSQL_QUOTATION)
                         .append(" primary key" + MARK_BGN_CURVES);
                 pkCol = constraint.get(4).toString().split(MARK_COMMA);
                 // 作用列
@@ -2128,7 +2128,7 @@ public class DatabaseObjectParsing {
                 sqlBuffer.append("-- Alter Table Add ForeignKey Constraint --");
                 sqlBuffer.append(MARK_WRAP);
                 sqlBuffer.append("alter table " + objectName)
-                        .append(" add constraint " + "\""+constraint.get(2)+"\"")
+                        .append(" add constraint " + MARK_MYSQL_QUOTATION + removeDatabaseObjectQuota(constraint.get(2)) + MARK_MYSQL_QUOTATION)
                         .append(" foreign key" + MARK_BGN_CURVES);
                 fkCol = constraint.get(4).toString().split(MARK_COMMA);
                 // 作用列
@@ -2167,7 +2167,7 @@ public class DatabaseObjectParsing {
                 sqlBuffer.append("-- Alter Table Add Check Constraint --");
                 sqlBuffer.append(MARK_WRAP);
                 sqlBuffer.append("alter table " + objectName)
-                        .append(" add constraint " + "\""+constraint.get(2)+"\"")
+                        .append(" add constraint " + MARK_MYSQL_QUOTATION + removeDatabaseObjectQuota(constraint.get(2)) + MARK_MYSQL_QUOTATION)
                         .append(" check" + MARK_BGN_CURVES)
                         //CHECK约束定义
                         .append(removeDatabaseObjectQuota1(constraint.get(10)))

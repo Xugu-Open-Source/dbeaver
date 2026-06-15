@@ -141,7 +141,7 @@ public class ObjectParsing {
      * 去除objectName的引号 返回前后加上双引号的字符串
      */
     public static String quotaDatabaseObjectDub(Object objectName) {
-        return MARK_DUB_QUOTATION + removeDatabaseObjectQuota(objectName.toString()) + MARK_DUB_QUOTATION;
+        return MARK_MYSQL_QUOTATION + removeDatabaseObjectQuota(objectName.toString()) + MARK_MYSQL_QUOTATION;
     }
 
     /**
@@ -152,7 +152,7 @@ public class ObjectParsing {
         if (objectString == null) {
             return null;
         }
-        return objectString.toString().replace(MARK_DUB_QUOTATION, "").replace(MARK_SIN_QUOTATION, "");
+        return objectString.toString().replace(MARK_DUB_QUOTATION, "").replace(MARK_MYSQL_QUOTATION, "").replace(MARK_SIN_QUOTATION, "");
     }
 
     /**
@@ -165,7 +165,7 @@ public class ObjectParsing {
         if (objectString == null) {
             return null;
         }
-        return objectString.toString().replace(MARK_DUB_QUOTATION, "");
+        return objectString.toString().replace(MARK_DUB_QUOTATION, "").replace(MARK_MYSQL_QUOTATION, "");
     }
 
     /**
@@ -935,8 +935,12 @@ public class ObjectParsing {
             sql = messageFormat.format(parameters);
             stmt = fromConnection.createStatement();
             rs = stmt.executeQuery(sql);
+
             ArrayList<Integer> number7 = new ArrayList<>();
             ArrayList<Integer> number8 = new ArrayList<>();
+            ArrayList<String> number9 = new ArrayList<>();
+            ArrayList<String> number10 = new ArrayList<>();
+
             while (rs.next()) {
                 tabpart = new Vector<Object>();
                 //分区表模式
@@ -956,10 +960,13 @@ public class ObjectParsing {
 
                 number8.add(rs.getInt(8));
 
-                //是否自动扩展分区
-                tabpart.add(rs.getString(9));
-                //自动扩展分区间隔
-                tabpart.add(rs.getString(10));
+                number9.add(rs.getString(9));
+                number10.add(rs.getString(10));
+//
+//                //是否自动扩展分区
+//                tabpart.add(rs.getString(9));
+//                //自动扩展分区间隔
+//                tabpart.add(rs.getString(10));
             }
             rs.close();
             for (Integer i : number7) {
@@ -1016,6 +1023,12 @@ public class ObjectParsing {
                 } else {
                     tabpart.add(null);
                 }
+            }
+            for (String i : number9) {
+                tabpart.add(i);
+            }
+            for (String i : number10) {
+                tabpart.add(i);
             }
         } catch (SQLException e) {
 //		log.error(e.toString());
@@ -2327,7 +2340,7 @@ public class ObjectParsing {
                 sqlBuffer.append("-- Alter Table Add PrimaryKey Constraint --");
                 sqlBuffer.append(MARK_WRAP);
                 sqlBuffer.append("alter table " + objectName)
-                        .append(" add constraint " + "\""+constraint.get(2)+"\"")
+                        .append(" add constraint " + MARK_MYSQL_QUOTATION + removeDatabaseObjectQuota(constraint.get(2)) + MARK_MYSQL_QUOTATION)
                         .append(" primary key" + MARK_BGN_CURVES);
                 // 作用列
                 pkCol = constraint.get(4).toString().split(MARK_COMMA);
@@ -2347,7 +2360,7 @@ public class ObjectParsing {
                 sqlBuffer.append("-- Alter Table Add ForeignKey Constraint --");
                 sqlBuffer.append(MARK_WRAP);
                 sqlBuffer.append("alter table " + objectName)
-                        .append(" add constraint " + "\""+constraint.get(2)+"\"")
+                        .append(" add constraint " + MARK_MYSQL_QUOTATION + removeDatabaseObjectQuota(constraint.get(2)) + MARK_MYSQL_QUOTATION)
                         .append(" foreign key" + MARK_BGN_CURVES);
                 // 作用列
                 fkCol = constraint.get(4).toString().split(MARK_COMMA);
@@ -2387,7 +2400,7 @@ public class ObjectParsing {
                 sqlBuffer.append("-- Alter Table Add Check Constraint --");
                 sqlBuffer.append(MARK_WRAP);
                 sqlBuffer.append("alter table " + objectName)
-                        .append(" add constraint " + "\""+constraint.get(2)+"\"")
+                        .append(" add constraint " + MARK_MYSQL_QUOTATION + removeDatabaseObjectQuota(constraint.get(2)) + MARK_MYSQL_QUOTATION)
                         .append(" check" + MARK_BGN_CURVES)
                         //CHECK约束定义
                         .append(removeDatabaseObjectQuota1(constraint.get(10)))
