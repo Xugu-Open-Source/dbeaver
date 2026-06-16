@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,8 +26,8 @@ import java.util.List;
  */
 public class UIIcon {
 
-    public static final DBIcon DBEAVER_LOGO = new DBIcon("dbeaver_logo", "icon_big.ico"); //$NON-NLS-1$ //$NON-NLS-2$
-    public static final DBIcon DBEAVER_LOGO_SMALL = new DBIcon("dbeaver_logo_small", "icon_big.ico"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon DBEAVER_LOGO = new DBIcon("dbeaver_logo", "hgicon.ico"); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final DBIcon DBEAVER_LOGO_SMALL = new DBIcon("dbeaver_logo_small", "hgicon.ico"); //$NON-NLS-1$ //$NON-NLS-2$
 
     public static final DBIcon SEPARATOR_V = new DBIcon("separator_v", "misc/separator_v.png"); //$NON-NLS-1$ //$NON-NLS-2$
     public static final DBIcon SEPARATOR_H = new DBIcon("separator_h", "misc/separator_h.png"); //$NON-NLS-1$ //$NON-NLS-2$

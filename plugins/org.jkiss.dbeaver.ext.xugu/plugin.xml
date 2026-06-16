@@ -21,8 +21,8 @@
 <plugin>
 
     <extension point="org.jkiss.dbeaver.dataSourceProvider">
-        <datasource class="org.jkiss.dbeaver.ext.xugu.DataSourceProvider" description="Xugu connector" icon="icons/icon.png" id="xugu" label="XuguDB" dialect="xugu">
-            <tree icon="icons/icon.png" label="Xugu data source" path="xugu">
+        <datasource class="org.jkiss.dbeaver.ext.xugu.DataSourceProvider" description="Xugu connector" icon="icons/hgicon.png" id="xugu" label="HighgoDDB" dialect="xugu">
+            <tree icon="icons/hgicon.png" label="Xugu data source" path="xugu">
 
                 <!--模式-->
                 <folder type="org.jkiss.dbeaver.ext.xugu.model.Schema" label="%tree.schemas.node.name" icon="#folder_schema" description="Database schemas">
@@ -183,7 +183,7 @@
             </tree>
 
             <drivers managable="true">
-                <driver class="com.xugu.cloudjdbc.Driver" defaultPort="5138" description="XuguDB JDBC Driver." icon="icons/icon.png" iconBig="icons/icon_big.png" id="XuguDB" label="XuguDB" promoted="9999" sampleURL="jdbc:xugu://{host}[:{port}]/{database}" useURL="false" webURL="https://gitee.com/XuguDB/org.jkiss.dbeaver.ext.xugu/tree/develop/drivers" categories="sql">
+                <driver class="com.xugu.cloudjdbc.Driver" defaultPort="5138" description="XuguDB JDBC Driver." icon="icons/hgicon.png" iconBig="icons/icon_big.png" id="XuguDB" label="HighgoDDB" promoted="9999" sampleURL="jdbc:highgo://{host}[:{port}]/{database}" useURL="false" webURL="https://gitee.com/XuguDB/org.jkiss.dbeaver.ext.xugu/tree/develop/drivers" categories="sql">
                     <replace provider="generic" driver="xugu"/>
                     <replace provider="xugu" driver="xugu"/>
                     <replace provider="xugu" driver="xugu_oci"/>
@@ -298,7 +298,7 @@
     </extension>
 
     <extension point="org.jkiss.dbeaver.sqlDialect">
-        <dialect id="xugu" parent="basic" class="org.jkiss.dbeaver.ext.xugu.model.SqlDialect" label="Xugu" description="Xugu SQL dialect." icon="icons/icon.png">
+        <dialect id="xugu" parent="basic" class="org.jkiss.dbeaver.ext.xugu.model.SqlDialect" label="Xugu" description="Xugu SQL dialect." icon="icons/hgicon.png">
         </dialect>
     </extension>
 
@@ -319,14 +319,14 @@
 <!--        <category id="xugu"-->
 <!--                  name="Xugu"-->
 <!--                  description="xugu导出"-->
-<!--                  icon="icons/icon.png"/>-->
+<!--                  icon="icons/hgicon.png"/>-->
 
 
 
 <!--        <task id="xuguExportTool"-->
 <!--              name="XuGuDB导出数据库"-->
 <!--              description="XuGuDB导出数据库"-->
-<!--              icon="icons/icon.png"-->
+<!--              icon="icons/hgicon.png"-->
 <!--              type="xugu"-->
 <!--              handler="org.jkiss.dbeaver.ext.xugu.tasks.XuguDatabaseExportHandler"-->
 <!--              requiresExportPrivileges="false">-->

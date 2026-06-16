@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ package org.jkiss.dbeaver.ext.xugu.config;
  * 原始设备制造商配置信息
  */
 public class OemConfig {
-	public static final String OEM_NAME_ZH = "虚谷";
-	public static final String OEM_NAME_EN = "Xugu";
+	public static final String OEM_NAME_ZH = "瀚高";
+	public static final String OEM_NAME_EN = "Highgo";
 	public static final String OEM_NAME_EN_LOWER = OEM_NAME_EN.toLowerCase();
 	public static final String OEM_NAME_EN_UPPER = OEM_NAME_EN.toUpperCase();
 }

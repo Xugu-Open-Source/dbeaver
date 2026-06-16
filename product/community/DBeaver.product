@@ -48,12 +48,12 @@
 
     <splash location="org.jkiss.dbeaver.ui.app.standalone"/>
 
-    <launcher name="DBManager">
+    <launcher name="HighgoDDB-DBManager">
         <linux icon="/icons/dbeaver.xpm"/>
         <macosx icon="/icons/dbeaver.icns"/>
         <solaris/>
         <win useIco="true">
-            <ico path="icons/xugu.ico"/>
+            <ico path="icons/icon.ico"/>
         </win>
     </launcher>
 

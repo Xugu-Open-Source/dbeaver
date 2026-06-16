@@ -17,14 +17,14 @@
     </extension>
 
     <extension point="org.eclipse.core.runtime.products" id="product">
-        <product application="org.jkiss.dbeaver.ui.app.standalone.standalone" description="%productSubTitle" name="DBManager">
-            <property name="aboutText" value="虚谷数据库管理器"/>
+        <product application="org.jkiss.dbeaver.ui.app.standalone.standalone" description="%productSubTitle" name="HighgoDDB-DBManager">
+            <property name="aboutText" value="瀚高分布式数据库管理工具"/>
             <property name="copyright" value="DBManager"/>
-            <property name="subTitle" value="虚谷数据库管理器"/>
-            <property name="website" value="https://www.xugudb.com/"/>
+            <property name="subTitle" value="瀚高分布式数据库管理工具"/>
+            <property name="website" value="https://www.highgo.com/"/>
             <!--            <property name="email" value="%productEmail"/>-->
-            <property name="versionUpdateURL" value="https://www.xugudb.com/"/>
-            <property name="earlyAccessURL" value="https://www.xugudb.com/"/>
+            <property name="versionUpdateURL" value="https://www.highgo.com/"/>
+            <property name="earlyAccessURL" value="https://www.highgo.com/"/>
             <property name="windowImages" value="/icons/icon.png,/icons/icon@2x.png,/icons/icon_big.png,/icons/icon_big@2x.png,/icons/icon_big@2x.png"/>
             <property name="appName" value="DBManager"/>
             <property name="appEdition" value="ce"/>
