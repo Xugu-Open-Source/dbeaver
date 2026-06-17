@@ -21,7 +21,7 @@
 <plugin>
 
     <extension point="org.jkiss.dbeaver.dataSourceProvider">
-        <datasource class="org.jkiss.dbeaver.ext.xugu.DataSourceProvider" description="Xugu connector" icon="icons/hgicon.png" id="xugu" label="HighgoDDB" dialect="xugu">
+        <datasource class="org.jkiss.dbeaver.ext.xugu.DataSourceProvider" description="Xugu connector" icon="icons/hgicon.png" id="HighgoDDB" label="HighgoDDB" dialect="xugu">
             <tree icon="icons/hgicon.png" label="Xugu data source" path="xugu">
 
                 <!--模式-->
@@ -183,10 +183,10 @@
             </tree>
 
             <drivers managable="true">
-                <driver class="com.xugu.cloudjdbc.Driver" defaultPort="5138" description="XuguDB JDBC Driver." icon="icons/hgicon.png" iconBig="icons/icon_big.png" id="XuguDB" label="HighgoDDB" promoted="9999" sampleURL="jdbc:highgo://{host}[:{port}]/{database}" useURL="false" webURL="https://gitee.com/XuguDB/org.jkiss.dbeaver.ext.xugu/tree/develop/drivers" categories="sql">
+                <driver class="com.highgo.cloudjdbc.Driver" defaultPort="5138" description="HighgoDDB JDBC Driver." icon="icons/hgicon.png" iconBig="icons/icon_big.png" id="HighgoDDB" label="HighgoDDB" promoted="9999" sampleURL="jdbc:highgo://{host}[:{port}]/{database}" useURL="false" webURL="" categories="sql">
                     <replace provider="generic" driver="xugu"/>
-                    <replace provider="xugu" driver="xugu"/>
-                    <replace provider="xugu" driver="xugu_oci"/>
+                    <replace provider="HighgoDDB" driver="xugu"/>
+                    <replace provider="HighgoDDB" driver="xugu_oci"/>
 
                     <property name="recv_mode" value="2"/>
                     <property name="auto_commit" value="on"/>
@@ -204,7 +204,7 @@
 
                     <file type="license" path="drivers/xugu/LICENSE.txt" bundle="drivers.xugu"/>
 <!--                    <file type="jar" path="drivers/xugu/cloudjdbc-11.0.8.jar" bundle="drivers.xugu"/>-->
-                    <file type="jar" path="maven:/com.xugudb:xugu-jdbc:RELEASE[12.3.4]" bundle="!drivers.xugu"/>
+<!--                    <file type="jar" path="maven:/com.xugudb:xugu-jdbc:RELEASE[12.3.4]" bundle="!drivers.xugu"/>-->
 
                 </driver>
             </drivers>
@@ -249,7 +249,7 @@
     <extension point="org.jkiss.dbeaver.dataTypeProvider">
         <provider class="org.jkiss.dbeaver.ext.xugu.data.ValueHandlerProvider" description="Xugu data types provider" id="org.jkiss.dbeaver.ext.xugu.data.ValueHandlerProvider" label="Xugu data types provider">
 
-            <datasource id="xugu"/>
+            <datasource id="HighgoDDB"/>
 
             <type name="JSON"/>
             <type name="XML"/>
@@ -381,7 +381,7 @@
         <dashboard id="xugu.memory" mapQuery="xugu.query.status" label="内存统计" defaultView="timeseries" group="Status"
                    calc="value" value="bytes" mapKeys="G_MEM,TRAN_MEM,NET_MEM" mapLabels="全局内存,事务内存,用户连接内存"
                    showByDefault="false" description="内存占用分类统计">
-            <datasource id="xugu"/>
+            <datasource id="HighgoDDB"/>
         </dashboard>
 <!--
 SELECT
@@ -411,7 +411,7 @@ SELECT
         <dashboard id="xugu.sessions" label="会话"
                    defaultView="timeseries" group="Standard" updatePeriod="3000"
                    calc="value" value="integer" fetch="rows" showByDefault="true" description="会话状态分类统计">
-            <datasource id="xugu"/>
+            <datasource id="HighgoDDB"/>
             <query>SELECT
                 CASE
                 status
@@ -432,7 +432,7 @@ SELECT
 
         <dashboard id="xugu.com.queries"  label="查询" updatePeriod="3000" defaultView="timeseries" fetch="columns" group="Status"
                    calc="delta" value="integer" showByDefault="false" description="查询统计信息">
-            <datasource id="xugu"/>
+            <datasource id="HighgoDDB"/>
             <query>SELECT
                 SUM(CASE WHEN SQL_STR LIKE '%insert%' THEN 1 ELSE 0 END) AS 'insert',
                 SUM(CASE WHEN SQL_STR LIKE '%select%' THEN 1 ELSE 0 END) AS 'select',
@@ -444,7 +444,7 @@ SELECT
 
         <dashboard id="xugu.com.io"  label="磁盘读写" updatePeriod="3000" defaultView="timeseries" fetch="columns" group="Status"
                    calc="value" value="bytes" showByDefault="false" description="查询磁盘读写信息">
-            <datasource id="xugu"/>
+            <datasource id="HighgoDDB"/>
             <query>SELECT
                 DISK_R_BYTES as 读盘,
                 DISK_W_BYTES as 写盘

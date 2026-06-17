@@ -1,6 +1,6 @@
 /*
  * DBeaver - Universal Database Manager
- * Copyright (C) 2010-2025 DBeaver Corp and others
+ * Copyright (C) 2010-2026 DBeaver Corp and others
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,11 @@ import org.jkiss.dbeaver.ui.ConnectionFeatures;
 import org.jkiss.dbeaver.ui.IActionConstants;
 import org.jkiss.dbeaver.ui.UIUtils;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * This is a sample new wizard.
@@ -50,7 +54,7 @@ import java.util.*;
 
 public class NewConnectionWizard extends ConnectionWizard
 {
-    private static final String DEFAULT_DRIVER_ID = "XuguDB";
+    private static final String DEFAULT_DRIVER_ID = "HighgoDDB";
     private  DBPDriver initialDriver;
     private final DBPConnectionConfiguration initialConfiguration;
     private IStructuredSelection selection;
