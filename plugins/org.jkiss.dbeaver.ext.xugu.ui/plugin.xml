@@ -26,7 +26,7 @@
               targetID="org.jkiss.dbeaver.ext.ui.newConnectionWizard"
               label="%dialog.connection.header"
               class="org.jkiss.dbeaver.ext.xugu.views.ConnectionPage"
-              icon="icons/hgicon.png">
+              icon="icons/icon.png">
         </view>
         <view id="org.jkiss.dbeaver.ext.xugu.dataSourceEditorView"
               dataSource="HighgoDDB"
@@ -200,8 +200,8 @@
                 locationURI="popup:org.eclipse.ui.popup.any?after=export_import">
 
             <menu
-                    label="HighGoDDB 工具"
-                    icon="icons/hgicon.png">
+                    label="HighgoDDB 工具"
+                    icon="icons/icon.png">
                 <visibleWhen checkEnabled="true">
                     <with variable="selection">
                         <iterate ifEmpty="false">
