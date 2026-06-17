@@ -1042,7 +1042,7 @@
     </extension>
 
     <extension point="org.eclipse.ui.exportWizards">
-        <category id="org.jkiss.dbeaver.core.export.resources" name="DBManager"/>
+        <category id="org.jkiss.dbeaver.core.export.resources" name="HighgoDDB"/>
         <wizard
              category="org.jkiss.dbeaver.core.export.resources"
              class="org.jkiss.dbeaver.tools.project.ProjectExportWizard"
@@ -1077,7 +1077,7 @@
     </extension>
 
     <extension point="org.eclipse.ui.importWizards">
-        <category id="org.jkiss.dbeaver.core.import.resources" name="DBManager"/>
+        <category id="org.jkiss.dbeaver.core.import.resources" name="HighgoDDB"/>
         <wizard
             category="org.jkiss.dbeaver.core.import.resources"
             class="org.jkiss.dbeaver.tools.project.ProjectImportWizard"
@@ -1203,7 +1203,7 @@
                 class="org.jkiss.dbeaver.ui.perspective.DBeaverPerspective"
                 icon="platform:/plugin/org.jkiss.dbeaver.ui/icons/XGManager.gif"
                 id="org.jkiss.dbeaver.core.perspective"
-                name="DBManager">
+                name="HighgoDDB">
         </perspective>
     </extension>
 

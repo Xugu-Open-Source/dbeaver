@@ -45,7 +45,7 @@
     </extension>
 
     <extension point="org.eclipse.ui.newWizards">
-        <category id="org.jkiss.dbeaver.core.new.general" name="DBManager"/>
+        <category id="org.jkiss.dbeaver.core.new.general" name="HighgoDDB"/>
     </extension>
 
     <extension point="org.eclipse.ui.commands">

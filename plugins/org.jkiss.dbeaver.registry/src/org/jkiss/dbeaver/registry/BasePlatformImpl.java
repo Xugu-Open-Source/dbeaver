@@ -26,7 +26,12 @@ import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.DBConfigurationController;
 import org.jkiss.dbeaver.model.DBFileController;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
-import org.jkiss.dbeaver.model.app.*;
+import org.jkiss.dbeaver.model.app.DBPApplication;
+import org.jkiss.dbeaver.model.app.DBPApplicationConfigurator;
+import org.jkiss.dbeaver.model.app.DBPDataFormatterRegistry;
+import org.jkiss.dbeaver.model.app.DBPPlatform;
+import org.jkiss.dbeaver.model.app.DBPPlatformLanguage;
+import org.jkiss.dbeaver.model.app.DBPPlatformLanguageManager;
 import org.jkiss.dbeaver.model.connection.DBPDataSourceProviderRegistry;
 import org.jkiss.dbeaver.model.data.DBDRegistry;
 import org.jkiss.dbeaver.model.edit.DBERegistry;
@@ -53,7 +58,11 @@ import org.osgi.framework.Bundle;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 /**
  * BaseWorkspaceImpl.
@@ -63,7 +72,7 @@ public abstract class BasePlatformImpl implements DBPPlatform, DBPApplicationCon
 
     private static final Log log = Log.getLog(BasePlatformImpl.class);
 
-    public static final String DBEAVER_DATA_DIR = "DBManager";
+    public static final String DBEAVER_DATA_DIR = "HighgoDDB";
 
     private static final String APP_CONFIG_FILE = "dbeaver.ini";
     private static final String ECLIPSE_CONFIG_FILE = "eclipse.ini";
