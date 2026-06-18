@@ -87,12 +87,12 @@
         <theme
                 basestylesheeturi="css/cg3.css"
                 id="cg3.theme.id"
-                label="XuGuTheme-sky-blue-plus">
+                label="sky-blue-plus">
         </theme>
         <theme
                 basestylesheeturi="css/e4-dark_win.css"
                 id="cg4.theme.dark.id"
-                label="XuGuTheme-dark-plus">
+                label="dark-plus">
         </theme>
     </extension>
 
