@@ -10,6 +10,7 @@
    <includes id="org.jkiss.dbeaver.db.feature" version="0.0.0"/>
 
    <plugin id="org.jkiss.dbeaver.ext.mysql.ui" version="0.0.0" />
+   <plugin id="org.jkiss.dbeaver.ext.xugu.ui" version="0.0.0" />
    <plugin id="org.jkiss.dbeaver.ext.dameng.ui" version="0.0.0"/>
    <plugin id="org.jkiss.dbeaver.ext.db2.ui" version="0.0.0"/>
    <plugin id="org.jkiss.dbeaver.ext.duckdb.ui" version="0.0.0"/>
