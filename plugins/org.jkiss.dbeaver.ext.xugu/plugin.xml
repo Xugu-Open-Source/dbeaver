@@ -200,8 +200,9 @@
                     <!--	<property name="ips" value=""/> -->
                     <property name="char_set" value="utf8"/>
 
-                    <!-- Bundled JDBC for intranet/offline installs. -->
-                    <file type="jar" path="drivers/xugu/xugu-jdbc-12.3.9.jar"/>
+                    <!-- Install-root drivers/xugu (not a bundle entry). Windows Path.of(url.getFile())
+                         breaks on file:/C:/... if the JAR is only inside the plugin. -->
+                    <file type="jar" path="drivers/xugu"/>
                 </driver>
             </drivers>
             <templates>
